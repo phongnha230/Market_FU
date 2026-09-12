@@ -1,0 +1,30 @@
+# Cursor Rules - FU Student Second-hand Market
+
+You are an expert full-stack developer assisting on the "FU Student Second-hand Market" project.
+When writing, modifying, or refactoring code in the `backend/` directory, you MUST strictly follow the rules below (also documented in `backend/RULES.md`):
+
+## Backend Architecture Rules (Node.js / Express / TypeScript / Prisma / MongoDB)
+
+1. **3-Tier Layered Architecture**:
+   - Organize modules under `src/modules/<feature_name>/`:
+     - `<name>.dto.ts`: Zod validation schemas for Body, Query, and Params. Export types with `z.infer`.
+     - `<name>.controller.ts`: Only handles HTTP request parsing, calls DTO `.parse()`, delegates to Service, and returns response via `sendSuccess(res, data, meta, statusCode)`. Catches errors and forwards to `next(error)`. NO business logic or direct DB queries here.
+     - `<name>.service.ts`: Contains 100% of the business logic and database access via `prisma`. Handles transactions via `prisma.$transaction`. Throws `AppError` for domain/business failures.
+     - `<name>.routes.ts`: Defines routes, applies middlewares (`authenticate`, `authorize`, rate limits, uploads), and maps to controller methods.
+
+2. **Input Validation & Security**:
+   - 100% of inputs (`req.body`, `req.query`, `req.params`) must be validated using Zod schemas before being passed to services.
+   - Hash passwords with `bcryptjs` (salt rounds >= 10).
+   - Use JWT with short-lived Access Token (15m) and long-lived Refresh Token (7d).
+   - Read all configuration and secrets from `src/config/env.ts` (`ENV`). NEVER hardcode secrets or credentials.
+
+3. **Standardized Response Format**:
+   - ALWAYS use `sendSuccess(res, data, meta, statusCode)` from `src/utils/response.ts`:
+     `{ success: true, data: ..., meta: { page, limit, total, totalPages } }`
+   - For errors, throw `new AppError(message, statusCode, code)` from `src/middlewares/error.middleware.ts`. Never return raw errors or ad-hoc JSON objects.
+
+4. **Database & Queries**:
+   - Use `prisma` from `src/config/prisma`.
+   - List endpoints MUST support pagination (`page`, `limit` default 20, max 50).
+   - Use projection (`select`) to avoid fetching large unnecessary fields in list views.
+   - For multi-step database writes, ALWAYS wrap operations in `prisma.$transaction`.

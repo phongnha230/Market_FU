@@ -3,12 +3,16 @@ node_modules/
 .pnp
 .pnp.js
 
-# Environment variables
+# Environment variables & Secret Keys
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*firebase-adminsdk*.json
+*firebase-service-account*.json
+firebase-service-account.json
+
 
 # Build outputs
 dist/
@@ -25,8 +29,17 @@ yarn-error.log*
 logs/
 *.log
 
+# Uploads & Media
+uploads/
+backend/uploads/
+
 # OS / Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# AI Agent Instructions & Private Prompts
+**/GEMINI.md
+GEMINI.md
+
