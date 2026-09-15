@@ -28,3 +28,11 @@ When writing, modifying, or refactoring code in the `backend/` directory, you MU
    - List endpoints MUST support pagination (`page`, `limit` default 20, max 50).
    - Use projection (`select`) to avoid fetching large unnecessary fields in list views.
    - For multi-step database writes, ALWAYS wrap operations in `prisma.$transaction`.
+
+5. **RESTful API Standards (Level 2+)**:
+   - Resource-Oriented URIs: Use lowercase plural nouns (`/api/products`, `/api/users`, `/api/categories`). NEVER use verbs in route paths.
+   - Use correct HTTP methods: `GET` (read), `POST` (create, 201), `PATCH` (partial update), `PUT` (idempotent replace/add), `DELETE` (delete, idempotent).
+   - Idempotent resource actions: Use `PUT /:id/favorite` to add, `DELETE /:id/favorite` to remove.
+   - Use canonical sub-resources: `/api/users/me/favorites`, `/api/users/me/bank-account`.
+   - Correct status codes: 200, 201, 400, 401, 403, 404, 409, 422, 500.
+
