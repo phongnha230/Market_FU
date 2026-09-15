@@ -1,17 +1,18 @@
 # 📋 BẢNG PHÂN CHIA NHIỆM VỤ DỰ ÁN & KỸ THUẬT LẬP TRÌNH (TASK.MD)
-## Dự án: Campus Marketplace - Sàn Đồ Cũ Sinh Viên (Phân chia chuyên sâu Backend cho 3 Lập trình viên)
+### Dự án: Campus Marketplace - Sàn Đồ Cũ Sinh Viên (Phân chia chuyên sâu Backend cho 4 Lập trình viên)
 
 ---
 
-## 👥 PHÂN CHIA TRÁCH NHIỆM CHUYÊN BIỆT THEO 3 BACKEND DEVELOPERS
+## 👥 PHÂN CHIA TRÁCH NHIỆM CHUYÊN BIỆT THEO 4 BACKEND DEVELOPERS
 
-Hệ thống Backend được module hóa độc lập, chia thành 3 phân hệ nghiệp vụ chính để 3 Lập trình viên Backend có thể code song song không bị xung đột (conflict) mã nguồn:
+Hệ thống Backend được module hóa độc lập, chia thành 4 phân hệ nghiệp vụ chính để 4 Lập trình viên Backend có thể code song song không bị xung đột (conflict) mã nguồn:
 
 | Backend Dev | Nhánh phụ trách (Sub-system) | Các Modules & Nghiệp vụ phụ trách | Thư mục & File chính |
 | :--- | :--- | :--- | :--- |
 | **👨‍💻 BE-DEV 1** | **Core Foundation, Auth & Product Catalog** | • Database Configs, Schemas (User, Post, Category)<br>• Auth JWT Dual Token + Google OAuth + Password Bcrypt<br>• KYC Xác thực Thẻ Sinh Viên + Upload Stream Cloudinary<br>• CRUD Bài đăng, Lọc đa chiều Campus/Category, Phân trang Skip-Limit | `src/config/`<br>`src/modules/auth/`<br>`src/modules/users/`<br>`src/modules/posts/` |
 | **👨‍💻 BE-DEV 2** | **Realtime Communication, AI Assistant & Notifications** | • Socket.io Gateway (Rooms `conversation_${id}`, Mặc cả giá, Điểm hẹn)<br>• Gemini 1.5 Flash Multimodal Vision (Phân tích ảnh tạo bài đăng 3s)<br>• Gemini Function Calling Chatbot tìm đồ phòng trọ theo giá<br>• Multi-Channel Notifications (Push FCM Multicast + Nodemailer HTML) | `src/modules/chats/`<br>`src/modules/ai/`<br>`src/modules/notifications/`<br>`src/utils/socket.ts` |
-| **👨‍💻 BE-DEV 3** | **Transactions, Ship COD, Webhook, Reviews & Auto-Expire** | • Quản lý Đơn hàng (Hẹn gặp trực tiếp & Ship COD)<br>• VietQR động Napas + HMAC-SHA256 Token QR Handshake (OTP 4 số)<br>• GHTK/GHN Webhook Receiver (HMAC Signature Verify + Idempotency)<br>• Đánh giá 2 chiều (Blind Review Pattern) + Tặng Xu Campus Coin<br>• Khiếu nại (Dispute), Admin Phê duyệt & Cron Job 30 ngày dọn tin | `src/modules/orders/`<br>`src/modules/reviews/`<br>`src/modules/reports/`<br>`src/cron/` |
+| **👨‍💻 BE-DEV 3** | **Transactions, Ship COD, Webhook & Blind Reviews** | • Quản lý Đơn hàng (Hẹn gặp trực tiếp & Ship COD)<br>• VietQR động Napas + HMAC-SHA256 Token QR Handshake (OTP 4 số)<br>• GHTK/GHN Webhook Receiver (HMAC Signature Verify + Idempotency)<br>• Đánh giá 2 chiều (Blind Review Pattern) + Tặng Xu Campus Coin | `src/modules/orders/`<br>`src/modules/reviews/`<br>`src/config/payos.ts`<br>`src/config/redis.ts` |
+| **👨‍💻 BE-DEV 4** | **Admin Moderation, Vouchers & Auto-Expire Cron** | • Khiếu nại (Dispute), Admin Phê duyệt KYC & Tố cáo vi phạm<br>• Kho Voucher Campus Coin (Đổi Xu lấy voucher căn tin, cà phê...)<br>• Cron Job tự động dọn dẹp tin đăng quá 30 ngày<br>• Email Templates (Duyệt thẻ SV, Biên lai, Cảnh báo hết hạn 27 ngày) | `src/modules/reports/`<br>`src/modules/vouchers/`<br>`src/cron/`<br>`src/config/mail.ts` |
 
 ---
 
@@ -139,11 +140,11 @@ Hệ thống Backend được module hóa độc lập, chia thành 3 phân hệ
 
 ---
 
-## 👨‍💻 CHI TIẾT TỪNG TASK CHO BE-DEV 3: GIAO DỊCH, SHIP COD, REVIEWS & CRON
+## 👨‍💻 CHI TIẾT TỪNG TASK CHO BE-DEV 3: GIAO DỊCH, SHIP COD & BLIND REVIEWS
 
-### Nhiệm vụ: Xây dựng quy trình luân chuyển đơn hàng, tích hợp VietQR, quét QR Handshake bảo mật, xử lý Webhook COD, đánh giá 2 chiều và tự động dọn dẹp tin.
+### Nhiệm vụ: Xây dựng quy trình luân chuyển đơn hàng, tích hợp VietQR, quét QR Handshake bảo mật, xử lý Webhook COD và đánh giá 2 chiều.
 
-- [x] **Task 3.1: Phân Hệ Đơn Hàng & Sinh Mã QR Giao Dịch (Orders Module)**
+- [ ] **Task 3.1: Phân Hệ Đơn Hàng & Sinh Mã QR Giao Dịch (Orders Module)**
   - *File:* `src/modules/orders/`
   - Viết `order.service.ts`:
     - Nếu `MEETUP`: Sinh mã VietQR động Napas 247 (`img.vietqr.io/image/...`) để người mua quét trả tiền khi gặp.
@@ -155,7 +156,7 @@ Hệ thống Backend được module hóa độc lập, chia thành 3 phân hệ
   - `GET /api/orders/:id`: Lấy chi tiết tiến trình đơn hàng.
   - `POST /api/orders/:id/dispute`: Người mua mở khiếu nại trong thời hạn bao test (kèm link video bằng chứng).
 
-- [x] **Task 3.2: Xử Lý Webhook Vận Chuyển Bên Thứ 3 (Ship COD Webhook)**
+- [ ] **Task 3.2: Xử Lý Webhook Vận Chuyển Bên Thứ 3 (Ship COD Webhook)**
   - *File:* `src/modules/orders/webhook.service.ts`, `src/modules/orders/webhook.routes.ts`
   - `POST /api/webhooks/shipping`: Nhận Webhook từ đối tác giao hàng (GHTK/GHN):
     - **Xác thực Chữ ký bảo mật (HMAC Signature Verification):** Chống request giả mạo.
@@ -165,7 +166,7 @@ Hệ thống Backend được module hóa độc lập, chia thành 3 phân hệ
       - Kích hoạt thời gian **48h Bao test**.
       - Bắn thông báo Realtime & Push FCM cho người mua và người bán.
 
-- [x] **Task 3.3: Hệ Thống Đánh Giá 2 Chiều & Gamification Xu Thưởng (Reviews & Coins)**
+- [ ] **Task 3.3: Hệ Thống Đánh Giá 2 Chiều & Gamification Xu Thưởng (Reviews & Coins)**
   - *File:* `src/modules/reviews/`, `src/modules/products/`
   - Viết `Review.model.ts`: `orderId`, `reviewerId`, `revieweeId`, `rating` (1-5), `comment`, `images`, `isPublic` (boolean).
   - `POST /api/reviews`: Gửi đánh giá cho đối phương (Chỉ cho phép khi đơn đã `COMPLETED` và hết thời gian bao test).
@@ -180,22 +181,43 @@ Hệ thống Backend được module hóa độc lập, chia thành 3 phân hệ
     4. Rút tiền về tài khoản ngân hàng khi số dư tích lũy lớn qua `WithdrawalRequest`.
   - `GET /api/reviews/user/:userId`: Lấy danh sách đánh giá công khai của người dùng.
 
-- [x] **Task 3.4: Khiếu Nại Đổi Trả & Phân Quản Trị Admin (Dispute & Admin Module)**
-  - *File:* `src/modules/reports/`, `src/modules/orders/`
+---
+
+## 👨‍💻 CHI TIẾT TỪNG TASK CHO BE-DEV 4: ADMIN, VOUCHERS & CRON JOB
+
+### Nhiệm vụ: Xây dựng hệ thống quản trị admin, kho voucher đổi Xu và tự động dọn dẹp tin hết hạn theo lịch.
+
+- [ ] **Task 4.1: Khiếu Nại Đổi Trả & Phân Quản Trị Admin (Dispute & Admin Module)**
+  - *File:* `src/modules/reports/`
   - `POST /api/orders/:id/dispute`: Người mua gửi khiếu nại trong thời hạn 24h-48h bao test (Bắt buộc kèm link video quay khui hộp test lỗi).
   - `GET /api/admin/kyc-requests`: Danh sách sinh viên chờ duyệt thẻ $\rightarrow$ `PATCH /api/admin/kyc/:id/approve` & `reject`.
   - `GET /api/admin/disputes`: Danh sách khiếu nại $\rightarrow$ `POST /api/admin/disputes/:id/resolve` (Quyết định Hoàn tiền cho Người mua hoặc Chuyển tiền cho Người bán).
   - `POST /api/reports`: Tố cáo tài khoản lừa đảo $\rightarrow$ Admin khóa tài khoản (`status = 'BANNED'`).
+  - `GET /api/admin/reports` $\rightarrow$ `PATCH /api/admin/reports/:id/resolve` (BAN_USER, HIDE_PRODUCT, DISMISS).
 
-- [x] **Task 3.5: Lập Lịch Tự Động Dọn Dẹp Bài Đăng 30 Ngày (Node-Cron Service)**
+- [ ] **Task 4.2: Kho Voucher Campus Coin (Vouchers Module)**
+  - *File:* `src/modules/vouchers/`
+  - Sinh viên đổi Xu lấy Voucher ưu đãi: Căn tin, Passio Coffee, 7-Eleven, Circle K trong campus.
+  - `GET /api/vouchers`: Danh sách Voucher đang có, kèm giá Xu và số lượng còn lại.
+  - `POST /api/vouchers/redeem`: Đổi Xu lấy Voucher $\rightarrow$ Sinh mã Barcode/QR độc nhất dùng 1 lần, ghi `CoinTransaction` (`REDEEM_VOUCHER`).
+  - `GET /api/vouchers/my-vouchers`: Ví Voucher cá nhân.
+  - `PATCH /api/vouchers/use`: Quét mã tại quầy $\rightarrow$ Đánh dấu `isUsed = true`.
+  - `POST /api/vouchers/admin/create`: Admin thêm loại Voucher mới (đối tác, mệnh giá, giá Xu).
+
+- [ ] **Task 4.3: Lập Lịch Tự Động Dọn Dẹp Bài Đăng 30 Ngày (Node-Cron Service)**
   - *File:* `src/cron/expirePosts.cron.ts`
+  - Cấu hình `src/config/mail.ts` (Nodemailer Gmail SMTP) để gửi email thông báo.
   - Thiết lập cron job chạy vào `00:00:00` hàng ngày (`cron.schedule('0 0 * * *', ...)`):
     - **Quét ngày 27:** Tìm các bài đăng có `status = 'AVAILABLE'` tạo cách đây 27 ngày $\rightarrow$ Kích hoạt Notification & Email nhắc người bán bấm nút "Gia hạn thêm 30 ngày".
     - **Quét ngày 30:** `PostModel.updateMany({ status: 'AVAILABLE', createdAt: { $lte: date30DaysAgo } }, { $set: { status: 'EXPIRED' } })` $\rightarrow$ Tự động ẩn tin quá hạn khỏi sàn.
+  - Email Templates cần implement:
+    - `sendKycResultEmail`: Chúc mừng Tích Xanh + 200 Xu hoặc thông báo từ chối kèm lý do.
+    - `sendPostExpiringEmail`: Cảnh báo tin đăng sắp hết hạn ngày 27 kèm nút Gia hạn 30 ngày.
+    - `sendOrderCompletedReceiptEmail`: Biên lai giao dịch điện tử khi hoàn tất đơn hàng.
 
 ---
 
-## 🛠️ QUY TRÌNH PHỐI HỢP & TEST TÍCH HỢP GIỮA 3 BACKEND DEVS
+## 🛠️ QUY TRÌNH PHỐI HỢP & TEST TÍCH HỢP GIỮA 4 BACKEND DEVS
 
 ```mermaid
 sequenceDiagram
@@ -204,22 +226,26 @@ sequenceDiagram
     actor Seller as Người Bán
     participant BE1 as [BE-1] Core & Post
     participant BE2 as [BE-2] Chat & AI
-    participant BE3 as [BE-3] Order & Webhook
+    participant BE3 as [BE-3] Order & Review
+    participant BE4 as [BE-4] Admin & Cron
 
     Seller->>BE1: 1. Đăng ký & Nộp Thẻ SV KYC
-    Seller->>BE2: 2. Gửi ảnh cái quạt -> Gemini AI điền Form
-    Seller->>BE1: 3. Đăng bài lên sàn (Post AVAILABLE)
-    Buyer->>BE1: 4. Tìm kiếm bài đăng theo Campus Hòa Lạc
-    Buyer->>BE2: 5. Chat Socket.io & Mặc cả giá
-    Buyer->>BE3: 6. Tạo đơn hàng (Hẹn gặp Campus)
-    BE3-->>Buyer: 7. Trả mã VietQR thanh toán
-    BE3-->>Seller: 8. Trả mã QR Handshake (HMAC token)
-    Buyer->>BE3: 9. Quét QR Handshake của Seller
-    BE3->>BE1: 10. Chuyển Post status = 'SOLD'
-    BE3->>BE2: 11. Kích hoạt Push FCM thông báo giao dịch thành công
+    BE4->>BE1: 2. Admin duyệt KYC → Tặng +200 Xu & Tích Xanh
+    Seller->>BE2: 3. Gửi ảnh cái quạt → Gemini AI điền Form
+    Seller->>BE1: 4. Đăng bài lên sàn (Post AVAILABLE)
+    Buyer->>BE1: 5. Tìm kiếm bài đăng theo Campus Hòa Lạc
+    Buyer->>BE2: 6. Chat Socket.io & Mặc cả giá
+    Buyer->>BE3: 7. Tạo đơn hàng (Hẹn gặp Campus)
+    BE3-->>Buyer: 8. Trả mã VietQR thanh toán
+    BE3-->>Seller: 9. Trả mã QR Handshake (HMAC token)
+    Buyer->>BE3: 10. Quét QR Handshake của Seller
+    BE3->>BE1: 11. Chuyển Post status = 'SOLD'
+    BE3->>BE2: 12. Kích hoạt Push FCM thông báo giao dịch thành công
     Note over Buyer,Seller: Sau khi hết 24h Bao test
-    Buyer->>BE3: 12. Đánh giá 5 sao cho Seller
-    BE3->>BE1: 13. Atomic $inc +100 Xu cho Buyer & +5 Uy tín cho Seller
+    Buyer->>BE3: 13. Đánh giá 5 sao cho Seller
+    BE3->>BE1: 14. Atomic $inc +100 Xu cho Buyer & +5 Uy tín cho Seller
+    BE4->>BE1: 15. Cron 00:00 quét tin ngày 27 → Email cảnh báo hết hạn
+    Buyer->>BE4: 16. Đổi 500 Xu lấy Voucher Passio Coffee
 ```
 
 ### 📌 Các Hằng Số & Quy Chuẩn Chung:
@@ -244,3 +270,4 @@ sequenceDiagram
    - Dev 1: `be/feature/core-auth-post`
    - Dev 2: `be/feature/chat-ai-notification`
    - Dev 3: `be/feature/order-webhook-review`
+   - Dev 4: `be/feature/admin-voucher-cron`
