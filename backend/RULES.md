@@ -43,30 +43,76 @@ src/modules/<feature_name>/
 
 ---
 
-## 🔒 2. Quy chuẩn Bảo mật & Input Validation
+## 🌐 2. Quy chuẩn Thiết kế RESTful API (Richardson Maturity Model Level 2+)
 
-### 2.1. 100% Input phải được xác thực bằng Zod
+Hệ thống tuân thủ mô hình **Richardson Maturity Model Level 2+ (Pragmatic RESTful API)**. Mọi endpoint phát triển mới bắt buộc phải tuân theo các nguyên tắc sau:
+
+### 2.1. Định danh Tài nguyên (Resource-Oriented URIs)
+- **Sử dụng danh từ số nhiều (Plural nouns), chữ thường kebab-case**:
+  - ✅ Hợp lệ: `/api/products`, `/api/categories`, `/api/users`, `/api/orders`
+  - ❌ CẤM dùng động từ: `/api/getProducts`, `/api/createCategory`, `/api/updateUser`
+- **Tài nguyên con (Sub-resources)** thể hiện mối quan hệ phân cấp:
+  - `GET /api/users/me/favorites`: Món đồ yêu thích của người dùng hiện tại (Wishlist)
+  - `GET /api/products/:id/reviews`: Đánh giá của một sản phẩm
+- **Canonical URI cho người dùng hiện tại (`/api/users/me`)**:
+  - Thông tin cá nhân: `GET /api/users/me`
+  - Sửa thông tin: `PATCH /api/users/me`
+  - STK ngân hàng: `PATCH /api/users/me/bank-account`
+  - Nộp thẻ SV KYC: `POST /api/users/me/kyc`
+  - Món đồ yêu thích: `GET /api/users/me/favorites`
+
+### 2.2. Sử dụng đúng HTTP Verbs & Tính chất Idempotent
+| HTTP Method | Mục đích sử dụng | Tính chất (Safe / Idempotent) | Ví dụ chuẩn |
+| :--- | :--- | :--- | :--- |
+| **`GET`** | Lấy dữ liệu | **Safe & Idempotent** (Không đổi trạng thái DB) | `GET /api/products/:id` |
+| **`POST`** | Tạo mới bản ghi | **Non-Idempotent** (Tạo mới mỗi lần gọi) | `POST /api/products` (Mã 201) |
+| **`PUT`** | Thay thế toàn bộ hoặc Thêm tài nguyên Idempotent | **Idempotent** (Gọi N lần kết quả như nhau) | `PUT /api/products/:id/favorite` |
+| **`PATCH`** | Cập nhật một phần (Partial update) | **Non-Idempotent / Idempotent** | `PATCH /api/products/:id` |
+| **`DELETE`** | Xóa tài nguyên (Hard/Soft delete) | **Idempotent** (Gọi N lần kết quả như nhau) | `DELETE /api/products/:id` |
+
+> ⚠️ **Quy tắc về Idempotency & Quản lý Yêu thích:**
+> - Thao tác Yêu thích (Favorite) **BẮT BUỘC** dùng `PUT /:id/favorite` để thêm và `DELETE /:id/favorite` để xóa (Idempotent). Tránh dùng `POST` toggle đơn thuần để không bị lỗi trạng thái khi client retry mạng.
+> - Cập nhật sản phẩm, thông tin người dùng dùng `PATCH` khi chỉ sửa đổi một số trường thông tin.
+
+### 2.3. Quy chuẩn Mã trạng thái HTTP (HTTP Status Codes)
+| Status Code | Tên chuẩn | Khi nào sử dụng? |
+| :--- | :--- | :--- |
+| **`200 OK`** | Success | Truy vấn dữ liệu (`GET`), cập nhật thành công (`PATCH`/`PUT`), xóa mềm thành công. |
+| **`201 Created`** | Created | Tạo mới tài nguyên thành công (`POST`), trả kèm đối tượng vừa tạo. |
+| **`400 Bad Request`** | Domain Error | Vi phạm quy tắc nghiệp vụ (ví dụ: tự mua đồ của mình, hết số dư xu). |
+| **`401 Unauthorized`**| Auth Error | Chưa đăng nhập, thiếu token, token giả mạo hoặc token hết hạn. |
+| **`403 Forbidden`** | Permission Error | Đã đăng nhập nhưng không đủ quyền (không phải chủ bài đăng, chưa KYC, thiếu role ADMIN). |
+| **`404 Not Found`** | Not Found | Không tìm thấy ID tài nguyên trong database. |
+| **`409 Conflict`** | Conflict | Trùng lặp dữ liệu Unique key (Prisma P2002: trùng email, slug danh mục). |
+| **`422 Unprocessable`**| Validation Error| Dữ liệu gửi lên sai định dạng qua kiểm tra Zod Schema. |
+| **`500 Internal Error`**| Server Crash | Lỗi ngoại lệ hệ thống không lường trước (ẩn stack trace ở production). |
+
+---
+
+## 🔒 3. Quy chuẩn Bảo mật & Input Validation
+
+### 3.1. 100% Input phải được xác thực bằng Zod
 - Mọi dữ liệu người dùng gửi lên (`body`, `query`, `params`) đều phải được định nghĩa schema Zod và gọi `.parse()` ở Controller trước khi chuyển cho Service.
 - Sử dụng `z.coerce.number()` cho các tham số số từ query params.
 
-### 2.2. Mật khẩu & Xác thực (Authentication)
+### 3.2. Mật khẩu & Xác thực (Authentication)
 - Mật khẩu phải hash bằng `bcryptjs` với salt rounds tối thiểu là `10`.
 - Sử dụng JWT:
   - **Access Token:** Thời hạn ngắn (15 phút), gửi qua header `Authorization: Bearer <token>`.
   - **Refresh Token:** Thời hạn dài (7 ngày), lưu trữ trong `HttpOnly, Secure, SameSite=Strict Cookie`.
 - Bảo vệ endpoint bằng middleware `authenticate` và phân quyền bằng `authorize('ADMIN', 'SELLER')`.
 
-### 2.3. Secrets & Biến môi trường
+### 3.3. Secrets & Biến môi trường
 - **TUYỆT ĐỐI KHÔNG** hardcode secret key, database URL, Firebase token, AWS key vào mã nguồn.
 - Tất cả phải khai báo trong `.env` và truy cập thông qua đối tượng `ENV` tại `src/config/env.ts`.
 
 ---
 
-## ⚡ 3. Chuẩn hóa Response & Error Handling
+## ⚡ 4. Chuẩn hóa Response & Error Handling
 
 Toàn bộ API trả về client phải tuân theo cấu trúc JSON đồng nhất 100%:
 
-### 3.1. Success Response (Thành công)
+### 4.1. Success Response (Thành công)
 Sử dụng helper `sendSuccess(res, data, meta, statusCode)` từ `src/utils/response.ts`:
 ```json
 {
@@ -81,7 +127,7 @@ Sử dụng helper `sendSuccess(res, data, meta, statusCode)` từ `src/utils/re
 }
 ```
 
-### 3.2. Error Response (Thất bại)
+### 4.2. Error Response (Thất bại)
 Khi cần báo lỗi trong `Service`, hãy `throw new AppError(message, statusCode, errorCode)`:
 ```typescript
 import { AppError } from '../../middlewares/error.middleware';
@@ -106,18 +152,18 @@ Hệ thống sẽ tự động chuyển đổi thành format chuẩn qua `errorH
 
 ---
 
-## 💾 4. Quy chuẩn Database & Prisma ORM (MongoDB)
+## 💾 5. Quy chuẩn Database & Prisma ORM (MongoDB)
 
-### 4.1. Phân trang (Pagination)
+### 5.1. Phân trang (Pagination)
 - Mọi API lấy danh sách **bắt buộc** phải hỗ trợ phân trang (`page`, `limit`).
 - `limit` mặc định là 20, tối đa không quá 50 để tránh quá tải bộ nhớ.
 - Trả về kèm trường `meta: { page, limit, total, totalPages }`.
 
-### 4.2. Tối ưu Query (Projection)
+### 5.2. Tối ưu Query (Projection)
 - Không dùng query `findMany` mà lấy toàn bộ trường nặng nếu giao diện danh sách không cần đến (dùng `select` để chọn các field cần thiết).
 - Tránh N+1 query: Dùng `include` hợp lý của Prisma để nạp quan hệ trong một câu truy vấn duy nhất.
 
-### 4.3. Database Transactions
+### 5.3. Database Transactions
 - Khi thực hiện chuỗi hành động ghi dữ liệu liên quan nhiều collection (ví dụ: Tạo đơn hàng + Giảm số lượng tồn kho sản phẩm + Tạo bản ghi thanh toán), **BẮT BUỘC** dùng `prisma.$transaction`:
 ```typescript
 await prisma.$transaction(async (tx) => {
@@ -134,7 +180,7 @@ await prisma.$transaction(async (tx) => {
 
 ---
 
-## 📝 5. Code mẫu chuẩn (Boilerplate Template)
+## 📝 6. Code mẫu chuẩn (Boilerplate Template)
 
 Khi tạo một module mới (ví dụ: `orders`), hãy copy theo mẫu chuẩn dưới đây:
 
@@ -277,7 +323,7 @@ export default router;
 
 ---
 
-## 🧪 6. Quy chuẩn Kiểm thử & Trước khi Commit
+## 🧪 7. Quy chuẩn Kiểm thử & Trước khi Commit
 
 Mỗi khi phát triển tính năng mới, trước khi tạo Commit hoặc Pull Request, thành viên phải chạy các lệnh sau:
 

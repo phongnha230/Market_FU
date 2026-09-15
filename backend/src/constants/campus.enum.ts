@@ -15,11 +15,11 @@ export const CampusNames: Record<Campus, string> = {
 };
 
 export enum ProductCategory {
-  TEXTBOOK = 'TEXTBOOK',         // Giáo trình / Sách / Tài liệu (theo mã môn)
-  ELECTRONICS = 'ELECTRONICS',   // Laptop, bàn phím, chuột, màn hình
-  DORM_ITEM = 'DORM_ITEM',       // Đồ phòng trọ: Quạt, nệm, tủ, bếp
-  VEHICLE = 'VEHICLE',           // Xe máy, xe đạp, mũ bảo hiểm
-  ROOM_RENTAL = 'ROOM_RENTAL',   // Nhượng phòng trọ gần trường
-  CLOTHING = 'CLOTHING',         // Đồng phục Vovinam, áo cam FU, quần áo
+  DORM_ITEM = 'DORM_ITEM',       // Đồ gia dụng phòng trọ / KTX (quạt, tủ lạnh, bếp, nệm, bàn ghế...)
+  BOOKS = 'BOOKS',               // Sách đọc, truyện, tài liệu ngoại ngữ / kỹ năng...
+  ELECTRONICS = 'ELECTRONICS',   // Màn hình, bàn phím, chuột, tai nghe, sạc cáp...
+  VEHICLE = 'VEHICLE',           // Xe máy, xe đạp, xe điện, mũ bảo hiểm...
+  CLOTHING = 'CLOTHING',         // Đồng phục Vovinam, áo cam sự kiện, đồ cá nhân...
+  ROOM_RENTAL = 'ROOM_RENTAL',   // Nhượng phòng trọ & Tìm bạn ở ghép quanh trường
   OTHER = 'OTHER',
 }

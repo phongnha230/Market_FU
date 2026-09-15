@@ -1,35 +1,43 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { ENV } from '../config/env';
-import { UserRole } from '../constants/post-status.enum';
+import { verifyAccessToken, TokenPayload } from '../utils/token';
+import { AppError } from './error.middleware';
 
-export interface AuthPayload {
-  userId: string;
-  email: string;
-  role: UserRole;
-}
-
-export interface AuthenticatedRequest extends Request {
-  user?: AuthPayload;
+export interface AuthRequest extends Request {
+  user?: TokenPayload;
 }
 
 export const authenticate = (
-  req: AuthenticatedRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập (Không tìm thấy token)' });
-    return;
+    throw new AppError('Yêu cầu xác thực tài khoản (Token missing)', 401, 'UNAUTHORIZED');
   }
 
   const token = authHeader.split(' ')[1];
+
   try {
-    const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthPayload;
+    const decoded = verifyAccessToken(token);
     req.user = decoded;
     next();
-  } catch (error) {
-    res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
+  } catch (err: any) {
+    throw new AppError('Phiên đăng nhập không hợp lệ hoặc đã hết hạn', 401, 'INVALID_TOKEN');
   }
+};
+
+export const authorize = (...roles: string[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      throw new AppError('Yêu cầu đăng nhập trước khi thực hiện', 401, 'UNAUTHORIZED');
+    }
+
+    if (!roles.includes(req.user.role)) {
+      throw new AppError('Bạn không có quyền truy cập tài nguyên này', 403, 'FORBIDDEN');
+    }
+
+    next();
+  };
 };
