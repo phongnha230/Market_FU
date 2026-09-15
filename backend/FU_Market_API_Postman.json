@@ -1,0 +1,2052 @@
+{
+  "info": {
+    "_postman_id": "fu-secondhand-market-api",
+    "name": "FU Campus Second-hand Market API Collection",
+    "description": "Bộ API hoàn chỉnh cho Sàn Mua Bán Đồ Cũ Sinh Viên FU (Auth, User Profile, KYC, Products)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Đăng ký tài khoản (Register)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sinhvien@fpt.edu.vn\",\n  \"password\": \"123456\",\n  \"fullName\": \"Nguyễn Văn A\",\n  \"phoneNumber\": \"0987654321\",\n  \"campus\": \"HOL\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đăng nhập Email & Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sinhvien@fpt.edu.vn\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cấp lại Token (Refresh Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"your_refresh_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh-token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đăng xuất (Logout)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Users & KYC",
+      "item": [
+        {
+          "name": "Lấy thông tin cá nhân (Get Profile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật STK ngân hàng nhận tiền",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankName\": \"MB Bank\",\n  \"accountNo\": \"0987654321\",\n  \"accountName\": \"NGUYEN VAN A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/bank-account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "bank-account"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Món đồ yêu thích của tôi (Wishlist - Canonical RESTful)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "favorites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đăng ký Người Bán & KYC Thẻ Sinh Viên (Seller Onboarding)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "fullName",
+                  "value": "Nguyễn Văn A",
+                  "type": "text"
+                },
+                {
+                  "key": "studentId",
+                  "value": "SE170123",
+                  "type": "text"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "0987654321",
+                  "type": "text"
+                },
+                {
+                  "key": "campus",
+                  "value": "HOL",
+                  "type": "text",
+                  "description": "HOL, HCM, DAD, QN, CT"
+                },
+                {
+                  "key": "bankName",
+                  "value": "Vietcombank",
+                  "type": "text"
+                },
+                {
+                  "key": "accountNo",
+                  "value": "1029384756",
+                  "type": "text"
+                },
+                {
+                  "key": "accountName",
+                  "value": "NGUYEN VAN A",
+                  "type": "text"
+                },
+                {
+                  "key": "cardImage",
+                  "type": "file",
+                  "src": [],
+                  "description": "Ảnh chụp mặt trước Thẻ Sinh Viên hoặc màn hình app FAP/myFPT"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/seller-onboarding",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "seller-onboarding"
+              ]
+            },
+            "description": "API nộp hồ sơ Onboarding Người Bán: Điền đầy đủ họ tên thật, MSSV, SĐT, cơ sở campus, thông tin tài khoản ngân hàng nhận tiền và đính kèm ảnh chụp Thẻ Sinh Viên (multipart/form-data). Khi Admin phê duyệt, tài khoản được tự động nâng cấp quyền SELLER, cấp Tích Xanh uy tín và thưởng +200 Xu tân sinh viên."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Products (Đồ cũ sinh viên)",
+      "item": [
+        {
+          "name": "Đăng bán món đồ mới (Hỗ trợ 5 Ảnh + 1 Video review ngắn)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Nồi cơm điện Cuckoo 1.8L còn mới 95%",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Nồi nấu cơm rất ngon, dùng được 1 kỳ, kèm video test cắm điện sôi tốt",
+                  "type": "text"
+                },
+                {
+                  "key": "price",
+                  "value": "250000",
+                  "type": "text"
+                },
+                {
+                  "key": "originalPrice",
+                  "value": "600000",
+                  "type": "text"
+                },
+                {
+                  "key": "categoryType",
+                  "value": "DORM_ITEM",
+                  "type": "text"
+                },
+                {
+                  "key": "condition",
+                  "value": "USED_GOOD",
+                  "type": "text"
+                },
+                {
+                  "key": "quantity",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "campus",
+                  "value": "HOL",
+                  "type": "text"
+                },
+                {
+                  "key": "meetupLocation",
+                  "value": "Ký túc xá Dom A Hòa Lạc",
+                  "type": "text"
+                },
+                {
+                  "key": "allowShipping",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "description": "Tối đa 5 ảnh (mỗi ảnh < 5MB)"
+                },
+                {
+                  "key": "video",
+                  "type": "file",
+                  "description": "Tối đa 1 video review thực tế (< 30MB)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lấy danh sách sản phẩm (Feed & Filter)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?campus=HOL&categoryType=DORM_ITEM&sortBy=newest&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "campus",
+                  "value": "HOL"
+                },
+                {
+                  "key": "categoryType",
+                  "value": "DORM_ITEM"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "newest"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xem chi tiết món đồ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật món đồ (PATCH /api/products/:id)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 220000,\n  \"description\": \"Đã fix nhẹ giá cho sinh viên K18\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xóa món đồ (DELETE /api/products/:id)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Thêm vào danh sách yêu thích (RESTful Idempotent PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/favorite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "favorite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xóa khỏi danh sách yêu thích (RESTful Idempotent DELETE)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/favorite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "favorite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Thả tim / Bỏ tim món đồ (Legacy POST Toggle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/favorite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "favorite"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Món đồ yêu thích của tôi (Wishlist)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/favorites/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "favorites",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dùng Xu đẩy tin / ghim tin nổi bật (Boost Post)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"BUMP\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}/boost",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}",
+                "boost"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Categories (Danh mục sản phẩm)",
+      "item": [
+        {
+          "name": "Lấy toàn bộ danh mục (Kèm số lượng món đồ đang bán)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lấy chi tiết danh mục theo Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/do-dien-tu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "do-dien-tu"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Khởi tạo sẵn 6 danh mục chuẩn FU (Seed Categories)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/seed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "seed"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cập nhật một phần danh mục (PATCH /api/categories/:id)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Mô tả mới cho danh mục\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Realtime Chat & Mặc cả giá",
+      "item": [
+        {
+          "name": "Mở hoặc Tạo hội thoại mới (Dựa trên productId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/chats/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chats",
+                "conversations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Danh sách cuộc hội thoại của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/chats/conversations?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chats",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lịch sử tin nhắn cuộc trò chuyện",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/chats/conversations/{{conversationId}}/messages?page=1&limit=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chats",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Gửi tin nhắn (Text / Mặc cả giá / Điểm hẹn)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Em muốn trả giá món này 150k được không anh?\",\n  \"messageType\": \"OFFER_PRICE\",\n  \"offerPrice\": 150000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/chats/conversations/{{conversationId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chats",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đánh dấu đã đọc tin nhắn",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/chats/conversations/{{conversationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chats",
+                "conversations",
+                "{{conversationId}}",
+                "read"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Gemini AI (Vision Scan & Chatbot)",
+      "item": [
+        {
+          "name": "AI Vision Scan: Phân tích ảnh tự điền form trong 3s",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/vision-post",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "vision-post"
+              ]
+            }
+          }
+        },
+        {
+          "name": "AI Assistant: Chatbot tư vấn tìm đồ phòng trọ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Tìm cho mình ấm đun nước hoặc quạt dưới 250k ở Hòa Lạc với\",\n  \"campus\": \"HOL\",\n  \"maxPrice\": 250000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/assistant-chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "assistant-chat"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Danh sách phiên trò chuyện với AI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lịch sử chi tiết một phiên chat AI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/sessions/{{sessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "sessions",
+                "{{sessionId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Notifications (Thông báo Đa kênh)",
+      "item": [
+        {
+          "name": "Lấy danh sách thông báo của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đếm số thông báo chưa đọc",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đánh dấu 1 thông báo là đã đọc",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Đánh dấu tất cả thông báo là đã đọc",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Orders & VietQR & Handshake & Webhook",
+      "item": [
+        {
+          "name": "Tạo đơn hàng Meetup (Sinh VietQR & HMAC Handshake)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"orderType\": \"MEETUP\",\n  \"coinsToUse\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tạo đơn hàng Ship COD (Khấu trừ Xu & Tích hợp giao vận)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"orderType\": \"SHIP_COD\",\n  \"coinsToUse\": 20000,\n  \"shippingPartner\": \"GHTK\",\n  \"receiverName\": \"Trần Thị B\",\n  \"receiverPhone\": \"0912345678\",\n  \"shippingAddress\": \"Phòng 302 KTX Dom A, ĐH FPT Hòa Lạc\",\n  \"deliveryNote\": \"Gọi trước khi giao hàng\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Danh sách đơn hàng (Đơn mua / Đơn bán)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders?role=BUYER&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "BUYER"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Chi tiết đơn hàng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xác thực QR Handshake (Quét Token hoặc nhập OTP 4 số)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{handshakeToken}}\",\n  \"otp\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/handshake",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "handshake"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mở khiếu nại Dispute (Thời hạn 24h/48h Bao test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Nồi cơm bị móp đáy và không bật được nút nấu cơm sau khi test\",\n  \"proofVideoUrl\": \"https://pub-xxx.r2.dev/disputes/test_loi_noi_com.mp4\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/dispute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "dispute"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Webhook Vận chuyển GHTK/GHN (Kích hoạt 48h Bao test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-ghtk-signature",
+                "value": "test_hmac_signature_hex"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackingCode\": \"GHTK_ORD-SAMPLE\",\n  \"status\": \"DELIVERED\",\n  \"shippingPartner\": \"GHTK\",\n  \"note\": \"Phát hàng thành công và đã thu tiền COD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/shipping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "shipping"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Reviews (Blind Review 2 Chiều & Gamification Xu)",
+      "item": [
+        {
+          "name": "Tạo đánh giá đơn hàng (Blind Review + Video test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"rating\": 5,\n  \"comment\": \"Món đồ dùng rất tốt, đúng mô tả của bạn bán!\",\n  \"testVideoUrl\": \"https://marketfu.s3.ap-southeast-1.amazonaws.com/videos/test-demo.mp4\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ]
+            },
+            "description": "Gửi đánh giá đơn hàng. Nếu mới có 1 bên đánh giá, hệ thống sẽ lưu ẩn (Blind Review). Khi cả 2 cùng đánh giá, review sẽ công khai và thưởng +100 Xu (+200 Xu nếu có video test)."
+          }
+        },
+        {
+          "name": "Lấy đánh giá của một đơn hàng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/order/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "order",
+                "{{orderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xem các đánh giá công khai của một User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/user/{{userId}}?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "user",
+                "{{userId}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Gamification Tiêu Xu (Khung Avatar & Rút tiền ví Xu)",
+      "item": [
+        {
+          "name": "Mua khung Avatar / Huy hiệu bằng Xu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"badgeType\": \"TOP_SELLER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/badges/buy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "badges",
+                "buy"
+              ]
+            },
+            "description": "Các loại huy hiệu: TOP_SELLER (500 Xu), K18_VERIFIED (300 Xu), REPUTABLE_TRADER (200 Xu)."
+          }
+        },
+        {
+          "name": "Tạo yêu cầu rút tiền ví Xu về Ngân hàng",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/withdrawals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "withdrawals"
+              ]
+            },
+            "description": "Rút tối thiểu 50.000 VNĐ về STK ngân hàng đã lưu trong hồ sơ cá nhân."
+          }
+        },
+        {
+          "name": "Danh sách yêu cầu rút tiền cá nhân",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/withdrawals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "withdrawals"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Xem lịch sử sổ cái CoinTransaction",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/coins/history?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "coins",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Admin Moderation (Reports, Disputes & Duyệt KYC)",
+      "item": [
+        {
+          "name": "Sinh viên gửi tố cáo gian lận",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"PRODUCT\",\n  \"targetId\": \"{{productId}}\",\n  \"reason\": \"Sản phẩm có dấu hiệu làm giả hóa đơn và lừa đảo tiền cọc\",\n  \"evidenceUrl\": \"https://marketfu.s3.ap-southeast-1.amazonaws.com/evidences/proof.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Danh sách các báo cáo tố cáo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reports?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Xử lý tố cáo (Khóa tài khoản / Ẩn sản phẩm)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"HIDE_PRODUCT\",\n  \"adminNote\": \"Đã ẩn sản phẩm do vi phạm quy định cộng đồng\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reports/{{reportId}}/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reports",
+                "{{reportId}}",
+                "resolve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Danh sách khiếu nại tranh chấp đơn (Disputes)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/disputes?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "disputes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Phán quyết khiếu nại Dispute (Hoàn tiền Buyer / Giải ngân Seller)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution\": \"REFUND_BUYER\",\n  \"adminNote\": \"Chấp thuận khiếu nại: Hàng vỡ do đóng gói không đạt chuẩn, hoàn tiền cho Buyer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/disputes/{{disputeId}}/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "disputes",
+                "{{disputeId}}",
+                "resolve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Danh sách yêu cầu xác thực KYC thẻ SV chờ duyệt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/kyc-requests?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "kyc-requests"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[ADMIN] Phê duyệt thẻ SV KYC (Tặng +200 Xu Tích Xanh)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"APPROVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/kyc/{{targetUserId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "kyc",
+                "{{targetUserId}}",
+                "review"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Campus Vouchers (Đổi Xu Lấy Voucher Căn Tin & Passio)",
+      "item": [
+        {
+          "name": "Xem kho Voucher khả dụng tại trường",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers"
+              ]
+            },
+            "description": "Lấy danh sách các voucher ăn uống đang mở đổi (Cơm Căn tin 10k, Passio 15k, 7-Eleven 20k)."
+          }
+        },
+        {
+          "name": "Đổi Xu lấy Voucher ăn uống (Atomic Transaction)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherId\": \"{{voucherId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers/redeem",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers",
+                "redeem"
+              ]
+            },
+            "description": "Trừ Xu trong ví cá nhân, sinh mã Barcode/QR độc nhất (VD: FUV-PASSIO-8A3F2C) và hạn dùng 30 ngày."
+          }
+        },
+        {
+          "name": "Xem danh sách Voucher cá nhân đã đổi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers/my-vouchers?status=UNUSED&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers",
+                "my-vouchers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "UNUSED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Quét mã áp dụng Voucher tại quầy (Nhân viên / Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"voucherCode\": \"FUV-CANTEEN-9A8B7C\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers/use",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers",
+                "use"
+              ]
+            },
+            "description": "Nhân viên quầy quét mã QR của sinh viên để khấu trừ tiền và đánh dấu voucher USED."
+          }
+        },
+        {
+          "name": "[ADMIN] Thêm loại Voucher mới vào kho quà",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Voucher Trà Sữa Phúc Long Campus - Giảm 20.000 VNĐ\",\n  \"description\": \"Áp dụng cho mọi hóa đơn trà sữa tại quầy campus.\",\n  \"partner\": \"OTHER\",\n  \"coinCost\": 1800,\n  \"discountValue\": 20000,\n  \"quantity\": 50,\n  \"validDays\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/vouchers/admin/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vouchers",
+                "admin",
+                "create"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Payments (PayOS Web Gateway & Android VietQR)",
+      "item": [
+        {
+          "name": "[WEB] Tạo link thanh toán PayOS Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"returnUrl\": \"http://localhost:5173/orders/{{orderId}}?status=paid\",\n  \"cancelUrl\": \"http://localhost:5173/orders/{{orderId}}?status=cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/payos/create-link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "payos",
+                "create-link"
+              ]
+            },
+            "description": "Tạo link thanh toán PayOS dành riêng cho Web. Trả về checkoutUrl để Web redirect người dùng sang trang thanh toán PayOS."
+          }
+        },
+        {
+          "name": "[WEBHOOK] Nhận IPN Callback từ máy chủ PayOS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"00\",\n  \"desc\": \"success\",\n  \"success\": true,\n  \"data\": {\n    \"orderCode\": 123456789,\n    \"amount\": 250000,\n    \"description\": \"DH 123456\",\n    \"accountNumber\": \"19036789123\",\n    \"reference\": \"FT24091412345\",\n    \"transactionDateTime\": \"2026-09-14 20:30:00\",\n    \"currency\": \"VND\",\n    \"paymentLinkId\": \"link_987654\",\n    \"code\": \"00\",\n    \"desc\": \"Thành công\"\n  },\n  \"signature\": \"mock_signature_hash_256\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/payos/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "payos",
+                "webhook"
+              ]
+            },
+            "description": "Webhook từ máy chủ PayOS tự động cập nhật đơn hàng thành PAID, bắn realtime Socket.io."
+          }
+        },
+        {
+          "name": "[WEB & ANDROID] Tra cứu thông tin thanh toán (Web link vs Android VietQR)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/order/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "order",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Trả về thông tin thanh toán phân nhánh rõ ràng: web (chứa payosCheckoutUrl) và android (chứa vietqrUrl, STK ngân hàng, nội dung chuyển khoản)."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ]
+}
