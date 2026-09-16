@@ -41,7 +41,7 @@ jobs:
         run: npm run lint || echo "Lint warning, continuing..."
 
       - name: 🧪 Run Automated Tests
-        run: npm test
+        run: npm run test:unit
         env:
           NODE_ENV: test
           DATABASE_URL: "mongodb+srv://mock:mock@cluster0.mock.mongodb.net/test?retryWrites=true&w=majority"
