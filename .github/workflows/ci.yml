@@ -47,6 +47,8 @@ jobs:
           DATABASE_URL: "mongodb+srv://mock:mock@cluster0.mock.mongodb.net/test?retryWrites=true&w=majority"
           JWT_SECRET: "ci_test_jwt_secret_key_123456789"
           JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_key_123456789"
+          SHIPPING_WEBHOOK_SECRET: "ci_test_shipping_webhook_secret_min16chars"
+          HANDSHAKE_QR_SECRET: "ci_test_handshake_qr_secret_min16chars"
 
       - name: 🏗️ Verify TypeScript Build
         run: npm run build
