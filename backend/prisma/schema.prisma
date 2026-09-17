@@ -276,6 +276,8 @@ model Product {
   allowShipping  Boolean         @default(true)
   status         ProductStatus   @default(AVAILABLE)
 
+  hashtags       String[]        // VD: ["quạt", "điện tử", "hòa lạc", "giá rẻ"]
+
   images         ProductImage[]
   videoUrl       String?
   videoPublicId  String?

@@ -123,6 +123,7 @@ export class ProductService {
         campus: input.campus,
         meetupLocation: input.meetupLocation,
         allowShipping: input.allowShipping,
+        hashtags: input.hashtags ?? [],
         status: 'AVAILABLE',
         expiredAt,
         images: productImages,
@@ -164,7 +165,7 @@ export class ProductService {
 
   // 2. Danh sách sản phẩm kèm Bộ lọc đa chiều & Phân trang Skip-Limit
   async getProducts(query: QueryProductInput) {
-    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, search, sortBy, page, limit } = query;
+    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, search, hashtag, sortBy, page, limit } = query;
     const skip = (page - 1) * limit;
 
     // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
@@ -263,7 +264,13 @@ export class ProductService {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+        { hashtags: { has: search.toLowerCase() } },
       ];
+    }
+
+    // Lọc theo hashtag cụ thể (VD: ?hashtag=quạt)
+    if (hashtag) {
+      where.hashtags = { has: hashtag.toLowerCase().replace(/^#/, '') };
     }
 
     let orderBy: any = { createdAt: 'desc' };
@@ -645,6 +652,7 @@ export class ProductService {
         ...(input.campus && { campus: input.campus }),
         ...(input.meetupLocation !== undefined && { meetupLocation: input.meetupLocation }),
         ...(input.allowShipping !== undefined && { allowShipping: input.allowShipping }),
+        ...(input.hashtags !== undefined && { hashtags: input.hashtags }),
         ...(newImages && newImages.length > 0 && { images: updatedImages }),
       },
       include: {

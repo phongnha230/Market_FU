@@ -28,6 +28,7 @@ export const initMeilisearch = async (): Promise<boolean> => {
       searchableAttributes: [
         'title',
         'description',
+        'hashtags',
         'categoryName',
         'meetupLocation',
       ],
@@ -85,6 +86,7 @@ export interface MeiliProductDocument {
   id: string;
   title: string;
   description: string;
+  hashtags: string[];
   price: number;
   originalPrice?: number | null;
   condition: string;
@@ -112,6 +114,7 @@ export const syncProductToMeili = async (product: any): Promise<void> => {
       id: product.id,
       title: product.title,
       description: product.description,
+      hashtags: product.hashtags ?? [],
       price: product.price,
       originalPrice: product.originalPrice ?? null,
       condition: product.condition,

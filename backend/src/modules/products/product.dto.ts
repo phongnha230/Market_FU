@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Helper: chuẩn hóa hashtag (bỏ dấu #, lowercase, loại khoảng trắng)
+const normalizeHashtag = (tag: string) => tag.replace(/^#/, '').toLowerCase().trim();
+
 export const createProductSchema = z.object({
   title: z.string().min(5, 'Tiêu đề sản phẩm phải có ít nhất 5 ký tự'),
   description: z.string().min(10, 'Mô tả chi tiết sản phẩm ít nhất 10 ký tự'),
@@ -12,6 +15,18 @@ export const createProductSchema = z.object({
   campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']),
   meetupLocation: z.string().optional(),
   allowShipping: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(true)),
+  // Hashtags: nhận dạng cả string "quạt,điện tử" hoặc mảng ["#quạt", "#điện tử"]
+  hashtags: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string') return val.split(',').map(normalizeHashtag).filter(Boolean);
+        if (Array.isArray(val)) return val.map((t: any) => normalizeHashtag(String(t))).filter(Boolean);
+        return [];
+      },
+      z.array(z.string().min(1).max(30)).max(10, 'Tối đa 10 hashtag cho mỗi sản phẩm')
+    )
+    .optional()
+    .default([]),
 });
 
 export const updateProductSchema = createProductSchema.partial();
@@ -24,6 +39,7 @@ export const queryProductSchema = z.object({
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   search: z.string().optional(),
+  hashtag: z.string().optional(), // Lọc theo 1 hashtag cụ thể: ?hashtag=quạt
   sortBy: z.enum(['newest', 'price_asc', 'price_desc', 'views']).default('newest'),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(50).default(20),
@@ -37,3 +53,4 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type QueryProductInput = z.infer<typeof queryProductSchema>;
 export type BoostProductInput = z.infer<typeof boostProductSchema>;
+
