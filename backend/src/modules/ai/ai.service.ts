@@ -96,7 +96,7 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
   // Khai báo Function Declaration cho Gemini Function Calling
   // Gemini sẽ tự quyết định khi nào cần gọi hàm tìm đồ trong DB
   // ─────────────────────────────────────────────────────────────────────────────
-  private getFunctionDeclarations() {
+  private getFunctionDeclarations(): any[] {
     return [
       {
         name: 'search_products',
@@ -126,7 +126,7 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
               description: 'Danh mục sản phẩm: DORM_ITEM, BOOKS, ELECTRONICS, VEHICLE, CLOTHING, OTHER',
             },
           },
-        },
+        } as any,
       },
     ];
   }
@@ -224,7 +224,7 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
       try {
         const model = this.genAI.getGenerativeModel({
           model: 'gemini-1.5-flash',
-          tools: [{ functionDeclarations: this.getFunctionDeclarations() }],
+          tools: [{ functionDeclarations: this.getFunctionDeclarations() as any }],
         });
 
         // System instruction cho Gemini biết bối cảnh
