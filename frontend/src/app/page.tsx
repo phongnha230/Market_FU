@@ -1,12 +1,58 @@
+'use client';
+
+import React, { useState } from 'react';
+import Navbar from '@/components/Navbar';
+import HeroSearch from '@/components/HeroSearch';
+import CategorySection from '@/components/CategorySection';
+import FeaturedSection from '@/components/FeaturedSection';
+import SafetyBanner from '@/components/SafetyBanner';
+import LatestPostsSection from '@/components/LatestPostsSection';
+import Footer from '@/components/Footer';
+
+import { useRouter } from 'next/navigation';
+
 export default function HomePage() {
+  const router = useRouter();
+  const [selectedCampus, setSelectedCampus] = useState('hola');
+
+  const handleSearch = (keyword: string, campus: string, category: string) => {
+    const params = new URLSearchParams();
+    if (keyword.trim()) params.set('q', keyword.trim());
+    if (campus && campus !== 'all') params.set('campus', campus);
+    if (category && category !== 'all') params.set('category', category);
+    router.push(`/posts?${params.toString()}`);
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-      <h1 className="text-4xl font-bold text-fpt-orange">
-        FU Student Second-hand Market
-      </h1>
-      <p className="mt-4 text-lg text-slate-600">
-        Nền tảng mua bán trao đổi đồ cũ, giáo trình & phòng trọ cho sinh viên FPT.
-      </p>
-    </main>
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-100 selection:text-fpt-orange">
+      {/* 1. Header & Navigation with Clean Logo from Image 2 */}
+      <Navbar
+        selectedCampus={selectedCampus}
+        onSelectCampus={(campus) => setSelectedCampus(campus)}
+      />
+
+      <main className="flex-1">
+        {/* 2. Hero Section with Unified Search Bar & Hot Trends */}
+        <HeroSearch
+          initialCampus={selectedCampus}
+          onSearch={handleSearch}
+        />
+
+        {/* 3. Popular Campus Categories */}
+        <CategorySection />
+
+        {/* 4. Featured Deals & Products */}
+        <FeaturedSection />
+
+        {/* 5. FPT Internal Safety & Trust Guarantee Banner */}
+        <SafetyBanner />
+
+        {/* 6. Latest Marketplace Posts */}
+        <LatestPostsSection />
+      </main>
+
+      {/* 7. Footer with 5 Campuses Directory & Security Seals */}
+      <Footer />
+    </div>
   );
 }

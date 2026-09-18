@@ -1,0 +1,282 @@
+'use client';
+
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import ChatSidebar from '@/components/chat/ChatSidebar';
+import ChatHeader from '@/components/chat/ChatHeader';
+import PinnedProductBar from '@/components/chat/PinnedProductBar';
+import MessageHistory from '@/components/chat/MessageHistory';
+import ChatInputBar from '@/components/chat/ChatInputBar';
+import { useMarket } from '@/context/MarketContext';
+import { useUserStore } from '@/stores/userStore';
+import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
+import { ShieldAlert } from 'lucide-react';
+import { Conversation, ChatMessage, INITIAL_CONVERSATIONS } from '@/types/chat';
+
+function ChatContent() {
+  const searchParams = useSearchParams();
+  const sellerParam = searchParams.get('seller');
+  const { showToast } = useMarket();
+
+  const currentUser = useUserStore((state) => state.user);
+  const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
+  const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+
+  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
+  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'unread'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [inputText, setInputText] = useState('');
+  const [isTypingOther] = useState(true);
+
+  const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // If query params passed a seller, match or focus
+  useEffect(() => {
+    if (sellerParam) {
+      const match = conversations.find(
+        (c) =>
+          c.name.toLowerCase().includes(sellerParam.toLowerCase()) ||
+          sellerParam.toLowerCase().includes(c.name.toLowerCase())
+      );
+      if (match) {
+        setSelectedConvId(match.id);
+      }
+    }
+  }, [sellerParam, conversations]);
+
+  const activeConv =
+    conversations.find((c) => c.id === selectedConvId) || conversations[0];
+
+  const scrollToBottom = () => {
+    if (chatMessagesContainerRef.current) {
+      chatMessagesContainerRef.current.scrollTop =
+        chatMessagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 60);
+    return () => clearTimeout(timer);
+  }, [selectedConvId, activeConv?.messages]);
+
+  const handleSendMessage = (textToSend?: string) => {
+    const text = (textToSend || inputText).trim();
+    if (!text) return;
+
+    if (!isKycVerified) {
+      showToast('⚠️ Bạn cần xác thực Thẻ Sinh Viên để mở khóa quyền nhắn tin!', 'warning');
+      setIsKycModalOpen(true);
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const newMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'me',
+      text,
+      time: timeStr,
+    };
+
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConv.id) {
+          return {
+            ...c,
+            lastMessage: `Bạn: ${text}`,
+            time: timeStr,
+            messages: [...c.messages, newMsg],
+          };
+        }
+        return c;
+      })
+    );
+
+    setInputText('');
+
+    // Simulate auto reply after 1.8 seconds
+    setTimeout(() => {
+      const autoReplies = [
+        'Okie bạn nha! Mình đã note lại lịch.',
+        'Nhất trí nhé bạn, có gì tới sảnh alo mình!',
+        'Được luôn, mình đang mang đồ theo người đây.',
+      ];
+      const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
+      const replyMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        sender: 'other',
+        text: replyText,
+        time: `${now.getHours().toString().padStart(2, '0')}:${(now.getMinutes() + 1).toString().padStart(2, '0')}`,
+      };
+
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === activeConv.id) {
+            return {
+              ...c,
+              lastMessage: `${c.name.split(' ')[0]}: ${replyText}`,
+              messages: [...c.messages, replyMsg],
+            };
+          }
+          return c;
+        })
+      );
+    }, 1800);
+  };
+
+  const quickChips = [
+    '⚡ Hẹn 17h30 sảnh Alpha nhé!',
+    'Mình đến nơi rồi, đang đứng ở Passio',
+    'Gửi mình số Zalo tiện liên hệ nhé',
+    'Mang kèm củ cáp test đồ nhé bạn',
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800">
+      <Navbar />
+
+      {/* TOP SUBHEADER TICKER */}
+      <div className="border-b border-slate-200 bg-white px-4 py-2 text-xs">
+        <div className="mx-auto flex max-w-7xl items-center justify-between text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-1 text-[11px]">
+              TRUNG TÂM TRAO ĐỔI & HANDOFF
+            </span>
+            <span className="text-slate-400">&gt;</span>
+            <span className="text-fpt-orange font-bold">Campus Hòa Lạc (HL)</span>
+          </div>
+
+          <div className="flex items-center gap-2 font-medium text-[11px]">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>
+              Mạng nội bộ P2P Sinh viên • <strong>1.280</strong> thành viên online
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CHAT CONTAINER */}
+      <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-4 py-4 sm:py-6">
+        {/* Unverified KYC Warning Banner */}
+        {!isKycVerified && (
+          <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-amber-900 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center shrink-0">
+                <ShieldAlert className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-amber-950">Chưa xác thực Thẻ Sinh Viên:</span>{' '}
+                <span className="text-amber-800">
+                  Để phòng ngừa giả mạo và bảo vệ an toàn học đường, bạn cần xác thực Thẻ SV để gửi tin nhắn chat với Người bán.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsKycModalOpen(true)}
+              className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition cursor-pointer shrink-0 text-center shadow-xs"
+            >
+              Xác thực Thẻ SV ngay
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[640px]">
+          {/* LEFT COLUMN: INBOX & THREADS (4 COLS) */}
+          <ChatSidebar
+            conversations={conversations}
+            selectedConvId={selectedConvId}
+            onSelectConv={(id) => {
+              setSelectedConvId(id);
+              setConversations((prev) =>
+                prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
+              );
+            }}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filterTab={filterTab}
+            onFilterChange={setFilterTab}
+            onMarkAllRead={() => {
+              setConversations((prev) =>
+                prev.map((c) => ({ ...c, unreadCount: 0 }))
+              );
+              showToast('Đã đánh dấu tất cả cuộc trò chuyện là đã đọc.', 'success');
+            }}
+            onShowToast={(msg) => showToast(msg, 'info')}
+          />
+
+          {/* RIGHT COLUMN: ACTIVE CHAT ROOM (8 COLS) */}
+          <div className="lg:col-span-8 flex flex-col h-full min-h-0 bg-[#FAFAFC] overflow-hidden">
+            {/* Header User Bar */}
+            <ChatHeader
+              conversation={activeConv}
+              onShowToast={(msg) => showToast(msg, 'info')}
+            />
+
+            {/* Pinned Product Bar */}
+            <PinnedProductBar
+              product={activeConv.pinnedProduct}
+              partnerName={activeConv.name}
+              onOfferPrice={(offer) => {
+                handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
+                showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
+              }}
+              onScheduleMeeting={() => {
+                handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
+                showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
+              }}
+            />
+
+            {/* Messages History */}
+            <MessageHistory
+              messages={activeConv.messages}
+              partnerName={activeConv.name}
+              partnerAvatar={activeConv.avatar}
+              isTyping={isTypingOther}
+              containerRef={chatMessagesContainerRef}
+            />
+
+            {/* Chat Input Bar with Quick Chips */}
+            <ChatInputBar
+              inputText={inputText}
+              onInputChange={setInputText}
+              onSendMessage={handleSendMessage}
+              quickChips={quickChips}
+              partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
+              onShowToast={(msg) => showToast(msg, 'info')}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* Modal KYC Registration */}
+      <KycRegistrationModal
+        isOpen={isKycModalOpen}
+        onClose={() => setIsKycModalOpen(false)}
+        defaultRole="student"
+        onShowToast={showToast}
+      />
+
+      <Footer />
+    </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-500 font-medium">
+          Đang kết nối trung tâm tin nhắn...
+        </div>
+      }
+    >
+      <ChatContent />
+    </Suspense>
+  );
+}
