@@ -2,7 +2,13 @@
 
 import React from 'react';
 import { MarketProvider } from '@/context/MarketContext';
+import AIChatbotWidget from '@/components/chat/AIChatbotWidget';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <MarketProvider>{children}</MarketProvider>;
+  return (
+    <MarketProvider>
+      {children}
+      <AIChatbotWidget />
+    </MarketProvider>
+  );
 }
