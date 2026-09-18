@@ -1,0 +1,455 @@
+import { prisma } from '../../config/prisma';
+import { AppError } from '../../middlewares/error.middleware';
+import { saveImageToStorage } from '../../config/storage';
+import { getIO, emitToUser } from '../../utils/socket';
+import {
+  CreateConversationInput,
+  QueryConversationsInput,
+  QueryMessagesInput,
+  SendMessageInput,
+} from './chat.dto';
+
+export class ChatService {
+  /**
+   * 1. Mở hoặc tạo mới cuộc trò chuyện dựa trên productId
+   */
+  async createOrGetConversation(buyerId: string, input: CreateConversationInput) {
+    const { productId } = input;
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        sellerId: true,
+        title: true,
+        price: true,
+        status: true,
+        images: true,
+        campus: true,
+      },
+    });
+
+    if (!product) {
+      throw new AppError('Sản phẩm không tồn tại', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    if (product.sellerId === buyerId) {
+      throw new AppError(
+        'Bạn không thể tự mở cuộc trò chuyện với chính mình về sản phẩm của bạn',
+        400,
+        'SELF_CHAT_NOT_ALLOWED'
+      );
+    }
+
+    // Tìm kiếm xem đã từng có cuộc trò chuyện giữa buyer và seller cho sản phẩm này chưa
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        buyerId,
+        sellerId: product.sellerId,
+        productId,
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            status: true,
+            images: true,
+            campus: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                campus: true,
+                reputationScore: true,
+              },
+            },
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                campus: true,
+                reputationScore: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Nếu chưa có thì khởi tạo mới
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          buyerId,
+          sellerId: product.sellerId,
+          productId,
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              status: true,
+              images: true,
+              campus: true,
+            },
+          },
+          seller: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+          buyer: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    return conversation;
+  }
+
+  /**
+   * 2. Lấy danh sách cuộc trò chuyện của người dùng kèm số tin chưa đọc và phân trang
+   */
+  async getUserConversations(userId: string, query: QueryConversationsInput) {
+    const { page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      OR: [{ buyerId: userId }, { sellerId: userId }],
+    };
+
+    const [total, conversations] = await Promise.all([
+      prisma.conversation.count({ where }),
+      prisma.conversation.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ lastMessageAt: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              status: true,
+              images: true,
+              campus: true,
+            },
+          },
+          seller: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+          buyer: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // Tính toán số tin nhắn chưa đọc cho từng cuộc hội thoại
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const unreadCount = await prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            senderId: { not: userId },
+            isRead: false,
+          },
+        });
+
+        // Xác định đối phương trò chuyện (Counterparty)
+        const isBuyer = conv.buyerId === userId;
+        const otherParty = isBuyer ? conv.seller : conv.buyer;
+
+        return {
+          ...conv,
+          unreadCount,
+          otherParty,
+        };
+      })
+    );
+
+    return {
+      conversations: conversationsWithUnread,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 3. Lấy lịch sử tin nhắn trong một cuộc hội thoại
+   */
+  async getMessages(userId: string, conversationId: string, query: QueryMessagesInput) {
+    const { page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new AppError('Cuộc trò chuyện không tồn tại', 404, 'CONVERSATION_NOT_FOUND');
+    }
+
+    if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
+      throw new AppError('Bạn không có quyền truy cập vào cuộc hội thoại này', 403, 'FORBIDDEN');
+    }
+
+    const [total, messages] = await Promise.all([
+      prisma.message.count({ where: { conversationId } }),
+      prisma.message.findMany({
+        where: { conversationId },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      // Đảo ngược mảng để client hiển thị từ tin cũ đến mới theo timeline chat
+      messages: messages.reverse(),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 4. Gửi tin nhắn qua REST API (Hỗ trợ kèm ảnh Multer và Mặc cả giá)
+   */
+  async sendMessage(
+    userId: string,
+    conversationId: string,
+    input: SendMessageInput,
+    imageFile?: Express.Multer.File
+  ) {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        product: {
+          select: { id: true, title: true, price: true, status: true },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new AppError('Cuộc trò chuyện không tồn tại', 404, 'CONVERSATION_NOT_FOUND');
+    }
+
+    if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
+      throw new AppError('Bạn không thuộc cuộc trò chuyện này', 403, 'FORBIDDEN');
+    }
+
+    let mediaUrl = input.mediaUrl || null;
+    let messageType = input.messageType || 'TEXT';
+
+    // Xử lý upload ảnh nếu client gửi file
+    if (imageFile) {
+      const uploadResult = await saveImageToStorage(imageFile.buffer, 'chat_media');
+      mediaUrl = uploadResult.secure_url;
+      messageType = 'IMAGE';
+    }
+
+    // Quy tắc nghiệp vụ BR: Chặn mặc cả giá thấp hơn 50% giá gốc niêm yết
+    if (messageType === 'OFFER_PRICE' || (input.offerPrice !== undefined && input.offerPrice !== null)) {
+      if (!input.offerPrice || input.offerPrice <= 0) {
+        throw new AppError('Giá đề xuất mặc cả phải lớn hơn 0 VNĐ', 400, 'INVALID_OFFER_PRICE');
+      }
+
+      const minAllowedPrice = Math.round(conversation.product.price * 0.5);
+      if (input.offerPrice < minAllowedPrice) {
+        throw new AppError(
+          `Hệ thống từ chối đề xuất: Giá mặc cả (${input.offerPrice.toLocaleString()}đ) không được thấp hơn 50% giá gốc (${minAllowedPrice.toLocaleString()}đ).`,
+          400,
+          'OFFER_TOO_LOW'
+        );
+      }
+    }
+
+    // Tạo tin nhắn mới trong MongoDB
+    const savedMessage = await prisma.message.create({
+      data: {
+        conversationId,
+        senderId: userId,
+        messageType,
+        text: input.text?.trim() || null,
+        mediaUrl,
+        offerPrice: input.offerPrice ? Math.round(input.offerPrice) : null,
+        meetupLocation: input.meetupLocation?.trim() || null,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                campus: true,
+                reputationScore: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Xác định nội dung tóm tắt hiển thị ở danh sách cuộc trò chuyện
+    let summaryText = savedMessage.text || '';
+    if (messageType === 'OFFER_PRICE') {
+      summaryText = `[Đề xuất giá: ${savedMessage.offerPrice?.toLocaleString()} VNĐ]`;
+    } else if (messageType === 'MEETUP_LOCATION') {
+      summaryText = `[Hẹn gặp tại: ${savedMessage.meetupLocation}]`;
+    } else if (messageType === 'IMAGE') {
+      summaryText = '[Hình ảnh]';
+    }
+
+    // Cập nhật tóm tắt hội thoại
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageText: summaryText,
+        lastMessageAt: savedMessage.createdAt,
+      },
+    });
+
+    // Phát sự kiện qua Socket.io Gateway tới phòng chat
+    const io = getIO();
+    io?.to(`conversation_${conversationId}`).emit('receive_message', savedMessage);
+
+    // Bắn thông báo trực tiếp tới đối tác
+    const recipientId = conversation.buyerId === userId ? conversation.sellerId : conversation.buyerId;
+    emitToUser(recipientId, 'new_message_notification', {
+      conversationId,
+      productId: conversation.productId,
+      senderName: savedMessage.sender?.profile?.fullName || 'Người dùng FU',
+      text: summaryText,
+      createdAt: savedMessage.createdAt,
+    });
+
+    return savedMessage;
+  }
+
+  /**
+   * 5. Đánh dấu đã đọc tất cả tin nhắn trong cuộc hội thoại
+   */
+  async markAsRead(userId: string, conversationId: string) {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new AppError('Cuộc trò chuyện không tồn tại', 404, 'CONVERSATION_NOT_FOUND');
+    }
+
+    if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
+      throw new AppError('Bạn không có quyền sửa đổi cuộc trò chuyện này', 403, 'FORBIDDEN');
+    }
+
+    const updated = await prisma.message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        isRead: false,
+      },
+      data: { isRead: true },
+    });
+
+    // Phát sự kiện realtime thông báo đã đọc
+    const io = getIO();
+    io?.to(`conversation_${conversationId}`).emit('messages_marked_read', {
+      conversationId,
+      readBy: userId,
+    });
+
+    return {
+      conversationId,
+      modifiedCount: updated.count,
+    };
+  }
+}
+
+export const chatService = new ChatService();

@@ -10,6 +10,9 @@ import profileRoutes from './modules/profile/profile.routes';
 import userRoutes from './modules/users/user.routes';
 import productRoutes from './modules/products/product.routes';
 import categoryRoutes from './modules/categories/category.routes';
+import chatRoutes from './modules/chats/chat.routes';
+import aiRoutes from './modules/ai/ai.routes';
+import notificationRoutes from './modules/notifications/notification.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
 
@@ -88,6 +91,11 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+
+// API Routes (BE-DEV 2 Scope)
+app.use('/api/chats', chatRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Centralized Error Handling (Strict GEMINI.md error format)
 app.use(errorHandler);
