@@ -246,6 +246,19 @@ export default function Navbar({
             </span>
           </Link>
 
+          {/* FPT Coin Widget */}
+          {isLoggedIn && (
+            <Link
+              href="/vouchers"
+              title="Ví FPT Coin & Săn Voucher"
+              className="flex items-center gap-1.5 rounded-full bg-amber-50/90 border border-amber-200/90 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition shadow-2xs group cursor-pointer"
+            >
+              <span className="text-sm leading-none">🪙</span>
+              <span className="font-extrabold text-amber-900">{userData.coins}</span>
+              <span className="text-[10px] text-amber-600 font-medium hidden md:inline">Xu</span>
+            </Link>
+          )}
+
           {/* + Đăng bán / Mở Seller CTA Button */}
           <Link
             href="/create-post"
@@ -330,6 +343,24 @@ export default function Navbar({
                         </div>
                       </div>
                     </div>
+
+                    {/* Quick Coin Status in Dropdown */}
+                    <Link
+                      href="/vouchers"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/80 border border-amber-200/80 px-3 py-2 text-xs font-bold text-amber-900 hover:from-amber-100 hover:to-orange-100 transition shadow-2xs group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🪙</span>
+                        <div>
+                          <div className="text-[11px] text-amber-700 font-medium leading-none">Ví FPT Coin</div>
+                          <div className="text-xs font-extrabold text-amber-950 mt-0.5">{userData.coins} Xu</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-white/90 border border-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full group-hover:bg-amber-600 group-hover:text-white transition">
+                        Đổi Voucher →
+                      </span>
+                    </Link>
 
                     {/* Actions list */}
                     <div className="space-y-0.5 text-xs font-semibold text-slate-700">

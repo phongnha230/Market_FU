@@ -166,7 +166,17 @@ export default function ProfilePage() {
 
   const userData = useUserStore((state) => state.user);
   const updateProfile = useUserStore((state) => state.updateProfile);
+  const checkInDaily = useUserStore((state) => state.checkInDaily);
   const allProducts = useProductStore((state) => state.products);
+
+  const handleDailyCheckIn = () => {
+    const res = checkInDaily();
+    if (res.success) {
+      showToast(`🎉 +${res.coinsAdded} FPT Coin! Điểm danh hôm nay thành công.`);
+    } else {
+      showToast('Bạn đã nhận điểm danh hôm nay rồi. Hẹn gặp lại bạn ngày mai!');
+    }
+  };
 
   const sellingItems = useMemo(() => {
     const userPosts = allProducts.filter(
@@ -530,6 +540,100 @@ export default function ProfilePage() {
                   <span>Đăng ký Seller</span>
                 </button>
               </div>
+            </div>
+
+            {/* CARD: VÍ FPT COIN & ĐIỂM THƯỞNG HỌC ĐƯỜNG */}
+            <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/40 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span className="text-base">🪙</span>
+                  <span>Ví FPT Coin & Thưởng Học Đường</span>
+                </h2>
+                <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                  1 Coin = 1.000 đ
+                </span>
+              </div>
+
+              {/* Large Coin Balance Display */}
+              <div className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow-md shadow-orange-500/15 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-orange-100 font-medium">Số dư xu khả dụng</div>
+                  <div className="text-2xl sm:text-3xl font-black tracking-tight flex items-baseline gap-1.5 mt-0.5">
+                    <span>{userData.coins}</span>
+                    <span className="text-sm font-bold text-orange-100">FPT Coin</span>
+                  </div>
+                  <div className="text-[11px] text-orange-100 mt-1">
+                    Trị giá quy đổi: ~<strong>{(userData.coins * 1000).toLocaleString('vi-VN')} đ</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDailyCheckIn}
+                  disabled={userData.dailyCheckedIn}
+                  className={`rounded-xl px-3.5 py-2.5 text-xs font-black transition cursor-pointer shadow-xs active:scale-95 shrink-0 ${
+                    userData.dailyCheckedIn
+                      ? 'bg-white/20 text-white cursor-not-allowed'
+                      : 'bg-white text-orange-600 hover:bg-orange-50 hover:shadow'
+                  }`}
+                >
+                  {userData.dailyCheckedIn ? '✓ Đã nhận hôm nay' : '🎁 Điểm danh (+20 Xu)'}
+                </button>
+              </div>
+
+              {/* Student Quests / Nhiệm vụ tích Coin */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Nhiệm vụ học đường tích Xu</span>
+                  <Link href="/vouchers" className="text-fpt-orange hover:underline font-semibold">
+                    Xem tất cả
+                  </Link>
+                </div>
+
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🎓</span>
+                      <div>
+                        <div className="font-bold text-slate-800 text-xs">Xác thực Thẻ Sinh Viên</div>
+                        <div className="text-[10px] text-slate-500">Định danh chính chủ nhận tích xanh</div>
+                      </div>
+                    </div>
+                    <span className="font-extrabold text-emerald-600 text-xs">+100 Xu</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🛍️</span>
+                      <div>
+                        <div className="font-bold text-slate-800 text-xs">Đăng món đồ đầu tiên</div>
+                        <div className="text-[10px] text-slate-500">Pass giáo trình hoặc đồ KTX</div>
+                      </div>
+                    </div>
+                    <span className="font-extrabold text-emerald-600 text-xs">+50 Xu</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🤝</span>
+                      <div>
+                        <div className="font-bold text-slate-800 text-xs">Giao dịch Safe-Handoff</div>
+                        <div className="text-[10px] text-slate-500">Giao dịch an toàn tại khuôn viên</div>
+                      </div>
+                    </div>
+                    <span className="font-extrabold text-emerald-600 text-xs">+30 Xu</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA link to Vouchers page */}
+              <Link
+                href="/vouchers"
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50/60 py-2.5 text-xs font-bold text-fpt-orange hover:bg-orange-100/80 transition"
+              >
+                <span>Dùng Coin đổi Mã giảm giá & Freeship</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
 
             {/* CARD 4: BẢO CHỨNG DANH TÍNH */}

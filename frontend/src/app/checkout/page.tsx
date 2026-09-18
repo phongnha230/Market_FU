@@ -65,8 +65,13 @@ export default function CheckoutPage() {
   };
 
   const currentUser = useUserStore((state) => state.user);
+  const addCoins = useUserStore((state) => state.addCoins);
   const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [useCoinDiscount, setUseCoinDiscount] = useState(false);
+
+  const coinDiscountAmount = useCoinDiscount ? 50000 : 0;
+  const totalAmount = 1225000 - coinDiscountAmount;
 
   const createOrder = useOrderStore((state) => state.createOrder);
 
@@ -75,6 +80,10 @@ export default function CheckoutPage() {
       showToast('⚠️ Vui lòng xác thực Thẻ Sinh Viên để đặt đơn Safe-Handoff và kích hoạt bảo hiểm FPT Care!');
       setIsKycModalOpen(true);
       return;
+    }
+
+    if (useCoinDiscount) {
+      addCoins(-50);
     }
 
     setIsSubmitting(true);
@@ -608,6 +617,32 @@ export default function CheckoutPage() {
                   <span className="font-bold text-emerald-700">Miễn phí (Đoàn trường)</span>
                 </div>
 
+                {/* FPT Coin Redemption Option */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs mt-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useCoinDiscount}
+                      onChange={(e) => setUseCoinDiscount(e.target.checked)}
+                      disabled={currentUser.coins < 50}
+                      className="mt-0.5 h-4 w-4 rounded border-amber-300 text-fpt-orange focus:ring-fpt-orange cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 flex items-center gap-1">
+                          <span>🪙</span>
+                          <span>Dùng 50 FPT Coin</span>
+                        </span>
+                        <span className="font-bold text-emerald-600">-50.000 đ</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Số dư hiện có: <strong className="text-amber-900">{currentUser.coins} Xu</strong>
+                        {currentUser.coins < 50 && ' (Cần tối thiểu 50 Xu)'}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
                 {/* TOTAL AMOUNT */}
                 <div className="pt-4 border-t border-slate-200/80">
                   <div className="flex items-baseline justify-between">
@@ -615,10 +650,12 @@ export default function CheckoutPage() {
                       <div className="text-xs font-bold text-slate-900 uppercase tracking-wide">
                         TỔNG THANH TOÁN
                       </div>
-                      <div className="text-[10px] text-slate-400">Đã bao gồm VAT & Phí Escrow</div>
+                      <div className="text-[10px] text-slate-400">
+                        {useCoinDiscount ? 'Đã áp dụng -50.000 đ từ FPT Coin' : 'Đã bao gồm VAT & Phí Escrow'}
+                      </div>
                     </div>
                     <div className="text-2xl font-black text-fpt-orange">
-                      1.225.000 <span className="text-sm font-bold">đ</span>
+                      {totalAmount.toLocaleString('vi-VN')} <span className="text-sm font-bold">đ</span>
                     </div>
                   </div>
                 </div>
@@ -631,7 +668,7 @@ export default function CheckoutPage() {
                   className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3.5 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50"
                 >
                   <Lock className="h-4 w-4" />
-                  <span>{isSubmitting ? 'Đang xác nhận...' : 'Xác nhận đặt đơn & Thanh toán an toàn'}</span>
+                  <span>{isSubmitting ? 'Đang xác nhận...' : `Xác nhận đặt đơn • ${totalAmount.toLocaleString('vi-VN')} đ`}</span>
                 </button>
 
                 <p className="text-[11px] text-slate-400 text-center leading-tight pt-1">
