@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, FunctionDeclarationSchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { prisma } from '../../config/prisma';
 import { ENV } from '../../config/env';
 import { AppError } from '../../middlewares/error.middleware';
@@ -103,26 +103,26 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
         description:
           'Tìm kiếm sản phẩm đồ cũ sinh viên đang bán trên sàn Campus Marketplace FU theo campus, danh mục, khoảng giá, từ khóa. Gọi hàm này khi sinh viên hỏi mua, tìm, kiếm, cần mua đồ.',
         parameters: {
-          type: FunctionDeclarationSchemaType.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
             campus: {
-              type: FunctionDeclarationSchemaType.STRING,
+              type: SchemaType.STRING,
               description: 'Mã campus: HOL (Hòa Lạc), HCM (TP.HCM), DAD (Đà Nẵng), QN (Quy Nhơn), CT (Cần Thơ)',
             },
             maxPrice: {
-              type: FunctionDeclarationSchemaType.NUMBER,
+              type: SchemaType.NUMBER,
               description: 'Giá tối đa (VNĐ) mà sinh viên muốn chi trả',
             },
             minPrice: {
-              type: FunctionDeclarationSchemaType.NUMBER,
+              type: SchemaType.NUMBER,
               description: 'Giá tối thiểu (VNĐ)',
             },
             keyword: {
-              type: FunctionDeclarationSchemaType.STRING,
+              type: SchemaType.STRING,
               description: 'Từ khóa tìm kiếm: ấm đun nước, quạt, sách, xe đạp...',
             },
             category: {
-              type: FunctionDeclarationSchemaType.STRING,
+              type: SchemaType.STRING,
               description: 'Danh mục sản phẩm: DORM_ITEM, BOOKS, ELECTRONICS, VEHICLE, CLOTHING, OTHER',
             },
           },
