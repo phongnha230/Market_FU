@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, FunctionDeclarationSchemaType } from '@google/generative-ai';
 import { prisma } from '../../config/prisma';
 import { ENV } from '../../config/env';
 import { AppError } from '../../middlewares/error.middleware';
@@ -14,7 +14,7 @@ export class AiService {
   }
 
   /**
-   * 1. Vision Scan: Phân tích hình ảnh sản phẩm bằng Gemini 1.5 Flash Vision
+   * 1. Vision Scan: Phân tích hình ảnh sản phẩm bằng Gemini 1.5 Flash Multimodal Vision
    * Trả về JSON chuẩn để client tự động điền form đăng bài trong 3 giây
    */
   async visionScanPost(imageBuffer: Buffer, mimeType: string) {
@@ -23,7 +23,6 @@ export class AiService {
     }
 
     if (!this.genAI) {
-      // Fallback an toàn khi chưa cấu hình GEMINI_API_KEY trong môi trường dev
       return {
         title: 'Món đồ sinh viên phòng trọ',
         category: 'DORM_ITEM',
@@ -59,7 +58,6 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
       const result = await model.generateContent([prompt, imagePart]);
       const responseText = result.response.text().trim();
 
-      // Loại bỏ markdown code blocks nếu có
       const cleanJson = responseText
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
@@ -94,57 +92,77 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
     }
   }
 
-  /**
-   * 2. AI Assistant: Chatbot tư vấn tìm đồ phòng trọ theo giá và campus
-   */
-  async assistantChat(userId: string, input: AssistantChatInput) {
-    const { message, campus, maxPrice, sessionId } = input;
-
-    // 1. Quản lý Phiên trò chuyện (Session)
-    let currentSession: any;
-    if (sessionId) {
-      currentSession = await prisma.aiChatSession.findUnique({
-        where: { id: sessionId },
-      });
-
-      if (!currentSession || currentSession.userId !== userId) {
-        throw new AppError('Phiên trò chuyện không tồn tại', 404, 'SESSION_NOT_FOUND');
-      }
-    } else {
-      // Tạo session mới
-      currentSession = await prisma.aiChatSession.create({
-        data: {
-          userId,
-          title: message.slice(0, 40) + (message.length > 40 ? '...' : ''),
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Khai báo Function Declaration cho Gemini Function Calling
+  // Gemini sẽ tự quyết định khi nào cần gọi hàm tìm đồ trong DB
+  // ─────────────────────────────────────────────────────────────────────────────
+  private getFunctionDeclarations() {
+    return [
+      {
+        name: 'search_products',
+        description:
+          'Tìm kiếm sản phẩm đồ cũ sinh viên đang bán trên sàn Campus Marketplace FU theo campus, danh mục, khoảng giá, từ khóa. Gọi hàm này khi sinh viên hỏi mua, tìm, kiếm, cần mua đồ.',
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            campus: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: 'Mã campus: HOL (Hòa Lạc), HCM (TP.HCM), DAD (Đà Nẵng), QN (Quy Nhơn), CT (Cần Thơ)',
+            },
+            maxPrice: {
+              type: FunctionDeclarationSchemaType.NUMBER,
+              description: 'Giá tối đa (VNĐ) mà sinh viên muốn chi trả',
+            },
+            minPrice: {
+              type: FunctionDeclarationSchemaType.NUMBER,
+              description: 'Giá tối thiểu (VNĐ)',
+            },
+            keyword: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: 'Từ khóa tìm kiếm: ấm đun nước, quạt, sách, xe đạp...',
+            },
+            category: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: 'Danh mục sản phẩm: DORM_ITEM, BOOKS, ELECTRONICS, VEHICLE, CLOTHING, OTHER',
+            },
+          },
         },
-      });
-    }
-
-    // 2. Lưu tin nhắn của người dùng
-    await prisma.aiChatMessage.create({
-      data: {
-        sessionId: currentSession.id,
-        senderRole: 'USER',
-        content: message,
-        suggestedProductIds: [],
       },
-    });
+    ];
+  }
 
-    // 3. Truy vấn Database các sản phẩm AVAILABLE thỏa mãn tiêu chí
-    const productWhere: any = {
-      status: 'AVAILABLE',
-    };
+  /**
+   * Thực thi Function Call: Truy vấn thực tế vào MongoDB tìm sản phẩm
+   */
+  private async executeSearchProducts(args: {
+    campus?: string;
+    maxPrice?: number;
+    minPrice?: number;
+    keyword?: string;
+    category?: string;
+  }) {
+    const where: any = { status: 'AVAILABLE' };
 
-    if (campus) {
-      productWhere.campus = campus;
+    if (args.campus) {
+      where.campus = args.campus;
+    }
+    if (args.category) {
+      where.categoryType = args.category;
+    }
+    if (args.maxPrice || args.minPrice) {
+      where.price = {};
+      if (args.maxPrice) where.price.lte = args.maxPrice;
+      if (args.minPrice) where.price.gte = args.minPrice;
+    }
+    if (args.keyword) {
+      where.OR = [
+        { title: { contains: args.keyword, mode: 'insensitive' } },
+        { description: { contains: args.keyword, mode: 'insensitive' } },
+      ];
     }
 
-    if (maxPrice && maxPrice > 0) {
-      productWhere.price = { lte: maxPrice };
-    }
-
-    const availableProducts = await prisma.product.findMany({
-      where: productWhere,
+    const products = await prisma.product.findMany({
+      where,
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -155,53 +173,153 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
         campus: true,
         categoryType: true,
         images: true,
+        meetupLocation: true,
       },
     });
 
-    const suggestedProductIds = availableProducts.map((p) => p.id);
+    return products;
+  }
 
-    // 4. Sinh câu trả lời từ Gemini AI kết hợp dữ liệu DB thực tế
+  /**
+   * 2. AI Assistant Chat: Gemini Function Calling Chatbot tìm đồ phòng trọ theo giá
+   * Gemini tự phân tích câu hỏi → tự gọi search_products → tổng hợp trả lời
+   */
+  async assistantChat(userId: string, input: AssistantChatInput) {
+    const { message, campus, maxPrice, sessionId } = input;
+
+    // 1. Quản lý Phiên trò chuyện (Session)
+    let currentSession: any;
+    if (sessionId) {
+      currentSession = await prisma.aiChatSession.findUnique({
+        where: { id: sessionId },
+      });
+      if (!currentSession || currentSession.userId !== userId) {
+        throw new AppError('Phiên trò chuyện không tồn tại', 404, 'SESSION_NOT_FOUND');
+      }
+    } else {
+      currentSession = await prisma.aiChatSession.create({
+        data: {
+          userId,
+          title: message.slice(0, 40) + (message.length > 40 ? '...' : ''),
+        },
+      });
+    }
+
+    // 2. Lưu tin nhắn người dùng
+    await prisma.aiChatMessage.create({
+      data: {
+        sessionId: currentSession.id,
+        senderRole: 'USER',
+        content: message,
+        suggestedProductIds: [],
+      },
+    });
+
+    // 3. Gọi Gemini với Function Calling
     let aiResponseText = '';
+    let suggestedProducts: any[] = [];
+    let suggestedProductIds: string[] = [];
 
     if (this.genAI) {
       try {
-        const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = this.genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          tools: [{ functionDeclarations: this.getFunctionDeclarations() }],
+        });
 
-        const context = availableProducts.map((p) => ({
-          id: p.id,
-          title: p.title,
-          price: `${p.price.toLocaleString()} VNĐ`,
-          campus: p.campus,
-          condition: p.condition,
-        }));
+        // System instruction cho Gemini biết bối cảnh
+        const systemPrompt = `Bạn là Trợ lý AI "Cóc Mua Bán" của sàn đồ cũ sinh viên Campus Marketplace FU (ĐH FPT).
+Khi sinh viên muốn tìm mua đồ, hãy gọi hàm search_products để truy vấn cơ sở dữ liệu thực.
+Xưng hô thân thiện kiểu sinh viên FPT (dùng "mình" và "bạn").
+Nếu sinh viên cung cấp campus hoặc mức giá, hãy đưa vào tham số tìm kiếm.
+${campus ? `Ngữ cảnh: Sinh viên đang ở campus ${campus}.` : ''}
+${maxPrice ? `Ngân sách tối đa: ${maxPrice.toLocaleString()} VNĐ.` : ''}`;
 
-        const prompt = `
-Bạn là Trợ lý AI Cóc Mua Bán (Campus Marketplace FU) - chuyên tư vấn tìm đồ phòng trọ, đồ cũ cho sinh viên ĐH FPT.
-Dưới đây là danh sách sản phẩm thực tế đang có sẵn trên sàn:
-${JSON.stringify(context, null, 2)}
+        const chat = model.startChat({
+          history: [
+            { role: 'user', parts: [{ text: systemPrompt }] },
+            { role: 'model', parts: [{ text: 'Mình sẵn sàng hỗ trợ bạn tìm đồ! Bạn cần gì nào?' }] },
+          ],
+        });
 
-Câu hỏi của sinh viên: "${message}"
-${campus ? `Khu vực: Campus ${campus}` : ''}
-${maxPrice ? `Ngân sách tối đa: ${maxPrice.toLocaleString()} VNĐ` : ''}
+        let response = await chat.sendMessage(message);
 
-Quy tắc trả lời:
-- Xưng hô thân thiện, nhiệt tình kiểu sinh viên FPT (dùng "mình" và "bạn").
-- Nếu có sản phẩm phù hợp trong danh sách, hãy giới thiệu ngắn gọn tên món và giá tiền để bạn ấy tham khảo.
-- Nếu không có món nào thỏa mãn, hãy đưa ra lời khuyên hoặc gợi ý bạn ấy mở rộng mức giá hoặc campus lân cận.
-`;
+        // Kiểm tra nếu Gemini trả về Function Call
+        let functionCall = response.response.functionCalls()?.[0];
 
-        const result = await model.generateContent(prompt);
-        aiResponseText = result.response.text();
+        if (functionCall && functionCall.name === 'search_products') {
+          // Thực thi truy vấn DB thực tế
+          const searchArgs = functionCall.args as any;
+
+          // Bổ sung campus và maxPrice từ request nếu Gemini không tự trích xuất
+          if (campus && !searchArgs.campus) searchArgs.campus = campus;
+          if (maxPrice && !searchArgs.maxPrice) searchArgs.maxPrice = maxPrice;
+
+          suggestedProducts = await this.executeSearchProducts(searchArgs);
+          suggestedProductIds = suggestedProducts.map((p) => p.id);
+
+          // Gửi kết quả Function Call trả lại cho Gemini để tổng hợp
+          const productContext = suggestedProducts.map((p) => ({
+            id: p.id,
+            title: p.title,
+            price: `${p.price.toLocaleString()} VNĐ`,
+            condition: p.condition,
+            campus: p.campus,
+            category: p.categoryType,
+          }));
+
+          response = await chat.sendMessage([
+            {
+              functionResponse: {
+                name: 'search_products',
+                response: {
+                  results: productContext,
+                  totalFound: suggestedProducts.length,
+                },
+              },
+            },
+          ]);
+
+          aiResponseText = response.response.text();
+        } else {
+          // Gemini trả lời trực tiếp (không cần gọi Function)
+          aiResponseText = response.response.text();
+        }
       } catch (err: any) {
-        console.warn('⚠️ [Gemini Chat Warning]:', err.message);
+        console.warn('⚠️ [Gemini Function Calling Warning]:', err.message);
       }
     }
 
-    // Phản hồi dự phòng khi chưa cấu hình Gemini API Key
+    // 4. Fallback nếu chưa cấu hình Gemini hoặc lỗi
     if (!aiResponseText) {
-      if (availableProducts.length > 0) {
-        aiResponseText = `Chào bạn! Mình đã tìm thấy ${availableProducts.length} món đồ phù hợp với yêu cầu của bạn trên hệ thống:\n` +
-          availableProducts
+      // Fallback: tự query DB
+      if (suggestedProducts.length === 0) {
+        const fallbackWhere: any = { status: 'AVAILABLE' };
+        if (campus) fallbackWhere.campus = campus;
+        if (maxPrice) fallbackWhere.price = { lte: maxPrice };
+
+        suggestedProducts = await prisma.product.findMany({
+          where: fallbackWhere,
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            condition: true,
+            campus: true,
+            categoryType: true,
+            images: true,
+            meetupLocation: true,
+          },
+        });
+        suggestedProductIds = suggestedProducts.map((p) => p.id);
+      }
+
+      if (suggestedProducts.length > 0) {
+        aiResponseText =
+          `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp với yêu cầu của bạn trên hệ thống:\n` +
+          suggestedProducts
             .map(
               (p, idx) =>
                 `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString()}đ (Campus: ${p.campus})`
@@ -214,7 +332,7 @@ Quy tắc trả lời:
       }
     }
 
-    // 5. Lưu phản hồi của AI vào Database
+    // 5. Lưu phản hồi AI vào Database
     const savedAiMessage = await prisma.aiChatMessage.create({
       data: {
         sessionId: currentSession.id,
@@ -227,12 +345,12 @@ Quy tắc trả lời:
     return {
       session: currentSession,
       message: savedAiMessage,
-      suggestedProducts: availableProducts,
+      suggestedProducts,
     };
   }
 
   /**
-   * 3. Lấy danh sách các phiên trò chuyện của user
+   * 3. Lấy danh sách các phiên trò chuyện AI của user
    */
   async getUserSessions(userId: string, query: QuerySessionsInput) {
     const { page, limit } = query;
@@ -268,7 +386,7 @@ Quy tắc trả lời:
   }
 
   /**
-   * 4. Lấy chi tiết lịch sử tin nhắn trong một phiên chat
+   * 4. Lấy chi tiết lịch sử tin nhắn trong phiên chat
    */
   async getSessionDetail(userId: string, sessionId: string) {
     const session = await prisma.aiChatSession.findUnique({

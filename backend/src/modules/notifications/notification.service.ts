@@ -2,6 +2,8 @@ import { prisma } from '../../config/prisma';
 import { firebaseMessaging } from '../../config/firebase';
 import { emitToUser } from '../../utils/socket';
 import { AppError } from '../../middlewares/error.middleware';
+import { mailTransporter } from '../../config/mail';
+import { ENV } from '../../config/env';
 import { QueryNotificationsInput } from './notification.dto';
 
 export interface CreateNotificationParams {
@@ -10,15 +12,28 @@ export interface CreateNotificationParams {
   body: string;
   type?: 'CHAT' | 'ORDER' | 'KYC' | 'SYSTEM';
   targetUrl?: string;
-  fcmToken?: string;
+  // Hỗ trợ FCM Multicast: gửi đến 1 hoặc nhiều thiết bị cùng lúc
+  fcmTokens?: string[];
+  // Hỗ trợ gửi Email HTML song song (Nodemailer)
+  email?: {
+    to: string;
+    subject?: string;
+    html?: string;
+  };
 }
 
 export class NotificationService {
-  // 1. Tạo và gửi thông báo đa kênh (In-app + Realtime Socket + FCM Push)
+  /**
+   * 1. Tạo và gửi thông báo ĐA KÊNH:
+   *    Kênh A: Lưu bản ghi In-app vào MongoDB
+   *    Kênh B: Phát Realtime qua Socket.io Gateway → room user_${userId}
+   *    Kênh C: Push FCM Multicast đến tất cả thiết bị của user
+   *    Kênh D: Gửi Email HTML qua Nodemailer SMTP
+   */
   async sendNotification(params: CreateNotificationParams) {
-    const { userId, title, body, type = 'SYSTEM', targetUrl, fcmToken } = params;
+    const { userId, title, body, type = 'SYSTEM', targetUrl, fcmTokens, email } = params;
 
-    // 1. Lưu bản ghi thông báo vào MongoDB
+    // ─── Kênh A: Lưu bản ghi thông báo vào MongoDB ───
     const notification = await prisma.notification.create({
       data: {
         userId,
@@ -30,26 +45,67 @@ export class NotificationService {
       },
     });
 
-    // 2. Phát thông báo thời gian thực qua WebSocket Gateway (Socket.io)
+    // ─── Kênh B: Phát thông báo thời gian thực qua WebSocket Gateway ───
     emitToUser(userId, 'new_notification', notification);
 
-    // 3. Đẩy Push Notification qua Firebase Cloud Messaging (FCM) nếu có token
-    if (firebaseMessaging && fcmToken) {
+    // ─── Kênh C: Push FCM Multicast đến nhiều thiết bị ───
+    if (firebaseMessaging && fcmTokens && fcmTokens.length > 0) {
+      // Lọc bỏ token rỗng
+      const validTokens = fcmTokens.filter((t) => t && t.trim() !== '');
+
+      if (validTokens.length > 0) {
+        try {
+          if (validTokens.length === 1) {
+            // Gửi đến 1 thiết bị duy nhất
+            await firebaseMessaging.send({
+              token: validTokens[0],
+              notification: { title, body },
+              data: {
+                notificationId: notification.id,
+                type,
+                ...(targetUrl && { targetUrl }),
+              },
+            });
+          } else {
+            // FCM Multicast: Gửi đồng thời đến nhiều thiết bị (tối đa 500 token/lần)
+            await firebaseMessaging.sendEachForMulticast({
+              tokens: validTokens,
+              notification: { title, body },
+              data: {
+                notificationId: notification.id,
+                type,
+                ...(targetUrl && { targetUrl }),
+              },
+            });
+          }
+        } catch (fcmError: any) {
+          console.warn('⚠️ [FCM Multicast Warning] Không thể gửi Push Notification:', fcmError.message);
+        }
+      }
+    }
+
+    // ─── Kênh D: Gửi Email HTML qua Nodemailer ───
+    if (email && email.to) {
       try {
-        await firebaseMessaging.send({
-          token: fcmToken,
-          notification: {
-            title,
-            body,
-          },
-          data: {
-            notificationId: notification.id,
-            type,
-            ...(targetUrl && { targetUrl }),
-          },
+        await mailTransporter.sendMail({
+          from: ENV.EMAIL_FROM || `"Campus Marketplace FU" <${ENV.EMAIL_USER || 'no-reply@marketfu.com'}>`,
+          to: email.to,
+          subject: email.subject || `[MarketFU] ${title}`,
+          html:
+            email.html ||
+            `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <h2 style="color: #F27024; text-align: center;">SÀN ĐỒ CŨ SINH VIÊN FU (MARKETFU)</h2>
+              <h3 style="color: #333;">${title}</h3>
+              <p style="color: #555; font-size: 15px;">${body}</p>
+              ${targetUrl ? `<div style="text-align: center; margin: 25px 0;"><a href="${targetUrl}" style="background-color: #F27024; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem Chi Tiết</a></div>` : ''}
+              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+              <p style="color: #999; font-size: 12px; text-align: center;">Email này được gửi tự động từ hệ thống Campus Marketplace FPT University.</p>
+            </div>
+          `,
         });
-      } catch (fcmError: any) {
-        console.warn('⚠️ [FCM Warning] Không thể gửi Push Notification:', fcmError.message);
+      } catch (mailError: any) {
+        console.warn('⚠️ [Nodemailer Warning] Không thể gửi email:', mailError.message);
       }
     }
 
@@ -133,3 +189,5 @@ export class NotificationService {
     return { modifiedCount: result.count };
   }
 }
+
+export const notificationService = new NotificationService();
