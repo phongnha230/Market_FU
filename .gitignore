@@ -43,3 +43,7 @@ Thumbs.db
 **/GEMINI.md
 GEMINI.md
 
+# CodeGraph index cache & binaries
+.codegraph/
+bin/
+
