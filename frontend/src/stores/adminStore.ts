@@ -69,15 +69,8 @@ const dummyStorage = {
 export const useAdminStore = create<AdminState>()(
   persist(
     (set) => ({
-      admin: {
-        name: 'Lê Minh Quân',
-        email: 'admin@fpt.edu.vn',
-        role: 'superadmin',
-        campus: 'all',
-        avatarInitial: 'Q',
-        permissions: ADMIN_ACCOUNTS[0].permissions,
-      },
-      isLoggedIn: true,
+      admin: null,
+      isLoggedIn: false,
       selectedCampus: 'all',
 
       login: (email, password) => {
