@@ -48,11 +48,11 @@ export default function AdminDashboard() {
           </div>
 
           {/* Action Controls */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Campus dropdown */}
             <div className="relative">
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
-                <Globe className="h-3.5 w-3.5 text-slate-500" />
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
+                <Globe className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                 <select
                   value={selectedCampus}
                   onChange={(e) => setSelectedCampus(e.target.value)}
@@ -65,14 +65,14 @@ export default function AdminDashboard() {
                   <option>Quy Nhơn</option>
                   <option>Cần Thơ</option>
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               </div>
             </div>
 
             {/* Semester selector */}
             <div className="relative">
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
-                <Calendar className="h-3.5 w-3.5 text-slate-500" />
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
+                <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                 <select
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
@@ -82,21 +82,21 @@ export default function AdminDashboard() {
                   <option>Kỳ Spring 2025</option>
                   <option>Kỳ Summer 2024</option>
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               </div>
             </div>
 
             {/* Refresh button */}
             <button
               onClick={() => {}}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 transition shadow-2xs cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-slate-700 transition shadow-2xs cursor-pointer active:scale-95"
             >
               <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
               <span>Làm mới</span>
             </button>
 
             {/* Export button */}
-            <button className="flex items-center gap-1.5 rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 transition cursor-pointer active:scale-95">
+            <button className="flex items-center gap-1.5 rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 transition cursor-pointer active:scale-95">
               <Download className="h-3.5 w-3.5" />
               <span>Xuất báo cáo</span>
             </button>
@@ -304,20 +304,20 @@ export default function AdminDashboard() {
               <div className="relative mt-4 h-64 w-full">
                 {/* Tooltip Callout 1: K20 Nhập học */}
                 <div className="absolute left-[38%] top-[34%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
-                  <div className="bg-[#1E293B] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md whitespace-nowrap text-center">
+                  <div className="bg-[#1E293B] text-white text-[8.5px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg shadow-md whitespace-nowrap text-center">
                     <div>Tuần Nhập Học K20</div>
-                    <div className="text-[9px] font-medium text-slate-300">+74% số đơn KTX</div>
+                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">+74% số đơn KTX</div>
                   </div>
-                  <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B] mx-auto"></div>
+                  <div className="w-0 h-0 border-x-3 sm:border-x-4 border-x-transparent border-t-3 sm:border-t-4 border-t-[#1E293B] mx-auto"></div>
                 </div>
 
                 {/* Tooltip Callout 2: Đỉnh Capstone */}
                 <div className="absolute left-[79%] top-[25%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
-                  <div className="bg-[#1E293B] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md whitespace-nowrap text-center">
+                  <div className="bg-[#1E293B] text-white text-[8.5px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg shadow-md whitespace-nowrap text-center">
                     <div>Đỉnh Capstone: 112.5M đ</div>
-                    <div className="text-[9px] font-medium text-slate-300">614 giao dịch thiết bị</div>
+                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">614 giao dịch thiết bị</div>
                   </div>
-                  <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B] mx-auto"></div>
+                  <div className="w-0 h-0 border-x-3 sm:border-x-4 border-x-transparent border-t-3 sm:border-t-4 border-t-[#1E293B] mx-auto"></div>
                 </div>
 
                 {/* SVG Curve Chart */}
@@ -386,11 +386,12 @@ export default function AdminDashboard() {
                 </svg>
 
                 {/* X-Axis Labels */}
-                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 pl-8 pr-2 mt-1">
-                  <span>Đầu T8 (Chuẩn bị)</span>
-                  <span>Cuối T9 (K20 Nhập Học)</span>
-                  <span>Giữa T10 (Thi Midterm)</span>
-                  <span>Tháng 11 (Bảo vệ đồ án)</span>
+                <div className="flex items-center justify-between text-[8px] xs:text-[9px] sm:text-[10px] font-semibold text-slate-400 pl-6 sm:pl-8 pr-1 sm:pr-2 mt-1">
+                  <span>Đầu T8</span>
+                  <span>Cuối T9</span>
+                  <span>Giữa T10</span>
+                  <span className="hidden sm:inline">Tháng 11 (Bảo vệ đồ án)</span>
+                  <span className="sm:hidden">Tháng 11</span>
                   <span className="text-orange-600 font-bold">Hiện tại T12</span>
                 </div>
               </div>
@@ -503,9 +504,9 @@ export default function AdminDashboard() {
                   { name: 'Áo Cam Merch & Thể thao', pct: '6%', count: '891 tin', dot: 'bg-amber-500' },
                 ].map((cat) => (
                   <div key={cat.name} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2.5 w-2.5 rounded-full ${cat.dot} shrink-0`}></span>
-                      <span className="text-slate-700 font-medium text-[11px] truncate max-w-[170px]">{cat.name}</span>
+                      <span className="text-slate-700 font-medium text-[11px] truncate max-w-[130px] xs:max-w-[170px] sm:max-w-xs md:max-w-sm lg:max-w-[170px] xl:max-w-[210px]">{cat.name}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="font-extrabold text-slate-900 text-[11px]">{cat.pct}</span>
@@ -632,12 +633,12 @@ export default function AdminDashboard() {
             </div>
 
             {/* Footnote */}
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 text-slate-600 font-medium">
-                <Check className="h-4 w-4 text-emerald-600" />
-                <span>72.4% giao dịch ưu tiên trao tay tại khuôn viên trường</span>
+                <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="text-[11px] sm:text-xs">72.4% giao dịch ưu tiên trao tay tại khuôn viên trường</span>
               </div>
-              <span className="font-extrabold text-orange-600 tracking-wide text-[11px]">
+              <span className="font-extrabold text-orange-600 tracking-wide text-[10px] sm:text-[11px]">
                 FPT HOÀ LẠC DẪN ĐẦU QUY MÔ
               </span>
             </div>
@@ -660,13 +661,13 @@ export default function AdminDashboard() {
 
               {/* Spider / Radar Chart */}
               <div className="relative flex items-center justify-center my-3 h-52">
-                <svg viewBox="0 0 280 200" className="w-full h-full overflow-visible">
-                  {/* Concentric Pentagons */}
+                <svg viewBox="0 0 360 210" className="w-full h-full overflow-visible">
+                  {/* Concentric Pentagons centered at (180, 105) */}
                   {[0.25, 0.5, 0.75, 1.0].map((scale, i) => (
                     <polygon
                       key={i}
-                      points="140,25 210,75 185,155 95,155 70,75"
-                      transform={`scale(${scale}) translate(${140 * (1 - scale)}, ${100 * (1 - scale)})`}
+                      points="180,25 255,80 228,160 132,160 105,80"
+                      transform={`scale(${scale}) translate(${180 * (1 - scale)}, ${105 * (1 - scale)})`}
                       fill="transparent"
                       stroke="#e2e8f0"
                       strokeWidth="1"
@@ -674,15 +675,15 @@ export default function AdminDashboard() {
                   ))}
 
                   {/* Radial Axis Lines */}
-                  <line x1="140" y1="100" x2="140" y2="25" stroke="#cbd5e1" strokeWidth="1" />
-                  <line x1="140" y1="100" x2="210" y2="75" stroke="#cbd5e1" strokeWidth="1" />
-                  <line x1="140" y1="100" x2="185" y2="155" stroke="#cbd5e1" strokeWidth="1" />
-                  <line x1="140" y1="100" x2="95" y2="155" stroke="#cbd5e1" strokeWidth="1" />
-                  <line x1="140" y1="100" x2="70" y2="75" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="180" y1="105" x2="180" y2="25" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="180" y1="105" x2="255" y2="80" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="180" y1="105" x2="228" y2="160" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="180" y1="105" x2="132" y2="160" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="180" y1="105" x2="105" y2="80" stroke="#cbd5e1" strokeWidth="1" />
 
                   {/* Filled Radar Polygon */}
                   <polygon
-                    points="140,28 206,78 181,152 98,153 73,78"
+                    points="180,28 252,83 224,157 135,158 108,83"
                     fill="#F27024"
                     fillOpacity="0.18"
                     stroke="#F27024"
@@ -690,33 +691,33 @@ export default function AdminDashboard() {
                   />
 
                   {/* Vertex Dots */}
-                  <circle cx="140" cy="28" r="3" fill="#F27024" />
-                  <circle cx="206" cy="78" r="3" fill="#F27024" />
-                  <circle cx="181" cy="152" r="3" fill="#F27024" />
-                  <circle cx="98" cy="153" r="3" fill="#F27024" />
-                  <circle cx="73" cy="78" r="3" fill="#F27024" />
+                  <circle cx="180" cy="28" r="3" fill="#F27024" />
+                  <circle cx="252" cy="83" r="3" fill="#F27024" />
+                  <circle cx="224" cy="157" r="3" fill="#F27024" />
+                  <circle cx="135" cy="158" r="3" fill="#F27024" />
+                  <circle cx="108" cy="83" r="3" fill="#F27024" />
 
                   {/* Axis Text Labels */}
-                  <text x="140" y="15" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                  <text x="180" y="14" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
                     Xác minh Sinh Viên (99%)
                   </text>
-                  <text x="215" y="80" textAnchor="start" className="text-[9px] fill-slate-700 font-bold">
+                  <text x="262" y="84" textAnchor="start" className="text-[9px] fill-slate-700 font-bold">
                     Safe-Handoff (96%)
                   </text>
-                  <text x="185" y="170" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                  <text x="228" y="174" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
                     Uy tín Peer (4.9/5)
                   </text>
-                  <text x="95" y="170" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                  <text x="132" y="174" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
                     Chặn Gian Lận AI (99.1%)
                   </text>
-                  <text x="65" y="80" textAnchor="end" className="text-[9px] fill-slate-700 font-bold">
+                  <text x="98" y="84" textAnchor="end" className="text-[9px] fill-slate-700 font-bold">
                     Tỷ lệ Giữ Tiền (98%)
                   </text>
                 </svg>
               </div>
 
               {/* Bottom 2 mini status cards */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
                 <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-2.5">
                   <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                   <div>

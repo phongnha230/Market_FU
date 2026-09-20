@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bell, MapPin, ChevronDown, ArrowLeftRight, CheckCircle2 } from 'lucide-react';
+import { Bell, MapPin, ChevronDown, ArrowLeftRight, CheckCircle2, Menu } from 'lucide-react';
 import { useAdminStore, AdminCampus } from '@/stores/adminStore';
 
 const CAMPUS_OPTIONS: { value: AdminCampus; label: string }[] = [
@@ -13,22 +13,36 @@ const CAMPUS_OPTIONS: { value: AdminCampus; label: string }[] = [
   { value: 'quynhon', label: 'Quy Nhơn' },
 ];
 
-export default function AdminTopbar() {
+interface AdminTopbarProps {
+  onOpenSidebar?: () => void;
+}
+
+export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
   const admin = useAdminStore((s) => s.admin);
   const selectedCampus = useAdminStore((s) => s.selectedCampus);
   const setSelectedCampus = useAdminStore((s) => s.setSelectedCampus);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-5 shadow-2xs font-sans">
-      {/* Left: Campus Selector + Live Quick Stats */}
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 sm:px-5 shadow-2xs font-sans">
+      {/* Left: Hamburger (mobile) + Campus Selector + Live Quick Stats */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Mobile Hamburger Toggle Button */}
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+          aria-label="Mở menu quản trị"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         {/* Campus Dropdown */}
-        <div className="relative flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 transition shadow-2xs">
-          <MapPin className="h-3.5 w-3.5 text-fpt-orange" />
+        <div className="relative flex items-center gap-1 sm:gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 transition shadow-2xs">
+          <MapPin className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
           <select
             value={selectedCampus}
             onChange={(e) => setSelectedCampus(e.target.value as AdminCampus)}
-            className="appearance-none bg-transparent pr-5 text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
+            className="appearance-none bg-transparent pr-4 sm:pr-5 text-[11px] sm:text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer max-w-[125px] sm:max-w-none truncate"
           >
             {CAMPUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -36,12 +50,12 @@ export default function AdminTopbar() {
               </option>
             ))}
           </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
         </div>
 
         {/* Quick Stat 1: Giao dịch hôm nay */}
-        <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 font-medium pl-2">
-          <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600" />
+        <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 font-medium pl-1 lg:pl-2">
+          <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
           <span>Giao dịch hôm nay:</span>
           <span className="font-bold text-slate-900">248 tin</span>
         </div>
@@ -50,7 +64,7 @@ export default function AdminTopbar() {
 
         {/* Quick Stat 2: Hồ sơ đã duyệt */}
         <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-          <CheckCircle2 className="h-3.5 w-3.5 text-orange-500" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-orange-500 shrink-0" />
           <span>Hồ sơ đã duyệt:</span>
           <span className="font-bold text-orange-600">99.2%</span>
         </div>
@@ -65,7 +79,7 @@ export default function AdminTopbar() {
       </div>
 
       {/* Right: Notification + Admin Profile */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Notification Bell with Badge */}
         <button
           type="button"
@@ -79,7 +93,7 @@ export default function AdminTopbar() {
         </button>
 
         {/* Admin Profile Pill */}
-        <div className="flex items-center gap-2 pl-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 font-black text-[12px] text-white shadow-xs">
             {admin?.avatarInitial || 'Q'}
           </div>
