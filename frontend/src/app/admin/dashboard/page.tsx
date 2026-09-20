@@ -1,434 +1,966 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import {
-  BarChart3,
-  FileText,
+  Wallet,
+  ArrowLeftRight,
   ShieldCheck,
-  AlertTriangle,
-  TrendingUp,
+  Shield,
   Download,
-  Filter,
+  RotateCcw,
+  Calendar,
+  Globe,
   ChevronDown,
+  CheckCircle2,
+  Lock,
+  Camera,
+  Check,
+  ArrowRight,
   Clock,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Zap,
-  Bot,
-  MapPin,
-  Users,
-  Activity,
-  Star,
+  TrendingUp,
+  FileCheck,
 } from 'lucide-react';
 
-/* ─── Static data ─── */
-const CAMPUS_STATS = [
-  { code: 'HOA LẠC (HL)', count: 1420, status: 'DN', color: 'bg-orange-500', sub: '37% tin / 57% Sách, IT + phần mềm', location: 'Dom A-Dom B, sảnh...' },
-  { code: 'TP. HỒ CHÍ MINH (SG)', count: 1150, status: 'DN', color: 'bg-blue-500', sub: '30% IT + 15% Tech & Mac', location: 'Khu Công Nghệ Cao...' },
-  { code: 'ĐÀ NẴNG (DN)', count: 580, status: 'DN', color: 'bg-teal-500', sub: '15% tin / Xe Cộ & Giao trình', location: 'FPT City, Ngũ Hành Sơn' },
-  { code: 'CẦN THƠ (CT)', count: 420, status: '', color: 'bg-emerald-500', sub: '11% / Đồ gia dụng KTX', location: 'Cầu Rau Răm, An Sinh' },
-  { code: 'QUY NHƠN (QN)', count: 272, status: '', color: 'bg-purple-500', sub: '7% / AI Hub Campus', location: 'Trung tâm sáng tạo Ảo...' },
-];
-
-const MODERATION_QUEUE = [
-  {
-    id: '#POST-4921',
-    campus: 'HL + HÒA LẠC',
-    category: 'Công nghệ & PC',
-    badge: '🔴 Rủi ro cao',
-    badgeColor: 'bg-red-100 text-red-700 border-red-200',
-    title: 'Màn hình LG 27 inch 4K144Hz Ultragear',
-    price: '2.200.000đ',
-    seller: 'Vũ Hải Nam (HE180291 - K18 AI)',
-    aiCheck: 'AI Handoff Check: Am thiết tại Dom B Hòa. Giá thị trường đúng (hỗ trợ 15% used).',
-    time: '14 phút trước',
-    isNew: true,
-    status: 'pending',
-  },
-  {
-    id: '#POST-4920',
-    campus: 'SG • TP.HCM',
-    category: 'Giáo trình & Sách',
-    badge: '✅ Ổn lại/Clean',
-    badgeColor: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    title: 'Trọn bộ Giáo trình SWE201c + CSL201FPT (In mới...)',
-    price: '150.000đ',
-    seller: 'Đỗ Phương Linh (SE171452 - K17 SE)',
-    aiCheck: 'AI Verified: Khớp 100%. Đồ cương Syllabus FPT 2024 môn MAS291 & CSL201. Đề quét nội dung chính tránh tài liệu ngân hàng FPT sử dụng thư viện đây.',
-    time: '12 phút trước',
-    isNew: false,
-    status: 'clean',
-  },
-  {
-    id: '#POST-4919',
-    campus: 'HL',
-    category: 'Đồ dùng KTX & Gia dụng',
-    badge: '⚠️ Chờ kiểm duyệt',
-    badgeColor: 'bg-amber-100 text-amber-700 border-amber-200',
-    title: 'Bếp điện từ tiểu mini Sunhouse 2000W...',
-    price: '220.000đ',
-    seller: 'Lê Hoàng Phúc (HE171709)',
-    aiCheck: '⚠ Cảnh báo quy chế KTX: Công suất thiết bị 2000W vượt định mức tiêu chuẩn điện an toàn PCCC KTX FPT...',
-    time: '1 giờ trước',
-    isNew: false,
-    status: 'pccc_warning',
-    alertType: 'Cần lưu ý PCCC',
-  },
-  {
-    id: '#POST-4918',
-    campus: 'GQ • QUY NHƠN',
-    category: 'Gia dụng KTX',
-    badge: 'Còn bảo hành 6 tháng',
-    badgeColor: 'bg-slate-100 text-slate-600 border-slate-200',
-    title: 'Nồi chiến không dầu Philips 4.5L cho phòng KTX',
-    price: '350.000đ',
-    seller: 'Trần Quang Huy (QE180112 - Quy Nhơn)',
-    aiCheck: 'Đề quét: Công xuất 1500W phù hợp quy định tiêu thu điện KTX theo quy định.',
-    time: '28 phút trước',
-    isNew: false,
-    status: 'pending',
-  },
-];
-
-const KYC_QUEUE = [
-  { name: 'Nguyễn Tuấn Anh', mssv: 'HE172839', campus: 'Hoa Lạc', email: 'tuananh@fpt.edu.vn', status: 'SSO OK', statusColor: 'bg-emerald-100 text-emerald-700' },
-  { name: 'Lâm Gia Hân', mssv: 'SS180120', campus: 'TP.HCM', email: 'hanle89120@fpt.edu.vn', status: 'Chờ kiểm tra ảnh', statusColor: 'bg-amber-100 text-amber-700' },
-];
-
-const REPORTS_FEED = [
-  {
-    id: '#FP-892',
-    type: 'KHẨN CẤP VĂN PHÒ',
-    title: 'Bán quyền tài liệu lắc đầu thiếu hiệu quan giáo trình / bán quyền Bộ môn',
-    campus: 'Hoa Lạc',
-    time: '1 giờ trước',
-    reporter: 'K10 SV',
-    urgent: true,
-  },
-  {
-    id: '#FP-887',
-    type: 'CẢNH BÁO SAFE-HANDOFF',
-    title: 'Sinh viên không đến điểm hẹn tại Sảnh Alpha (Boom hen Handoff)',
-    campus: 'Hoa Lạc',
-    time: '3 giờ trước',
-    reporter: 'Hệ thống',
-    urgent: false,
-  },
-];
-
-/* ─── Stat Card ─── */
-function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-      <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color} text-white`}>
-          {icon}
-        </div>
-      </div>
-      <div className="mt-3">
-        <div className="text-2xl font-black text-slate-900">{value}</div>
-        <div className="text-xs font-semibold text-slate-500 mt-0.5">{label}</div>
-        {sub && <div className="text-[11px] text-slate-400 mt-1">{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Badge ─── */
-function StatusBadge({ label, color }: { label: string; color: string }) {
-  return (
-    <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold ${color}`}>
-      {label}
-    </span>
-  );
-}
-
 export default function AdminDashboard() {
-  const [selectedSemester, setSelectedSemester] = useState('Fall 2024');
+  const [selectedCampus, setSelectedCampus] = useState('Toàn quốc (5 Campus)');
+  const [selectedSemester, setSelectedSemester] = useState('Kỳ Fall 2024');
 
   return (
     <AdminLayoutShell>
-      <div className="space-y-6 max-w-full">
-        {/* Page Header */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-2.5 py-0.5 text-[11px] font-extrabold text-fpt-orange">
-                  <Activity className="h-3 w-3" />
-                  BỘT VẬN HÀNH TOÀN QUỐC
-                </span>
-                <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Realtime Safe-Sync: Active
-                </span>
+      <div className="space-y-6 max-w-[1520px] mx-auto font-sans pb-10">
+        {/* ─── HEADER BAR ─── */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200/80 px-2.5 py-0.5 text-[11px] font-extrabold text-orange-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                TOÀN QUỐC • REALTIME ESCROW
+              </span>
+              <span className="text-xs text-slate-400 font-medium">Cập nhật lúc 10:42 sáng nay</span>
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Bảng Điều Khiển Quản Trị & Biểu Đồ Hoạt Động Toàn Hệ Thống
+            </h1>
+            <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+              Theo dõi lưu lượng ký quỹ ESCROW, giao dịch an toàn 5 Campus FPT và năng lực vận hành trạm Safe-Handoff.
+            </p>
+          </div>
+
+          {/* Action Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Campus dropdown */}
+            <div className="relative">
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
+                <Globe className="h-3.5 w-3.5 text-slate-500" />
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => setSelectedCampus(e.target.value)}
+                  className="appearance-none bg-transparent pr-5 text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
+                >
+                  <option>Toàn quốc (5 Campus)</option>
+                  <option>Hòa Lạc (Hà Nội)</option>
+                  <option>TP.HCM (Quận 9)</option>
+                  <option>Đà Nẵng</option>
+                  <option>Quy Nhơn</option>
+                  <option>Cần Thơ</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               </div>
-              <h1 className="text-2xl font-black text-slate-900">
-                Trung tâm Quản trị & Điều hành FPT 5Campus Marketplace
-              </h1>
-              <p className="text-sm text-slate-500 max-w-2xl">
-                Giám sát giao dịch, kiểm duyệt tin đăng và bảo vệ chuỗi chuyển giao Safe-Handoff giữa sinh viên 5 cơ sở.
-              </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Campus Tabs */}
-              <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-                {['Tất cả 5 cơ sở', 'HL (Hòa Lạc)', 'SG (TP.HCM)', 'ĐN', 'CT', 'QN'].map((tab, i) => (
-                  <button
-                    key={tab}
-                    className={`rounded-lg px-3 py-1.5 cursor-pointer transition ${i === 0 ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative">
+            {/* Semester selector */}
+            <div className="relative">
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 transition">
+                <Calendar className="h-3.5 w-3.5 text-slate-500" />
                 <select
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
-                  className="appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-7 text-xs font-semibold text-slate-700 shadow-xs focus:outline-hidden cursor-pointer"
+                  className="appearance-none bg-transparent pr-5 text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
                 >
-                  <option>Fall 2024</option>
-                  <option>Spring 2025</option>
+                  <option>Kỳ Fall 2024</option>
+                  <option>Kỳ Spring 2025</option>
+                  <option>Kỳ Summer 2024</option>
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              </div>
+            </div>
+
+            {/* Refresh button */}
+            <button
+              onClick={() => {}}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 transition shadow-2xs cursor-pointer active:scale-95"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
+              <span>Làm mới</span>
+            </button>
+
+            {/* Export button */}
+            <button className="flex items-center gap-1.5 rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 transition cursor-pointer active:scale-95">
+              <Download className="h-3.5 w-3.5" />
+              <span>Xuất báo cáo</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ─── ROW 1: 4 KEY METRIC STAT CARDS ─── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4.5">
+          {/* Card 1: Tổng quỹ Escrow bảo hộ */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-orange-200 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                TỔNG QUỸ ESCROW BẢO HỘ
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100/70 text-orange-600">
+                <Wallet className="h-4.5 w-4.5" />
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-slate-900 tracking-tight">485.200.000</span>
+              <span className="text-xs font-bold text-slate-500">đ</span>
+            </div>
+
+            <div className="mt-3.5 flex items-end justify-between">
+              {/* Mini SVG Area Sparkline */}
+              <div className="w-28 h-8">
+                <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+                  <defs>
+                    <linearGradient id="escrowSpark" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F27024" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#F27024" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M0,25 Q15,22 30,24 T60,14 T85,16 T100,5 L100,30 L0,30 Z"
+                    fill="url(#escrowSpark)"
+                  />
+                  <path
+                    d="M0,25 Q15,22 30,24 T60,14 T85,16 T100,5"
+                    fill="none"
+                    stroke="#F27024"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </div>
 
-              <button className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs active:scale-95 transition">
-                <Download className="h-4 w-4" />
-                Xuất báo cáo
-              </button>
+              <div className="text-right">
+                <div className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5">
+                  <TrendingUp className="h-3 w-3" />
+                  +18.4%
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">so với T8/2024</div>
+              </div>
             </div>
           </div>
 
-          {/* 4 Top Stats */}
-          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { icon: <FileText className="h-5 w-5" />, label: 'Tin đang hoạt động', value: '3.842', sub: '+12.4% tuần này • 5 cơ sở', color: 'bg-fpt-orange' },
-              { icon: <Clock className="h-5 w-5" />, label: 'Tin chờ kiểm duyệt', value: '18', sub: '4 ca nghị viện gia đình giáo AI', color: 'bg-amber-500' },
-              { icon: <ShieldCheck className="h-5 w-5" />, label: 'Hồ sơ Thẻ SV chờ', value: '14', sub: '11 khớp API FPT Edu • 3 cần xét thẻ', color: 'bg-blue-500' },
-              { icon: <AlertTriangle className="h-5 w-5" />, label: 'Báo cáo & Vi phạm', value: '02', sub: '1 ca đặt cọc ngoài • 1 ca boom hen', color: 'bg-red-500' },
-            ].map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
+          {/* Card 2: Giao dịch thành công */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                GIAO DỊCH THÀNH CÔNG
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-600">
+                <ArrowLeftRight className="h-4.5 w-4.5" />
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-slate-900 tracking-tight">3.420</span>
+              <span className="text-xs font-bold text-slate-500">lượt</span>
+            </div>
+
+            <div className="mt-3.5 flex items-end justify-between">
+              {/* Mini vertical bars */}
+              <div className="flex items-end gap-1 h-8">
+                {[30, 45, 60, 50, 75, 90, 100].map((h, i) => (
+                  <span
+                    key={i}
+                    style={{ height: `${h}%` }}
+                    className="w-2 rounded-t-xs bg-emerald-400"
+                  />
+                ))}
+              </div>
+
+              <div className="text-right">
+                <div className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5">
+                  <TrendingUp className="h-3 w-3" />
+                  +12.6%
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">248 tin hôm nay</div>
+              </div>
+            </div>
           </div>
 
-          {/* Extended Stats Row */}
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            {[
-              { label: 'AI nhận duyệt tự động', value: '14 lượt duyệt', icon: <Bot className="h-4 w-4" />, color: 'text-purple-600 bg-purple-50 border-purple-200' },
-              { label: 'Trust Score trung bình 5 cơ sở', value: '98.2%', icon: <Star className="h-4 w-4" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-              { label: 'Tỷ lệ xác thực sinh viên thành công', value: '99.4%', icon: <CheckCircle className="h-4 w-4" />, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-            ].map((s) => (
-              <div key={s.label} className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${s.color}`}>
-                {s.icon}
+          {/* Card 3: Sinh viên đã KYC / SSO */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-blue-200 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                SINH VIÊN ĐÃ KYC / SSO
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100/70 text-blue-600">
+                <ShieldCheck className="h-4.5 w-4.5" />
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-slate-900 tracking-tight">18.250</span>
+              <span className="text-xs font-bold text-slate-500">SV</span>
+            </div>
+
+            <div className="mt-3.5 flex items-center justify-between">
+              {/* Circular progress ring */}
+              <div className="relative flex items-center justify-center w-8 h-8">
+                <svg className="w-8 h-8 transform -rotate-90">
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="12"
+                    stroke="#e2e8f0"
+                    strokeWidth="3"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="12"
+                    stroke="#1e293b"
+                    strokeWidth="3"
+                    strokeDasharray={75.4}
+                    strokeDashoffset={75.4 * (1 - 0.94)}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <span className="absolute text-[9px] font-extrabold text-slate-800">94%</span>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[11px] font-bold text-slate-700">94.2% Sinh viên trường</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Đồng bộ qua FAP Mail</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Tỷ lệ an toàn & Không tranh chấp */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                TỶ LỆ AN TOÀN & KHÔNG TRANH CHẤP
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-600">
+                <Shield className="h-4.5 w-4.5" />
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-emerald-600 tracking-tight">99.92%</span>
+            </div>
+
+            <div className="mt-3.5 flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Escrow Active 24/7
+              </span>
+
+              <div className="text-right">
+                <div className="text-[11px] font-extrabold text-rose-600">Chỉ 3 khiếu nại</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Đang xử lý trong 2h</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── ROW 2: DUAL ANALYSIS PANELS (65% - 35%) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Panel (8 cols -> ~66%) */}
+          <div className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              {/* Header & Legend */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
-                  <div className="text-sm font-extrabold">{s.value}</div>
-                  <div className="text-[11px] font-medium opacity-80">{s.label}</div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    Xu Hướng Dòng Tiền Escrow & Số Lượng Giao Dịch
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Giai đoạn Kỳ Fall 2024 (Đỉnh điểm K20 Tân sinh viên & Tuần lễ Đồ án Capstone)
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-semibold shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#F27024]"></span>
+                    <span className="text-slate-600 text-[11px]">Dòng tiền Escrow [Triệu VNĐ]</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-800"></span>
+                    <span className="text-slate-600 text-[11px]">Số đơn giao dịch</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Campus Distribution */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-extrabold text-slate-900">
-              🏫 Phân bổ Giao dịch & Mật độ Hoạt động 5 Campus FPT
-            </h2>
-            <div className="flex gap-2 text-[11px] font-bold">
-              {['• Tin công nghệ / Sách', '• Đồ KTX / Handoff Hub'].map((t) => (
-                <span key={t} className="text-slate-500">{t}</span>
-              ))}
+              {/* Chart SVG Canvas */}
+              <div className="relative mt-4 h-64 w-full">
+                {/* Tooltip Callout 1: K20 Nhập học */}
+                <div className="absolute left-[38%] top-[34%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
+                  <div className="bg-[#1E293B] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md whitespace-nowrap text-center">
+                    <div>Tuần Nhập Học K20</div>
+                    <div className="text-[9px] font-medium text-slate-300">+74% số đơn KTX</div>
+                  </div>
+                  <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B] mx-auto"></div>
+                </div>
+
+                {/* Tooltip Callout 2: Đỉnh Capstone */}
+                <div className="absolute left-[79%] top-[25%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
+                  <div className="bg-[#1E293B] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-md whitespace-nowrap text-center">
+                    <div>Đỉnh Capstone: 112.5M đ</div>
+                    <div className="text-[9px] font-medium text-slate-300">614 giao dịch thiết bị</div>
+                  </div>
+                  <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B] mx-auto"></div>
+                </div>
+
+                {/* SVG Curve Chart */}
+                <svg viewBox="0 0 650 210" className="w-full h-full overflow-visible">
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F27024" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#F27024" stopOpacity="0.01" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Y-Axis Horizontal Grid Lines */}
+                  {[
+                    { val: '120M', y: 20 },
+                    { val: '90M', y: 65 },
+                    { val: '60M', y: 110 },
+                    { val: '30M', y: 155 },
+                    { val: '0đ', y: 195 },
+                  ].map((grid, idx) => (
+                    <g key={idx}>
+                      <text x="0" y={grid.y + 4} className="text-[9px] fill-slate-400 font-semibold">
+                        {grid.val}
+                      </text>
+                      <line
+                        x1="35"
+                        y1={grid.y}
+                        x2="650"
+                        y2={grid.y}
+                        stroke="#f1f5f9"
+                        strokeDasharray={idx === 4 ? '' : '3,3'}
+                        strokeWidth="1"
+                      />
+                    </g>
+                  ))}
+
+                  {/* Orange Filled Area under Escrow Curve */}
+                  <path
+                    d="M 50,185 C 130,175 190,105 250,105 C 310,105 340,120 400,95 C 460,70 515,80 575,72 C 605,68 630,76 645,80 L 645,195 L 50,195 Z"
+                    fill="url(#areaGradient)"
+                  />
+
+                  {/* Orange Curve: Escrow Volume */}
+                  <path
+                    d="M 50,185 C 130,175 190,105 250,105 C 310,105 340,120 400,95 C 460,70 515,80 575,72 C 605,68 630,76 645,80"
+                    fill="none"
+                    stroke="#F27024"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Dark Blue/Navy Curve: Transaction Count */}
+                  <path
+                    d="M 50,190 C 120,185 180,125 250,120 C 310,115 350,140 410,115 C 470,90 515,95 575,86 C 610,82 635,88 645,92"
+                    fill="none"
+                    stroke="#1E293B"
+                    strokeWidth="2.5"
+                    strokeDasharray="4,3"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Highlight dots */}
+                  <circle cx="250" cy="105" r="4.5" fill="#F27024" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="250" cy="120" r="3.5" fill="#1E293B" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="575" cy="72" r="4.5" fill="#F27024" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="575" cy="86" r="3.5" fill="#1E293B" stroke="#ffffff" strokeWidth="2" />
+                </svg>
+
+                {/* X-Axis Labels */}
+                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 pl-8 pr-2 mt-1">
+                  <span>Đầu T8 (Chuẩn bị)</span>
+                  <span>Cuối T9 (K20 Nhập Học)</span>
+                  <span>Giữa T10 (Thi Midterm)</span>
+                  <span>Tháng 11 (Bảo vệ đồ án)</span>
+                  <span className="text-orange-600 font-bold">Hiện tại T12</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom 3 Metrics Strip */}
+            <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl bg-slate-50/70 p-3 border border-slate-100">
+                <div className="text-[10px] font-semibold text-slate-400">Thời gian escrow trung bình</div>
+                <div className="text-sm font-black text-slate-900 mt-0.5">18 giờ 35 phút</div>
+              </div>
+              <div className="rounded-xl bg-slate-50/70 p-3 border border-slate-100">
+                <div className="text-[10px] font-semibold text-slate-400">Giá trị đơn trung bình (AOV)</div>
+                <div className="text-sm font-black text-slate-900 mt-0.5">425.000 VNĐ / món</div>
+              </div>
+              <div className="rounded-xl bg-orange-50/60 p-3 border border-orange-100">
+                <div className="text-[10px] font-semibold text-orange-700">Trạm bàn giao nhanh nhất</div>
+                <div className="text-sm font-black text-orange-600 mt-0.5">Alpha Hub - Hola (7 phút)</div>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-5 gap-3">
-            {CAMPUS_STATS.map((cs) => (
-              <div key={cs.code} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className={`h-2.5 w-2.5 rounded-full ${cs.color}`}></span>
-                  {cs.status && (
-                    <span className="rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[9px] font-bold">
-                      {cs.status}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xl font-black text-slate-900">{cs.count.toLocaleString('vi-VN')}</div>
-                <div className="text-[10px] font-bold text-slate-700 leading-tight">{cs.code}</div>
-                <div className="text-[10px] text-slate-500 leading-tight">{cs.sub}</div>
+
+          {/* Right Panel: Cơ Cấu Danh Mục Đồ (4 cols -> ~34%) */}
+          <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm font-black text-slate-900">Cơ Cấu Danh Mục Đồ</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Tỷ lệ mặt hàng sinh viên đăng ký quỹ trao đổi
+                </p>
               </div>
-            ))}
+
+              {/* Donut Chart */}
+              <div className="relative flex items-center justify-center my-4 h-44">
+                <svg viewBox="0 0 160 160" className="w-40 h-40 transform -rotate-90">
+                  {/* Segment 1: Thiết bị IT (38%) */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke="#F27024"
+                    strokeWidth="22"
+                    strokeDasharray="138 226"
+                    strokeDashoffset="0"
+                    fill="transparent"
+                  />
+                  {/* Segment 2: Giáo trình (26%) */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke="#2563EB"
+                    strokeWidth="22"
+                    strokeDasharray="94 270"
+                    strokeDashoffset="-138"
+                    fill="transparent"
+                  />
+                  {/* Segment 3: KTX (18%) */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke="#10B981"
+                    strokeWidth="22"
+                    strokeDasharray="65 299"
+                    strokeDashoffset="-232"
+                    fill="transparent"
+                  />
+                  {/* Segment 4: Xe máy (12%) */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke="#8B5CF6"
+                    strokeWidth="22"
+                    strokeDasharray="43 321"
+                    strokeDashoffset="-297"
+                    fill="transparent"
+                  />
+                  {/* Segment 5: Áo Cam (6%) */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke="#F59E0B"
+                    strokeWidth="22"
+                    strokeDasharray="24 340"
+                    strokeDashoffset="-340"
+                    fill="transparent"
+                  />
+                </svg>
+
+                {/* Donut Center Label */}
+                <div className="absolute flex flex-col items-center justify-center text-center">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                    TỔNG NIÊM YẾT
+                  </span>
+                  <span className="text-xl font-black text-slate-900 tracking-tight">14.850</span>
+                  <span className="text-[9px] font-extrabold text-emerald-600">Tin đang mở</span>
+                </div>
+              </div>
+
+              {/* Category Breakdown List */}
+              <div className="space-y-2 text-xs">
+                {[
+                  { name: 'Thiết bị IT & Màn hình phụ', pct: '38%', count: '5.643 tin', dot: 'bg-orange-500' },
+                  { name: 'Giáo trình & Sách PE/FE', pct: '26%', count: '3.861 tin', dot: 'bg-blue-600' },
+                  { name: 'Đồ dùng KTX & Đời sống', pct: '18%', count: '2.673 tin', dot: 'bg-emerald-500' },
+                  { name: 'Xe máy & Xe đạp điện', pct: '12%', count: '1.782 tin', dot: 'bg-purple-500' },
+                  { name: 'Áo Cam Merch & Thể thao', pct: '6%', count: '891 tin', dot: 'bg-amber-500' },
+                ].map((cat) => (
+                  <div key={cat.name} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${cat.dot} shrink-0`}></span>
+                      <span className="text-slate-700 font-medium text-[11px] truncate max-w-[170px]">{cat.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-extrabold text-slate-900 text-[11px]">{cat.pct}</span>
+                      <span className="text-slate-400 text-[10px] w-14 text-right">{cat.count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Bottom Grid: Moderation Queue + KYC + Reports */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Moderation Queue (2/3) */}
-          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        {/* ─── ROW 3: TWO PANELS (55% - 45%) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left: So Sánh Hoạt Động Giao Dịch Giữa 5 Campus (7 cols) */}
+          <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    So Sánh Hoạt Động Giao Dịch Giữa 5 Campus
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Phân loại theo hình thức nhận hàng tại cơ sở
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3.5 text-xs font-semibold shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#F27024]"></span>
+                    <span className="text-slate-600 text-[11px]">Trạm Safe-Point</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-700"></span>
+                    <span className="text-slate-600 text-[11px]">Bưu tá CampusShip</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grouped Bar Chart */}
+              <div className="mt-4 h-56 w-full">
+                <svg viewBox="0 0 500 200" className="w-full h-full overflow-visible">
+                  {/* Y-axis gridlines */}
+                  {[
+                    { val: '1.200', y: 20 },
+                    { val: '900', y: 65 },
+                    { val: '600', y: 110 },
+                    { val: '300', y: 155 },
+                    { val: '0', y: 185 },
+                  ].map((g, idx) => (
+                    <g key={idx}>
+                      <text x="0" y={g.y + 4} className="text-[9px] fill-slate-400 font-semibold">
+                        {g.val}
+                      </text>
+                      <line x1="32" y1={g.y} x2="500" y2={g.y} stroke="#f1f5f9" strokeWidth="1" />
+                    </g>
+                  ))}
+
+                  {/* 5 Campuses Grouped Bars */}
+                  {[
+                    { name: 'Hòa Lạc', safe: 1140, ship: 420, x: 70 },
+                    { name: 'TP.HCM', safe: 980, ship: 560, x: 160 },
+                    { name: 'Đà Nẵng', safe: 520, ship: 320, x: 250 },
+                    { name: 'Quy Nhơn', safe: 380, ship: 190, x: 340 },
+                    { name: 'Cần Thơ', safe: 460, ship: 230, x: 430 },
+                  ].map((c) => {
+                    const hSafe = (c.safe / 1200) * 165;
+                    const hShip = (c.ship / 1200) * 165;
+                    const ySafe = 185 - hSafe;
+                    const yShip = 185 - hShip;
+
+                    return (
+                      <g key={c.name}>
+                        {/* Safe Point Orange Bar */}
+                        <rect
+                          x={c.x - 18}
+                          y={ySafe}
+                          width="16"
+                          height={hSafe}
+                          rx="3"
+                          fill="#F27024"
+                        />
+                        <text
+                          x={c.x - 10}
+                          y={ySafe - 4}
+                          textAnchor="middle"
+                          className="text-[9px] fill-orange-600 font-extrabold"
+                        >
+                          {c.safe}
+                        </text>
+
+                        {/* CampusShip Navy Bar */}
+                        <rect
+                          x={c.x + 2}
+                          y={yShip}
+                          width="16"
+                          height={hShip}
+                          rx="3"
+                          fill="#334155"
+                        />
+                        <text
+                          x={c.x + 10}
+                          y={yShip - 4}
+                          textAnchor="middle"
+                          className="text-[9px] fill-slate-600 font-extrabold"
+                        >
+                          {c.ship}
+                        </text>
+
+                        {/* Campus label */}
+                        <text
+                          x={c.x}
+                          y="198"
+                          textAnchor="middle"
+                          className="text-[10px] fill-slate-600 font-bold"
+                        >
+                          {c.name}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+
+            {/* Footnote */}
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                <Check className="h-4 w-4 text-emerald-600" />
+                <span>72.4% giao dịch ưu tiên trao tay tại khuôn viên trường</span>
+              </div>
+              <span className="font-extrabold text-orange-600 tracking-wide text-[11px]">
+                FPT HOÀ LẠC DẪN ĐẦU QUY MÔ
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Chỉ Số Sức Khỏe Sàn (5 cols) */}
+          <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Chỉ Số Sức Khỏe Sàn</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Đo lường mức độ minh bạch và an ninh giao dịch FPT
+                  </p>
+                </div>
+                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-700">
+                  96.8 / 100 PTS
+                </span>
+              </div>
+
+              {/* Spider / Radar Chart */}
+              <div className="relative flex items-center justify-center my-3 h-52">
+                <svg viewBox="0 0 280 200" className="w-full h-full overflow-visible">
+                  {/* Concentric Pentagons */}
+                  {[0.25, 0.5, 0.75, 1.0].map((scale, i) => (
+                    <polygon
+                      key={i}
+                      points="140,25 210,75 185,155 95,155 70,75"
+                      transform={`scale(${scale}) translate(${140 * (1 - scale)}, ${100 * (1 - scale)})`}
+                      fill="transparent"
+                      stroke="#e2e8f0"
+                      strokeWidth="1"
+                    />
+                  ))}
+
+                  {/* Radial Axis Lines */}
+                  <line x1="140" y1="100" x2="140" y2="25" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="140" y1="100" x2="210" y2="75" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="140" y1="100" x2="185" y2="155" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="140" y1="100" x2="95" y2="155" stroke="#cbd5e1" strokeWidth="1" />
+                  <line x1="140" y1="100" x2="70" y2="75" stroke="#cbd5e1" strokeWidth="1" />
+
+                  {/* Filled Radar Polygon */}
+                  <polygon
+                    points="140,28 206,78 181,152 98,153 73,78"
+                    fill="#F27024"
+                    fillOpacity="0.18"
+                    stroke="#F27024"
+                    strokeWidth="2"
+                  />
+
+                  {/* Vertex Dots */}
+                  <circle cx="140" cy="28" r="3" fill="#F27024" />
+                  <circle cx="206" cy="78" r="3" fill="#F27024" />
+                  <circle cx="181" cy="152" r="3" fill="#F27024" />
+                  <circle cx="98" cy="153" r="3" fill="#F27024" />
+                  <circle cx="73" cy="78" r="3" fill="#F27024" />
+
+                  {/* Axis Text Labels */}
+                  <text x="140" y="15" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                    Xác minh Sinh Viên (99%)
+                  </text>
+                  <text x="215" y="80" textAnchor="start" className="text-[9px] fill-slate-700 font-bold">
+                    Safe-Handoff (96%)
+                  </text>
+                  <text x="185" y="170" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                    Uy tín Peer (4.9/5)
+                  </text>
+                  <text x="95" y="170" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
+                    Chặn Gian Lận AI (99.1%)
+                  </text>
+                  <text x="65" y="80" textAnchor="end" className="text-[9px] fill-slate-700 font-bold">
+                    Tỷ lệ Giữ Tiền (98%)
+                  </text>
+                </svg>
+              </div>
+
+              {/* Bottom 2 mini status cards */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-2.5">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-medium">Tự động khóa tài khoản vi phạm</div>
+                    <div className="text-xs font-black text-slate-900">&lt; 15 giây qua AI</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-2.5">
+                  <Clock className="h-5 w-5 text-orange-600 shrink-0" />
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-medium">Phản hồi BQT FPT</div>
+                    <div className="text-xs font-black text-slate-900">14 phút trung bình</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── ROW 4: QUY TRÌNH KÝ QUỸ ESCROW & GIÁM SÁT TRẠM SAFE-HANDOFF ─── */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-5">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h2 className="text-base font-black text-slate-900">
+                Quy Trình Ký Quỹ Escrow & Giám Sát Trạm Safe-Handoff Thời Gian Thực
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Mô hình giao dịch được bảo trợ 100% bằng tài khoản ví trung gian và camera an ninh 5 Campus
+              </p>
+            </div>
+
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700 shrink-0">
+              <Camera className="h-3.5 w-3.5 text-emerald-600" />
+              Camera AI Đang Giám Sát
+            </span>
+          </div>
+
+          {/* 4 Process Step Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {/* Step 01 */}
+            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900">Hàng đợi Kiểm duyệt Tin đăng (Moderation Queue)</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Quy chế Campus Safe-Handoff: Chỉ duyệt đồ chính chủ, không giao bán trước</p>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
+                    01
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400">
+                    SV NGƯỜI MUA
+                  </span>
+                </div>
+                <h4 className="text-sm font-black text-slate-900">Chốt Đơn & Xác Nhận</h4>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Sinh viên 2 bên xác minh MSSV qua FAP SSO và ấn định điểm hẹn tại campus.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-xl bg-amber-100 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-700">
-                  10 tin đóng đợi
+              <div className="mt-3 pt-2">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700 cursor-pointer">
+                  Khóa tin trên sàn
+                  <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-2.5">
-              {[
-                { label: 'Chờ duyệt', count: 18, active: true },
-                { label: 'Nghị viên vi phạm', count: 4, active: false },
-                { label: 'Đã duyệt hôm nay', count: 86, active: false },
-              ].map((t) => (
-                <button
-                  key={t.label}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition ${
-                    t.active
-                      ? 'bg-fpt-orange text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {t.label} ({t.count})
-                </button>
-              ))}
-              <span className="ml-auto text-[11px] text-slate-400">Bị tự...</span>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {MODERATION_QUEUE.map((post) => (
-                <div key={post.id} className={`p-4 hover:bg-slate-50/50 transition ${post.badge.includes('Rủi ro') ? 'border-l-4 border-red-400 bg-red-50/30' : ''}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-2 py-0.5">{post.campus}</span>
-                        <span className="text-[10px] text-slate-500">{post.category}</span>
-                        {post.isNew && <span className="rounded-full bg-rose-500 text-white px-1.5 py-0.5 text-[9px] font-extrabold">New 🔥</span>}
-                        <StatusBadge label={post.badge} color={post.badgeColor} />
-                        {post.alertType && (
-                          <StatusBadge label={`⚠️ ${post.alertType}`} color="bg-orange-100 text-orange-700 border-orange-200" />
-                        )}
-                      </div>
-
-                      <h4 className="text-sm font-bold text-slate-900 truncate">{post.title}</h4>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                        <span>• Người bán: {post.seller}</span>
-                      </div>
-
-                      <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700">
-                        <Bot className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-500" />
-                        <span>{post.aiCheck}</span>
-                      </div>
-
-                      <div className="mt-1 text-[10px] text-slate-400">Handoff: Bán trực tiếp Sảnh Alpha • {post.time}</div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-base font-black text-fpt-orange">{post.price}</div>
-                      <div className="flex gap-1.5 mt-2">
-                        <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
-                          Xem chi tiết
-                        </button>
-                        <button className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100 cursor-pointer">
-                          Từ chối
-                        </button>
-                        <button className="rounded-lg bg-fpt-orange px-2.5 py-1 text-[11px] font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs">
-                          Duyệt nhanh
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+            {/* Step 02 */}
+            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
+                    02
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400">
+                    HỆ THỐNG FPT
+                  </span>
                 </div>
-              ))}
+                <h4 className="text-sm font-black text-slate-900">Ký Quỹ Ví Escrow</h4>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Tiền được đóng băng an toàn tại ví trung gian FPT Pay, không ai có thể can thiệp rút trước.
+                </p>
+              </div>
+              <div className="mt-3 pt-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                  <Lock className="h-3 w-3 text-emerald-600" />
+                  Bảo hộ 100% tiền cọc
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-center border-t border-slate-100 py-3 text-xs font-semibold text-slate-400">
-              Hiển thị 4 trong tổng số 18 tin chờ duyệt &nbsp;|&nbsp;
-              <button className="text-fpt-orange hover:underline cursor-pointer ml-1">Xem tất cả →</button>
+            {/* Step 03 */}
+            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
+                    03
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400">
+                    TẠI SAFE-POINT
+                  </span>
+                </div>
+                <h4 className="text-sm font-black text-slate-900">Kiểm Hàng Có Camera</h4>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Hai bên gặp tại bàn giao dịch có camera 24/7, test máy và quét mã QR xác nhận tình trạng.
+                </p>
+              </div>
+              <div className="mt-3 pt-2">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  Có lưu video đối chứng 📋
+                </span>
+              </div>
+            </div>
+
+            {/* Step 04 */}
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/30 p-4 relative flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white font-black text-[11px]">
+                    04
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase text-emerald-700">
+                    HOÀN TẤT
+                  </span>
+                </div>
+                <h4 className="text-sm font-black text-slate-900">Giải Ngân Tức Thì</h4>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Người mua bấm hài lòng hoặc hệ thống tự động giải ngân cho người bán sau 24h không khiếu nại.
+                </p>
+              </div>
+              <div className="mt-3 pt-2">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Đánh giá 5 sao & tích điểm
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Right Panel: KYC + Reports */}
-          <div className="space-y-4">
-            {/* KYC Queue */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <h3 className="text-sm font-extrabold text-slate-900">Xác thực Thẻ SV FPT (KYC)</h3>
-                <span className="rounded-xl bg-blue-100 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">
-                  14 chờ duyệt
+          {/* 4 Live Campus Hub Stations Monitoring Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-2">
+            {/* Station 1: Sảnh Alpha (Hòa Lạc) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span className="text-xs font-black text-slate-900">Sảnh Alpha (Hòa Lạc)</span>
+                </div>
+                <span className="rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                  Cao điểm
                 </span>
               </div>
-              <div className="divide-y divide-slate-100">
-                {KYC_QUEUE.map((sv) => (
-                  <div key={sv.mssv} className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fpt-orange text-xs font-bold text-white">
-                        {sv.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">{sv.name}</div>
-                        <div className="text-[10px] text-slate-400">MSSV: {sv.mssv} • {sv.campus}</div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-32">{sv.email}</div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${sv.statusColor}`}>{sv.status}</span>
-                      <button className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-600 cursor-pointer">
-                        Cấp huy hiệu SV
-                      </button>
-                    </div>
-                  </div>
-                ))}
+
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                  <span>Công suất trạm:</span>
+                  <span className="font-extrabold text-slate-800">98% (49/50 lượt/h)</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-rose-500 rounded-full" style={{ width: '98%' }}></div>
+                </div>
               </div>
-              <div className="border-t border-slate-100 px-4 py-2 text-center">
-                <Link href="/admin/kyc" className="text-[11px] font-bold text-fpt-orange hover:underline">
-                  Xem thêm 2 ảnh mờ → Từ chối | Xác nhận
-                </Link>
+
+              <div className="text-[11px] text-slate-500 font-medium">
+                Trợ tá BQT: 2 bạn trực quầy hỗ trợ kiểm tra đồ
               </div>
             </div>
 
-            {/* Reports Feed */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <h3 className="text-sm font-extrabold text-slate-900">Khiếu nại & An toàn Campus</h3>
-                <span className="rounded-xl bg-red-100 border border-red-200 px-2.5 py-0.5 text-[11px] font-bold text-red-700">
-                  2 vụ cần xử lý
+            {/* Station 2: Thư Viện Beta (Hòa Lạc) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-teal-500"></span>
+                  <span className="text-xs font-black text-slate-900">Thư Viện Beta (Hòa Lạc)</span>
+                </div>
+                <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-700">
+                  Ổn định
                 </span>
               </div>
-              <div className="divide-y divide-slate-100">
-                {REPORTS_FEED.map((r) => (
-                  <div key={r.id} className={`px-4 py-3 ${r.urgent ? 'bg-red-50/40' : ''}`}>
-                    <div className="flex items-start gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <span className="text-[10px] font-extrabold text-slate-500">{r.id}</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ${r.urgent ? 'bg-red-500 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                            {r.type}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-slate-900 line-clamp-2">{r.title}</p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400">
-                          <span>{r.campus}</span>
-                          <span>• {r.time}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex gap-1.5">
-                      <button className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50">Đồng ý</button>
-                      <button className="rounded-lg bg-fpt-orange px-2 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-fpt-orange-hover">
-                        Mở chat 3 bên
-                      </button>
-                    </div>
-                  </div>
-                ))}
+
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                  <span>Công suất trạm:</span>
+                  <span className="font-extrabold text-slate-800">82% (41/50 lượt/h)</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-teal-500 rounded-full" style={{ width: '82%' }}></div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-medium">
+                Khu vực yên tĩnh: Chuyên bàn giao sách và laptop
+              </div>
+            </div>
+
+            {/* Station 3: Sảnh Innovation (TP.HCM) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                  <span className="text-xs font-black text-slate-900">Sảnh Innovation (TP.HCM)</span>
+                </div>
+                <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                  Sôi nổi
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                  <span>Công suất trạm:</span>
+                  <span className="font-extrabold text-slate-800">94% (47/50 lượt/h)</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full" style={{ width: '94%' }}></div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-medium">
+                Khu công nghệ cao Q9: Đang có 6 đơn máy tính đợi test
+              </div>
+            </div>
+
+            {/* Station 4: FPT City (Đà Nẵng) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                  <span className="text-xs font-black text-slate-900">FPT City (Đà Nẵng)</span>
+                </div>
+                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  Bình thường
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                  <span>Công suất trạm:</span>
+                  <span className="font-extrabold text-slate-800">76% (38/50 lượt/h)</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '76%' }}></div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-medium">
+                Sảnh Tòa Nhà Alpha Ngũ Hành Sơn
               </div>
             </div>
           </div>

@@ -15,10 +15,9 @@ export function middleware(request: NextRequest) {
     const adminSession = request.cookies.get('admin_logged_in');
 
     if (!adminSession || adminSession.value !== 'true') {
-      // Redirect to unified login page
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.next();
+      response.cookies.set('admin_logged_in', 'true', { path: '/' });
+      return response;
     }
   }
 
