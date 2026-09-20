@@ -16,11 +16,14 @@ import {
   X,
 } from 'lucide-react';
 import { useAdminStore } from '@/stores/adminStore';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const NAV_ITEMS = [
   { label: 'Tổng quan Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Tin đăng & Kiểm duyệt', href: '/admin/posts', icon: FileText, badge: '8', badgeColor: 'bg-amber-800 text-white' },
-  { label: 'Xác minh Thẻ SV', href: '/admin/kyc', icon: ShieldCheck, badge: '14', badgeColor: 'bg-emerald-700 text-white' },
+  { label: 'Tin đăng & Kiểm duyệt', href: '/admin/posts', icon: FileText, badge: '8', badgeColor: 'bg-amber-800 text-white border-transparent' },
+  { label: 'Xác minh Thẻ SV', href: '/admin/kyc', icon: ShieldCheck, badge: '14', badgeColor: 'bg-emerald-700 text-white border-transparent' },
   { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
   { label: 'Báo cáo & Gian lận', href: '/admin/reports', icon: AlertTriangle },
   { label: 'Safe-Handoff Hub', href: '/admin/safehandoff', icon: MapPin },
@@ -69,14 +72,15 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           </div>
 
           {/* Close button on mobile */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+            className="lg:hidden h-8 w-8 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
             aria-label="Đóng menu"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Live System Status Pill */}
@@ -89,9 +93,9 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               </span>
               <span className="text-[11px] font-bold text-slate-700">Safe System Live</span>
             </div>
-            <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-bold text-slate-600 border border-slate-200/80 shadow-2xs">
+            <Badge variant="outline" className="bg-white px-2 py-0.5 text-[9px] font-bold text-slate-600 border-slate-200/80 shadow-2xs">
               5 Cơ sở
-            </span>
+            </Badge>
           </div>
         </div>
 
@@ -121,13 +125,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  <Badge
+                    className={`px-1.5 py-0.2 text-[10px] font-bold ${
                       item.badgeColor || 'bg-slate-200 text-slate-700'
                     }`}
                   >
                     {item.badge}
-                  </span>
+                  </Badge>
                 )}
               </Link>
             );
@@ -136,20 +140,25 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
         {/* Footer / Switch back to SV marketplace & Profile */}
         <div className="p-3 border-t border-slate-100 space-y-2">
-          <Link
-            href="/"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-700 border border-blue-200/70 px-3 py-2 text-xs font-bold transition shadow-2xs"
+          <Button
+            asChild
+            variant="outline"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-700 border border-blue-200/70 px-3 py-2 text-xs font-bold transition shadow-2xs h-auto"
           >
-            <Store className="h-4 w-4 text-blue-600" />
-            <span>Về Marketplace SV</span>
-          </Link>
+            <Link href="/" onClick={onClose}>
+              <Store className="h-4 w-4 text-blue-600" />
+              <span>Về Marketplace SV</span>
+            </Link>
+          </Button>
 
           {/* User Card */}
           <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200/70 p-2.5">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 font-bold text-white text-xs shadow-xs">
-                {admin?.avatarInitial || 'Q'}
-              </div>
+              <Avatar size="md" className="h-8 w-8 shrink-0">
+                <AvatarFallback>
+                  {admin?.avatarInitial || 'Q'}
+                </AvatarFallback>
+              </Avatar>
               <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate">
                   {admin?.name || 'Lê Minh Quân'}
@@ -159,9 +168,9 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 </div>
               </div>
             </div>
-            <button className="text-slate-400 hover:text-slate-600 p-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600 p-0">
               <MoreVertical className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>

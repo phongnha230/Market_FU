@@ -31,6 +31,11 @@ import SettingsModal from '@/components/modals/SettingsModal';
 import { CAMPUSES } from '@/constants/marketplace';
 import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
 interface NavbarProps {
   selectedCampus?: string;
@@ -223,28 +228,34 @@ export default function Navbar({
           </button>
 
           {/* Notification button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             title="Thông báo"
             onClick={() => showToast('🔔 Bạn có 3 thông báo mới từ bạn bè cùng Campus!')}
             className="relative rounded-full p-2 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white">
+            <Badge variant="destructive" className="absolute top-1.5 right-1.5 flex h-4 w-4 p-0 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white">
               3
-            </span>
-          </button>
+            </Badge>
+          </Button>
 
           {/* Chat message button */}
-          <Link
-            href="/chat"
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
             title="Tin nhắn"
             className="relative rounded-full p-2 text-slate-600 hover:bg-slate-100 transition-colors"
           >
-            <MessageSquare className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white">
-              2
-            </span>
-          </Link>
+            <Link href="/chat">
+              <MessageSquare className="h-5 w-5" />
+              <Badge variant="fpt" className="absolute top-1.5 right-1.5 flex h-4 w-4 p-0 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white border-transparent">
+                2
+              </Badge>
+            </Link>
+          </Button>
 
           {/* FPT Coin Widget */}
           {isLoggedIn && (
@@ -260,36 +271,41 @@ export default function Navbar({
           )}
 
           {/* + Đăng bán / Mở Seller CTA Button */}
-          <Link
-            href="/create-post"
-            className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold shadow-xs transition-all active:scale-95 ${
+          <Button
+            asChild
+            className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold shadow-xs transition-all active:scale-95 h-auto ${
               isSeller
                 ? 'bg-fpt-orange text-white hover:bg-fpt-orange-hover hover:shadow'
                 : 'bg-orange-50 text-fpt-orange border border-orange-200 hover:bg-orange-100'
             }`}
           >
-            {isSeller ? (
-              <>
-                <Plus className="h-4 w-4 stroke-[2.5]" />
-                <span className="hidden sm:inline">Đăng bán</span>
-              </>
-            ) : (
-              <>
-                <Store className="h-4 w-4" />
-                <span className="hidden sm:inline">Mở Seller</span>
-              </>
-            )}
-          </Link>
+            <Link href="/create-post">
+              {isSeller ? (
+                <>
+                  <Plus className="h-4 w-4 stroke-[2.5]" />
+                  <span className="hidden sm:inline">Đăng bán</span>
+                </>
+              ) : (
+                <>
+                  <Store className="h-4 w-4" />
+                  <span className="hidden sm:inline">Mở Seller</span>
+                </>
+              )}
+            </Link>
+          </Button>
 
           {/* USER PROFILE PILL OR LOGIN BUTTON */}
           {!isLoggedIn ? (
-            <Link
-              href="/login"
-              className="flex items-center gap-1.5 rounded-xl border border-fpt-orange bg-orange-50 px-3.5 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition shadow-xs"
+            <Button
+              asChild
+              variant="outline"
+              className="flex items-center gap-1.5 rounded-xl border border-fpt-orange bg-orange-50 px-3.5 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition shadow-xs h-auto"
             >
-              <User className="h-4 w-4" />
-              <span>Đăng nhập</span>
-            </Link>
+              <Link href="/login">
+                <User className="h-4 w-4" />
+                <span>Đăng nhập</span>
+              </Link>
+            </Button>
           ) : (
             <div className="relative">
               <button
@@ -301,9 +317,11 @@ export default function Navbar({
                     : 'border-slate-200 bg-slate-50/80 hover:border-slate-300'
                 }`}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fpt-blue text-xs font-bold text-white shadow-xs">
-                  {userData.name.charAt(userData.name.lastIndexOf(' ') + 1) || 'Q'}
-                </div>
+                <Avatar size="sm" className="h-7 w-7">
+                  <AvatarFallback className="bg-fpt-blue text-xs font-bold text-white shadow-xs">
+                    {userData.name.charAt(userData.name.lastIndexOf(' ') + 1) || 'Q'}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="hidden sm:flex flex-col text-left">
                   <span className="text-xs font-semibold text-slate-800 leading-tight">
                     {userData.name}
@@ -322,7 +340,7 @@ export default function Navbar({
                     className="fixed inset-0 z-40"
                     onClick={() => setIsUserMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 z-50 w-72 sm:w-80 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xl space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                  <Card className="absolute right-0 top-full mt-2 z-50 w-72 sm:w-80 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xl space-y-2 animate-in fade-in zoom-in-95 duration-150">
                     {/* Header info */}
                     <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
                       <div className="flex items-center gap-3">
@@ -436,7 +454,7 @@ export default function Navbar({
                         <span>Tin đăng của tôi</span>
                       </Link>
 
-                      <div className="border-t border-slate-100 my-1"></div>
+                      <Separator className="my-1" />
 
                       <Link
                         href="/login"
@@ -451,7 +469,7 @@ export default function Navbar({
                         <span>Đăng xuất tài khoản</span>
                       </Link>
                     </div>
-                  </div>
+                  </Card>
                 </>
               )}
             </div>

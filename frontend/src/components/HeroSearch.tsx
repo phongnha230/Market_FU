@@ -12,6 +12,9 @@ import {
   PlusCircle,
   TrendingUp,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface HeroSearchProps {
   onSearch?: (query: string, campus: string, category: string) => void;
@@ -71,10 +74,10 @@ export default function HeroSearch({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div className="space-y-2">
             {/* Campus Trust Badge */}
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-100/70 px-3 py-1 text-xs font-semibold text-fpt-orange">
+            <Badge variant="fpt" className="gap-1.5 px-3 py-1 text-xs font-semibold normal-case">
               <ShieldCheck className="h-3.5 w-3.5" />
               <span>Sàn giao dịch sinh viên FPT University</span>
-            </div>
+            </Badge>
 
             {/* Main Headline */}
             <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black tracking-tight text-slate-900 leading-tight">
@@ -94,13 +97,15 @@ export default function HeroSearch({
 
           {/* Right Action Button */}
           <div className="shrink-0">
-            <Link
-              href="/create-post"
-              className="inline-flex items-center gap-2 rounded-xl bg-fpt-orange px-5 py-3 text-sm font-semibold text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-95"
+            <Button
+              asChild
+              className="gap-2 rounded-xl bg-fpt-orange px-5 py-3 h-auto text-sm font-semibold text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-95"
             >
-              <PlusCircle className="h-4 w-4" />
-              <span>+ Đăng bán ngay</span>
-            </Link>
+              <Link href="/create-post">
+                <PlusCircle className="h-4 w-4" />
+                <span>+ Đăng bán ngay</span>
+              </Link>
+            </Button>
           </div>
         </div>
 
@@ -113,12 +118,12 @@ export default function HeroSearch({
             {/* 1. Keyword search input */}
             <div className="flex flex-1 items-center gap-3 px-3 py-2.5">
               <Search className="h-5 w-5 text-slate-400 shrink-0" />
-              <input
+              <Input
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="Tìm kiếm giáo trình, laptop, chuột, tủ lạnh mini, đồ decor phòng KTX..."
-                className="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
+                className="w-full bg-transparent border-0 shadow-none focus-visible:ring-0 px-0 h-auto text-sm text-slate-800 placeholder-slate-400"
               />
             </div>
 
@@ -164,13 +169,13 @@ export default function HeroSearch({
 
             {/* 4. Search submit button */}
             <div className="p-1 shrink-0">
-              <button
+              <Button
                 type="submit"
-                className="flex w-full lg:w-auto items-center justify-center gap-2 rounded-xl bg-fpt-orange px-6 py-3 text-sm font-semibold text-white shadow-xs hover:bg-fpt-orange-hover transition-colors active:scale-98 cursor-pointer"
+                className="flex w-full lg:w-auto items-center justify-center gap-2 rounded-xl bg-fpt-orange px-6 py-3 h-auto text-sm font-semibold text-white shadow-xs hover:bg-fpt-orange-hover transition-colors active:scale-98 cursor-pointer"
               >
                 <Search className="h-4 w-4" />
                 <span>Tìm kiếm</span>
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -183,14 +188,16 @@ export default function HeroSearch({
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
             {trendingTags.map((tag) => (
-              <button
+              <Button
                 key={tag}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => handleTagClick(tag)}
-                className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-medium text-slate-600 transition hover:border-fpt-orange/40 hover:bg-orange-50 hover:text-fpt-orange"
+                className="rounded-full border-slate-200 bg-white/80 px-3 py-1 h-auto text-xs font-medium text-slate-600 hover:border-fpt-orange/40 hover:bg-orange-50 hover:text-fpt-orange"
               >
                 {tag}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

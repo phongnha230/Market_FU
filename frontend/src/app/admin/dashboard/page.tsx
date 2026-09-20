@@ -2,6 +2,10 @@
 
 import React, { useState } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Wallet,
   ArrowLeftRight,
@@ -33,10 +37,10 @@ export default function AdminDashboard() {
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200/80 px-2.5 py-0.5 text-[11px] font-extrabold text-orange-600">
+              <Badge variant="fpt" className="normal-case text-[11px] gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse"></span>
                 TOÀN QUỐC • REALTIME ESCROW
-              </span>
+              </Badge>
               <span className="text-xs text-slate-400 font-medium">Cập nhật lúc 10:42 sáng nay</span>
             </div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -87,26 +91,31 @@ export default function AdminDashboard() {
             </div>
 
             {/* Refresh button */}
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {}}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-slate-700 transition shadow-2xs cursor-pointer active:scale-95"
+              className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-slate-700 shadow-2xs h-auto"
             >
               <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
               <span>Làm mới</span>
-            </button>
+            </Button>
 
             {/* Export button */}
-            <button className="flex items-center gap-1.5 rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 transition cursor-pointer active:scale-95">
+            <Button
+              size="sm"
+              className="rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 h-auto"
+            >
               <Download className="h-3.5 w-3.5" />
               <span>Xuất báo cáo</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* ─── ROW 1: 4 KEY METRIC STAT CARDS ─── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4.5">
           {/* Card 1: Tổng quỹ Escrow bảo hộ */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-orange-200 transition">
+          <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-2xs hover:border-orange-200 transition">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                 TỔNG QUỸ ESCROW BẢO HỘ
@@ -146,17 +155,17 @@ export default function AdminDashboard() {
               </div>
 
               <div className="text-right">
-                <div className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5">
+                <Badge variant="fpt" className="gap-0.5 normal-case text-[11px] border-transparent font-bold">
                   <TrendingUp className="h-3 w-3" />
                   +18.4%
-                </div>
+                </Badge>
                 <div className="text-[10px] text-slate-400 mt-0.5">so với T8/2024</div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Card 2: Giao dịch thành công */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
+          <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                 GIAO DỊCH THÀNH CÔNG
@@ -184,17 +193,17 @@ export default function AdminDashboard() {
               </div>
 
               <div className="text-right">
-                <div className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5">
+                <Badge variant="success" className="gap-0.5 normal-case text-[11px] border-transparent font-bold">
                   <TrendingUp className="h-3 w-3" />
                   +12.6%
-                </div>
+                </Badge>
                 <div className="text-[10px] text-slate-400 mt-0.5">248 tin hôm nay</div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Card 3: Sinh viên đã KYC / SSO */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-blue-200 transition">
+          <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-2xs hover:border-blue-200 transition">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                 SINH VIÊN ĐÃ KYC / SSO
@@ -241,10 +250,10 @@ export default function AdminDashboard() {
                 <div className="text-[10px] text-slate-400 mt-0.5">Đồng bộ qua FAP Mail</div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Card 4: Tỷ lệ an toàn & Không tranh chấp */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
+          <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-2xs hover:border-emerald-200 transition">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                 TỶ LỆ AN TOÀN & KHÔNG TRANH CHẤP
@@ -259,23 +268,23 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-3.5 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+              <Badge variant="success" className="gap-1.5 normal-case text-[10px] py-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Escrow Active 24/7
-              </span>
+              </Badge>
 
               <div className="text-right">
                 <div className="text-[11px] font-extrabold text-rose-600">Chỉ 3 khiếu nại</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Đang xử lý trong 2h</div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* ─── ROW 2: DUAL ANALYSIS PANELS (65% - 35%) ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Panel (8 cols -> ~66%) */}
-          <div className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <Card className="lg:col-span-8 rounded-2xl border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               {/* Header & Legend */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -412,10 +421,10 @@ export default function AdminDashboard() {
                 <div className="text-sm font-black text-orange-600 mt-0.5">Alpha Hub - Hola (7 phút)</div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Right Panel: Cơ Cấu Danh Mục Đồ (4 cols -> ~34%) */}
-          <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <Card className="lg:col-span-4 rounded-2xl border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="pb-2.5 border-b border-slate-100">
                 <h3 className="text-sm font-black text-slate-900">Cơ Cấu Danh Mục Đồ</h3>
@@ -516,13 +525,13 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* ─── ROW 3: TWO PANELS (55% - 45%) ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: So Sánh Hoạt Động Giao Dịch Giữa 5 Campus (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <Card className="lg:col-span-7 rounded-2xl border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
@@ -540,14 +549,14 @@ export default function AdminDashboard() {
                     <span className="text-slate-600 text-[11px]">Trạm Safe-Point</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-slate-700"></span>
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-800"></span>
                     <span className="text-slate-600 text-[11px]">Bưu tá CampusShip</span>
                   </div>
                 </div>
               </div>
 
-              {/* Grouped Bar Chart */}
-              <div className="mt-4 h-56 w-full">
+              {/* Grouped Bar Chart SVG */}
+              <div className="relative mt-4 h-64 w-full">
                 <svg viewBox="0 0 500 200" className="w-full h-full overflow-visible">
                   {/* Y-axis gridlines */}
                   {[
@@ -642,10 +651,10 @@ export default function AdminDashboard() {
                 FPT HOÀ LẠC DẪN ĐẦU QUY MÔ
               </span>
             </div>
-          </div>
+          </Card>
 
           {/* Right: Chỉ Số Sức Khỏe Sàn (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <Card className="lg:col-span-5 rounded-2xl border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                 <div>
@@ -654,9 +663,9 @@ export default function AdminDashboard() {
                     Đo lường mức độ minh bạch và an ninh giao dịch FPT
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-700">
+                <Badge variant="success" className="px-2.5 py-0.5 text-[11px] font-extrabold normal-case">
                   96.8 / 100 PTS
-                </span>
+                </Badge>
               </div>
 
               {/* Spider / Radar Chart */}
@@ -735,11 +744,11 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* ─── ROW 4: QUY TRÌNH KÝ QUỸ ESCROW & GIÁM SÁT TRẠM SAFE-HANDOFF ─── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-5">
+        <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-xs space-y-5">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
@@ -751,16 +760,16 @@ export default function AdminDashboard() {
               </p>
             </div>
 
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700 shrink-0">
+            <Badge variant="success" className="gap-1.5 px-3 py-1 normal-case text-xs font-bold shrink-0">
               <Camera className="h-3.5 w-3.5 text-emerald-600" />
               Camera AI Đang Giám Sát
-            </span>
+            </Badge>
           </div>
 
           {/* 4 Process Step Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* Step 01 */}
-            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
+            <Card className="rounded-2xl border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
@@ -781,10 +790,10 @@ export default function AdminDashboard() {
                   <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Step 02 */}
-            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
+            <Card className="rounded-2xl border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
@@ -805,10 +814,10 @@ export default function AdminDashboard() {
                   Bảo hộ 100% tiền cọc
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Step 03 */}
-            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
+            <Card className="rounded-2xl border-orange-200/70 bg-orange-50/30 p-4 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F27024] text-white font-black text-[11px]">
@@ -828,10 +837,10 @@ export default function AdminDashboard() {
                   Có lưu video đối chứng 📋
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Step 04 */}
-            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/30 p-4 relative flex flex-col justify-between">
+            <Card className="rounded-2xl border-emerald-200/80 bg-emerald-50/30 p-4 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white font-black text-[11px]">
@@ -852,21 +861,21 @@ export default function AdminDashboard() {
                   Đánh giá 5 sao & tích điểm
                 </span>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* 4 Live Campus Hub Stations Monitoring Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-2">
             {/* Station 1: Sảnh Alpha (Hòa Lạc) */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse"></span>
                   <span className="text-xs font-black text-slate-900">Sảnh Alpha (Hòa Lạc)</span>
                 </div>
-                <span className="rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                <Badge variant="destructive" className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-50">
                   Cao điểm
-                </span>
+                </Badge>
               </div>
 
               <div>
@@ -874,26 +883,24 @@ export default function AdminDashboard() {
                   <span>Công suất trạm:</span>
                   <span className="font-extrabold text-slate-800">98% (49/50 lượt/h)</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-500 rounded-full" style={{ width: '98%' }}></div>
-                </div>
+                <Progress value={98} className="h-1.5 bg-slate-200" indicatorClassName="bg-rose-500" />
               </div>
 
               <div className="text-[11px] text-slate-500 font-medium">
                 Trợ tá BQT: 2 bạn trực quầy hỗ trợ kiểm tra đồ
               </div>
-            </div>
+            </Card>
 
             {/* Station 2: Thư Viện Beta (Hòa Lạc) */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-teal-500"></span>
                   <span className="text-xs font-black text-slate-900">Thư Viện Beta (Hòa Lạc)</span>
                 </div>
-                <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-700">
+                <Badge className="px-2 py-0.5 text-[10px] font-bold bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-50">
                   Ổn định
-                </span>
+                </Badge>
               </div>
 
               <div>
@@ -901,26 +908,24 @@ export default function AdminDashboard() {
                   <span>Công suất trạm:</span>
                   <span className="font-extrabold text-slate-800">82% (41/50 lượt/h)</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-teal-500 rounded-full" style={{ width: '82%' }}></div>
-                </div>
+                <Progress value={82} className="h-1.5 bg-slate-200" indicatorClassName="bg-teal-500" />
               </div>
 
               <div className="text-[11px] text-slate-500 font-medium">
                 Khu vực yên tĩnh: Chuyên bàn giao sách và laptop
               </div>
-            </div>
+            </Card>
 
             {/* Station 3: Sảnh Innovation (TP.HCM) */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
                   <span className="text-xs font-black text-slate-900">Sảnh Innovation (TP.HCM)</span>
                 </div>
-                <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                <Badge className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-50">
                   Sôi nổi
-                </span>
+                </Badge>
               </div>
 
               <div>
@@ -928,26 +933,24 @@ export default function AdminDashboard() {
                   <span>Công suất trạm:</span>
                   <span className="font-extrabold text-slate-800">94% (47/50 lượt/h)</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full" style={{ width: '94%' }}></div>
-                </div>
+                <Progress value={94} className="h-1.5 bg-slate-200" indicatorClassName="bg-amber-500" />
               </div>
 
               <div className="text-[11px] text-slate-500 font-medium">
                 Khu công nghệ cao Q9: Đang có 6 đơn máy tính đợi test
               </div>
-            </div>
+            </Card>
 
             {/* Station 4: FPT City (Đà Nẵng) */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
                   <span className="text-xs font-black text-slate-900">FPT City (Đà Nẵng)</span>
                 </div>
-                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <Badge variant="success" className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   Bình thường
-                </span>
+                </Badge>
               </div>
 
               <div>
@@ -955,17 +958,15 @@ export default function AdminDashboard() {
                   <span>Công suất trạm:</span>
                   <span className="font-extrabold text-slate-800">76% (38/50 lượt/h)</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '76%' }}></div>
-                </div>
+                <Progress value={76} className="h-1.5 bg-slate-200" indicatorClassName="bg-emerald-500" />
               </div>
 
               <div className="text-[11px] text-slate-500 font-medium">
                 Sảnh Tòa Nhà Alpha Ngũ Hành Sơn
               </div>
-            </div>
+            </Card>
           </div>
-        </div>
+        </Card>
       </div>
     </AdminLayoutShell>
   );

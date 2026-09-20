@@ -11,6 +11,11 @@ import {
   Building2,
   X,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface FilterSidebarProps {
   onApply?: (filters: any) => void;
@@ -140,14 +145,16 @@ export default function FilterSidebar({
             Bộ lọc tìm kiếm
           </h3>
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={handleReset}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-fpt-orange transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 h-auto p-0 text-xs font-semibold text-slate-500 hover:text-fpt-orange hover:bg-transparent transition-colors cursor-pointer"
         >
           <RotateCcw className="h-3 w-3" />
           <span>Đặt lại</span>
-        </button>
+        </Button>
       </div>
 
       {/* SECTION 1: CƠ SỞ / CAMPUS */}
@@ -182,7 +189,7 @@ export default function FilterSidebar({
         </div>
       </div>
 
-      <div className="border-t border-slate-100" />
+      <Separator className="bg-slate-100" />
 
       {/* SECTION 2: DANH MỤC ĐỒ DÙNG */}
       <div className="space-y-2.5">
@@ -209,16 +216,16 @@ export default function FilterSidebar({
                     {cat.label}
                   </span>
                 </div>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-semibold text-slate-500 hover:bg-slate-100">
                   {cat.count}
-                </span>
+                </Badge>
               </label>
             );
           })}
         </div>
       </div>
 
-      <div className="border-t border-slate-100" />
+      <Separator className="bg-slate-100" />
 
       {/* SECTION 3: KHOẢNG GIÁ (VND) */}
       <div className="space-y-3">
@@ -232,18 +239,20 @@ export default function FilterSidebar({
           {pricePresets.map((preset) => {
             const isSelected = currentPricePreset === preset.id;
             return (
-              <button
+              <Button
                 key={preset.id}
                 type="button"
+                variant={isSelected ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => handlePricePresetClick(preset.id)}
-                className={`rounded-lg py-1.5 px-2 text-xs font-medium transition ${
+                className={`rounded-lg py-1.5 px-2 h-auto text-xs font-medium transition ${
                   isSelected
-                    ? 'bg-orange-100 text-fpt-orange font-bold border border-orange-300'
-                    : 'bg-slate-100/80 text-slate-700 hover:bg-slate-200/70'
+                    ? 'bg-orange-100 text-fpt-orange font-bold border border-orange-300 hover:bg-orange-100'
+                    : 'border-transparent bg-slate-100/80 text-slate-700 hover:bg-slate-200/70 shadow-none'
                 }`}
               >
                 {preset.label}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -251,28 +260,28 @@ export default function FilterSidebar({
         {/* Min - Max Input Boxes */}
         <div className="flex items-center gap-2 pt-1">
           <div className="relative flex-1">
-            <input
+            <Input
               type="text"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
               placeholder="50.000"
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-fpt-orange"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 h-auto text-xs text-slate-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-fpt-orange"
             />
           </div>
           <span className="text-slate-400 text-xs">-</span>
           <div className="relative flex-1">
-            <input
+            <Input
               type="text"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
               placeholder="1.500.000"
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-fpt-orange"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 h-auto text-xs text-slate-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-fpt-orange"
             />
           </div>
         </div>
       </div>
 
-      <div className="border-t border-slate-100" />
+      <Separator className="bg-slate-100" />
 
       {/* SECTION 4: TÌNH TRẠNG SẢN PHẨM */}
       <div className="space-y-2.5">
@@ -311,7 +320,7 @@ export default function FilterSidebar({
         </div>
       </div>
 
-      <div className="border-t border-slate-100" />
+      <Separator className="bg-slate-100" />
 
       {/* SECTION 5: NƠI NHẬN HÀNG */}
       <div className="space-y-2.5">
@@ -344,20 +353,21 @@ export default function FilterSidebar({
 
       {/* ACTION BUTTONS */}
       <div className="space-y-2 pt-2">
-        <button
+        <Button
           type="button"
           onClick={handleApply}
-          className="w-full rounded-xl bg-fpt-orange py-2.5 text-center text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover hover:shadow transition-all active:scale-98 cursor-pointer"
+          className="w-full rounded-xl bg-fpt-orange py-2.5 h-auto text-center text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover hover:shadow transition-all active:scale-98 cursor-pointer"
         >
           Áp dụng bộ lọc ({resultCount})
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
           onClick={handleReset}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 text-center text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2 h-auto text-center text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
         >
           Xóa tất cả tùy chọn
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -365,9 +375,11 @@ export default function FilterSidebar({
   return (
     <>
       {/* Desktop Sidebar (Always visible) */}
-      <aside className="hidden lg:block w-72 shrink-0 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs h-fit sticky top-24">
-        {content}
-      </aside>
+      <Card asChild className="hidden lg:block w-72 shrink-0 rounded-2xl border-slate-200/80 bg-white p-5 shadow-xs h-fit sticky top-24">
+        <aside>
+          {content}
+        </aside>
+      </Card>
 
       {/* Mobile Drawer (When toggled) */}
       {isMobileOpen && (
@@ -379,12 +391,14 @@ export default function FilterSidebar({
           <div className="relative ml-auto flex h-full w-full max-w-xs flex-col overflow-y-auto bg-white p-5 shadow-xl">
             <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100">
               <span className="font-bold text-slate-900 text-sm">Bộ lọc</span>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={onCloseMobile}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                className="h-8 w-8 rounded-lg text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
             {content}
           </div>

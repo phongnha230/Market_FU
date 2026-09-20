@@ -2,13 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, Lock } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function SafetyBanner() {
   return (
     <section className="py-4">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-emerald-50/20 p-5 sm:p-6 shadow-xs">
+        <Card className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-emerald-50/20 p-5 sm:p-6 shadow-xs">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             {/* Left Info Group */}
             <div className="flex items-start sm:items-center gap-4">
@@ -27,21 +29,26 @@ export default function SafetyBanner() {
 
             {/* Right Action Buttons */}
             <div className="flex items-center gap-3 shrink-0">
-              <Link
-                href="/guidelines"
-                className="rounded-xl border border-slate-300/80 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-xl border border-slate-300/80 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition h-auto"
               >
-                Quy tắc giao dịch
-              </Link>
-              <Link
-                href="/safety"
-                className="rounded-xl bg-fpt-orange px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-fpt-orange-hover transition"
+                <Link href="/guidelines">
+                  Quy tắc giao dịch
+                </Link>
+              </Button>
+              <Button
+                asChild
+                className="rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs transition h-auto"
               >
-                Bảo vệ bạn
-              </Link>
+                <Link href="/safety">
+                  Bảo vệ bạn
+                </Link>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </section>
   );

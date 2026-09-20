@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   Heart,
   MapPin,
   CheckCircle2,
-  Clock,
-  Tag,
 } from 'lucide-react';
 import { ProductItem } from '@/types/product';
 import { useFavoriteStore } from '@/stores/favoriteStore';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export type { ProductItem };
 
@@ -31,25 +33,25 @@ export default function ProductCard({ product }: ProductCardProps) {
   const getBadgeStyle = (badge: string) => {
     switch (badge.toLowerCase()) {
       case 'pass gấp':
-        return 'bg-emerald-600 text-white';
+        return 'bg-emerald-600 text-white border-transparent';
       case 'like new':
       case 'mới 99%':
       case 'mới 98%':
-        return 'bg-amber-600 text-white';
+        return 'bg-amber-600 text-white border-transparent';
       case 'đã kiểm tra':
       case 'full box':
-        return 'bg-blue-600 text-white';
+        return 'bg-blue-600 text-white border-transparent';
       case 'tặng kèm':
-        return 'bg-teal-600 text-white';
+        return 'bg-teal-600 text-white border-transparent';
       case 'đã dùng 1 kỳ':
-        return 'bg-slate-700 text-white';
+        return 'bg-slate-700 text-white border-transparent';
       default:
-        return 'bg-fpt-orange text-white';
+        return 'bg-fpt-orange text-white border-transparent';
     }
   };
 
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden">
+    <Card className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden">
       {/* 1. TOP IMAGE CONTAINER */}
       <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
         <Link href={`/posts/${product.id}`} className="relative block h-full w-full">
@@ -65,46 +67,48 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Campus Tag Overlay */}
         {product.campusTag && (
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="rounded-md bg-slate-900/85 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+            <Badge className="rounded-md bg-slate-900/85 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white shadow-xs border-transparent normal-case">
               {product.campusTag}
-            </span>
+            </Badge>
           </div>
         )}
 
         {/* Status Badges Overlay at bottom of image */}
         <div className={`absolute ${product.campusTag ? 'bottom-2 left-2.5' : 'top-2.5 left-2.5'} right-10 flex flex-wrap gap-1 z-10`}>
           {product.badges.map((badge, idx) => (
-            <span
+            <Badge
               key={idx}
               className={`rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase shadow-xs ${getBadgeStyle(
                 badge
               )}`}
             >
               {badge}
-            </span>
+            </Badge>
           ))}
         </div>
 
         {/* Wishlist / Heart Button */}
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             toggleFavorite(product);
           }}
           title={isLiked ? 'Bỏ lưu tin yêu thích' : 'Lưu tin yêu thích'}
-          className="absolute top-2.5 right-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-slate-500 shadow-sm hover:text-rose-500 hover:bg-white transition-all active:scale-90"
+          className="absolute top-2.5 right-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-slate-500 shadow-sm hover:text-rose-500 hover:bg-white transition-all active:scale-90 p-0"
         >
           <Heart
             className={`h-4 w-4 transition-colors ${
               isLiked ? 'fill-rose-500 text-rose-500' : 'text-slate-600'
             }`}
           />
-        </button>
+        </Button>
       </div>
 
       {/* 2. CARD CONTENT */}
-      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4">
+      <CardContent className="flex flex-1 flex-col justify-between p-3.5 sm:p-4">
         <div>
           {/* Price Row */}
           <div className="flex items-baseline gap-2 mb-1.5">
@@ -143,9 +147,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           {/* Seller Info Row */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
             <div className="flex items-center gap-1.5 min-w-0">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 border border-slate-200">
-                {product.seller.initial}
-              </div>
+              <Avatar size="sm" className="h-5 w-5 text-[10px]">
+                <AvatarFallback className="bg-slate-100 text-slate-700 border border-slate-200 font-bold">
+                  {product.seller.initial}
+                </AvatarFallback>
+              </Avatar>
               <span className="font-medium text-slate-700 truncate">
                 {product.seller.name}
               </span>
@@ -161,7 +167,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

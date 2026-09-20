@@ -3,6 +3,9 @@
 import React from 'react';
 import { Bell, MapPin, ChevronDown, ArrowLeftRight, CheckCircle2, Menu } from 'lucide-react';
 import { useAdminStore, AdminCampus } from '@/stores/adminStore';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const CAMPUS_OPTIONS: { value: AdminCampus; label: string }[] = [
   { value: 'all', label: 'Tất cả 5 Cơ sở FPT' },
@@ -27,14 +30,16 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
       {/* Left: Hamburger (mobile) + Campus Selector + Live Quick Stats */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Mobile Hamburger Toggle Button */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onOpenSidebar}
-          className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+          className="lg:hidden h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
           aria-label="Mở menu quản trị"
         >
           <Menu className="h-4 w-4" />
-        </button>
+        </Button>
 
         {/* Campus Dropdown */}
         <div className="relative flex items-center gap-1 sm:gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 transition shadow-2xs">
@@ -81,22 +86,26 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
       {/* Right: Notification + Admin Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Notification Bell with Badge */}
-        <button
+        <Button
           type="button"
-          className="relative flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+          variant="ghost"
+          size="icon"
+          className="relative flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition cursor-pointer p-0"
           title="Thông báo hệ thống"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white ring-2 ring-white">
+          <Badge variant="destructive" className="absolute -right-0.5 -top-0.5 flex h-4 w-4 p-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white ring-2 ring-white">
             3
-          </span>
-        </button>
+          </Badge>
+        </Button>
 
         {/* Admin Profile Pill */}
         <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 font-black text-[12px] text-white shadow-xs">
-            {admin?.avatarInitial || 'Q'}
-          </div>
+          <Avatar size="sm" className="h-8 w-8">
+            <AvatarFallback>
+              {admin?.avatarInitial || 'Q'}
+            </AvatarFallback>
+          </Avatar>
           <div className="hidden sm:block text-left">
             <div className="text-xs font-bold text-slate-900 leading-tight">
               {admin?.name || 'Lê Minh Quân'}
