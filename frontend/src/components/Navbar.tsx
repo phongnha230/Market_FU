@@ -136,10 +136,10 @@ export default function Navbar({
       </div>
 
       {/* 2. MAIN NAVIGATION BAR */}
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Brand Logo */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center group transition-transform active:scale-98">
+        <div className="flex items-center gap-7 xl:gap-9 min-w-0">
+          <Link href="/" className="flex items-center group transition-transform active:scale-98 shrink-0">
             <div className="relative h-10 w-44 sm:h-11 sm:w-52">
               <Image
                 src="/fpt-5campus-logo.png"
@@ -152,10 +152,10 @@ export default function Navbar({
           </Link>
 
           {/* Nav links */}
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium">
+          <nav className="hidden lg:flex items-center gap-6 xl:gap-9 text-sm font-medium whitespace-nowrap">
             <Link
               href="/"
-              className={`relative py-1.5 transition-colors ${
+              className={`relative py-1.5 whitespace-nowrap transition-colors ${
                 activeTab === 'home'
                   ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
                   : 'text-slate-600 hover:text-slate-900'
@@ -165,7 +165,7 @@ export default function Navbar({
             </Link>
             <Link
               href="/posts"
-              className={`relative py-1.5 transition-colors ${
+              className={`relative py-1.5 whitespace-nowrap transition-colors ${
                 activeTab === 'explore'
                   ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
                   : 'text-slate-600 hover:text-slate-900'
@@ -175,7 +175,7 @@ export default function Navbar({
             </Link>
             <Link
               href="/vouchers"
-              className={`relative py-1.5 transition-colors ${
+              className={`relative py-1.5 whitespace-nowrap transition-colors ${
                 activeTab === 'vouchers'
                   ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
                   : 'text-slate-600 hover:text-slate-900'
@@ -185,7 +185,7 @@ export default function Navbar({
             </Link>
             <Link
               href="/favorites"
-              className={`relative py-1.5 transition-colors ${
+              className={`relative py-1.5 whitespace-nowrap transition-colors ${
                 activeTab === 'favorites'
                   ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
                   : 'text-slate-600 hover:text-slate-900'
@@ -193,67 +193,51 @@ export default function Navbar({
             >
               Yêu thích
             </Link>
-            <Link
-              href="/chat"
-              className={`relative py-1.5 transition-colors flex items-center gap-1.5 ${
-                activeTab === 'chat'
-                  ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>Tin nhắn</span>
-              <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white">
-                2
-              </span>
-            </Link>
           </nav>
         </div>
 
         {/* Right action tools */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-3.5 shrink-0">
           {/* Quick search button */}
           <Link
             href="/posts"
             title="Tìm kiếm tin đăng"
-            className="rounded-full p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
             <Search className="h-4.5 w-4.5" />
           </Link>
 
-          {/* Quick campus badge */}
-          <button className="hidden sm:flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50/70 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition cursor-pointer">
-            <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-            <span>{CAMPUSES.find((c) => c.id === currentCampus)?.shortName || 'Hòa Lạc'}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </button>
+          <Separator orientation="vertical" className="hidden sm:block h-5 w-[1px] bg-slate-200/80" />
 
           {/* Notification button */}
           <Button
             variant="ghost"
-            size="icon"
             title="Thông báo"
             onClick={() => showToast('🔔 Bạn có 3 thông báo mới từ bạn bè cùng Campus!')}
-            className="relative rounded-full p-2 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
           >
-            <Bell className="h-5 w-5" />
-            <Badge variant="destructive" className="absolute top-1.5 right-1.5 flex h-4 w-4 p-0 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white">
+            <Bell className="h-4.5 w-4.5" />
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
               3
-            </Badge>
+            </span>
           </Button>
 
           {/* Chat message button */}
           <Button
             asChild
             variant="ghost"
-            size="icon"
-            title="Tin nhắn"
-            className="relative rounded-full p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Tin nhắn (2 mới)"
+            className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
+              activeTab === 'chat'
+                ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
             <Link href="/chat">
-              <MessageSquare className="h-5 w-5" />
-              <Badge variant="fpt" className="absolute top-1.5 right-1.5 flex h-4 w-4 p-0 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white border-transparent">
+              <MessageSquare className="h-4.5 w-4.5" />
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
                 2
-              </Badge>
+              </span>
             </Link>
           </Button>
 
@@ -262,18 +246,20 @@ export default function Navbar({
             <Link
               href="/vouchers"
               title="Ví FPT Coin & Săn Voucher"
-              className="flex items-center gap-1.5 rounded-full bg-amber-50/90 border border-amber-200/90 px-2.5 py-1 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition shadow-2xs group cursor-pointer"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 px-3 py-1.5 text-xs font-bold text-amber-800 hover:from-amber-100 hover:to-orange-100 hover:border-amber-300 transition shadow-2xs group cursor-pointer"
             >
               <span className="text-sm leading-none">🪙</span>
               <span className="font-extrabold text-amber-900">{userData.coins}</span>
-              <span className="text-[10px] text-amber-600 font-medium hidden md:inline">Xu</span>
+              <span className="text-[10px] text-amber-600 font-semibold hidden md:inline">Xu</span>
             </Link>
           )}
+
+          <Separator orientation="vertical" className="hidden md:block h-5 w-[1px] bg-slate-200/80" />
 
           {/* + Đăng bán / Mở Seller CTA Button */}
           <Button
             asChild
-            className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold shadow-xs transition-all active:scale-95 h-auto ${
+            className={`h-9 flex items-center gap-1.5 rounded-xl px-4 text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-95 ${
               isSeller
                 ? 'bg-fpt-orange text-white hover:bg-fpt-orange-hover hover:shadow'
                 : 'bg-orange-50 text-fpt-orange border border-orange-200 hover:bg-orange-100'
@@ -311,13 +297,13 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className={`flex items-center gap-2 rounded-full border p-1 pr-3 transition-colors cursor-pointer ${
+                className={`flex items-center gap-2.5 rounded-full border p-1 pr-3.5 transition-all cursor-pointer ${
                   isUserMenuOpen
                     ? 'border-fpt-orange bg-orange-50/60 shadow-xs ring-2 ring-orange-100'
-                    : 'border-slate-200 bg-slate-50/80 hover:border-slate-300'
+                    : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-100/70 shadow-2xs'
                 }`}
               >
-                <Avatar size="sm" className="h-7 w-7">
+                <Avatar size="sm" className="h-7.5 w-7.5 ring-1 ring-slate-200">
                   <AvatarFallback className="bg-fpt-blue text-xs font-bold text-white shadow-xs">
                     {userData.name.charAt(userData.name.lastIndexOf(' ') + 1) || 'Q'}
                   </AvatarFallback>
@@ -330,7 +316,7 @@ export default function Navbar({
                     {userData.cohort}
                   </span>
                 </div>
-                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180 text-fpt-orange' : ''}`} />
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180 text-fpt-orange' : ''}`} />
               </button>
 
               {/* Dropdown Menu Card */}
