@@ -10,6 +10,7 @@ import {
   Camera,
   ShieldCheck,
 } from 'lucide-react';
+import { Card, Badge, Button } from '@/components/ui';
 
 interface DisputeEvidenceProps {
   description: string;
@@ -33,7 +34,7 @@ export default function DisputeEvidence({
   return (
     <>
       {/* SECTION 3: EVIDENCE ATTACHMENTS (PHOTOS & VIDEO) */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-900">
@@ -43,10 +44,10 @@ export default function DisputeEvidence({
               Tối thiểu 1 video test nguồn hoặc ảnh chụp rõ serial/tem vỡ để được chấp thuận hoàn 100%.
             </p>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 border border-emerald-200">
+          <Badge variant="outline" className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 border border-emerald-200 hover:bg-emerald-50">
             <MapPin className="h-3 w-3" />
             Đã xác thực vị trí Dom B Hola
-          </span>
+          </Badge>
         </div>
 
         {/* Media Cards Grid */}
@@ -92,9 +93,9 @@ export default function DisputeEvidence({
           {/* Video Test Card */}
           <div className="relative rounded-2xl overflow-hidden border border-blue-200 bg-blue-50/60 p-3 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-[10px] font-bold">
-              <span className="rounded bg-rose-600 text-white px-1.5 py-0.2">
+              <Badge className="rounded bg-rose-600 text-white px-1.5 py-0.2 border-none hover:bg-rose-600">
                 VIDEO TEST
-              </span>
+              </Badge>
               <span className="text-slate-500">10.2 MB</span>
             </div>
 
@@ -115,22 +116,23 @@ export default function DisputeEvidence({
         </div>
 
         {/* Add more button */}
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() =>
             onShowToast(
               '📷 Tính năng tải thêm: Bạn có thể thêm tối đa 5 ảnh chụp góc máy.'
             )
           }
-          className="w-full mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-fpt-orange hover:text-fpt-orange transition flex items-center justify-center gap-1.5 cursor-pointer"
+          className="h-auto w-full mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-fpt-orange hover:text-fpt-orange transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
         >
           <Camera className="h-4 w-4" />
           <span>Bổ sung thêm video unbox hoặc ảnh chụp bọc chống sốc</span>
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {/* SECTION 4: DESCRIPTION TEXTAREA */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2">
         <div className="flex items-center justify-between text-xs">
           <label className="font-bold text-slate-900">
             4. Mô tả chi tiết vấn đề khi nhận hàng
@@ -147,10 +149,10 @@ export default function DisputeEvidence({
           className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 text-xs sm:text-sm text-slate-800 outline-none focus:bg-white focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition leading-relaxed"
           required
         />
-      </div>
+      </Card>
 
       {/* SECTION 5: DROPOFF LOCATION */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900">
             5. Lựa chọn địa điểm hoàn trả thiết bị
@@ -182,9 +184,9 @@ export default function DisputeEvidence({
                 <span className="font-bold text-xs sm:text-sm text-slate-900">
                   Trạm Safe-Handoff Point - Sảnh Thư viện Hòa Lạc
                 </span>
-                <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5">
+                <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 border-none hover:bg-emerald-100">
                   Mở cửa đến 21:00
-                </span>
+                </Badge>
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 Nhân viên CampusShip trực quầy sẽ in phiếu gửi, niêm phong hộp và điều phối bưu tá chuyển hoàn về cơ sở FPT TP.HCM hoàn toàn miễn phí.
@@ -213,9 +215,9 @@ export default function DisputeEvidence({
                 <span className="font-bold text-xs sm:text-sm text-slate-900">
                   Hẹn đối chất trực tuyến có Điều phối viên CTSV giám sát
                 </span>
-                <span className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5">
+                <Badge className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 border-none hover:bg-blue-100">
                   Google Meet FPT
-                </span>
+                </Badge>
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 Phù hợp nếu bạn muốn thương lượng giữ màn hình và nhận bồi hoàn một phần tiền trực tiếp từ người bán.
@@ -223,32 +225,35 @@ export default function DisputeEvidence({
             </div>
           </label>
         </div>
-      </div>
+      </Card>
 
       {/* ACTION BUTTONS ROW */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
           <span>Đơn khiếu nại được mã hóa trên sổ lưu giao dịch FPT Escrow.</span>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-          <Link
-            href={`/chat?seller=${encodeURIComponent(sellerName || 'NguyenVanAn')}`}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
           >
-            Nhắn tin với Người bán
-          </Link>
+            <Link href={`/chat?seller=${encodeURIComponent(sellerName || 'NguyenVanAn')}`}>
+              Nhắn tin với Người bán
+            </Link>
+          </Button>
 
-          <button
+          <Button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange px-5 py-3 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="h-auto rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange px-5 py-3 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? 'Đang gửi hồ sơ...' : 'Gửi yêu cầu Khiếu nại & Khóa Escrow'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </>
   );
 }

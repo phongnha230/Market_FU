@@ -15,6 +15,7 @@ import OrderSidebar from '@/components/orders/OrderSidebar';
 import { useMarket } from '@/context/MarketContext';
 import { OrderItem } from '@/stores/orderStore';
 import { ShieldCheck, MapPin, QrCode, Phone } from 'lucide-react';
+import { Card, Badge, Button } from '@/components/ui';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function OrdersPage() {
 
       <main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
         {/* 1. TOP HEADER BANNER */}
-        <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 sm:px-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Card className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 sm:px-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-orange-100 p-2.5 text-fpt-orange shrink-0">
               <ShieldCheck className="h-6 w-6" />
@@ -66,14 +67,14 @@ export default function OrdersPage() {
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
+            <Badge variant="outline" className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
               ESCROW 48H ACTIVE
-            </span>
+            </Badge>
             <span className="text-xs text-slate-500 font-medium">
               Mã SV: <strong>HE172819</strong>
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* 2. MAIN ORDERS CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -89,16 +90,16 @@ export default function OrdersPage() {
             />
 
             {/* URGENT SAFE-HANDOFF APPOINTMENT BANNER */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <Card className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl bg-emerald-600 p-2 text-white shrink-0">
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="rounded bg-emerald-200/80 text-emerald-900 px-2 py-0.5 text-[10px] font-extrabold uppercase">
+                    <Badge className="rounded bg-emerald-200/80 text-emerald-900 px-2 py-0.5 text-[10px] font-extrabold uppercase border-none hover:bg-emerald-200/80">
                       HÔM NAY • 16:30
-                    </span>
+                    </Badge>
                     <span className="font-extrabold text-sm text-slate-900">
                       Lịch hẹn Safe-Handoff tại Sảnh Tòa Alpha
                     </span>
@@ -110,24 +111,25 @@ export default function OrdersPage() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsQrModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 shadow-xs transition cursor-pointer"
+                  className="h-auto inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 shadow-xs transition cursor-pointer"
                 >
                   <QrCode className="h-3.5 w-3.5 text-fpt-orange" />
                   <span>Mở mã QR Điểm Hẹn</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => showToast('Đang kết nối tổng đài bảo mật nội bộ đến bạn Hoàng Long...', 'info')}
-                  className="rounded-xl bg-emerald-600 p-2 text-white hover:bg-emerald-700 transition cursor-pointer"
+                  className="h-auto rounded-xl bg-emerald-600 p-2 text-white hover:bg-emerald-700 transition cursor-pointer"
                   title="Gọi điện bảo mật"
                 >
                   <Phone className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
 
             {/* DYNAMIC ORDERS LIST FOR BUYING TAB */}
             {activeMainTab === 'buying' && (
@@ -147,25 +149,27 @@ export default function OrdersPage() {
             {/* TAB 3: LISTINGS / SELLING */}
             {activeMainTab === 'listings' && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-base font-bold text-slate-900">Tin đăng bán của bạn</h3>
                       <p className="text-xs text-slate-500">Các món đồ đang hiển thị trên kênh sinh viên FPT 5Campus</p>
                     </div>
-                    <Link
-                      href="/create-post"
-                      className="rounded-xl bg-fpt-orange px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition"
+                    <Button
+                      asChild
+                      className="h-auto rounded-xl bg-fpt-orange px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition"
                     >
-                      + Đăng bán món mới
-                    </Link>
+                      <Link href="/create-post">
+                        + Đăng bán món mới
+                      </Link>
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {allProducts
                       .filter((p) => p.seller.name.includes('Quân') || p.id.startsWith('fpt-post-'))
                       .map((prod) => (
-                        <div key={prod.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <Card key={prod.id} className="flex flex-row items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition shadow-none">
                           <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-slate-200 shrink-0">
                             <Image src={prod.imageUrl} alt={prod.title} fill className="object-cover" />
                           </div>
@@ -174,21 +178,24 @@ export default function OrdersPage() {
                             <p className="text-xs font-extrabold text-fpt-orange mt-0.5">{formatVND(prod.price)}</p>
                             <span className="text-[10px] text-slate-500">{prod.location}</span>
                           </div>
-                          <Link
-                            href={`/posts/${prod.id}`}
-                            className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 transition"
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="h-auto rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 transition"
                           >
-                            Xem
-                          </Link>
-                        </div>
+                            <Link href={`/posts/${prod.id}`}>
+                              Xem
+                            </Link>
+                          </Button>
+                        </Card>
                       ))}
                   </div>
-                </div>
+                </Card>
               </div>
             )}
 
             {/* SAFE-POINTS DIRECTORY FOOTER BAR */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:px-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:px-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-slate-100 p-2 text-slate-600 shrink-0">
                   <MapPin className="h-5 w-5 text-fpt-orange" />
@@ -203,14 +210,15 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => showToast('Safe-Points: Tòa Alpha, Thư viện Gamma, Dom E & Dom A (Hola), Q.9 (HCM), Tòa F (Đà Nẵng)', 'info')}
-                className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                className="h-auto shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
                 Xem danh sách Safe-Points 5 Campus
-              </button>
-            </div>
+              </Button>
+            </Card>
           </div>
 
           {/* SIDEBAR: ASSISTANT & PROTECTION (3 COLS) */}

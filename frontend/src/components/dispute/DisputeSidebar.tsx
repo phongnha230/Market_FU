@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Phone,
 } from 'lucide-react';
+import { Card, Button } from '@/components/ui';
 
 interface DisputeSidebarProps {
   itemPrice?: number;
@@ -27,7 +28,7 @@ export default function DisputeSidebar({
   return (
     <div className="lg:col-span-4 space-y-5">
       {/* CARD 1: BẢO CHỨNG QUỸ SINH VIÊN */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
             BẢO CHỨNG QUỸ SINH VIÊN
@@ -60,10 +61,10 @@ export default function DisputeSidebar({
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
           <span>100% tiền được đảm bảo trong tài khoản chuyên thu FPT</span>
         </div>
-      </div>
+      </Card>
 
       {/* CARD 2: TRỢ LÝ AI THẨM TRA KHIẾU NẠI */}
-      <div className="rounded-2xl border border-orange-100 bg-white p-5 shadow-xs space-y-3.5">
+      <Card className="rounded-2xl border border-orange-100 bg-white p-5 shadow-xs space-y-3.5">
         <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
           <Bot className="h-4 w-4 text-fpt-orange" />
           <span>Trợ lý AI Thẩm tra Khiếu nại</span>
@@ -94,10 +95,10 @@ export default function DisputeSidebar({
             <span>Hệ thống ghi nhận đơn giao liên tỉnh qua nhà xe đối tác Hòa Lạc.</span>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* CARD 3: CHÍNH SÁCH BẢO VỆ SINH VIÊN FPT */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
           <ShieldCheck className="h-4 w-4 text-emerald-600" />
           <span>Chính sách Bảo vệ Sinh viên FPT</span>
@@ -126,19 +127,20 @@ export default function DisputeSidebar({
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() =>
             onShowToast(
               '📞 Hotline Ban Điều phối CampusShip (Hola): 024.7300.1866 (Ext: 5588)'
             )
           }
-          className="w-full mt-2 rounded-xl bg-rose-50 border border-rose-200 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition flex items-center justify-center gap-1.5 cursor-pointer"
+          className="h-auto w-full mt-2 rounded-xl bg-rose-50 border border-rose-200 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
         >
           <Phone className="h-3.5 w-3.5" />
           <span>Hotline Điều phối CampusShip (Ext 5588)</span>
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   );
 }

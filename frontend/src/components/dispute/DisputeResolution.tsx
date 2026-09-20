@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Card, Badge, Button } from '@/components/ui';
 
 interface DisputeResolutionProps {
   resolutionPlan: 'return' | 'partial';
@@ -25,7 +26,7 @@ export default function DisputeResolution({
   return (
     <>
       {/* SECTION 1: RESOLUTION PLAN */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900">
             1. Chọn phương án xử lý mong muốn
@@ -58,9 +59,9 @@ export default function DisputeResolution({
                   <span className="font-bold text-xs sm:text-sm text-slate-900">
                     Trả hàng & Hoàn tiền 100%
                   </span>
-                  <span className="rounded bg-orange-200 text-orange-900 text-[10px] font-extrabold px-1.5 py-0.2">
+                  <Badge className="rounded bg-orange-200 text-orange-900 text-[10px] font-extrabold px-1.5 py-0.2 border-none hover:bg-orange-200">
                     Khuyên dùng
-                  </span>
+                  </Badge>
                 </div>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   Gửi lại màn hình qua bưu cục Safe-Handoff Point. Nhận lại toàn bộ <strong>1.225.000đ</strong> sau khi quét mã bưu kiện.
@@ -97,10 +98,10 @@ export default function DisputeResolution({
             </div>
           </label>
         </div>
-      </div>
+      </Card>
 
       {/* SECTION 2: DISPUTE REASONS */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900">
             2. Lý do khiếu nại chính
@@ -114,22 +115,22 @@ export default function DisputeResolution({
           {reasons.map((r) => {
             const isSelected = selectedReason === r.id;
             return (
-              <button
+              <Button
                 key={r.id}
                 type="button"
                 onClick={() => onReasonChange(r.id)}
-                className={`rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
+                className={`h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
                   isSelected
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+                    : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 shadow-none'
                 }`}
               >
                 {r.label}
-              </button>
+              </Button>
             );
           })}
         </div>
-      </div>
+      </Card>
     </>
   );
 }

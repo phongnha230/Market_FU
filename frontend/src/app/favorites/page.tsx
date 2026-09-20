@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { Card, Badge, Button } from '@/components/ui';
 
 export default function FavoritesPage() {
   const items = useFavoriteStore((state) => state.favorites);
@@ -125,9 +126,9 @@ export default function FavoritesPage() {
           <span className="text-slate-400">›</span>
           <span className="text-slate-700 font-medium">Mục yêu thích & Đã lưu</span>
           <span className="text-slate-300">/</span>
-          <span className="inline-flex items-center gap-1 rounded bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-fpt-orange border border-orange-200/60 uppercase tracking-wide">
+          <Badge variant="outline" className="inline-flex items-center gap-1 rounded bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-fpt-orange border border-orange-200/60 uppercase tracking-wide hover:bg-orange-50">
             HÒA LẠC CAMPUS
-          </span>
+          </Badge>
         </nav>
 
         {/* 2. PAGE HEADER ROW */}
@@ -137,9 +138,9 @@ export default function FavoritesPage() {
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Tin đã lưu & Yêu thích
               </h1>
-              <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-fpt-orange border border-orange-200/80">
+              <Badge variant="outline" className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-fpt-orange border border-orange-200/80 hover:bg-orange-50">
                 {items.length} món đang theo dõi
-              </span>
+              </Badge>
             </div>
             <p className="mt-1 text-xs sm:text-sm text-slate-600 max-w-2xl">
               Cập nhật biến động giá, trạng thái còn hàng và giữ liên lạc nhanh với các bạn FPTUers đang nhượng lại.
@@ -148,28 +149,29 @@ export default function FavoritesPage() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleCleanSold}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 hover:text-slate-900 transition active:scale-95 cursor-pointer"
+              className="h-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 hover:text-slate-900 transition active:scale-95 cursor-pointer"
             >
               <Sparkles className="h-4 w-4 text-slate-500" />
               <span>Dọn tin đã bán</span>
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
               onClick={() => setIsPriceAlertOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-fpt-orange-hover hover:shadow transition active:scale-95 cursor-pointer"
+              className="h-auto inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-fpt-orange-hover hover:shadow transition active:scale-95 cursor-pointer"
             >
               <Bell className="h-4 w-4 stroke-[2.5]" />
               <span>Đặt thông báo giá (Price Alert)</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* 3. ALERT TICKER BANNER */}
-        <div className="mb-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-3 px-4 shadow-xs">
+        <Card className="mb-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-3 px-4 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs sm:text-sm">
             <div className="flex items-center gap-2 text-slate-700">
               <Flame className="h-4 w-4 text-fpt-orange shrink-0 fill-fpt-orange/20" />
@@ -178,12 +180,12 @@ export default function FavoritesPage() {
                 <strong className="font-extrabold text-rose-600">20.000 đ</strong> cách đây 15 phút.
               </span>
             </div>
-            <div className="flex items-center gap-1.5 font-medium text-emerald-700 bg-emerald-50/90 border border-emerald-200/70 rounded-full px-3 py-1 self-start md:self-auto text-xs">
+            <Badge variant="outline" className="flex items-center gap-1.5 font-medium text-emerald-700 bg-emerald-50/90 border border-emerald-200/70 rounded-full px-3 py-1 self-start md:self-auto text-xs hover:bg-emerald-50/90">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
               <span>100% người bán đã xác thực mã số sinh viên FPT</span>
-            </div>
+            </Badge>
           </div>
-        </div>
+        </Card>
 
         {/* 4. SEARCH & FILTER TOOLBAR */}
         <FavoriteFilterBar
@@ -216,7 +218,7 @@ export default function FavoritesPage() {
           {/* LEFT COLUMN: PRODUCT CARDS (8 COLS) */}
           <div className="lg:col-span-8">
             {filteredItems.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+              <Card className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-none">
                 <div className="mx-auto w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-fpt-orange mb-3">
                   <Heart className="h-6 w-6" />
                 </div>
@@ -226,18 +228,18 @@ export default function FavoritesPage() {
                 <p className="mt-1 text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
                   Thử thay đổi bộ lọc trạng thái hoặc từ khóa tìm kiếm để xem các món đồ bạn đã lưu trước đó.
                 </p>
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setSearchQuery('');
                     setSelectedCategory('all');
                     setStatusFilter('all');
                   }}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
+                  className="h-auto mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
                 >
                   Đặt lại bộ lọc
-                </button>
-              </div>
+                </Button>
+              </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 {filteredItems.map((item) => (

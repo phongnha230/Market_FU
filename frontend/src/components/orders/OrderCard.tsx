@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Compass,
 } from 'lucide-react';
+import { Card, Badge, Button } from '@/components/ui';
 
 interface OrderCardProps {
   order: OrderItem;
@@ -32,12 +33,13 @@ export default function OrderCard({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+    <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden py-0 gap-0">
       {/* Order Header */}
       <div className="p-4 sm:px-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-slate-50/50">
         <div className="flex items-center gap-2 flex-wrap text-xs">
           <span className="font-extrabold text-slate-900">{order.code}</span>
-          <span
+          <Badge
+            variant="outline"
             className={`rounded text-[10px] font-bold px-2 py-0.5 border ${
               order.type === 'inter-campus'
                 ? 'bg-orange-100 text-fpt-orange border-orange-200'
@@ -45,7 +47,7 @@ export default function OrderCard({
             }`}
           >
             {order.typeLabel}
-          </span>
+          </Badge>
           <span className="text-slate-400">• {order.timeLabel}</span>
         </div>
         <div className={`flex items-center gap-1.5 text-xs font-bold ${order.statusColor}`}>
@@ -70,9 +72,9 @@ export default function OrderCard({
             fill
             className="object-cover"
           />
-          <span className="absolute top-1 left-1 rounded bg-slate-900/85 px-1 py-0.2 text-[9px] font-bold text-white">
+          <Badge className="absolute top-1 left-1 rounded bg-slate-900/85 px-1 py-0.2 text-[9px] font-bold text-white border-none hover:bg-slate-900/85">
             {order.product.conditionBadge}
-          </span>
+          </Badge>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -84,9 +86,9 @@ export default function OrderCard({
               <div className="text-base sm:text-lg font-black text-slate-900">
                 {formatVND(order.product.price)}
               </div>
-              <span className="rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 border border-emerald-200">
+              <Badge variant="outline" className="rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 border border-emerald-200 hover:bg-emerald-50">
                 {order.product.escrowBadge}
-              </span>
+              </Badge>
             </div>
           </div>
 
@@ -107,7 +109,7 @@ export default function OrderCard({
 
       {/* TRACKING PROGRESS ROUTE DIAGRAM */}
       {order.tracking && (
-        <div className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/40 border border-orange-100 p-4 text-xs">
+        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/40 border border-orange-100 p-4 text-xs shadow-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
             <span className="font-bold text-slate-800 flex items-center gap-1.5">
               <Truck className="h-4 w-4 text-fpt-orange" />
@@ -155,12 +157,12 @@ export default function OrderCard({
               Mã vận đơn: {order.tracking.trackingCode}
             </span>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* REWARD CALLOUT BOX WITH BUTTON */}
       {order.rewardPrompt && !order.reviewed && (
-        <div className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/60 border border-orange-200/80 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/60 border border-orange-200/80 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-none">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0">
               <Star className="h-5 w-5 fill-white" />
@@ -175,76 +177,86 @@ export default function OrderCard({
             </div>
           </div>
 
-          <Link
-            href={`/orders/review?code=${encodeURIComponent(order.code)}`}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 shadow-sm transition cursor-pointer"
+          <Button
+            asChild
+            className="h-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 shadow-sm transition cursor-pointer"
           >
-            <span>Đánh giá ngay ({order.rewardPrompt.voucherAmount})</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+            <Link href={`/orders/review?code=${encodeURIComponent(order.code)}`}>
+              <span>Đánh giá ngay ({order.rewardPrompt.voucherAmount})</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </Card>
       )}
 
       {order.reviewed && (
-        <div className="mx-4 sm:mx-5 mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 flex items-center justify-between text-xs text-emerald-800 font-semibold">
+        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 flex flex-row items-center justify-between text-xs text-emerald-800 font-semibold shadow-none">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             Đã hoàn tất đánh giá 5 sao cho giao dịch này và nhận thưởng Coins!
           </span>
-          <span className="text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 font-bold">
+          <Badge variant="outline" className="text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 font-bold hover:bg-white">
             +50 Coins
-          </span>
-        </div>
+          </Badge>
+        </Card>
       )}
 
       {/* Action Buttons Row */}
       <div className="p-4 sm:px-5 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2.5 bg-slate-50/30">
-        <Link
-          href={`/chat?seller=${encodeURIComponent(order.product.seller.name)}`}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
         >
-          <MessageSquare className="h-3.5 w-3.5 text-fpt-orange" />
-          <span>Chat với người bán</span>
-        </Link>
+          <Link href={`/chat?seller=${encodeURIComponent(order.product.seller.name)}`}>
+            <MessageSquare className="h-3.5 w-3.5 text-fpt-orange" />
+            <span>Chat với người bán</span>
+          </Link>
+        </Button>
 
-        <Link
-          href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}
-          className="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
         >
-          <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-          <span>Khiếu nại / Trả hàng</span>
-        </Link>
+          <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+            <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+            <span>Khiếu nại / Trả hàng</span>
+          </Link>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onOpenAiBot}
-          className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+          className="h-auto rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
         >
           Hỗ trợ đơn
-        </button>
+        </Button>
 
         {order.tracking && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => onOpenTracking(order)}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
+            className="h-auto rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
           >
             <Compass className="h-3.5 w-3.5 text-slate-500" />
             <span>Theo dõi hành trình chi tiết (Tracking)</span>
-          </button>
+          </Button>
         )}
 
         {order.status === 'shipping' && (
-          <button
+          <Button
             type="button"
             onClick={() => onConfirmReceived(order.code)}
-            className="rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 transition active:scale-95 shadow-xs cursor-pointer flex items-center gap-1.5"
+            className="h-auto rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 transition active:scale-95 shadow-xs cursor-pointer flex items-center gap-1.5"
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>Đã nhận hàng an toàn</span>
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -40,6 +40,12 @@ import QrShareModal from '@/components/modals/QrShareModal';
 import SettingsModal from '@/components/modals/SettingsModal';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { KycType } from '@/stores/kycStore';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const MY_SELLING_PRODUCTS = [
   {
@@ -219,16 +225,20 @@ export default function ProfilePage() {
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full space-y-6 sm:space-y-8">
         
         {/* TOP PROFILE HEADER CARD (EXACT AS IMAGE 1) */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+        <Card className="rounded-2xl border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             
             {/* Left User Identity */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
               {/* Avatar box */}
-              <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300/80 flex items-center justify-center text-slate-400 font-extrabold text-xl shadow-xs overflow-hidden">
-                <span className="text-slate-400">img</span>
+              <div className="relative">
+                <Avatar className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300/80 shadow-xs">
+                  <AvatarFallback className="rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 font-extrabold text-xl text-slate-400">
+                    {userData.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 {/* Green verified checkmark in bottom-right corner */}
-                <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white shadow-xs">
+                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white shadow-xs">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
               </div>
@@ -240,10 +250,10 @@ export default function ProfilePage() {
                 </h1>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="rounded-full bg-orange-50 border border-orange-200 px-3 py-0.5 font-bold text-fpt-orange flex items-center gap-1.5">
+                  <Badge variant="fpt" className="gap-1.5 px-3 py-0.5 text-xs font-bold normal-case">
                     <span>🎓</span>
                     <span>{userData.cohort} • {userData.major}</span>
-                  </span>
+                  </Badge>
 
                   <span className="text-slate-500 flex items-center gap-1 font-medium">
                     <MapPin className="h-3.5 w-3.5 text-fpt-orange" />
@@ -253,10 +263,10 @@ export default function ProfilePage() {
 
                 {/* Verified Mail Badge */}
                 <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
+                  <Badge variant="success" className="gap-1.5 px-3 py-1 text-xs font-bold normal-case">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                     <span>Đã xác thực FPT Edu Mail ({userData.email})</span>
-                  </span>
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -264,63 +274,73 @@ export default function ProfilePage() {
             {/* Right Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-start lg:self-center">
               {/* Xác thực Thẻ SV / Seller -> Opens KycRegistrationModal */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setKycModalRole('seller');
                   setIsKycModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400 transition cursor-pointer shadow-2xs"
+                className="gap-1.5 rounded-xl border-emerald-300 bg-emerald-50 px-3.5 py-2 h-auto text-xs font-bold text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400 transition cursor-pointer shadow-2xs"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                 <span>Xác thực Thẻ SV / Seller</span>
-              </button>
+              </Button>
 
               {/* Chỉnh sửa hồ sơ -> Opens Centered Card Modal */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setIsEditModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
+                className="gap-1.5 rounded-xl border-slate-200 bg-white px-3.5 py-2 h-auto text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
               >
                 <Edit3 className="h-3.5 w-3.5 text-slate-500" />
                 <span>Chỉnh sửa hồ sơ</span>
-              </button>
+              </Button>
 
               {/* Đổi mật khẩu -> Opens Centered Card Modal */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setIsPasswordModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
+                className="gap-1.5 rounded-xl border-slate-200 bg-white px-3.5 py-2 h-auto text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
               >
                 <KeyRound className="h-3.5 w-3.5 text-slate-500" />
                 <span>Đổi mật khẩu</span>
-              </button>
+              </Button>
 
               {/* Chia sẻ QR */}
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setIsQrModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
+                className="gap-1.5 rounded-xl border-slate-200 bg-white px-3.5 py-2 h-auto text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
               >
                 <Share2 className="h-3.5 w-3.5 text-slate-500" />
                 <span>Chia sẻ QR</span>
-              </button>
+              </Button>
 
               {/* + Đăng bán đồ */}
-              <Link
-                href="/create-post"
-                className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover hover:shadow transition cursor-pointer active:scale-95"
+              <Button
+                asChild
+                className="gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 h-auto text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover hover:shadow transition cursor-pointer active:scale-95"
               >
-                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-                <span>Đăng bán đồ</span>
-              </Link>
+                <Link href="/create-post">
+                  <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Đăng bán đồ</span>
+                </Link>
+              </Button>
             </div>
           </div>
 
           {/* 4 REPUTATION METRICS CARDS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-2 border-t border-slate-100">
             {/* Metric 1 */}
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5">
+            <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
                 <Star className="h-5 w-5 fill-fpt-orange" />
               </div>
@@ -330,10 +350,10 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-[11px] text-slate-500">36 đánh giá uy tín</div>
               </div>
-            </div>
+            </Card>
 
             {/* Metric 2 */}
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5">
+            <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
                 <Handshake className="h-5 w-5" />
               </div>
@@ -343,10 +363,10 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-[11px] text-slate-500">Hoàn tất 98%</div>
               </div>
-            </div>
+            </Card>
 
             {/* Metric 3 */}
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5">
+            <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
                 <Clock className="h-5 w-5" />
               </div>
@@ -356,10 +376,10 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-[11px] text-slate-500">Tỷ lệ phản hồi chat</div>
               </div>
-            </div>
+            </Card>
 
             {/* Metric 4 */}
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5">
+            <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                 <Calendar className="h-5 w-5" />
               </div>
@@ -369,9 +389,9 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-[11px] text-slate-500">Từ Tháng 09/2021</div>
               </div>
-            </div>
+            </Card>
           </div>
-        </div>
+        </Card>
 
         {/* 3. TWO-COLUMN MAIN CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
@@ -380,7 +400,7 @@ export default function ProfilePage() {
           <div className="lg:col-span-4 space-y-5">
             
             {/* CARD 1: GIỚI THIỆU SINH VIÊN */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
+            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-fpt-orange" />
                 <span>Giới thiệu sinh viên</span>
@@ -392,18 +412,19 @@ export default function ProfilePage() {
 
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {['#K17SE', '#HolaDomE', '#PassGiaoTrinh', '#Keyboards'].map((tag) => (
-                  <span
+                  <Badge
                     key={tag}
+                    variant="secondary"
                     className="rounded-lg bg-slate-100 hover:bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition cursor-pointer"
                   >
                     {tag}
-                  </span>
+                  </Badge>
                 ))}
               </div>
-            </div>
+            </Card>
 
             {/* CARD 2: ĐIỂM HẸN HANDOFF QUEN THUỘC */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
+            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-600" />
@@ -440,31 +461,31 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* CARD 3: XÁC THỰC THẺ SINH VIÊN & SELLER */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
+            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <FileCheck className="h-4 w-4 text-fpt-orange" />
                   <span>Xác thực Thẻ Sinh Viên & Seller</span>
                 </h2>
                 {userData.kycStatus === 'pending' ? (
-                  <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                  <Badge variant="warning" className="px-2 py-0.5 text-[10px] font-bold normal-case">
                     ⏳ Đang chờ BQT duyệt
-                  </span>
+                  </Badge>
                 ) : userData.kycStatus === 'approved_seller' ? (
-                  <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                  <Badge variant="success" className="px-2 py-0.5 text-[10px] font-bold normal-case">
                     ● Đã duyệt: Verified Seller
-                  </span>
+                  </Badge>
                 ) : userData.kycStatus === 'approved_student' ? (
-                  <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                  <Badge className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 border-blue-200 text-blue-700 normal-case">
                     ● Đã duyệt: Sinh viên FPT
-                  </span>
+                  </Badge>
                 ) : (
-                  <span className="rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case">
                     Chưa xác thực
-                  </span>
+                  </Badge>
                 )}
               </div>
 
@@ -516,42 +537,45 @@ export default function ProfilePage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setKycModalRole('student');
                     setIsKycModalOpen(true);
                   }}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="w-full gap-1.5 rounded-xl border-slate-200 bg-white py-2 h-auto text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Xác thực SV</span>
-                </button>
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onClick={() => {
                     setKycModalRole('seller');
                     setIsKycModalOpen(true);
                   }}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-fpt-orange py-2 text-[11px] font-bold text-white hover:bg-fpt-orange-hover transition cursor-pointer shadow-2xs"
+                  className="w-full gap-1.5 rounded-xl bg-fpt-orange py-2 h-auto text-[11px] font-bold text-white hover:bg-fpt-orange-hover transition cursor-pointer shadow-2xs"
                 >
                   <Store className="h-3.5 w-3.5" />
                   <span>Đăng ký Seller</span>
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
 
             {/* CARD: VÍ FPT COIN & ĐIỂM THƯỞNG HỌC ĐƯỜNG */}
-            <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/40 p-5 sm:p-6 shadow-xs space-y-4">
+            <Card className="rounded-2xl border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/40 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <span className="text-base">🪙</span>
                   <span>Ví FPT Coin & Thưởng Học Đường</span>
                 </h2>
-                <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                <Badge variant="warning" className="px-2.5 py-0.5 text-[10px] font-bold">
                   1 Coin = 1.000 đ
-                </span>
+                </Badge>
               </div>
 
               {/* Large Coin Balance Display */}
@@ -567,18 +591,18 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="button"
                   onClick={handleDailyCheckIn}
                   disabled={userData.dailyCheckedIn}
-                  className={`rounded-xl px-3.5 py-2.5 text-xs font-black transition cursor-pointer shadow-xs active:scale-95 shrink-0 ${
+                  className={`rounded-xl px-3.5 py-2.5 h-auto text-xs font-black transition cursor-pointer shadow-xs active:scale-95 shrink-0 ${
                     userData.dailyCheckedIn
                       ? 'bg-white/20 text-white cursor-not-allowed'
                       : 'bg-white text-orange-600 hover:bg-orange-50 hover:shadow'
                   }`}
                 >
                   {userData.dailyCheckedIn ? '✓ Đã nhận hôm nay' : '🎁 Điểm danh (+20 Xu)'}
-                </button>
+                </Button>
               </div>
 
               {/* Student Quests / Nhiệm vụ tích Coin */}
@@ -627,17 +651,20 @@ export default function ProfilePage() {
               </div>
 
               {/* CTA link to Vouchers page */}
-              <Link
-                href="/vouchers"
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50/60 py-2.5 text-xs font-bold text-fpt-orange hover:bg-orange-100/80 transition"
+              <Button
+                asChild
+                variant="outline"
+                className="w-full gap-2 rounded-xl border-orange-200 bg-orange-50/60 py-2.5 h-auto text-xs font-bold text-fpt-orange hover:bg-orange-100/80 transition"
               >
-                <span>Dùng Coin đổi Mã giảm giá & Freeship</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+                <Link href="/vouchers">
+                  <span>Dùng Coin đổi Mã giảm giá & Freeship</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </Card>
 
             {/* CARD 4: BẢO CHỨNG DANH TÍNH */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3 text-xs">
+            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3 text-xs">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-600" />
                 <span>Bảo chứng danh tính</span>
@@ -672,59 +699,74 @@ export default function ProfilePage() {
                   Gặp mặt trực tiếp tại các tòa giảng đường hoặc KTX, kiểm tra kỹ máy/sách trước khi chuyển khoản Momo hoặc tiền mặt.
                 </p>
               </div>
-            </div>
+            </Card>
 
           </div>
 
           {/* === RIGHT COLUMN: 3 TABS & SELLING ITEMS (8 COLS) === */}
           <div className="lg:col-span-8 space-y-5">
             
-            {/* 3 TABS BAR (EXACT AS IMAGE 1) */}
+            {/* 3 TABS BAR */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <button
+              <Button
                 type="button"
+                variant={activeTab === 'selling' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('selling')}
-                className={`flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
                   activeTab === 'selling'
-                    ? 'bg-fpt-orange text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <span>Tin đang rao bán</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activeTab === 'selling' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <Badge
+                  className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                    activeTab === 'selling' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   {sellingItems.length}
-                </span>
-              </button>
+                </Badge>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant={activeTab === 'reviews' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('reviews')}
-                className={`flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
                   activeTab === 'reviews'
-                    ? 'bg-fpt-orange text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <span>Đánh giá cộng đồng</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activeTab === 'reviews' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <Badge
+                  className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                    activeTab === 'reviews' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   36
-                </span>
-              </button>
+                </Badge>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant={activeTab === 'sold' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('sold')}
-                className={`flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
                   activeTab === 'sold'
-                    ? 'bg-fpt-orange text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <span>Lịch sử đã bán</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${activeTab === 'sold' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <Badge
+                  className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                    activeTab === 'sold' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   24
-                </span>
-              </button>
+                </Badge>
+              </Button>
             </div>
 
             {/* TAB 1: TIN ĐANG RAO BÁN */}
@@ -740,9 +782,9 @@ export default function ProfilePage() {
                 {/* Grid 2x2 Products */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {sellingItems.map((prod) => (
-                    <div
+                    <Card
                       key={prod.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden"
+                      className="group flex flex-col justify-between rounded-2xl border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden"
                     >
                       <div>
                         {/* Top Image */}
@@ -794,7 +836,7 @@ export default function ProfilePage() {
                           <ArrowRight className="h-3 w-3" />
                         </Link>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               </div>
@@ -809,15 +851,17 @@ export default function ProfilePage() {
 
                 <div className="space-y-3">
                   {COMMUNITY_REVIEWS.map((rev) => (
-                    <div
+                    <Card
                       key={rev.id}
-                      className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-2.5"
+                      className="rounded-2xl border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-2.5"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-fpt-orange text-xs font-bold">
-                            {rev.reviewerName.charAt(0)}
-                          </div>
+                          <Avatar className="h-8 w-8 bg-orange-100 text-fpt-orange">
+                            <AvatarFallback className="text-xs font-bold bg-orange-100 text-fpt-orange">
+                              {rev.reviewerName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
                           <div>
                             <p className="text-xs font-bold text-slate-900">
                               {rev.reviewerName}
@@ -846,7 +890,7 @@ export default function ProfilePage() {
                         <span>Đã mua:</span>
                         <span className="font-semibold text-slate-600">{rev.productTitle}</span>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               </div>
@@ -861,9 +905,9 @@ export default function ProfilePage() {
 
                 <div className="space-y-2.5">
                   {SOLD_PRODUCTS.map((item) => (
-                    <div
+                    <Card
                       key={item.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-2xs"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border-slate-200 bg-white p-4 shadow-2xs"
                     >
                       <div className="space-y-1">
                         <p className="text-xs font-bold text-slate-900">
@@ -878,11 +922,11 @@ export default function ProfilePage() {
                         <span className="font-bold text-emerald-600">
                           {formatVND(item.price)}
                         </span>
-                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <Badge variant="success" className="px-2.5 py-0.5 text-[10px] font-bold normal-case">
                           ✓ Đã giao dịch ({item.soldDate})
-                        </span>
+                        </Badge>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               </div>
