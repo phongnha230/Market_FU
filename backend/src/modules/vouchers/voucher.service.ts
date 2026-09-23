@@ -1,0 +1,405 @@
+import crypto from 'crypto';
+import { prisma } from '../../config/prisma';
+import { AppError } from '../../middlewares/error.middleware';
+import { notificationService } from '../notifications/notification.service';
+import {
+  CreateVoucherInput,
+  UpdateVoucherInput,
+  QueryVouchersInput,
+  QueryUserVouchersInput,
+  UseVoucherInput,
+} from './voucher.dto';
+
+export class VoucherService {
+  /**
+   * 1. Lấy danh sách Voucher đổi thưởng công khai (kèm bộ lọc và phân trang)
+   */
+  async getVouchers(query: QueryVouchersInput) {
+    const { partner, search, isActive = true, page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    if (partner) {
+      where.partner = partner;
+    }
+
+    if (search && search.trim()) {
+      where.OR = [
+        { title: { contains: search.trim(), mode: 'insensitive' } },
+        { description: { contains: search.trim(), mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, vouchers] = await Promise.all([
+      prisma.voucher.count({ where }),
+      prisma.voucher.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ coinCost: 'asc' }, { createdAt: 'desc' }],
+      }),
+    ]);
+
+    return {
+      vouchers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 2. Chi tiết 1 voucher
+   */
+  async getVoucherById(id: string) {
+    const voucher = await prisma.voucher.findUnique({
+      where: { id },
+    });
+
+    if (!voucher) {
+      throw new AppError('Không tìm thấy voucher này trong kho', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    return voucher;
+  }
+
+  /**
+   * 3. Tạo mới Voucher (Admin)
+   */
+  async createVoucher(input: CreateVoucherInput) {
+    const voucher = await prisma.voucher.create({
+      data: {
+        title: input.title.trim(),
+        description: input.description?.trim() || null,
+        partner: input.partner,
+        coinCost: input.coinCost,
+        discountValue: input.discountValue,
+        quantity: input.quantity,
+        imageUrl: input.imageUrl?.trim() || null,
+        validDays: input.validDays,
+        isActive: true,
+      },
+    });
+
+    return voucher;
+  }
+
+  /**
+   * 4. Cập nhật Voucher (Admin)
+   */
+  async updateVoucher(id: string, input: UpdateVoucherInput) {
+    const existing = await prisma.voucher.findUnique({ where: { id } });
+    if (!existing) {
+      throw new AppError('Không tìm thấy voucher để cập nhật', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    const updated = await prisma.voucher.update({
+      where: { id },
+      data: {
+        ...(input.title && { title: input.title.trim() }),
+        ...(input.description !== undefined && { description: input.description?.trim() || null }),
+        ...(input.partner && { partner: input.partner }),
+        ...(input.coinCost !== undefined && { coinCost: input.coinCost }),
+        ...(input.discountValue !== undefined && { discountValue: input.discountValue }),
+        ...(input.quantity !== undefined && { quantity: input.quantity }),
+        ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl?.trim() || null }),
+        ...(input.validDays !== undefined && { validDays: input.validDays }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * 5. Xóa hoặc Vô hiệu hóa Voucher (Admin)
+   */
+  async deleteVoucher(id: string) {
+    const existing = await prisma.voucher.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { userVouchers: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new AppError('Không tìm thấy voucher để xóa', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    // Nếu đã có sinh viên đổi voucher này -> Soft delete bằng cách tắt isActive
+    if (existing._count.userVouchers > 0) {
+      await prisma.voucher.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      return { message: 'Voucher đã được đổi bởi người dùng nên được chuyển sang trạng thái Ngừng hoạt động (Archived)' };
+    }
+
+    // Chưa ai đổi -> Hard delete an toàn
+    await prisma.voucher.delete({ where: { id } });
+    return { message: 'Đã xóa hoàn toàn voucher khỏi hệ thống' };
+  }
+
+  /**
+   * 6. Sinh viên đổi Campus Coins lấy Voucher (Atomic Transaction)
+   */
+  async redeemVoucher(userId: string, voucherId: string) {
+    const [profile, voucher] = await Promise.all([
+      prisma.profile.findUnique({ where: { userId } }),
+      prisma.voucher.findUnique({ where: { id: voucherId } }),
+    ]);
+
+    if (!profile) {
+      throw new AppError('Không tìm thấy hồ sơ người dùng', 404, 'PROFILE_NOT_FOUND');
+    }
+
+    if (!voucher) {
+      throw new AppError('Voucher không tồn tại hoặc đã bị xóa', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    if (!voucher.isActive) {
+      throw new AppError('Voucher này hiện đang tạm ngưng quy đổi', 400, 'VOUCHER_INACTIVE');
+    }
+
+    if (voucher.quantity <= 0) {
+      throw new AppError('Rất tiếc! Voucher này đã hết lượt đổi trong kho', 400, 'OUT_OF_STOCK');
+    }
+
+    if (profile.campusCoins < voucher.coinCost) {
+      throw new AppError(
+        `Số dư Xu không đủ. Bạn cần ${voucher.coinCost.toLocaleString()} Xu, hiện có ${profile.campusCoins.toLocaleString()} Xu.`,
+        400,
+        'INSUFFICIENT_COINS'
+      );
+    }
+
+    // Sinh mã voucher duy nhất: FUV-[PARTNER]-[HEX8] (VD: FUV-PAS-9F3C1A2B)
+    const partnerPrefix = voucher.partner.substring(0, 3).toUpperCase();
+    const randomCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+    const voucherCode = `FUV-${partnerPrefix}-${randomCode}`;
+
+    const expiredAt = new Date();
+    expiredAt.setDate(expiredAt.getDate() + voucher.validDays);
+
+    const newBalance = profile.campusCoins - voucher.coinCost;
+
+    // Thực hiện trừ xu, trừ kho, tạo UserVoucher và ghi sổ cái CoinTransaction trong 1 Transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Trừ số lượng kho có điều kiện (Chống Race Condition Oversell khi nhiều request song song)
+      const voucherUpdate = await tx.voucher.updateMany({
+        where: { id: voucherId, quantity: { gt: 0 }, isActive: true },
+        data: { quantity: { decrement: 1 } },
+      });
+
+      if (voucherUpdate.count === 0) {
+        throw new AppError('Rất tiếc! Voucher này vừa hết lượt đổi trong kho', 400, 'OUT_OF_STOCK');
+      }
+
+      // 2. Trừ số dư ví Xu có điều kiện (Chống Race Condition Double-Spend khi spam request)
+      const profileUpdate = await tx.profile.updateMany({
+        where: { userId, campusCoins: { gte: voucher.coinCost } },
+        data: { campusCoins: { decrement: voucher.coinCost } },
+      });
+
+      if (profileUpdate.count === 0) {
+        throw new AppError('Số dư Xu không đủ để đổi voucher này', 400, 'INSUFFICIENT_COINS');
+      }
+
+      // 3. Ghi lịch sử biến động sổ cái
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          amount: -voucher.coinCost,
+          balanceAfter: newBalance,
+          type: 'REDEEM_VOUCHER',
+          description: `Đổi ${voucher.coinCost.toLocaleString()} Xu nhận voucher: ${voucher.title}`,
+          referenceId: voucherId,
+        },
+      });
+
+      // 4. Tạo bản ghi UserVoucher
+      const userVoucher = await tx.userVoucher.create({
+        data: {
+          userId,
+          voucherId,
+          voucherCode,
+          status: 'UNUSED',
+          expiredAt,
+        },
+        include: {
+          voucher: {
+            select: {
+              title: true,
+              partner: true,
+              discountValue: true,
+              description: true,
+              imageUrl: true,
+            },
+          },
+        },
+      });
+
+      return userVoucher;
+    });
+
+    // Bắn thông báo realtime và Push Noti
+    await notificationService.sendNotification({
+      userId,
+      title: '🎟️ Đổi Voucher thành công!',
+      body: `Bạn đã đổi thành công "${voucher.title}". Mã voucher của bạn là ${voucherCode}. Hạn dùng đến ${expiredAt.toLocaleDateString('vi-VN')}.`,
+      type: 'SYSTEM',
+      targetUrl: '/profile/vouchers',
+    });
+
+    return {
+      message: 'Đổi voucher thành công! Bạn có thể sử dụng mã tại quầy đối tác trong campus.',
+      userVoucher: result,
+      remainingCoins: newBalance,
+    };
+  }
+
+  /**
+   * 7. Lấy danh sách Voucher của người dùng hiện tại
+   */
+  async getMyVouchers(userId: string, query: QueryUserVouchersInput) {
+    const { status, page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const now = new Date();
+
+    // Tự động cập nhật các voucher hết hạn thành EXPIRED
+    await prisma.userVoucher.updateMany({
+      where: {
+        userId,
+        status: 'UNUSED',
+        expiredAt: { lt: now },
+      },
+      data: { status: 'EXPIRED' },
+    });
+
+    const where: any = { userId };
+    if (status) {
+      where.status = status;
+    }
+
+    const [total, userVouchers] = await Promise.all([
+      prisma.userVoucher.count({ where }),
+      prisma.userVoucher.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ createdAt: 'desc' }],
+        include: {
+          voucher: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              partner: true,
+              discountValue: true,
+              coinCost: true,
+              imageUrl: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      userVouchers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 8. Sử dụng Voucher tại quầy (Xác nhận đổi quà)
+   * B4-3: Kiểm tra quyền sở hữu hoặc quyền ADMIN đối soát, atomic updateMany chống racy double-spend
+   * B4-8: Không rò rỉ thông tin cá nhân của người sở hữu voucher
+   */
+  async useVoucher(input: UseVoucherInput, requester: { userId: string; role: string }) {
+    const { voucherCode } = input;
+    const code = voucherCode.trim().toUpperCase();
+
+    const userVoucher = await prisma.userVoucher.findUnique({
+      where: { voucherCode: code },
+      include: {
+        voucher: true,
+      },
+    });
+
+    if (!userVoucher) {
+      throw new AppError('Mã voucher không tồn tại trong hệ thống', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    // B4-3: Chỉ người sở hữu voucher hoặc Quản trị viên (Admin) đối soát tại quầy mới được xác nhận dùng
+    if (requester.role !== 'ADMIN' && userVoucher.userId !== requester.userId) {
+      throw new AppError('Bạn không có quyền sử dụng mã voucher của người khác', 403, 'FORBIDDEN');
+    }
+
+    const now = new Date();
+
+    if (userVoucher.status === 'USED') {
+      throw new AppError(
+        `Voucher này đã được sử dụng vào lúc ${userVoucher.usedAt ? userVoucher.usedAt.toLocaleString('vi-VN') : ''}`,
+        400,
+        'VOUCHER_ALREADY_USED'
+      );
+    }
+
+    if (userVoucher.status === 'EXPIRED' || userVoucher.expiredAt < now) {
+      throw new AppError('Voucher này đã quá hạn sử dụng', 400, 'VOUCHER_EXPIRED');
+    }
+
+    // B4-3: Chống race-condition khi quét song song bằng atomic updateMany
+    const updateResult = await prisma.userVoucher.updateMany({
+      where: {
+        id: userVoucher.id,
+        status: 'UNUSED',
+        expiredAt: { gte: now },
+      },
+      data: {
+        status: 'USED',
+        usedAt: now,
+      },
+    });
+
+    if (updateResult.count === 0) {
+      throw new AppError('Voucher này đã được sử dụng hoặc đã hết hạn', 400, 'VOUCHER_ALREADY_USED');
+    }
+
+    // Thông báo cho chủ sở hữu voucher
+    await notificationService.sendNotification({
+      userId: userVoucher.userId,
+      title: '✅ Voucher đã được sử dụng',
+      body: `Mã ${userVoucher.voucherCode} (${userVoucher.voucher.title}) vừa được xác nhận sử dụng thành công tại đối tác.`,
+      type: 'SYSTEM',
+    });
+
+    // B4-8: Trả về kết quả xác nhận bảo mật, không leak thông tin profile/email người khác
+    return {
+      message: 'Xác nhận sử dụng voucher thành công!',
+      voucher: {
+        voucherCode: userVoucher.voucherCode,
+        title: userVoucher.voucher.title,
+        partner: userVoucher.voucher.partner,
+        discountValue: userVoucher.voucher.discountValue,
+        usedAt: now,
+      },
+    };
+  }
+}
