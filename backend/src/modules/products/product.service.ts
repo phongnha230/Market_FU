@@ -4,6 +4,7 @@ import { syncProductToMeili, deleteProductFromMeili, searchProductsMeili } from 
 import { AppError } from '../../middlewares/error.middleware';
 import { getCache, setCache } from '../../config/redis';
 import { CreateProductInput, UpdateProductInput, QueryProductInput } from './product.dto';
+import { trendingService } from '../analytics/trending.service';
 
 /**
  * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
@@ -202,6 +203,7 @@ export class ProductService {
 
     // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
     if (search && search.trim().length > 0) {
+      trendingService.recordSearchKeyword(search.trim()).catch(() => {});
       const meiliResult = await searchProductsMeili(search.trim(), {
         campus,
         categoryId,
@@ -367,6 +369,7 @@ export class ProductService {
         where: { id },
         data: { viewsCount: { increment: 1 } },
       });
+      trendingService.recordProductInteraction(id, 1).catch(() => {});
     }
 
     return sanitizeProductSeller(product);

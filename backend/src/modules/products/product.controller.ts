@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { productService } from './product.service';
+import { trendingService } from '../analytics/trending.service';
 import {
   createProductSchema,
   updateProductSchema,
@@ -180,6 +181,28 @@ export class ProductController {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const result = await productService.removeFavorite(req.user!.userId, id);
       sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Lấy Top từ khóa tìm kiếm hot nhất từ Redis ZSET (GET /api/products/trending/searches)
+  async getTrendingSearches(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10), 20) : 10;
+      const trends = await trendingService.getTrendingKeywords(limit);
+      sendSuccess(res, trends);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Lấy Top sản phẩm hot nhất theo tương tác từ Redis ZSET (GET /api/products/trending/items)
+  async getTrendingItems(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10), 20) : 8;
+      const items = await trendingService.getTrendingProducts(limit);
+      sendSuccess(res, items);
     } catch (error) {
       next(error);
     }

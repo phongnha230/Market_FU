@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { prisma } from '../../config/prisma';
 import { saveImageToStorage } from '../../config/storage';
 import { AppError } from '../../middlewares/error.middleware';
+import { setBit, getBit, bitCount } from '../../config/redis';
 import { NotificationService } from '../notifications/notification.service';
 import { emitToUser } from '../../utils/socket';
 import {
@@ -577,7 +578,11 @@ export class ProfileService {
   async getCheckInStatus(userId: string) {
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
 
-    const [todayCheckIn, totalCheckIns, recentCheckIns] = await Promise.all([
+    const dayOfMonth = parseInt(todayStr.slice(8, 10), 10);
+    const yearMonth = todayStr.slice(0, 7);
+    const bitmapKey = `checkin:bitmap:${userId}:${yearMonth}`;
+
+    const [todayCheckIn, totalCheckIns, recentCheckIns, monthlyBitDays, isBitCheckedInToday] = await Promise.all([
       prisma.dailyCheckIn.findUnique({
         where: { userId_dateStr: { userId, dateStr: todayStr } },
       }),
@@ -589,13 +594,21 @@ export class ProfileService {
         orderBy: { dateStr: 'desc' },
         take: 7,
       }),
+      bitCount(bitmapKey),
+      getBit(bitmapKey, dayOfMonth),
     ]);
 
+    // Tự động đồng bộ Redis Bitmap nếu DB đã có nhưng Redis chưa ghi
+    if (todayCheckIn && isBitCheckedInToday === 0) {
+      setBit(bitmapKey, dayOfMonth, 1).catch(() => {});
+    }
+
     return {
-      dailyCheckedIn: !!todayCheckIn,
+      dailyCheckedIn: !!todayCheckIn || isBitCheckedInToday === 1,
       todayDate: todayStr,
       coinsPerCheckIn: 20,
       totalCheckIns,
+      monthlyCheckIns: Math.max(monthlyBitDays, todayCheckIn ? 1 : 0),
       streakDays: recentCheckIns.length,
       lastCheckInAt: todayCheckIn?.createdAt || (recentCheckIns[0]?.createdAt ?? null),
     };
@@ -606,13 +619,23 @@ export class ProfileService {
    */
   async checkInDaily(userId: string) {
     const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    const dayOfMonth = parseInt(todayStr.slice(8, 10), 10);
+    const yearMonth = todayStr.slice(0, 7);
+    const bitmapKey = `checkin:bitmap:${userId}:${yearMonth}`;
 
-    // 1. Kiểm tra đã điểm danh chưa
+    // 1. Kiểm tra đã điểm danh chưa (Check nhanh qua Redis Bitmap trước)
+    const isBitDone = await getBit(bitmapKey, dayOfMonth);
+    if (isBitDone === 1) {
+      throw new AppError('Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.', 400, 'ALREADY_CHECKED_IN_TODAY');
+    }
+
     const existing = await prisma.dailyCheckIn.findUnique({
       where: { userId_dateStr: { userId, dateStr: todayStr } },
     });
 
     if (existing) {
+      // Sync lại bit nếu DB có nhưng Redis thiếu
+      await setBit(bitmapKey, dayOfMonth, 1);
       throw new AppError('Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.', 400, 'ALREADY_CHECKED_IN_TODAY');
     }
 
@@ -652,6 +675,10 @@ export class ProfileService {
       };
     });
 
+    // 3. Ghi nhận bit 1 vào Redis Bitmap
+    await setBit(bitmapKey, dayOfMonth, 1);
+    const monthlyCheckIns = await bitCount(bitmapKey);
+
     // Bắn realtime socket thông báo số dư xu mới
     emitToUser(userId, 'profile:coins_updated', {
       campusCoins: result.newCoins,
@@ -664,6 +691,7 @@ export class ProfileService {
       coinsAdded: COIN_REWARD,
       newBalance: result.newCoins,
       dateStr: todayStr,
+      monthlyCheckIns,
       checkedInAt: result.checkIn.createdAt,
     };
   }

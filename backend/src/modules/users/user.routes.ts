@@ -33,6 +33,11 @@ router.get('/', authenticate, authorize('ADMIN'), (req, res, next) =>
   userController.getUsers(req, res, next)
 );
 
+// Redis ZSET: Bảng xếp hạng sinh viên uy tín nhất (đặt trước :id)
+router.get('/leaderboard/reputation', (req, res, next) =>
+  userController.getReputationLeaderboard(req, res, next)
+);
+
 // Chi tiết user theo ID
 router.get('/:id', (req, res, next) => userController.getUserById(req, res, next));
 

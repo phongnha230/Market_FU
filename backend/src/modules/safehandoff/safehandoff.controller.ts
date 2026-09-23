@@ -82,6 +82,23 @@ export class SafeHandoffController {
       next(error);
     }
   }
+
+  /**
+   * Tìm kiếm các trạm Safe-Handoff gần nhất (Redis Geospatial)
+   */
+  async getNearbyHubs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const lat = parseFloat((req.query.latitude as string) || (req.query.lat as string) || '21.0135');
+      const lng = parseFloat((req.query.longitude as string) || (req.query.lng as string) || '105.5262');
+      const radiusKm = parseFloat((req.query.radiusKm as string) || '10');
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+
+      const hubs = await safeHandoffService.getNearbyHubs(lng, lat, radiusKm, limit);
+      return sendSuccess(res, hubs);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const safeHandoffController = new SafeHandoffController();

@@ -1,11 +1,31 @@
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middlewares/error.middleware';
 import { CampusLocation, SafeHandoffHub } from '@prisma/client';
+import { geoAdd, geoSearchRadius } from '../../config/redis';
 import {
   CreateSafeHandoffHubInput,
   UpdateSafeHandoffHubInput,
   QuerySafeHandoffHubsInput,
 } from './safehandoff.dto';
+
+export const HUB_COORDINATES: Record<string, { longitude: number; latitude: number }> = {
+  'HL-01': { longitude: 105.5262, latitude: 21.0135 },
+  'HL-02': { longitude: 105.527, latitude: 21.0142 },
+  'HL-03': { longitude: 105.5285, latitude: 21.012 },
+  'HL-04': { longitude: 105.529, latitude: 21.011 },
+  'HL-05': { longitude: 105.5255, latitude: 21.013 },
+  'HL-06': { longitude: 105.5248, latitude: 21.0125 },
+  'HL-07': { longitude: 105.5298, latitude: 21.0105 },
+  'HCM-01': { longitude: 106.8099, latitude: 10.8415 },
+  'HCM-02': { longitude: 106.8095, latitude: 10.8418 },
+  'HCM-03': { longitude: 106.8105, latitude: 10.841 },
+  'DN-01': { longitude: 108.2608, latitude: 15.9691 },
+  'DN-02': { longitude: 108.2615, latitude: 15.9685 },
+  'CT-01': { longitude: 105.757, latitude: 10.0275 },
+  'CT-02': { longitude: 105.7565, latitude: 10.028 },
+  'QN-01': { longitude: 109.2195, latitude: 13.783 },
+  'QN-02': { longitude: 109.22, latitude: 13.7825 },
+};
 
 const DEFAULT_HUBS = [
   // Campus Hòa Lạc (7 trạm)
@@ -408,6 +428,60 @@ export class SafeHandoffService {
 
     await prisma.safeHandoffHub.delete({ where: { id } });
     return { success: true, message: `Đã xóa trạm ${hub.name} (${hub.code})` };
+  }
+
+  /**
+   * Đồng bộ tọa độ các trạm vào Redis Geo Set (campus:hubs:geo)
+   */
+  async ensureGeoIndexed(): Promise<void> {
+    const hubs = await prisma.safeHandoffHub.findMany({
+      where: { isOperating: true },
+      select: { id: true, code: true },
+    });
+
+    for (const hub of hubs) {
+      const coords = HUB_COORDINATES[hub.code];
+      if (coords) {
+        await geoAdd('campus:hubs:geo', coords.longitude, coords.latitude, hub.id);
+      }
+    }
+  }
+
+  /**
+   * Tìm kiếm các trạm Safe-Handoff gần vị trí sinh viên nhất bằng Redis Geospatial
+   */
+  async getNearbyHubs(longitude: number, latitude: number, radiusKm = 10, limit = 10) {
+    await this.ensureGeoIndexed();
+
+    const matches = await geoSearchRadius('campus:hubs:geo', longitude, latitude, radiusKm, limit);
+
+    if (matches.length === 0) {
+      // Fallback: nếu không có trạm nào trong bán kính, trả về danh sách mặc định
+      const allHubsResult = await this.getHubs({});
+      return allHubsResult.hubs.slice(0, limit).map((h) => ({
+        ...h,
+        distanceKm: null,
+        distanceMeters: null,
+      }));
+    }
+
+    const hubIds = matches.map((m) => m.member);
+    const hubs = await prisma.safeHandoffHub.findMany({
+      where: { id: { in: hubIds } },
+    });
+
+    const distMap = new Map(matches.map((m) => [m.member, m.distanceKm]));
+
+    return hubs
+      .map((h) => {
+        const d = distMap.get(h.id) ?? 0;
+        return {
+          ...h,
+          distanceKm: d,
+          distanceMeters: Math.round(d * 1000),
+        };
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm);
   }
 }
 

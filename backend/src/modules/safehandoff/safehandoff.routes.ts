@@ -7,7 +7,10 @@ const router = Router();
 // 1. Danh sách trạm Safe-Handoff (Công khai cho toàn bộ sinh viên xem)
 router.get('/', (req, res, next) => safeHandoffController.getHubs(req, res, next));
 
-// 2. Chi tiết 1 trạm
+// 2. Tìm trạm Safe-Handoff gần nhất (Redis Geospatial, đặt trước :id)
+router.get('/nearby', (req, res, next) => safeHandoffController.getNearbyHubs(req, res, next));
+
+// 3. Chi tiết 1 trạm
 router.get('/:id', (req, res, next) => safeHandoffController.getHubById(req, res, next));
 
 // 3. Quản trị trạm (Dành riêng cho ADMIN)

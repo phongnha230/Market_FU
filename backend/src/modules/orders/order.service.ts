@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../../config/prisma';
 import { ENV } from '../../config/env';
-import { getCache, setCache, delCache } from '../../config/redis';
+import { getCache, setCache, delCache, acquireLock, releaseLock } from '../../config/redis';
 import { AppError } from '../../middlewares/error.middleware';
 import { emitToUser } from '../../utils/socket';
 import { sendOrderCompletedReceiptEmail } from '../../config/mail';
@@ -60,8 +60,19 @@ export class OrderService {
   async createOrder(buyerId: string, input: CreateOrderInput) {
     const { productId, orderType, coinsUsed = 0, deliveryNote, paymentMethod = 'VIETQR', shipping } = input;
 
-    // 1. Kiểm tra sản phẩm (B3-8: chỉ lấy thông tin tối cần thiết, không kéo PII của seller)
-    const product = await prisma.product.findUnique({
+    // B5-REDIS: Thu thập Distributed Lock trên sản phẩm để ngăn chặn Race Condition (2 người cùng tranh mua 1 món đồ độc bản)
+    const lock = await acquireLock(`lock:product:${productId}`, 6000);
+    if (!lock) {
+      throw new AppError(
+        'Sản phẩm đang được người khác tiến hành đặt mua hoặc thanh toán, vui lòng thử lại sau giây lát',
+        409,
+        'PRODUCT_CONCURRENTLY_LOCKED'
+      );
+    }
+
+    try {
+      // 1. Kiểm tra sản phẩm (B3-8: chỉ lấy thông tin tối cần thiết, không kéo PII của seller)
+      const product = await prisma.product.findUnique({
       where: { id: productId },
       select: {
         id: true,
@@ -252,6 +263,9 @@ export class OrderService {
     });
 
     return newOrder;
+    } finally {
+      await releaseLock(lock);
+    }
   }
 
   /**

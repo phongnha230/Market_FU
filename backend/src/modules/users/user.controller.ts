@@ -4,6 +4,7 @@ import { userService } from './user.service';
 import { queryUserSchema, updateUserStatusSchema } from './user.dto';
 import { profileController } from '../profile/profile.controller';
 import { productService } from '../products/product.service';
+import { trendingService } from '../analytics/trending.service';
 import { sendSuccess } from '../../utils/response';
 import { verifyAccessToken } from '../../utils/token';
 
@@ -86,6 +87,19 @@ export class UserController {
       const { isActive } = updateUserStatusSchema.parse(req.body);
       const user = await userService.updateUserStatus(id, isActive);
       return sendSuccess(res, user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [GET /api/users/leaderboard/reputation] Bảng xếp hạng sinh viên uy tín nhất từ Redis ZSET
+   */
+  async getReputationLeaderboard(req: Request, res: Response, next: NextFunction) {
+    try {
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10), 50) : 10;
+      const leaderboard = await trendingService.getReputationLeaderboard(limit);
+      return sendSuccess(res, leaderboard);
     } catch (error) {
       next(error);
     }

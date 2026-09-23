@@ -11,6 +11,10 @@ router.get('/', productController.getProducts);
 // Protected routes (Xem danh sách yêu thích) - đặt trước :id
 router.get('/favorites/me', authenticate, productController.getMyFavorites);
 
+// Redis ZSET: Top từ khóa tìm kiếm & Top sản phẩm hot nhất trên sàn (đặt trước :id)
+router.get('/trending/searches', productController.getTrendingSearches);
+router.get('/trending/items', productController.getTrendingItems);
+
 router.get('/:id', productController.getProductById);
 
 // Protected routes (Đăng bán, cập nhật, đổi trạng thái, xóa món đồ)
