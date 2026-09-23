@@ -206,7 +206,7 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
     }
 
     // 2. Lưu tin nhắn người dùng
-    await prisma.aiChatMessage.create({
+    const userMessageRecord = await prisma.aiChatMessage.create({
       data: {
         sessionId: currentSession.id,
         senderRole: 'USER',
@@ -222,24 +222,59 @@ Hãy phân tích hình ảnh sản phẩm được tải lên và trả về DUY
 
     if (this.genAI) {
       try {
+        // System instruction cho Gemini biết toàn diện bối cảnh sàn đồ cũ sinh viên FPT (Đầy đủ quy trình mua hàng, trả hàng, khiếu nại)
+        const systemPrompt = `Bạn là Trợ lý AI "Cóc Mua Bán" kiêm "Trọng tài Escrow FPT" của sàn đồ cũ sinh viên Campus Marketplace FU (Đại học FPT).
+Xưng hô thân thiện kiểu sinh viên FPT (dùng "mình" và "bạn").
+${campus ? `Ngữ cảnh: Sinh viên đang ở campus ${campus}.` : ''}
+${maxPrice ? `Ngân sách tối đa: ${maxPrice.toLocaleString()} VNĐ.` : ''}
+
+KIẾN THỨC NỀN TẢNG VỀ HỆ THỐNG:
+1. TÌM KIẾM SẢN PHẨM:
+Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập, BẮT BUỘC gọi function "search_products" để truy vấn cơ sở dữ liệu thực.
+
+2. CÁC HÌNH THỨC MUA HÀNG TRÊN SÀN (Có 2 cách chính):
+- Cách 1: Giao dịch trực tiếp Safe Handoff (MEETUP): Dành cho 2 sinh viên cùng campus. Hẹn gặp tại các điểm Safe Handoff an toàn (Sảnh Alpha, Thư viện Beta, Cổng Dom KTX, Canteen...). Khi nhận hàng, người mua mở mã QR Handshake hoặc mã OTP 6 số để người bán quét/nhập xác nhận bàn giao tức thì. Thanh toán trực tiếp bằng tiền mặt hoặc chuyển khoản VietQR.
+- Cách 2: Giao hàng Ship COD / Đặt cọc Escrow liên campus (SHIP_COD): Dành cho sinh viên ở khác campus (ví dụ Hòa Lạc mua đồ từ HCM/Đà Nẵng) hoặc muốn ship tận phòng KTX. Tiền được nạp vào Ví trung gian Escrow của sàn (Escrow Hold) an toàn 100%. Sau khi ký nhận bưu kiện từ đơn vị vận chuyển, người mua có 48 GIỜ DÙNG THỬ (Golden Test Period) để test máy móc, thiết bị trước khi sàn giải ngân cho người bán.
+
+3. HỖ TRỢ XỬ LÝ TRẢ HÀNG & KHIẾU NẠI (DISPUTE & ESCROW REFUND):
+- Thời hạn vàng: Trong vòng 48 giờ sau khi nhận hàng, nếu sản phẩm bị hỏng ngầm, không lên nguồn, nứt vỡ hoặc khác xa mô tả, người mua có quyền bấm "Khiếu nại & Yêu cầu Trả hàng" tại trang /orders/dispute.
+- Tự động khóa tiền: Ngay khi tạo khiếu nại, ví Escrow sẽ đóng băng số tiền thanh toán ngay lập tức, người bán không thể rút tiền.
+- Bằng chứng bắt buộc: Người mua cần cung cấp video unbox hoặc video cắm điện/cáp test máy làm bằng chứng minh bạch.
+- 2 Hướng hòa giải:
+  + Phương án 1: Trả hàng & Hoàn tiền 100%: Người mua gửi lại hàng tại bàn lễ tân Thư viện / sảnh KTX (Dropoff point), sau đó nhận lại 100% tiền qua tài khoản ngân hàng hoặc FPT Coin.
+  + Phương án 2: Thỏa thuận bồi thường một phần (Partial Refund 20% - 50%): Nếu đồ chỉ trầy xước nhẹ mà vẫn dùng được, hai bên có thể tự thỏa thuận mức giảm giá bù đắp mà không cần gửi trả hàng.
+  + Nếu sau 24h hai bên không tự hòa giải, Admin / Ban quản trị sàn sẽ vào làm Trọng tài phân xử dựa trên video bằng chứng.
+
+4. HỆ THỐNG FPT COIN & VOUCHER:
+- Sinh viên có thể dùng FPT Coin tích lũy (từ điểm danh, xác thực KYC Thẻ SV, viết đánh giá 2 chiều) để trừ tiền trực tiếp vào đơn hàng (50.000đ - 100.000đ).`;
+
         const model = this.genAI.getGenerativeModel({
           model: 'gemini-1.5-flash',
+          systemInstruction: systemPrompt,
           tools: [{ functionDeclarations: this.getFunctionDeclarations() as any }],
         });
 
-        // System instruction cho Gemini biết bối cảnh
-        const systemPrompt = `Bạn là Trợ lý AI "Cóc Mua Bán" của sàn đồ cũ sinh viên Campus Marketplace FU (ĐH FPT).
-Khi sinh viên muốn tìm mua đồ, hãy gọi hàm search_products để truy vấn cơ sở dữ liệu thực.
-Xưng hô thân thiện kiểu sinh viên FPT (dùng "mình" và "bạn").
-Nếu sinh viên cung cấp campus hoặc mức giá, hãy đưa vào tham số tìm kiếm.
-${campus ? `Ngữ cảnh: Sinh viên đang ở campus ${campus}.` : ''}
-${maxPrice ? `Ngân sách tối đa: ${maxPrice.toLocaleString()} VNĐ.` : ''}`;
+        // Tái tạo lịch sử hội thoại thực tế từ các tin nhắn trước đó trong database (B2-7 Fix)
+        const pastMessages = await prisma.aiChatMessage.findMany({
+          where: {
+            sessionId: currentSession.id,
+            id: { not: userMessageRecord.id },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        });
+
+        pastMessages.reverse();
+
+        const history = pastMessages
+          .filter((m) => m.senderRole === 'USER' || m.senderRole === 'MODEL')
+          .map((m) => ({
+            role: m.senderRole === 'USER' ? 'user' : 'model',
+            parts: [{ text: m.content }],
+          }));
 
         const chat = model.startChat({
-          history: [
-            { role: 'user', parts: [{ text: systemPrompt }] },
-            { role: 'model', parts: [{ text: 'Mình sẵn sàng hỗ trợ bạn tìm đồ! Bạn cần gì nào?' }] },
-          ],
+          history,
         });
 
         let response = await chat.sendMessage(message);
@@ -290,45 +325,99 @@ ${maxPrice ? `Ngân sách tối đa: ${maxPrice.toLocaleString()} VNĐ.` : ''}`;
       }
     }
 
-    // 4. Fallback nếu chưa cấu hình Gemini hoặc lỗi
+    // 4. Fallback nếu chưa cấu hình Gemini hoặc lỗi API
     if (!aiResponseText) {
-      // Fallback: tự query DB
-      if (suggestedProducts.length === 0) {
-        const fallbackWhere: any = { status: 'AVAILABLE' };
-        if (campus) fallbackWhere.campus = campus;
-        if (maxPrice) fallbackWhere.price = { lte: maxPrice };
+      const q = message.toLowerCase();
 
-        suggestedProducts = await prisma.product.findMany({
-          where: fallbackWhere,
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            price: true,
-            condition: true,
-            campus: true,
-            categoryType: true,
-            images: true,
-            meetupLocation: true,
-          },
-        });
-        suggestedProductIds = suggestedProducts.map((p) => p.id);
+      // Trường hợp hỏi về cách mua hàng / quy trình mua hàng
+      if (
+        q.includes('cách mua') ||
+        q.includes('quy trình mua') ||
+        q.includes('mua hàng') ||
+        q.includes('đặt hàng') ||
+        q.includes('order') ||
+        q.includes('bao nhiêu cách')
+      ) {
+        aiResponseText = `Chào Cóc-er! Trên sàn Market FU hiện có **2 hình thức mua hàng** an toàn tuyệt đối cho sinh viên:
+
+1️⃣ **Giao dịch trực tiếp Safe Handoff (MEETUP)**:
+- **Áp dụng**: Sinh viên cùng cơ sở campus (Hòa Lạc, HCM, Đà Nẵng, Quy Nhơn, Cần Thơ).
+- **Cách thức**: Hẹn gặp trực tiếp tại các điểm Safe Handoff an toàn (Sảnh Alpha, Thư viện Beta, Cổng Dom KTX, Canteen...).
+- **Xác thực bảo vệ**: Người mua mở mã **QR Handshake** hoặc mã **OTP 6 số** trên app/web cho người bán quét để xác nhận bàn giao tức thì.
+- **Thanh toán**: Tiền mặt trực tiếp hoặc chuyển khoản VietQR nhanh.
+
+2️⃣ **Giao hàng Ship COD / Bảo hiểm Escrow (SHIP_COD)**:
+- **Áp dụng**: Sinh viên khác campus (ví dụ pass đồ từ HCM ra Hòa Lạc/Đà Nẵng) hoặc muốn giao tận phòng KTX/trọ.
+- **Bảo hộ Escrow 48h**: Tiền được nạp vào tài khoản ký quỹ trung gian Escrow của sàn. Sau khi nhận hàng, bạn có **48 giờ dùng thử (Golden Test Period)** để cắm sạc, test máy. Nếu máy ổn định, sàn mới giải ngân cho người bán!
+
+💡 *Mẹo*: Bạn nhớ đổi **FPT Coin** tích lũy để được giảm giá trực tiếp từ 50k - 100k mỗi đơn nhé!`;
       }
+      // Trường hợp hỏi về trả hàng / hoàn tiền / khiếu nại
+      else if (
+        q.includes('trả hàng') ||
+        q.includes('hoàn tiền') ||
+        q.includes('khiếu nại') ||
+        q.includes('dispute') ||
+        q.includes('hỏng') ||
+        q.includes('lỗi') ||
+        q.includes('nứt') ||
+        q.includes('escrow')
+      ) {
+        aiResponseText = `Chào bạn! Về quy trình **Xử lý trả hàng & Hoàn tiền khiếu nại (Dispute Escrow)** trên Market FU:
 
-      if (suggestedProducts.length > 0) {
-        aiResponseText =
-          `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp với yêu cầu của bạn trên hệ thống:\n` +
-          suggestedProducts
-            .map(
-              (p, idx) =>
-                `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString()}đ (Campus: ${p.campus})`
-            )
-            .join('\n') +
-          '\n\nBạn có thể nhấn vào từng món đồ bên dưới để xem chi tiết và chat trực tiếp với người bán nhé!';
+🛡️ **1. Thời hạn khiếu nại (48 Giờ Vàng)**:
+- Với các đơn Ship COD hoặc thanh toán Escrow, bạn có **48 giờ** kể từ khi nhận hàng để cắm test máy.
+- Nếu hàng bị lỗi hỏng ngầm, nứt vỡ hoặc không đúng mô tả, bạn vào mục **Quản lý đơn hàng** -> Bấm nút **"Khiếu nại & Yêu cầu Trả hàng"** (/orders/dispute).
+
+🔒 **2. Cơ chế Khóa ví Escrow tức thì**:
+- Ngay khi bạn gửi yêu cầu khiếu nại, hệ thống sẽ **lập tức đóng băng toàn bộ số tiền thanh toán** trong ví Escrow. Người bán KHÔNG THỂ rút tiền cho đến khi tranh chấp được giải quyết.
+
+📹 **3. Cung cấp bằng chứng minh bạch**:
+- Bạn cần tải lên một video ngắn (lúc unboxing hoặc cắm nguồn thiết bị không lên nguồn) để làm bằng chứng xác thực.
+
+🤝 **4. Hai phương án giải quyết linh hoạt**:
+- **Phương án A (Trả hàng - Hoàn tiền 100%)**: Bạn đem đồ gửi lại tại bàn lễ tân Thư viện hoặc điểm hẹn Safe Handoff campus. Tiền sẽ được hoàn 100% về tài khoản ngân hàng hoặc ví FPT Coin của bạn.
+- **Phương án B (Bồi thường một phần - Partial Refund)**: Nếu hàng chỉ trầy xước nhẹ mà vẫn dùng tốt, hai bên có thể thỏa thuận người bán bớt lại 20-50% tiền đền bù mà bạn không cần gửi trả đồ.
+- Nếu sau 24h hai bên không tìm được tiếng nói chung, **Admin Ban Quản Trị sẽ can thiệp làm Trọng tài** đưa ra phán quyết cuối cùng!`;
       } else {
-        aiResponseText =
-          'Chào bạn! Hiện tại trên hệ thống chưa có món đồ nào hoàn toàn khớp với tiêu chí tìm kiếm của bạn. Bạn thử nâng mức ngân sách hoặc tìm ở các campus lân cận xem sao nhé!';
+        // Fallback: tự query DB tìm sản phẩm
+        if (suggestedProducts.length === 0) {
+          const fallbackWhere: any = { status: 'AVAILABLE' };
+          if (campus) fallbackWhere.campus = campus;
+          if (maxPrice) fallbackWhere.price = { lte: maxPrice };
+
+          suggestedProducts = await prisma.product.findMany({
+            where: fallbackWhere,
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              condition: true,
+              campus: true,
+              categoryType: true,
+              images: true,
+              meetupLocation: true,
+            },
+          });
+          suggestedProductIds = suggestedProducts.map((p) => p.id);
+        }
+
+        if (suggestedProducts.length > 0) {
+          aiResponseText =
+            `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp với yêu cầu của bạn trên hệ thống:\n` +
+            suggestedProducts
+              .map(
+                (p, idx) =>
+                  `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString()}đ (Campus: ${p.campus})`
+              )
+              .join('\n') +
+            '\n\nBạn có thể nhấn vào từng món đồ bên dưới để xem chi tiết và chat trực tiếp với người bán nhé!';
+        } else {
+          aiResponseText =
+            'Chào bạn! Hiện tại trên hệ thống chưa có món đồ nào hoàn toàn khớp với tiêu chí tìm kiếm của bạn. Bạn thử nâng mức ngân sách hoặc tìm ở các campus lân cận xem sao nhé!';
+        }
       }
     }
 

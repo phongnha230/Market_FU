@@ -2,17 +2,62 @@ import { prisma } from '../../config/prisma';
 import { saveImageToStorage, saveMediaToStorage, isValidVideoBuffer } from '../../config/storage';
 import { syncProductToMeili, deleteProductFromMeili, searchProductsMeili } from '../../config/meilisearch';
 import { AppError } from '../../middlewares/error.middleware';
+import { getCache, setCache } from '../../config/redis';
 import { CreateProductInput, UpdateProductInput, QueryProductInput } from './product.dto';
 
-// Bộ nhớ đệm giới hạn lượt xem: 1 viewer / 1 IP chỉ tăng view 1 lần mỗi 15 phút cho cùng 1 sản phẩm
-const viewCooldownStore = new Map<string, number>();
+/**
+ * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
+ * Tuyệt đối không select: email, phoneNumber, campusCoins
+ */
+export const publicSellerSelect = {
+  select: {
+    id: true,
+    role: true,
+    createdAt: true,
+    profile: {
+      select: {
+        fullName: true,
+        avatarUrl: true,
+        avatarBadge: true,
+        campus: true,
+        reputationScore: true,
+        kyc: true, // Lấy để tính toán kycStatus/isKycVerified, sau đó sẽ sanitize bóc tách bỏ cardImageUrl và studentId
+      },
+    },
+  },
+};
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, expireTime] of viewCooldownStore.entries()) {
-    if (now > expireTime) viewCooldownStore.delete(key);
-  }
-}, 30 * 60 * 1000).unref();
+/**
+ * Chuẩn hóa và làm sạch thông tin Người bán (B1-1: Bảo vệ thông tin định danh cá nhân PII)
+ */
+export function sanitizeProductSeller<T extends { seller?: any } | undefined | null>(product: T): T {
+  if (!product || !product.seller) return product;
+  const seller = product.seller;
+  const kycStatus = seller.profile?.kyc?.status || (seller.role === 'SELLER' ? 'APPROVED' : 'NONE');
+  const isKycVerified = kycStatus === 'APPROVED' || seller.role === 'SELLER';
+
+  const sanitizedProfile = seller.profile
+    ? {
+        fullName: seller.profile.fullName,
+        avatarUrl: seller.profile.avatarUrl,
+        avatarBadge: seller.profile.avatarBadge,
+        campus: seller.profile.campus,
+        reputationScore: seller.profile.reputationScore,
+        isKycVerified,
+        kycStatus,
+      }
+    : null;
+
+  return {
+    ...product,
+    seller: {
+      id: seller.id,
+      role: seller.role,
+      createdAt: seller.createdAt,
+      profile: sanitizedProfile,
+    },
+  };
+}
 
 export class ProductService {
   // 1. Đăng bán sản phẩm mới (Có kiểm tra Business Rules Cấp 1 / Cấp 2, hỗ trợ 5 ảnh + 1 video)
@@ -63,7 +108,8 @@ export class ProductService {
       throw new AppError('Người bán không tồn tại', 404, 'SELLER_NOT_FOUND');
     }
 
-    // Business Rule (Phương án 3): Đăng bán hoặc trao đổi món đồ bắt buộc tài khoản phải hoàn tất xác thực Thẻ Sinh Viên (KYC)
+    // Business Rule: Đăng bán hoặc trao đổi món đồ bắt buộc tài khoản phải hoàn tất xác thực Thẻ Sinh Viên (KYC) hoặc là Người Bán đã duyệt (SELLER / ADMIN)
+    // Người dùng chưa xác thực Thẻ sinh viên và chưa đăng ký Người Bán thì tuyệt đối KHÔNG được quyền đăng bán.
     const isVerifiedSeller =
       seller.role === 'SELLER' ||
       seller.role === 'ADMIN' ||
@@ -131,21 +177,7 @@ export class ProductService {
         videoPublicId: uploadedVideo?.public_id,
       },
       include: {
-        seller: {
-          select: {
-            id: true,
-            email: true,
-            profile: {
-              select: {
-                fullName: true,
-                avatarUrl: true,
-                campus: true,
-                reputationScore: true,
-                kyc: true,
-              },
-            },
-          },
-        },
+        seller: publicSellerSelect,
         category: {
           select: {
             id: true,
@@ -160,7 +192,7 @@ export class ProductService {
     // Đồng bộ sản phẩm sang Meilisearch engine để tìm kiếm tức thì
     await syncProductToMeili(product);
 
-    return product;
+    return sanitizeProductSeller(product);
   }
 
   // 2. Danh sách sản phẩm kèm Bộ lọc đa chiều & Phân trang Skip-Limit
@@ -198,23 +230,10 @@ export class ProductService {
         const matchedProducts = await prisma.product.findMany({
           where: {
             id: { in: meiliResult.productIds },
+            status: 'AVAILABLE', // B1-10 Fix: Không hiển thị sản phẩm đã bán/ẩn từ cache Meilisearch
           },
           include: {
-            seller: {
-              select: {
-                id: true,
-                email: true,
-                profile: {
-                  select: {
-                    fullName: true,
-                    avatarUrl: true,
-                    campus: true,
-                    reputationScore: true,
-                    kyc: true,
-                  },
-                },
-              },
-            },
+            seller: publicSellerSelect,
             category: {
               select: {
                 id: true,
@@ -230,10 +249,10 @@ export class ProductService {
         const productMap = new Map(matchedProducts.map((p) => [p.id, p]));
         const sortedProducts = meiliResult.productIds
           .map((id) => productMap.get(id))
-          .filter(Boolean);
+          .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
         return {
-          products: sortedProducts,
+          products: sortedProducts.map((p) => sanitizeProductSeller(p)),
           pagination: {
             total: meiliResult.totalHits,
             page,
@@ -286,21 +305,7 @@ export class ProductService {
         skip,
         take: limit,
         include: {
-          seller: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  fullName: true,
-                  avatarUrl: true,
-                  campus: true,
-                  reputationScore: true,
-                  kyc: true,
-                },
-              },
-            },
-          },
+          seller: publicSellerSelect,
           category: {
             select: {
               id: true,
@@ -314,7 +319,7 @@ export class ProductService {
     ]);
 
     return {
-      products,
+      products: products.map(sanitizeProductSeller),
       pagination: {
         total,
         page,
@@ -329,24 +334,7 @@ export class ProductService {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        seller: {
-          select: {
-            id: true,
-            email: true,
-            createdAt: true,
-            profile: {
-              select: {
-                fullName: true,
-                avatarUrl: true,
-                phoneNumber: true,
-                campus: true,
-                campusCoins: true,
-                reputationScore: true,
-                kyc: true,
-              },
-            },
-          },
-        },
+        seller: publicSellerSelect,
         category: {
           select: {
             id: true,
@@ -362,16 +350,15 @@ export class ProductService {
       throw new AppError('Không tìm thấy món đồ này trên sàn', 404, 'PRODUCT_NOT_FOUND');
     }
 
-    // Chống spam tăng ảo lượt xem (Chỉ tăng nếu chưa xem trong 15 phút gần nhất)
+    // Chống spam tăng ảo lượt xem (Chỉ tăng nếu chưa xem trong 15 phút gần nhất) - B1-7: Redis-backed
     let shouldIncrementView = true;
     if (viewerKey) {
-      const cooldownKey = `view_${viewerKey}_${id}`;
-      const expireTime = viewCooldownStore.get(cooldownKey);
-      const now = Date.now();
-      if (expireTime && now < expireTime) {
+      const cooldownKey = `view_cd:${viewerKey}:${id}`;
+      const hasViewed = await getCache<boolean>(cooldownKey);
+      if (hasViewed) {
         shouldIncrementView = false;
       } else {
-        viewCooldownStore.set(cooldownKey, now + 15 * 60 * 1000);
+        await setCache(cooldownKey, true, 15 * 60); // 15 phút TTL
       }
     }
 
@@ -382,7 +369,7 @@ export class ProductService {
       });
     }
 
-    return product;
+    return sanitizeProductSeller(product);
   }
 
   // 4. Gia hạn sản phẩm thêm 30 ngày
@@ -395,6 +382,15 @@ export class ProductService {
 
     if (product.sellerId !== sellerId) {
       throw new AppError('Bạn không có quyền gia hạn sản phẩm của người khác', 403, 'FORBIDDEN');
+    }
+
+    // B1-9 Fix: Chặn gia hạn sản phẩm đã bán hoặc đang trong giao dịch giữ chỗ
+    if (product.status === 'SOLD' || product.status === 'RESERVED') {
+      throw new AppError(
+        'Không thể gia hạn sản phẩm đã bán hoặc đang trong giao dịch giữ chỗ',
+        400,
+        'CANNOT_RENEW_SOLD_PRODUCT'
+      );
     }
 
     const newExpiredAt = new Date();
@@ -410,6 +406,50 @@ export class ProductService {
     });
 
     return updated;
+  }
+
+  // 4b. Cập nhật trạng thái sản phẩm (Task 1.4: AVAILABLE, RESERVED, SOLD, HIDDEN)
+  async updateProductStatus(
+    sellerId: string,
+    id: string,
+    status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN'
+  ) {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new AppError('Không tìm thấy sản phẩm', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    if (product.sellerId !== sellerId) {
+      throw new AppError('Bạn không có quyền cập nhật trạng thái sản phẩm của người khác', 403, 'FORBIDDEN');
+    }
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: { status },
+      include: {
+        seller: publicSellerSelect,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            iconUrl: true,
+          },
+        },
+      },
+    });
+
+    // Đồng bộ Meilisearch: nếu AVAILABLE thì sync, ngược lại xóa khỏi index
+    if (status === 'AVAILABLE') {
+      await syncProductToMeili(updated);
+    } else {
+      await deleteProductFromMeili(id);
+    }
+
+    return sanitizeProductSeller(updated);
   }
 
   // 5. Thả tim / Bỏ tim món đồ (Toggle Favorite Wishlist)
@@ -463,19 +503,7 @@ export class ProductService {
       include: {
         product: {
           include: {
-            seller: {
-              select: {
-                id: true,
-                email: true,
-                profile: {
-                  select: {
-                    fullName: true,
-                    avatarUrl: true,
-                    campus: true,
-                  },
-                },
-              },
-            },
+            seller: publicSellerSelect,
             category: {
               select: {
                 id: true,
@@ -490,7 +518,7 @@ export class ProductService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return favorites.map((fav) => fav.product);
+    return favorites.map((fav) => (fav.product ? sanitizeProductSeller(fav.product) : fav.product));
   }
 
   // 7. Dùng Xu để Đẩy tin (Bump Post - 100 Xu) hoặc Ghim nổi bật (Pin Post 24h - 300 Xu)
@@ -530,12 +558,21 @@ export class ProductService {
       const pinUntil = new Date();
       pinUntil.setHours(pinUntil.getHours() + 24);
 
-      await prisma.$transaction([
-        prisma.profile.update({
-          where: { userId },
+      await prisma.$transaction(async (tx) => {
+        const profileUpdate = await tx.profile.updateMany({
+          where: { userId, campusCoins: { gte: requiredCoins } },
           data: { campusCoins: { decrement: requiredCoins } },
-        }),
-        prisma.coinTransaction.create({
+        });
+
+        if (profileUpdate.count === 0) {
+          throw new AppError(
+            `Số dư Campus Coins không đủ. Bạn cần ${requiredCoins} Xu để ghim tin nổi bật 24h.`,
+            400,
+            'INSUFFICIENT_COINS'
+          );
+        }
+
+        await tx.coinTransaction.create({
           data: {
             userId,
             amount: -requiredCoins,
@@ -544,16 +581,17 @@ export class ProductService {
             description: `Dùng ${requiredCoins} Xu ghim nổi bật 24h món đồ: ${product.title}`,
             referenceId: productId,
           },
-        }),
-        prisma.product.update({
+        });
+
+        await tx.product.update({
           where: { id: productId },
           data: {
             isPinned: true,
             pinnedUntil: pinUntil,
             boostedAt: new Date(),
           },
-        }),
-      ]);
+        });
+      });
 
       return {
         message: 'Đã ghim bài viết lên đầu trang nổi bật thành công trong 24 giờ!',
@@ -561,12 +599,21 @@ export class ProductService {
         pinnedUntil: pinUntil,
       };
     } else {
-      await prisma.$transaction([
-        prisma.profile.update({
-          where: { userId },
+      await prisma.$transaction(async (tx) => {
+        const profileUpdate = await tx.profile.updateMany({
+          where: { userId, campusCoins: { gte: requiredCoins } },
           data: { campusCoins: { decrement: requiredCoins } },
-        }),
-        prisma.coinTransaction.create({
+        });
+
+        if (profileUpdate.count === 0) {
+          throw new AppError(
+            `Số dư Campus Coins không đủ. Bạn cần ${requiredCoins} Xu để đẩy tin lên đầu trang.`,
+            400,
+            'INSUFFICIENT_COINS'
+          );
+        }
+
+        await tx.coinTransaction.create({
           data: {
             userId,
             amount: -requiredCoins,
@@ -575,14 +622,15 @@ export class ProductService {
             description: `Dùng ${requiredCoins} Xu đẩy tin lên đầu trang: ${product.title}`,
             referenceId: productId,
           },
-        }),
-        prisma.product.update({
+        });
+
+        await tx.product.update({
           where: { id: productId },
           data: {
             boostedAt: new Date(),
           },
-        }),
-      ]);
+        });
+      });
 
       return {
         message: 'Đã đẩy tin món đồ lên đầu danh sách thành công!',

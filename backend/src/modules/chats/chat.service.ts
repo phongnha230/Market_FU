@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../middlewares/error.middleware';
 import { saveImageToStorage } from '../../config/storage';
 import { getIO, emitToUser } from '../../utils/socket';
+import { notificationService } from '../notifications/notification.service';
 import {
   CreateConversationInput,
   QueryConversationsInput,
@@ -205,28 +206,39 @@ export class ChatService {
       }),
     ]);
 
-    // Tính toán số tin nhắn chưa đọc cho từng cuộc hội thoại
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await prisma.message.count({
-          where: {
-            conversationId: conv.id,
-            senderId: { not: userId },
-            isRead: false,
-          },
-        });
+    // Tính toán số tin nhắn chưa đọc cho từng cuộc hội thoại (Tránh N+1 queries bằng groupBy)
+    const convIds = conversations.map((c) => c.id);
+    const unreadMap = new Map<string, number>();
 
-        // Xác định đối phương trò chuyện (Counterparty)
-        const isBuyer = conv.buyerId === userId;
-        const otherParty = isBuyer ? conv.seller : conv.buyer;
+    if (convIds.length > 0) {
+      const unreadGroups = await prisma.message.groupBy({
+        by: ['conversationId'],
+        where: {
+          conversationId: { in: convIds },
+          senderId: { not: userId },
+          isRead: false,
+        },
+        _count: {
+          _all: true,
+        },
+      });
 
-        return {
-          ...conv,
-          unreadCount,
-          otherParty,
-        };
-      })
-    );
+      for (const group of unreadGroups) {
+        unreadMap.set(group.conversationId, group._count._all);
+      }
+    }
+
+    const conversationsWithUnread = conversations.map((conv) => {
+      // Xác định đối phương trò chuyện (Counterparty)
+      const isBuyer = conv.buyerId === userId;
+      const otherParty = isBuyer ? conv.seller : conv.buyer;
+
+      return {
+        ...conv,
+        unreadCount: unreadMap.get(conv.id) || 0,
+        otherParty,
+      };
+    });
 
     return {
       conversations: conversationsWithUnread,
@@ -299,11 +311,14 @@ export class ChatService {
   /**
    * 4. Gửi tin nhắn qua REST API (Hỗ trợ kèm ảnh Multer và Mặc cả giá)
    */
-  async sendMessage(
+  /**
+   * Phương thức chung xử lý lưu tin nhắn, kiểm tra quy tắc mặc cả 50%, cập nhật hội thoại và phát socket / push FCM (B2-5 Fix)
+   */
+  async persistAndBroadcastMessage(
     userId: string,
     conversationId: string,
     input: SendMessageInput,
-    imageFile?: Express.Multer.File
+    imageFileBuffer?: Buffer
   ) {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -326,8 +341,8 @@ export class ChatService {
     let messageType = input.messageType || 'TEXT';
 
     // Xử lý upload ảnh nếu client gửi file
-    if (imageFile) {
-      const uploadResult = await saveImageToStorage(imageFile.buffer, 'chat_media');
+    if (imageFileBuffer) {
+      const uploadResult = await saveImageToStorage(imageFileBuffer, 'chat_media');
       mediaUrl = uploadResult.secure_url;
       messageType = 'IMAGE';
     }
@@ -402,15 +417,37 @@ export class ChatService {
 
     // Bắn thông báo trực tiếp tới đối tác
     const recipientId = conversation.buyerId === userId ? conversation.sellerId : conversation.buyerId;
+    const senderName = savedMessage.sender?.profile?.fullName || 'Người dùng FU';
     emitToUser(recipientId, 'new_message_notification', {
       conversationId,
       productId: conversation.productId,
-      senderName: savedMessage.sender?.profile?.fullName || 'Người dùng FU',
+      senderName,
       text: summaryText,
       createdAt: savedMessage.createdAt,
     });
 
+    // Bắn Push Notification FCM đến thiết bị đối phương
+    notificationService
+      .sendPushOnly(recipientId, senderName, summaryText, {
+        conversationId,
+        productId: conversation.productId,
+        type: 'CHAT',
+      })
+      .catch(() => {});
+
     return savedMessage;
+  }
+
+  /**
+   * 4. Gửi tin nhắn qua REST API (Hỗ trợ kèm ảnh Multer và Mặc cả giá)
+   */
+  async sendMessage(
+    userId: string,
+    conversationId: string,
+    input: SendMessageInput,
+    imageFile?: Express.Multer.File
+  ) {
+    return this.persistAndBroadcastMessage(userId, conversationId, input, imageFile?.buffer);
   }
 
   /**

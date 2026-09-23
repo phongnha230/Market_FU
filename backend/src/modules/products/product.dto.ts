@@ -49,8 +49,13 @@ export const boostProductSchema = z.object({
   type: z.enum(['BUMP', 'PIN_24H']).default('BUMP'),
 });
 
+export const updateProductStatusSchema = z.object({
+  status: z.enum(['AVAILABLE', 'RESERVED', 'SOLD', 'HIDDEN']),
+});
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+export type UpdateProductStatusInput = z.infer<typeof updateProductStatusSchema>;
 export type QueryProductInput = z.infer<typeof queryProductSchema>;
 export type BoostProductInput = z.infer<typeof boostProductSchema>;
 

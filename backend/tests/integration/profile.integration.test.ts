@@ -102,4 +102,44 @@ describe('Integration Test: Profile Endpoints', () => {
       server.close();
     }
   });
+
+  it('GET /uploads/kyc_cards/test-card.webp (Static) phải bị chặn tuyệt đối 403 FORBIDDEN (B1-2)', async () => {
+    const server = app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      server.close();
+      throw new Error('Không thể khởi tạo test server');
+    }
+
+    try {
+      const response = await fetch(`http://localhost:${address.port}/uploads/kyc_cards/test-card.webp`);
+      assert.strictEqual(response.status, 403, 'Truy cập static kyc_cards phải bị 403');
+
+      const body = (await response.json()) as any;
+      assert.strictEqual(body.success, false);
+      assert.strictEqual(body.error.code, 'FORBIDDEN');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('GET /api/profile/kyc/card/test-card.webp không có token phải trả về 401 UNAUTHORIZED (B1-2)', async () => {
+    const server = app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      server.close();
+      throw new Error('Không thể khởi tạo test server');
+    }
+
+    try {
+      const response = await fetch(`http://localhost:${address.port}/api/profile/kyc/card/test-card.webp`);
+      assert.strictEqual(response.status, 401, 'Xem ảnh thẻ kyc không có token phải trả về 401');
+
+      const body = (await response.json()) as any;
+      assert.strictEqual(body.success, false);
+      assert.strictEqual(body.error.code, 'UNAUTHORIZED');
+    } finally {
+      server.close();
+    }
+  });
 });

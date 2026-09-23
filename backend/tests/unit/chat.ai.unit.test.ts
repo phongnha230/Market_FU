@@ -10,8 +10,12 @@ import {
   assistantChatSchema,
   querySessionsSchema,
 } from '../../src/modules/ai/ai.dto';
+import {
+  registerDeviceTokenSchema,
+  removeDeviceTokenSchema,
+} from '../../src/modules/notifications/notification.dto';
 
-describe('Unit Test: BE-DEV 2 (Chat & AI DTO Validation)', () => {
+describe('Unit Test: BE-DEV 2 (Chat, AI & Notification DTO Validation)', () => {
   describe('Chat Module Schemas', () => {
     it('createConversationSchema: Hợp lệ khi có productId', () => {
       const valid = createConversationSchema.safeParse({ productId: '65f1a2b3c4d5e6f7a8b9c0d1' });
@@ -94,6 +98,37 @@ describe('Unit Test: BE-DEV 2 (Chat & AI DTO Validation)', () => {
       const parsed = querySessionsSchema.parse({});
       assert.strictEqual(parsed.page, 1);
       assert.strictEqual(parsed.limit, 20);
+    });
+  });
+
+  describe('Notification Module Schemas', () => {
+    it('registerDeviceTokenSchema: Hợp lệ khi có token và deviceType', () => {
+      const valid = registerDeviceTokenSchema.safeParse({
+        token: 'fcm-device-token-xyz',
+        deviceType: 'ANDROID',
+      });
+      assert.strictEqual(valid.success, true);
+    });
+
+    it('registerDeviceTokenSchema: Lỗi khi token rỗng', () => {
+      const invalid = registerDeviceTokenSchema.safeParse({
+        token: '',
+      });
+      assert.strictEqual(invalid.success, false);
+    });
+
+    it('removeDeviceTokenSchema: Hợp lệ khi có token', () => {
+      const valid = removeDeviceTokenSchema.safeParse({
+        token: 'fcm-device-token-xyz',
+      });
+      assert.strictEqual(valid.success, true);
+    });
+
+    it('removeDeviceTokenSchema: Lỗi khi token rỗng', () => {
+      const invalid = removeDeviceTokenSchema.safeParse({
+        token: '',
+      });
+      assert.strictEqual(invalid.success, false);
     });
   });
 });

@@ -106,9 +106,9 @@ export class UserService {
   }
 
   /**
-   * Lấy thông tin người dùng theo ID
+   * Lấy thông tin người dùng theo ID (Bảo vệ PII: Ẩn SĐT và che mờ Email đối với khách vãng lai / người dùng khác)
    */
-  async getUserById(userId: string) {
+  async getUserById(userId: string, currentUser?: { userId?: string; role?: string }) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -134,13 +134,22 @@ export class UserService {
       throw new AppError('Không tìm thấy người dùng', 404, 'USER_NOT_FOUND');
     }
 
+    const isPrivileged =
+      currentUser &&
+      (currentUser.role === 'ADMIN' || currentUser.userId === user.id);
+
+    // Che mờ email nếu không phải ADMIN hoặc chính chủ (chống cào dữ liệu email sinh viên)
+    const safeEmail = isPrivileged
+      ? user.email
+      : user.email.replace(/(.{2})(.*)(?=@)/, (_m, p1, p2) => p1 + '*'.repeat(Math.max(p2.length, 3)));
+
     return {
       id: user.id,
-      email: user.email,
+      email: safeEmail,
       fullName: user.profile?.fullName,
       avatarUrl: user.profile?.avatarUrl,
       avatarBadge: user.profile?.avatarBadge,
-      phoneNumber: user.profile?.phoneNumber,
+      phoneNumber: isPrivileged ? user.profile?.phoneNumber : undefined,
       role: user.role,
       campus: user.profile?.campus,
       reputationScore: user.profile?.reputationScore,
@@ -150,12 +159,15 @@ export class UserService {
   }
 
   /**
-   * Khóa hoặc mở khóa tài khoản người dùng
+   * Khóa hoặc mở khóa tài khoản người dùng (Tự động thu hồi Refresh Token cũ)
    */
   async updateUserStatus(userId: string, isActive: boolean) {
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { isActive },
+      data: {
+        isActive,
+        tokenVersion: { increment: 1 }, // Thu hồi mọi Refresh Token khi trạng thái tài khoản thay đổi
+      },
       select: {
         id: true,
         email: true,

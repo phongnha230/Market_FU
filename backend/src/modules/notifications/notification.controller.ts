@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { NotificationService } from './notification.service';
-import { queryNotificationsSchema } from './notification.dto';
+import { queryNotificationsSchema, registerDeviceTokenSchema, removeDeviceTokenSchema } from './notification.dto';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 
 const notificationService = new NotificationService();
@@ -43,6 +43,28 @@ export class NotificationController {
   async markAllAsRead(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const result = await notificationService.markAllAsRead(req.user!.userId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /api/notifications/fcm-token
+  async registerDeviceToken(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { token, deviceType } = registerDeviceTokenSchema.parse(req.body);
+      const result = await notificationService.registerDeviceToken(req.user!.userId, token, deviceType);
+      return sendSuccess(res, result, undefined, 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // DELETE /api/notifications/fcm-token
+  async removeDeviceToken(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { token } = removeDeviceTokenSchema.parse(req.body);
+      const result = await notificationService.removeDeviceToken(req.user!.userId, token);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

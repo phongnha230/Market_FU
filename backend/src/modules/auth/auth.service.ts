@@ -1,11 +1,13 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../../config/prisma';
 import { ENV } from '../../config/env';
 import { firebaseAuth } from '../../config/firebase';
 import { sendPasswordResetOtpEmail } from '../../config/mail';
-import { generateTokens, verifyRefreshToken } from '../../utils/token';
+import { generateTokens, verifyRefreshToken, RefreshTokenPayload } from '../../utils/token';
 import { AppError } from '../../middlewares/error.middleware';
+import { getCache, setCache, delCache } from '../../config/redis';
 import {
   RegisterInput,
   LoginInput,
@@ -24,30 +26,10 @@ interface PasswordResetEntry {
   attempts: number;
 }
 
-// Bảng lưu trữ OTP tạm thời trong bộ nhớ RAM có thời hạn TTL 5 phút
-const passwordResetStore = new Map<string, PasswordResetEntry>();
-
-// Bảng theo dõi số lần đăng nhập sai theo Email chống Brute-force vét cạn mật khẩu
 interface LoginAttemptRecord {
   attempts: number;
   lockedUntil?: number;
 }
-const loginAttemptStore = new Map<string, LoginAttemptRecord>();
-
-// Định kỳ dọn dẹp các OTP và tài khoản hết hạn khóa mỗi 10 phút để tránh rò rỉ RAM
-setInterval(() => {
-  const now = Date.now();
-  for (const [email, entry] of passwordResetStore.entries()) {
-    if (now > entry.expiresAt) {
-      passwordResetStore.delete(email);
-    }
-  }
-  for (const [email, record] of loginAttemptStore.entries()) {
-    if (record.lockedUntil && now > record.lockedUntil) {
-      loginAttemptStore.delete(email);
-    }
-  }
-}, 10 * 60 * 1000).unref();
 
 export class AuthService {
   // 1. Đăng ký tài khoản mật khẩu
@@ -104,11 +86,11 @@ export class AuthService {
     return { user: userData, tokens };
   }
 
-  // 2. Đăng nhập Email / Mật khẩu (Có cơ chế khóa tạm thời chống Brute-force vét cạn)
+  // 2. Đăng nhập Email / Mật khẩu (Có cơ chế khóa tạm thời chống Brute-force vét cạn) - B1-7: Redis-backed
   async login(input: LoginInput) {
     const emailKey = input.email.trim().toLowerCase();
     const nowMs = Date.now();
-    const attemptRecord = loginAttemptStore.get(emailKey);
+    const attemptRecord = await getCache<LoginAttemptRecord>(`login_attempt:${emailKey}`);
 
     // Kiểm tra xem tài khoản có đang bị tạm khóa 15 phút do nhập sai quá nhiều lần không
     if (attemptRecord?.lockedUntil && attemptRecord.lockedUntil > nowMs) {
@@ -130,11 +112,12 @@ export class AuthService {
     if (!user || !user.passwordHash) {
       // Ghi nhận lần thử sai ngay cả khi email không tồn tại để tránh timing/enumeration attack
       const currentAttempts = (attemptRecord?.attempts || 0) + 1;
-      if (currentAttempts >= 5) {
-        loginAttemptStore.set(emailKey, { attempts: currentAttempts, lockedUntil: nowMs + 15 * 60 * 1000 });
-      } else {
-        loginAttemptStore.set(emailKey, { attempts: currentAttempts });
-      }
+      const lockedUntil = currentAttempts >= 5 ? nowMs + 15 * 60 * 1000 : undefined;
+      await setCache(
+        `login_attempt:${emailKey}`,
+        { attempts: currentAttempts, ...(lockedUntil && { lockedUntil }) },
+        15 * 60
+      );
       throw new AppError('Email hoặc mật khẩu không chính xác', 401, 'INVALID_CREDENTIALS');
     }
 
@@ -146,17 +129,25 @@ export class AuthService {
     if (!isMatch) {
       const currentAttempts = (attemptRecord?.attempts || 0) + 1;
       if (currentAttempts >= 5) {
-        loginAttemptStore.set(emailKey, {
-          attempts: currentAttempts,
-          lockedUntil: nowMs + 15 * 60 * 1000, // Tạm khóa 15 phút
-        });
+        await setCache(
+          `login_attempt:${emailKey}`,
+          {
+            attempts: currentAttempts,
+            lockedUntil: nowMs + 15 * 60 * 1000, // Tạm khóa 15 phút
+          },
+          15 * 60
+        );
         throw new AppError(
           'Bạn đã nhập sai mật khẩu 5 lần liên tiếp. Tài khoản bị tạm khóa 15 phút để đảm bảo an toàn.',
           429,
           'ACCOUNT_TEMPORARILY_LOCKED'
         );
       } else {
-        loginAttemptStore.set(emailKey, { attempts: currentAttempts });
+        await setCache(
+          `login_attempt:${emailKey}`,
+          { attempts: currentAttempts },
+          15 * 60
+        );
         throw new AppError(
           `Email hoặc mật khẩu không chính xác. Bạn còn ${5 - currentAttempts} lần thử.`,
           401,
@@ -166,7 +157,7 @@ export class AuthService {
     }
 
     // Đăng nhập thành công -> Xóa bộ đếm số lần thử sai
-    loginAttemptStore.delete(emailKey);
+    await delCache(`login_attempt:${emailKey}`);
 
     const tokens = generateTokens(
       {
@@ -335,13 +326,13 @@ export class AuthService {
     return { user: userData, tokens };
   }
 
-  // 5. Cấp lại Access Token từ Refresh Token (Kiểm tra tokenVersion chống tái sử dụng token bị thu hồi)
+  // 5. Cấp lại Access Token từ Refresh Token (B1-5: Token Rotation & Reuse Detection)
   async refreshToken(refreshToken: string) {
     if (!refreshToken) {
       throw new AppError('Refresh Token không tồn tại', 401, 'REFRESH_TOKEN_MISSING');
     }
 
-    let payload;
+    let payload: RefreshTokenPayload;
     try {
       payload = verifyRefreshToken(refreshToken);
     } catch (err) {
@@ -366,6 +357,28 @@ export class AuthService {
       );
     }
 
+    // B1-5: Phát hiện Tái sử dụng Refresh Token (Reuse Detection)
+    if (payload.jti) {
+      const isAlreadyUsed = await getCache<boolean>(`used_token:${payload.jti}`);
+      if (isAlreadyUsed) {
+        // Tái sử dụng token đã xoay vòng -> Khả năng cao token đã bị rò rỉ hoặc đánh cắp!
+        // Tức thì tăng tokenVersion trong DB để hủy toàn bộ phiên của tài khoản này
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { tokenVersion: { increment: 1 } },
+        });
+        throw new AppError(
+          'Cảnh báo an toàn: Phát hiện Refresh Token cũ đã qua sử dụng! Tất cả các phiên đăng nhập đã bị hủy để bảo vệ tài khoản.',
+          401,
+          'TOKEN_REUSE_DETECTED'
+        );
+      }
+
+      // Đánh dấu token cũ này đã được sử dụng (vào blacklist của Redis trong 30 ngày)
+      await setCache(`used_token:${payload.jti}`, true, 30 * 24 * 60 * 60);
+    }
+
+    // Xoay vòng cấp cặp Token mới tinh kèm jti mới
     const tokens = generateTokens(
       {
         userId: user.id,
@@ -440,15 +453,19 @@ export class AuthService {
       throw new AppError('Tài khoản gắn với email này đã bị khóa', 403, 'ACCOUNT_LOCKED');
     }
 
-    // Sinh mã OTP ngẫu nhiên 6 chữ số
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Sinh mã OTP ngẫu nhiên 6 chữ số bằng CSPRNG (Cryptographically Secure Pseudo-Random Number Generator)
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 phút
 
-    passwordResetStore.set(email, {
-      otp,
-      expiresAt,
-      attempts: 0,
-    });
+    await setCache(
+      `pwd_reset:${email}`,
+      {
+        otp,
+        expiresAt,
+        attempts: 0,
+      },
+      5 * 60
+    );
 
     // In ra console trong môi trường phát triển để test dễ dàng mà không cần chờ mail
     if (ENV.NODE_ENV === 'development') {
@@ -464,10 +481,10 @@ export class AuthService {
     };
   }
 
-  // 8. Xác thực OTP & Đặt mật khẩu mới (Chưa đăng nhập)
+  // 8. Xác thực OTP & Đặt mật khẩu mới (Chưa đăng nhập) - B1-7: Redis-backed
   async resetPassword(input: ResetPasswordInput) {
     const email = input.email.trim().toLowerCase();
-    const entry = passwordResetStore.get(email);
+    const entry = await getCache<PasswordResetEntry>(`pwd_reset:${email}`);
 
     if (!entry) {
       throw new AppError(
@@ -478,12 +495,12 @@ export class AuthService {
     }
 
     if (Date.now() > entry.expiresAt) {
-      passwordResetStore.delete(email);
+      await delCache(`pwd_reset:${email}`);
       throw new AppError('Mã OTP đã hết hạn (chỉ có hiệu lực 5 phút)', 400, 'OTP_EXPIRED');
     }
 
     if (entry.attempts >= 5) {
-      passwordResetStore.delete(email);
+      await delCache(`pwd_reset:${email}`);
       throw new AppError(
         'Bạn đã nhập sai mã OTP quá 5 lần. Vui lòng yêu cầu mã mới để bảo mật.',
         429,
@@ -493,6 +510,8 @@ export class AuthService {
 
     if (entry.otp !== input.otp) {
       entry.attempts += 1;
+      const remainingSeconds = Math.max(1, Math.round((entry.expiresAt - Date.now()) / 1000));
+      await setCache(`pwd_reset:${email}`, entry, remainingSeconds);
       throw new AppError(
         `Mã OTP không chính xác. Bạn còn ${5 - entry.attempts} lần thử.`,
         400,
@@ -520,7 +539,7 @@ export class AuthService {
     });
 
     // Xóa OTP khỏi store sau khi đã sử dụng thành công (Chống Replay Attack)
-    passwordResetStore.delete(email);
+    await delCache(`pwd_reset:${email}`);
 
     return {
       message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.',

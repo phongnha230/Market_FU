@@ -11,5 +11,7 @@ router.get('/', notificationController.getUserNotifications.bind(notificationCon
 router.get('/unread-count', notificationController.getUnreadCount.bind(notificationController));
 router.patch('/:id/read', notificationController.markAsRead.bind(notificationController));
 router.patch('/read-all', notificationController.markAllAsRead.bind(notificationController));
+router.post('/fcm-token', notificationController.registerDeviceToken.bind(notificationController));
+router.delete('/fcm-token', notificationController.removeDeviceToken.bind(notificationController));
 
 export default router;

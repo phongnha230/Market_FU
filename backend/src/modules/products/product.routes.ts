@@ -13,8 +13,9 @@ router.get('/favorites/me', authenticate, productController.getMyFavorites);
 
 router.get('/:id', productController.getProductById);
 
-// Protected routes (Đăng bán, cập nhật, xóa món đồ)
+// Protected routes (Đăng bán, cập nhật, đổi trạng thái, xóa món đồ)
 router.post('/', authenticate, productUploadMiddleware, productController.createProduct);
+router.patch('/:id/status', authenticate, productController.updateProductStatus);
 router.patch('/:id', authenticate, productUploadMiddleware, productController.updateProduct);
 router.delete('/:id', authenticate, productController.deleteProduct);
 

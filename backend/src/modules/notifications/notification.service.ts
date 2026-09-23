@@ -49,9 +49,22 @@ export class NotificationService {
     emitToUser(userId, 'new_notification', notification);
 
     // ─── Kênh C: Push FCM Multicast đến nhiều thiết bị ───
-    if (firebaseMessaging && fcmTokens && fcmTokens.length > 0) {
+    let tokensToSend = fcmTokens;
+    if (!tokensToSend || tokensToSend.length === 0) {
+      try {
+        const stored = await prisma.deviceToken.findMany({
+          where: { userId },
+          select: { token: true },
+        });
+        tokensToSend = stored.map((t) => t.token);
+      } catch (err: any) {
+        console.warn('⚠️ [DeviceToken Lookup Warning]:', err.message);
+      }
+    }
+
+    if (firebaseMessaging && tokensToSend && tokensToSend.length > 0) {
       // Lọc bỏ token rỗng
-      const validTokens = fcmTokens.filter((t) => t && t.trim() !== '');
+      const validTokens = tokensToSend.filter((t) => t && t.trim() !== '');
 
       if (validTokens.length > 0) {
         try {
@@ -68,7 +81,7 @@ export class NotificationService {
             });
           } else {
             // FCM Multicast: Gửi đồng thời đến nhiều thiết bị (tối đa 500 token/lần)
-            await firebaseMessaging.sendEachForMulticast({
+            const multicastRes = await firebaseMessaging.sendEachForMulticast({
               tokens: validTokens,
               notification: { title, body },
               data: {
@@ -77,6 +90,28 @@ export class NotificationService {
                 ...(targetUrl && { targetUrl }),
               },
             });
+
+            // Tự động dọn dẹp các token bị lỗi / đã hết hạn / uninstalled
+            const deadTokens: string[] = [];
+            multicastRes.responses.forEach((resp, idx) => {
+              if (!resp.success && resp.error) {
+                const code = resp.error.code;
+                if (
+                  code === 'messaging/invalid-registration-token' ||
+                  code === 'messaging/registration-token-not-registered'
+                ) {
+                  deadTokens.push(validTokens[idx]);
+                }
+              }
+            });
+
+            if (deadTokens.length > 0) {
+              await prisma.deviceToken
+                .deleteMany({
+                  where: { token: { in: deadTokens } },
+                })
+                .catch(() => {});
+            }
           }
         } catch (fcmError: any) {
           console.warn('⚠️ [FCM Multicast Warning] Không thể gửi Push Notification:', fcmError.message);
@@ -110,6 +145,104 @@ export class NotificationService {
     }
 
     return notification;
+  }
+
+  /**
+   * Push notification trực tiếp tới thiết bị không qua bản ghi DB (dùng cho chat ping realtime)
+   */
+  async sendPushOnly(userId: string, title: string, body: string, data?: Record<string, string>) {
+    if (!firebaseMessaging) return;
+
+    try {
+      const storedTokens = await prisma.deviceToken.findMany({
+        where: { userId },
+        select: { token: true },
+      });
+      const validTokens = storedTokens.map((t) => t.token).filter((t) => t && t.trim() !== '');
+      if (validTokens.length === 0) return;
+
+      if (validTokens.length === 1) {
+        await firebaseMessaging.send({
+          token: validTokens[0],
+          notification: { title, body },
+          data: data || {},
+        });
+      } else {
+        const res = await firebaseMessaging.sendEachForMulticast({
+          tokens: validTokens,
+          notification: { title, body },
+          data: data || {},
+        });
+
+        const deadTokens: string[] = [];
+        res.responses.forEach((resp, idx) => {
+          if (!resp.success && resp.error) {
+            const code = resp.error.code;
+            if (
+              code === 'messaging/invalid-registration-token' ||
+              code === 'messaging/registration-token-not-registered'
+            ) {
+              deadTokens.push(validTokens[idx]);
+            }
+          }
+        });
+
+        if (deadTokens.length > 0) {
+          await prisma.deviceToken
+            .deleteMany({
+              where: { token: { in: deadTokens } },
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (fcmError: any) {
+      console.warn('⚠️ [FCM PushOnly Warning]:', fcmError.message);
+    }
+  }
+
+  /**
+   * Đăng ký hoặc cập nhật FCM device token cho người dùng
+   */
+  async registerDeviceToken(userId: string, token: string, deviceType?: string) {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
+      throw new AppError('Token thiết bị không hợp lệ', 400, 'INVALID_DEVICE_TOKEN');
+    }
+
+    const record = await prisma.deviceToken.upsert({
+      where: { token: trimmedToken },
+      create: {
+        userId,
+        token: trimmedToken,
+        deviceType,
+      },
+      update: {
+        userId,
+        deviceType,
+        updatedAt: new Date(),
+      },
+    });
+
+    return record;
+  }
+
+  /**
+   * Hủy đăng ký FCM device token (khi logout hoặc tắt thông báo)
+   */
+  async removeDeviceToken(userId: string, token: string) {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
+      throw new AppError('Token thiết bị không hợp lệ', 400, 'INVALID_DEVICE_TOKEN');
+    }
+
+    await prisma.deviceToken.deleteMany({
+      where: {
+        userId,
+        token: trimmedToken,
+      },
+    });
+
+    return { message: 'Đã hủy đăng ký token thiết bị thành công' };
   }
 
   // 2. Lấy danh sách thông báo của người dùng kèm phân trang

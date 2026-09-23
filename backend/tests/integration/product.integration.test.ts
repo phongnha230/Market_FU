@@ -67,6 +67,27 @@ describe('Integration Test: RESTful Product & User Endpoints', () => {
     }
   });
 
+  it('PATCH /api/products/:id/status không có token phải trả về 401 Unauthorized (Task 1.4)', async () => {
+    const server = app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      server.close();
+      throw new Error('Không thể khởi tạo test server');
+    }
+
+    try {
+      const fakeId = '507f1f77bcf86cd799439011';
+      const response = await fetch(`http://localhost:${address.port}/api/products/${fakeId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'SOLD' }),
+      });
+      assert.strictEqual(response.status, 401);
+    } finally {
+      server.close();
+    }
+  });
+
   it('DELETE /api/products/:id không có token phải trả về 401 Unauthorized', async () => {
     const server = app.listen(0);
     const address = server.address();

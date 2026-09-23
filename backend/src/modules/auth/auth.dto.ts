@@ -8,8 +8,15 @@ export const strongPasswordSchema = z
   .regex(/[0-9]/, 'Mật khẩu phải chứa ít nhất 1 chữ số')
   .regex(/[^A-Za-z0-9]/, 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...)');
 
+// Quy chuẩn email an toàn: chuẩn hóa chữ thường và loại bỏ khoảng trắng thừa (B1-6 Fix)
+export const emailSchema = z
+  .string()
+  .email('Email không đúng định dạng')
+  .trim()
+  .toLowerCase();
+
 export const registerSchema = z.object({
-  email: z.string().email('Email không đúng định dạng'),
+  email: emailSchema,
   password: strongPasswordSchema,
   fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
   phoneNumber: z.string().optional(),
@@ -18,7 +25,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Email không đúng định dạng'),
+  email: emailSchema,
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
@@ -51,7 +58,7 @@ export const changePasswordSchema = z
 // 2. Yêu cầu gửi OTP quên mật khẩu (Chưa đăng nhập)
 // ----------------------------------------------------------------------------
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('Email không đúng định dạng'),
+  email: emailSchema,
 });
 
 // ----------------------------------------------------------------------------
@@ -59,7 +66,7 @@ export const forgotPasswordSchema = z.object({
 // ----------------------------------------------------------------------------
 export const resetPasswordSchema = z
   .object({
-    email: z.string().email('Email không đúng định dạng'),
+    email: emailSchema,
     otp: z.string().length(6, 'Mã OTP phải gồm đúng 6 chữ số'),
     newPassword: strongPasswordSchema,
     confirmPassword: z.string().min(1, 'Vui lòng nhập lại mật khẩu mới'),

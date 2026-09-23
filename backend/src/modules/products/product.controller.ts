@@ -4,6 +4,7 @@ import { productService } from './product.service';
 import {
   createProductSchema,
   updateProductSchema,
+  updateProductStatusSchema,
   queryProductSchema,
   boostProductSchema,
 } from './product.dto';
@@ -133,6 +134,18 @@ export class ProductController {
         validatedData,
         imageFiles.length > 0 ? imageFiles : undefined
       );
+      sendSuccess(res, updated);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Cập nhật trạng thái sản phẩm (PATCH /api/products/:id/status - Task 1.4)
+  async updateProductStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const validated = updateProductStatusSchema.parse(req.body);
+      const updated = await productService.updateProductStatus(req.user!.userId, id, validated.status);
       sendSuccess(res, updated);
     } catch (error) {
       next(error);

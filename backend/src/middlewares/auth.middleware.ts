@@ -12,12 +12,19 @@ export const authenticate = (
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;
+  let token: string | undefined;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new AppError('Yêu cầu xác thực tài khoản (Token missing)', 401, 'UNAUTHORIZED');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if ((req as any).cookies && (req as any).cookies.accessToken) {
+    token = (req as any).cookies.accessToken;
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = req.query.token;
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    throw new AppError('Yêu cầu xác thực tài khoản (Token missing)', 401, 'UNAUTHORIZED');
+  }
 
   try {
     const decoded = verifyAccessToken(token);

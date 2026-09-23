@@ -65,6 +65,7 @@ const envSchema = z.object({
 
   // 11. Webhooks & Anti-tampering Secrets
   SHIPPING_WEBHOOK_SECRET: z.string().min(16, 'SHIPPING_WEBHOOK_SECRET không được để trống và phải tối thiểu 16 ký tự'),
+  PAYMENT_WEBHOOK_SECRET: z.string().min(16, 'PAYMENT_WEBHOOK_SECRET không được để trống và phải tối thiểu 16 ký tự'),
   HANDSHAKE_QR_SECRET: z.string().min(16, 'HANDSHAKE_QR_SECRET không được để trống và phải tối thiểu 16 ký tự'),
 
   // 12. VietQR Napas Direct Template Config (img.vietqr.io)
@@ -103,6 +104,7 @@ const parseEnv = () => {
       JWT_SECRET: process.env.JWT_SECRET || 'fu_campus_market_secret_access_jwt_2026_dev_min32chars',
       JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'fu_campus_market_secret_refresh_jwt_2026_dev_min32chars',
       SHIPPING_WEBHOOK_SECRET: process.env.SHIPPING_WEBHOOK_SECRET || 'shipping_secret_default_min16chars',
+      PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || 'payment_secret_default_min16chars',
       HANDSHAKE_QR_SECRET: process.env.HANDSHAKE_QR_SECRET || 'handshake_qr_secret_default_min16chars',
     });
   }

@@ -1,8 +1,19 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { z } from 'zod';
 import { verifyAccessToken, TokenPayload } from './token';
 import { prisma } from '../config/prisma';
 import { ENV } from '../config/env';
+
+// Schema xác thực dữ liệu gửi qua socket (B2-4 Fix: Chặn tin nhắn quá dài, URL phishing, sai kiểu dữ liệu)
+const socketSendMessageSchema = z.object({
+  conversationId: z.string().min(1, 'conversationId không được để trống'),
+  text: z.string().max(2000, 'Tin nhắn không được vượt quá 2000 ký tự').optional(),
+  messageType: z.enum(['TEXT', 'IMAGE', 'OFFER_PRICE', 'MEETUP_LOCATION']).default('TEXT'),
+  offerPrice: z.coerce.number().positive('Giá đề xuất mặc cả phải lớn hơn 0 VNĐ').optional(),
+  meetupLocation: z.string().max(255, 'Địa điểm hẹn không được vượt quá 255 ký tự').optional(),
+  mediaUrl: z.string().url('Đường dẫn ảnh/media không đúng định dạng URL').optional(),
+});
 
 export interface AuthenticatedSocket extends Socket {
   data: {
@@ -107,146 +118,49 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
       }
     });
 
-    // Gửi tin nhắn đa phương thức (TEXT, OFFER_PRICE, MEETUP_LOCATION, IMAGE)
-    socket.on('send_message', async (data: {
-      conversationId: string;
-      text?: string;
-      mediaUrl?: string;
-      messageType?: 'TEXT' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'IMAGE';
-      offerPrice?: number;
-      meetupLocation?: string;
-    }) => {
+    // Gửi tin nhắn đa phương thức (TEXT, OFFER_PRICE, MEETUP_LOCATION, IMAGE) - B2-5 & B2-9 Fix
+    const handleSendMessage = async (rawData: any) => {
       try {
-        const { conversationId, text, mediaUrl, messageType = 'TEXT', offerPrice, meetupLocation } = data;
-
-        const conversation = await prisma.conversation.findUnique({
-          where: { id: conversationId },
-          include: {
-            product: {
-              select: { id: true, title: true, price: true, status: true },
-            },
-          },
-        });
-
-        if (!conversation) {
-          socket.emit('error', { code: 'CONVERSATION_NOT_FOUND', message: 'Hội thoại không tồn tại' });
+        const parseResult = socketSendMessageSchema.safeParse(rawData);
+        if (!parseResult.success) {
+          socket.emit('error', {
+            code: 'VALIDATION_ERROR',
+            message: parseResult.error.errors[0]?.message || 'Dữ liệu tin nhắn không hợp lệ',
+          });
           return;
         }
 
-        if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
-          socket.emit('error', { code: 'FORBIDDEN', message: 'Bạn không thuộc cuộc trò chuyện này' });
-          return;
-        }
-
-        // Quy tắc nghiệp vụ BR: Chặn mặc cả giá thấp hơn 50% giá gốc niêm yết
-        if (messageType === 'OFFER_PRICE' || (offerPrice !== undefined && offerPrice !== null)) {
-          if (!offerPrice || offerPrice <= 0) {
-            socket.emit('error', {
-              code: 'INVALID_OFFER_PRICE',
-              message: 'Giá đề xuất mặc cả phải lớn hơn 0 VNĐ',
-            });
-            return;
-          }
-
-          const minAllowedPrice = Math.round(conversation.product.price * 0.5);
-          if (offerPrice < minAllowedPrice) {
-            socket.emit('error', {
-              code: 'OFFER_TOO_LOW',
-              message: `Hệ thống từ chối đề xuất: Giá mặc cả (${offerPrice.toLocaleString()}đ) không được thấp hơn 50% giá gốc (${minAllowedPrice.toLocaleString()}đ).`,
-            });
-            return;
-          }
-        }
-
-        // Tạo tin nhắn mới trong Database
-        const savedMessage = await prisma.message.create({
-          data: {
-            conversationId,
-            senderId: userId,
-            messageType,
-            text: text?.trim() || null,
-            mediaUrl: mediaUrl || null,
-            offerPrice: offerPrice ? Math.round(offerPrice) : null,
-            meetupLocation: meetupLocation?.trim() || null,
-          },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                email: true,
-                profile: {
-                  select: {
-                    fullName: true,
-                    avatarUrl: true,
-                    campus: true,
-                    reputationScore: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        // Xác định nội dung tóm tắt hiển thị ở danh sách cuộc trò chuyện
-        let summaryText = savedMessage.text || '';
-        if (messageType === 'OFFER_PRICE') {
-          summaryText = `[Đề xuất giá: ${savedMessage.offerPrice?.toLocaleString()} VNĐ]`;
-        } else if (messageType === 'MEETUP_LOCATION') {
-          summaryText = `[Hẹn gặp tại: ${savedMessage.meetupLocation}]`;
-        } else if (messageType === 'IMAGE') {
-          summaryText = '[Hình ảnh]';
-        }
-
-        // Cập nhật Conversation
-        await prisma.conversation.update({
-          where: { id: conversationId },
-          data: {
-            lastMessageText: summaryText,
-            lastMessageAt: savedMessage.createdAt,
-          },
-        });
-
-        // Phát tin nhắn tới tất cả thành viên trong phòng trò chuyện
-        io?.to(`conversation_${conversationId}`).emit('receive_message', savedMessage);
-
-        // Bắn thông báo trực tiếp tới đối tác nếu họ đang ở màn hình khác
-        const recipientId = conversation.buyerId === userId ? conversation.sellerId : conversation.buyerId;
-        emitToUser(recipientId, 'new_message_notification', {
-          conversationId,
-          productId: conversation.productId,
-          senderName: savedMessage.sender?.profile?.fullName || 'Người dùng FU',
-          text: summaryText,
-          createdAt: savedMessage.createdAt,
-        });
+        const { conversationId, ...messageInput } = parseResult.data;
+        const { chatService } = await import('../modules/chats/chat.service');
+        await chatService.persistAndBroadcastMessage(userId, conversationId, messageInput);
       } catch (error: any) {
-        socket.emit('error', { code: 'SEND_MESSAGE_FAILED', message: error.message });
-      }
-    });
-
-    // Mặc cả giá (Shorthand event)
-    socket.on('send_offer_price', (data: { conversationId: string; offerPrice: number }) => {
-      const handler = socket.listeners('send_message')[0];
-      if (handler) {
-        handler({
-          conversationId: data.conversationId,
-          offerPrice: data.offerPrice,
-          messageType: 'OFFER_PRICE',
-          text: `Tôi muốn trả giá món đồ này: ${data.offerPrice?.toLocaleString()} VNĐ`,
+        socket.emit('error', {
+          code: error.code || 'SEND_MESSAGE_FAILED',
+          message: error.message,
         });
       }
+    };
+
+    socket.on('send_message', handleSendMessage);
+
+    // Mặc cả giá (Shorthand event - gọi trực tiếp handleSendMessage thay vì duyệt listeners[0])
+    socket.on('send_offer_price', (data: { conversationId: string; offerPrice: number }) => {
+      handleSendMessage({
+        conversationId: data?.conversationId,
+        offerPrice: data?.offerPrice,
+        messageType: 'OFFER_PRICE',
+        text: `Tôi muốn trả giá món đồ này: ${data?.offerPrice?.toLocaleString()} VNĐ`,
+      });
     });
 
     // Gợi ý điểm hẹn Campus (Shorthand event)
     socket.on('send_meetup_location', (data: { conversationId: string; meetupLocation: string }) => {
-      const handler = socket.listeners('send_message')[0];
-      if (handler) {
-        handler({
-          conversationId: data.conversationId,
-          meetupLocation: data.meetupLocation,
-          messageType: 'MEETUP_LOCATION',
-          text: `Hẹn gặp bạn tại: ${data.meetupLocation}`,
-        });
-      }
+      handleSendMessage({
+        conversationId: data?.conversationId,
+        meetupLocation: data?.meetupLocation,
+        messageType: 'MEETUP_LOCATION',
+        text: `Hẹn gặp bạn tại: ${data?.meetupLocation}`,
+      });
     });
 
     // Sự kiện Đang gõ tin nhắn (Typing status)
@@ -268,11 +182,25 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
       }
     });
 
-    // Đánh dấu đã đọc tin nhắn trong cuộc trò chuyện
+    // Đánh dấu đã đọc tin nhắn trong cuộc trò chuyện (B2-1 Fix: Chặn IDOR - Kiểm tra quyền thành viên hội thoại)
     socket.on('message_read', async (data: { conversationId: string }) => {
       try {
         const { conversationId } = data;
         if (!conversationId) return;
+
+        // B2-1: Xác thực người dùng hiện tại là bên mua (buyerId) hoặc bên bán (sellerId)
+        const conversation = await prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: { id: true, buyerId: true, sellerId: true },
+        });
+
+        if (!conversation || (conversation.buyerId !== userId && conversation.sellerId !== userId)) {
+          socket.emit('error', {
+            code: 'FORBIDDEN',
+            message: 'Bạn không có quyền đánh dấu đã đọc cuộc trò chuyện này',
+          });
+          return;
+        }
 
         await prisma.message.updateMany({
           where: {

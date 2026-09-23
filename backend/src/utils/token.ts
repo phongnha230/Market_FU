@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../config/env';
 
@@ -9,6 +10,7 @@ export interface TokenPayload {
 
 export interface RefreshTokenPayload extends TokenPayload {
   tokenVersion: number;
+  jti?: string;
 }
 
 export const generateTokens = (payload: TokenPayload, tokenVersion: number = 0) => {
@@ -16,6 +18,7 @@ export const generateTokens = (payload: TokenPayload, tokenVersion: number = 0) 
     expiresIn: ENV.JWT_EXPIRES_IN as any,
   });
 
+  const jti = crypto.randomUUID();
   const refreshPayload: RefreshTokenPayload = {
     ...payload,
     tokenVersion,
@@ -23,6 +26,7 @@ export const generateTokens = (payload: TokenPayload, tokenVersion: number = 0) 
 
   const refreshToken = jwt.sign(refreshPayload, ENV.JWT_REFRESH_SECRET, {
     expiresIn: ENV.JWT_REFRESH_EXPIRES_IN as any,
+    jwtid: jti,
   });
 
   return { accessToken, refreshToken };

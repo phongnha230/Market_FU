@@ -52,20 +52,49 @@ const createRedisClient = (): Redis => {
   return client;
 };
 
+// Bộ nhớ RAM dự phòng có TTL tự động khi Redis offline / test environment (B1-7)
+const inMemoryFallback = new Map<string, { value: string; expireAt: number }>();
+
+// Dọn dẹp RAM dự phòng định kỳ mỗi 10 phút
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of inMemoryFallback.entries()) {
+    if (v.expireAt > 0 && now > v.expireAt) {
+      inMemoryFallback.delete(k);
+    }
+  }
+}, 10 * 60 * 1000).unref();
+
 export const redis = createRedisClient();
 
 export const isRedisReady = (): boolean => isConnected;
 
 /**
- * Lấy dữ liệu từ Cache Redis an toàn (Tự động fallback trả về null nếu Redis offline)
+ * Lấy dữ liệu từ Cache Redis an toàn (Tự động fallback sang RAM cục bộ nếu Redis offline)
  */
 export const getCache = async <T>(key: string): Promise<T | null> => {
-  if (!isConnected) return null;
+  if (isConnected) {
+    try {
+      const data = await redis.get(key);
+      if (data !== null && data !== undefined) {
+        return JSON.parse(data) as T;
+      }
+      return null;
+    } catch (error) {
+      // Fall through sang RAM dự phòng nếu Redis gặp sự cố
+    }
+  }
+
+  const entry = inMemoryFallback.get(key);
+  if (!entry) return null;
+  if (entry.expireAt > 0 && Date.now() > entry.expireAt) {
+    inMemoryFallback.delete(key);
+    return null;
+  }
+
   try {
-    const data = await redis.get(key);
-    if (!data) return null;
-    return JSON.parse(data) as T;
-  } catch (error) {
+    return JSON.parse(entry.value) as T;
+  } catch {
     return null;
   }
 };
@@ -78,31 +107,44 @@ export const setCache = async (
   value: any,
   ttlSeconds = 3600
 ): Promise<void> => {
-  if (!isConnected) return;
-  try {
-    const serialized = JSON.stringify(value);
-    if (ttlSeconds > 0) {
-      await redis.set(key, serialized, 'EX', ttlSeconds);
-    } else {
-      await redis.set(key, serialized);
+  const serialized = JSON.stringify(value);
+
+  if (isConnected) {
+    try {
+      if (ttlSeconds > 0) {
+        await redis.set(key, serialized, 'EX', ttlSeconds);
+      } else {
+        await redis.set(key, serialized);
+      }
+      return;
+    } catch (error) {
+      // Fall through sang RAM dự phòng nếu Redis lỗi
     }
-  } catch (error) {
-    // Không ném lỗi ra ngoài để tránh làm sập request nghiệp vụ
   }
+
+  inMemoryFallback.set(key, {
+    value: serialized,
+    expireAt: ttlSeconds > 0 ? Date.now() + ttlSeconds * 1000 : 0,
+  });
 };
 
 /**
  * Xóa một hoặc nhiều Key khỏi Cache
  */
 export const delCache = async (keys: string | string[]): Promise<void> => {
-  if (!isConnected) return;
-  try {
-    const keyList = Array.isArray(keys) ? keys : [keys];
-    if (keyList.length > 0) {
-      await redis.del(...keyList);
+  const keyList = Array.isArray(keys) ? keys : [keys];
+  if (isConnected) {
+    try {
+      if (keyList.length > 0) {
+        await redis.del(...keyList);
+      }
+    } catch (error) {
+      // Silently ignore cache deletion errors
     }
-  } catch (error) {
-    // Silently ignore cache deletion errors
+  }
+
+  for (const k of keyList) {
+    inMemoryFallback.delete(k);
   }
 };
 
@@ -110,13 +152,21 @@ export const delCache = async (keys: string | string[]): Promise<void> => {
  * Xóa cache theo mẫu Wildcard (Ví dụ: 'categories:*')
  */
 export const delCachePattern = async (pattern: string): Promise<void> => {
-  if (!isConnected) return;
-  try {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      await redis.del(...keys);
+  if (isConnected) {
+    try {
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } catch (error) {
+      // Silently ignore pattern deletion errors
     }
-  } catch (error) {
-    // Silently ignore pattern deletion errors
+  }
+
+  const prefix = pattern.replace('*', '');
+  for (const k of inMemoryFallback.keys()) {
+    if (k.startsWith(prefix)) {
+      inMemoryFallback.delete(k);
+    }
   }
 };

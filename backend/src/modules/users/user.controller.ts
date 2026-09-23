@@ -5,6 +5,7 @@ import { queryUserSchema, updateUserStatusSchema } from './user.dto';
 import { profileController } from '../profile/profile.controller';
 import { productService } from '../products/product.service';
 import { sendSuccess } from '../../utils/response';
+import { verifyAccessToken } from '../../utils/token';
 
 export class UserController {
   // --------------------------------------------------------------------------
@@ -60,7 +61,16 @@ export class UserController {
   async getUserById(req: Request, res: Response, next: NextFunction) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const user = await userService.getUserById(id);
+      let currentUser: any = (req as any).user;
+      if (!currentUser && req.headers.authorization?.startsWith('Bearer ')) {
+        try {
+          const token = req.headers.authorization.split(' ')[1];
+          currentUser = verifyAccessToken(token);
+        } catch {
+          // Token không hợp lệ -> Xem ở chế độ khách vãng lai
+        }
+      }
+      const user = await userService.getUserById(id, currentUser);
       return sendSuccess(res, user);
     } catch (error) {
       next(error);

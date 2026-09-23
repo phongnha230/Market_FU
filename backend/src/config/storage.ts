@@ -47,16 +47,16 @@ const s3Client = isR2Configured
 
 // Thư mục cục bộ (dùng làm fallback khi chưa điền key R2)
 const UPLOAD_ROOT = path.resolve(process.cwd(), ENV.UPLOAD_DIR || 'uploads');
+export const PRIVATE_UPLOAD_ROOT = path.resolve(process.cwd(), 'private_uploads');
 
 const ensureDirectoryExists = async (dirPath: string): Promise<void> => {
   await fs.promises.mkdir(dirPath, { recursive: true });
 };
 
 /**
- * Chuẩn hóa URL trả về (Ưu tiên R2 Public Domain nếu cấu hình R2, fallback về Local Domain)
- * Tự động thêm https:// nếu người dùng chỉ dán pub-xxx.r2.dev
+ * Lấy Base Domain chuẩn hóa
  */
-const buildMediaUrl = (relativePath: string): string => {
+const getCleanDomain = (): string => {
   let baseDomain = (isR2Configured && r2PublicDomain)
     ? r2PublicDomain
     : ENV.MEDIA_DOMAIN.trim();
@@ -65,7 +65,15 @@ const buildMediaUrl = (relativePath: string): string => {
     baseDomain = `https://${baseDomain}`;
   }
 
-  const cleanDomain = baseDomain.replace(/\/+$/, '');
+  return baseDomain.replace(/\/+$/, '');
+};
+
+/**
+ * Chuẩn hóa URL trả về (Ưu tiên R2 Public Domain nếu cấu hình R2, fallback về Local Domain)
+ * Tự động thêm https:// nếu người dùng chỉ dán pub-xxx.r2.dev
+ */
+const buildMediaUrl = (relativePath: string): string => {
+  const cleanDomain = getCleanDomain();
   const cleanPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
   return `${cleanDomain}/${cleanPath}`;
 };
@@ -73,7 +81,7 @@ const buildMediaUrl = (relativePath: string): string => {
 /**
  * 1. Nén và Lưu trữ hình ảnh định dạng WebP
  * - Nếu có R2: Nén WebP rồi upload trực tiếp lên Cloudflare R2 bucket
- * - Nếu chưa có R2 key: Nén WebP và lưu vào thư mục local uploads/
+ * - Nếu chưa có R2 key: Nén WebP và lưu vào thư mục local (kyc_cards lưu riêng tại private_uploads/)
  */
 export const saveImageToStorage = async (
   fileBuffer: Buffer,
@@ -83,6 +91,7 @@ export const saveImageToStorage = async (
   const fileId = crypto.randomUUID();
   const filename = `${fileId}.webp`;
   const publicId = `${folder}/${filename}`.replace(/\\/g, '/');
+  const isPrivate = folder === 'kyc_cards' || folder.startsWith('private');
 
   let pipeline = sharp(fileBuffer).rotate(); // Tự động xoay ảnh theo EXIF orientation
 
@@ -102,19 +111,25 @@ export const saveImageToStorage = async (
         Key: publicId,
         Body: webpBuffer,
         ContentType: 'image/webp',
-        CacheControl: 'public, max-age=31536000, immutable',
+        CacheControl: isPrivate ? 'private, max-age=3600' : 'public, max-age=31536000, immutable',
       })
     );
   } else {
-    // Fallback lưu local
-    const targetDir = path.join(UPLOAD_ROOT, folder);
+    // Fallback lưu local: Tài liệu KYC lưu vào private_uploads, tuyệt đối không nằm dưới static uploads/
+    const baseDir = isPrivate ? PRIVATE_UPLOAD_ROOT : UPLOAD_ROOT;
+    const targetDir = path.join(baseDir, folder);
     await ensureDirectoryExists(targetDir);
     const destinationPath = path.join(targetDir, filename);
     await fs.promises.writeFile(destinationPath, webpBuffer);
   }
 
+  // Đối với KYC Card, trả về Streaming endpoint được bảo vệ phân quyền
+  const secure_url = isPrivate
+    ? `${getCleanDomain()}/api/profile/kyc/card/${filename}`
+    : buildMediaUrl(publicId);
+
   return {
-    secure_url: buildMediaUrl(publicId),
+    secure_url,
     public_id: publicId,
   };
 };
@@ -211,11 +226,18 @@ export const deleteMediaFromStorage = async (publicId: string): Promise<boolean>
       return true;
     }
 
-    // Xóa file local nếu chạy chế độ fallback
-    const safePath = path.resolve(UPLOAD_ROOT, publicId);
+    // Xóa file local nếu chạy chế độ fallback (Kiểm tra cả UPLOAD_ROOT và PRIVATE_UPLOAD_ROOT)
+    let safePath = path.resolve(UPLOAD_ROOT, publicId);
     if (!safePath.startsWith(UPLOAD_ROOT)) {
       console.warn(`Cảnh báo Path Traversal phát hiện khi xóa file: ${publicId}`);
       return false;
+    }
+
+    if (!fs.existsSync(safePath)) {
+      const privateCandidate = path.resolve(PRIVATE_UPLOAD_ROOT, publicId);
+      if (privateCandidate.startsWith(PRIVATE_UPLOAD_ROOT) && fs.existsSync(privateCandidate)) {
+        safePath = privateCandidate;
+      }
     }
 
     if (fs.existsSync(safePath)) {
