@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import { Response } from 'express';
 import { prisma } from '../../config/prisma';
 import { saveImageToStorage } from '../../config/storage';
 import { AppError } from '../../middlewares/error.middleware';
@@ -511,6 +514,197 @@ export class ProfileService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  /**
+   * Phục vụ an toàn ảnh Thẻ Sinh Viên KYC (Private Media Streaming - B1-2 Fix)
+   * Chỉ cho phép ADMIN hoặc chính chủ tài khoản xem ảnh thẻ
+   */
+  async streamKycCard(
+    filename: string,
+    currentUser: { userId: string; role: string },
+    res: Response
+  ) {
+    const safeFilename = path.basename(filename);
+
+    const isAdmin = currentUser.role === 'ADMIN';
+    if (!isAdmin) {
+      // Kiểm tra xem thẻ sinh viên này có thuộc về currentUser hay không
+      const [userProfile, userKycRecord] = await Promise.all([
+        prisma.profile.findFirst({
+          where: {
+            userId: currentUser.userId,
+            kyc: { is: { cardImageUrl: { contains: safeFilename } } },
+          },
+          select: { id: true },
+        }),
+        prisma.kycVerification.findFirst({
+          where: {
+            userId: currentUser.userId,
+            cardImageUrl: { contains: safeFilename },
+          },
+          select: { id: true },
+        }),
+      ]);
+
+      if (!userProfile && !userKycRecord) {
+        throw new AppError('Bạn không có quyền xem tài liệu thẻ sinh viên này', 403, 'FORBIDDEN');
+      }
+    }
+
+    const privatePath = path.resolve(process.cwd(), 'private_uploads', 'kyc_cards', safeFilename);
+    const legacyPath = path.resolve(process.cwd(), 'uploads', 'kyc_cards', safeFilename);
+
+    const filePath = fs.existsSync(privatePath)
+      ? privatePath
+      : fs.existsSync(legacyPath)
+      ? legacyPath
+      : null;
+
+    if (!filePath) {
+      throw new AppError('Không tìm thấy tệp ảnh thẻ sinh viên', 404, 'FILE_NOT_FOUND');
+    }
+
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    fs.createReadStream(filePath).pipe(res);
+  }
+
+  /**
+   * Lấy trạng thái điểm danh hôm nay của sinh viên
+   */
+  async getCheckInStatus(userId: string) {
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+
+    const [todayCheckIn, totalCheckIns, recentCheckIns] = await Promise.all([
+      prisma.dailyCheckIn.findUnique({
+        where: { userId_dateStr: { userId, dateStr: todayStr } },
+      }),
+      prisma.dailyCheckIn.count({
+        where: { userId },
+      }),
+      prisma.dailyCheckIn.findMany({
+        where: { userId },
+        orderBy: { dateStr: 'desc' },
+        take: 7,
+      }),
+    ]);
+
+    return {
+      dailyCheckedIn: !!todayCheckIn,
+      todayDate: todayStr,
+      coinsPerCheckIn: 20,
+      totalCheckIns,
+      streakDays: recentCheckIns.length,
+      lastCheckInAt: todayCheckIn?.createdAt || (recentCheckIns[0]?.createdAt ?? null),
+    };
+  }
+
+  /**
+   * Điểm danh hàng ngày nhận 20 Campus Coins
+   */
+  async checkInDaily(userId: string) {
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+
+    // 1. Kiểm tra đã điểm danh chưa
+    const existing = await prisma.dailyCheckIn.findUnique({
+      where: { userId_dateStr: { userId, dateStr: todayStr } },
+    });
+
+    if (existing) {
+      throw new AppError('Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.', 400, 'ALREADY_CHECKED_IN_TODAY');
+    }
+
+    const COIN_REWARD = 20;
+
+    // 2. Thực hiện Transaction: Lưu DailyCheckIn + Cộng Xu + Ghi sổ cái CoinTransaction
+    const result = await prisma.$transaction(async (tx) => {
+      const checkInRecord = await tx.dailyCheckIn.create({
+        data: {
+          userId,
+          dateStr: todayStr,
+          coinsAwarded: COIN_REWARD,
+        },
+      });
+
+      const updatedProfile = await tx.profile.update({
+        where: { userId },
+        data: {
+          campusCoins: { increment: COIN_REWARD },
+        },
+        select: { campusCoins: true },
+      });
+
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          amount: COIN_REWARD,
+          type: 'DAILY_CHECKIN',
+          balanceAfter: updatedProfile.campusCoins,
+          description: `Điểm danh hàng ngày (+${COIN_REWARD} Xu)`,
+        },
+      });
+
+      return {
+        checkIn: checkInRecord,
+        newCoins: updatedProfile.campusCoins,
+      };
+    });
+
+    // Bắn realtime socket thông báo số dư xu mới
+    emitToUser(userId, 'profile:coins_updated', {
+      campusCoins: result.newCoins,
+      reward: COIN_REWARD,
+      source: 'DAILY_CHECKIN',
+    });
+
+    return {
+      success: true,
+      coinsAdded: COIN_REWARD,
+      newBalance: result.newCoins,
+      dateStr: todayStr,
+      checkedInAt: result.checkIn.createdAt,
+    };
+  }
+
+  /**
+   * Nhận thưởng nhiệm vụ tuần (Quest Coins)
+   */
+  async claimQuest(userId: string, input: { questId: string; amount: number }) {
+    const rewardCoins = input.amount || 20;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedProfile = await tx.profile.update({
+        where: { userId },
+        data: { campusCoins: { increment: rewardCoins } },
+        select: { campusCoins: true },
+      });
+
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          amount: rewardCoins,
+          type: 'QUEST_REWARD',
+          balanceAfter: updatedProfile.campusCoins,
+          description: `Thưởng nhiệm vụ tuần [${input.questId}] (+${rewardCoins} Xu)`,
+        },
+      });
+
+      return updatedProfile.campusCoins;
+    });
+
+    emitToUser(userId, 'profile:coins_updated', {
+      campusCoins: result,
+      reward: rewardCoins,
+      source: 'QUEST_REWARD',
+    });
+
+    return {
+      success: true,
+      coinsAdded: rewardCoins,
+      newBalance: result,
+      questId: input.questId,
     };
   }
 }

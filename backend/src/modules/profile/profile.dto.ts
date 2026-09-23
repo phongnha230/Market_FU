@@ -51,3 +51,10 @@ export const queryCoinHistorySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 export type QueryCoinHistoryInput = z.infer<typeof queryCoinHistorySchema>;
+
+export const claimQuestSchema = z.object({
+  questId: z.string({ required_error: 'Mã nhiệm vụ là bắt buộc' }),
+  amount: z.coerce.number().int().positive().max(200, 'Phần thưởng nhiệm vụ tối đa 200 Xu').default(20),
+});
+export type ClaimQuestInput = z.infer<typeof claimQuestSchema>;
+

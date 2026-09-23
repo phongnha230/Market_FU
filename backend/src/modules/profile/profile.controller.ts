@@ -9,6 +9,7 @@ import {
   buyBadgeSchema,
   createWithdrawalSchema,
   queryCoinHistorySchema,
+  claimQuestSchema,
 } from './profile.dto';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 
@@ -153,6 +154,56 @@ export class ProfileController {
       const query = queryCoinHistorySchema.parse(req.query);
       const result = await profileService.getCoinHistory(req.user!.userId, query.page, query.limit);
       return sendPaginated(res, result.transactions, result.pagination);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [GET /api/profile/check-in-status] Kiểm tra trạng thái điểm danh hôm nay
+   */
+  async getCheckInStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const status = await profileService.getCheckInStatus(req.user!.userId);
+      return sendSuccess(res, status);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [POST /api/profile/check-in] Điểm danh nhận 20 Xu hàng ngày
+   */
+  async checkInDaily(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await profileService.checkInDaily(req.user!.userId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [POST /api/profile/claim-quest] Nhận thưởng nhiệm vụ tuần
+   */
+  async claimQuest(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const validatedData = claimQuestSchema.parse(req.body);
+      const result = await profileService.claimQuest(req.user!.userId, validatedData);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [GET /api/profile/kyc/card/:filename] Phục vụ an toàn ảnh Thẻ Sinh Viên KYC (Private Media Streaming - B1-2 Fix)
+   */
+  async streamKycCard(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const filename = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
+      const user = req.user!;
+      await profileService.streamKycCard(filename, user, res);
     } catch (error) {
       next(error);
     }

@@ -13,6 +13,13 @@ import categoryRoutes from './modules/categories/category.routes';
 import chatRoutes from './modules/chats/chat.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
+import voucherRoutes from './modules/vouchers/voucher.routes';
+import reportRoutes from './modules/reports/report.routes';
+import orderRoutes from './modules/orders/order.routes';
+import paymentRoutes, { paymentWebhookRouter } from './modules/payments/payment.routes';
+import shippingWebhookRoutes from './modules/orders/webhook.routes';
+import reviewRoutes from './modules/reviews/review.routes';
+import safeHandoffRoutes from './modules/safehandoff/safehandoff.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
 
@@ -67,6 +74,17 @@ if (ENV.NODE_ENV === 'development') {
 }
 
 // 4. Phục vụ tĩnh thư mục Media Uploads (Ảnh nén WebP & Video review)
+// B1-2 Fix: Chặn tuyệt đối việc truy cập trực tiếp tài liệu nhạy cảm kyc_cards qua static route
+app.use('/uploads/kyc_cards', (req: Request, res: Response) => {
+  res.status(403).json({
+    success: false,
+    error: {
+      code: 'FORBIDDEN',
+      message: 'Không được phép truy cập trực tiếp tài liệu KYC qua đường dẫn tĩnh công khai.',
+    },
+  });
+});
+
 const uploadsStaticPath = path.resolve(process.cwd(), ENV.UPLOAD_DIR || 'uploads');
 app.use(
   '/uploads',
@@ -96,6 +114,21 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// API Routes (BE-DEV 3 Scope)
+app.use('/api/orders', orderRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
+
+// Webhooks (BE-DEV 3): Mount tại /api/webhooks để có rawBody cho xác thực HMAC (B3-2/B3-3)
+app.use('/api/webhooks', paymentWebhookRouter);
+app.use('/api/webhooks', shippingWebhookRoutes);
+
+// API Routes (BE-DEV 4 Scope)
+app.use('/api/vouchers', voucherRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/safe-handoff', safeHandoffRoutes);
+app.use('/api/safehandoff', safeHandoffRoutes);
 
 // Centralized Error Handling (Strict GEMINI.md error format)
 app.use(errorHandler);

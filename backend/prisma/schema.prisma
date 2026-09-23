@@ -106,6 +106,8 @@ enum CoinTransactionType {
   REDEEM_VOUCHER
   ADMIN_ADJUSTMENT
   BONUS
+  DAILY_CHECKIN
+  QUEST_REWARD
 }
 
 enum VoucherPartner {
@@ -213,12 +215,14 @@ model User {
   receivedReviews Review[]       @relation("Reviewee")
   aiSessions      AiChatSession[]
   notifications      Notification[]
+  deviceTokens       DeviceToken[]       @relation("UserDeviceTokens")
   withdrawalRequests WithdrawalRequest[]
   favorites          ProductFavorite[]   @relation("UserFavorites")
   coinTransactions   CoinTransaction[]   @relation("UserCoinTransactions")
   kycVerifications   KycVerification[]   @relation("UserKycVerifications")
   submittedReports   Report[]            @relation("UserReports")
   vouchers           UserVoucher[]       @relation("UserVouchers")
+  checkIns           DailyCheckIn[]      @relation("UserCheckIns")
 
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -295,6 +299,11 @@ model Product {
 
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+
+  @@index([campus, categoryType, status, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([sellerId, status])
+  @@index([categoryId, status])
 }
 
 model Conversation {
@@ -310,6 +319,10 @@ model Conversation {
 
   messages        Message[]
   createdAt       DateTime  @default(now())
+
+  @@index([buyerId, lastMessageAt(sort: Desc)])
+  @@index([sellerId, lastMessageAt(sort: Desc)])
+  @@index([productId])
 }
 
 model Message {
@@ -325,6 +338,10 @@ model Message {
   meetupLocation String?
   isRead         Boolean      @default(false)
   createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt(sort: Asc)])
+  @@index([conversationId, senderId, isRead])
+  @@index([senderId, isRead])
 }
 
 model Order {
@@ -352,6 +369,10 @@ model Order {
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 model Review {
@@ -364,8 +385,15 @@ model Review {
   reviewee    User     @relation("Reviewee", fields: [revieweeId], references: [id])
   rating      Int
   comment     String?
+  images      String[] // Ảnh bằng chứng (tùy chọn)
+  proofVideoUrl String? // Kèm video test: thưởng +200 Xu theo Task 3.3
   isPublic    Boolean  @default(false)
+  revealedAt  DateTime? // Thời điểm mở khóa công khai (blind reveal)
   createdAt   DateTime @default(now())
+
+  // B3-7: Mỗi người chỉ được đánh giá 1 lần/đơn — chặn double-submit
+  @@unique([orderId, reviewerId])
+  @@index([revieweeId, isPublic])
 }
 
 model Dispute {
@@ -413,6 +441,9 @@ model Notification {
   targetUrl String?
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model WithdrawalRequest {
@@ -425,6 +456,9 @@ model WithdrawalRequest {
   adminNote   String?          // Ghi chú hoặc mã tham chiếu chuyển khoản của Admin
   createdAt   DateTime         @default(now())
   processedAt DateTime?
+
+  @@index([userId, status])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 // ------------------------------------------------------
@@ -440,6 +474,7 @@ model ProductFavorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model CoinTransaction {
@@ -452,6 +487,8 @@ model CoinTransaction {
   description  String
   referenceId  String?             // Mã tham chiếu (mã đơn hàng, mã review, v.v.)
   createdAt    DateTime            @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model KycVerification {
@@ -467,6 +504,9 @@ model KycVerification {
   reviewedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 model Report {
@@ -482,6 +522,9 @@ model Report {
   resolvedAt DateTime?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+
+  @@index([targetId, status])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 model Voucher {
@@ -516,5 +559,50 @@ model UserVoucher {
 
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+
+  @@index([userId, status])
+}
+
+model DeviceToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation("UserDeviceTokens", fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  deviceType String?  // "WEB" | "ANDROID" | "IOS"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SafeHandoffHub {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  code            String         @unique
+  campus          CampusLocation
+  storageCapacity String         @default("50 GB")
+  cameras         String         @default("2 Cam HD")
+  staffCount      String         @default("4 cán bộ")
+  status          String         @default("Hoạt động") // "Hoạt động" | "Bảo trì" | "Tạm ngưng"
+  isOperating     Boolean        @default(true)
+  operatingHours  String         @default("07:30 - 21:00")
+  locationDetails String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([campus, status])
+}
+
+model DailyCheckIn {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation("UserCheckIns", fields: [userId], references: [id], onDelete: Cascade)
+  dateStr      String   // "YYYY-MM-DD" in Asia/Ho_Chi_Minh
+  coinsAwarded Int      @default(20)
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, dateStr])
+  @@index([userId, createdAt(sort: Desc)])
 }
 

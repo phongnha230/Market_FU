@@ -31,6 +31,11 @@ router.post('/kyc', upload.single('cardImage'), (req, res, next) =>
   profileController.submitKyc(req, res, next)
 );
 
+// Phục vụ an toàn ảnh Thẻ Sinh Viên KYC (Private Media Streaming - B1-2 Fix)
+router.get('/kyc/card/:filename', (req, res, next) =>
+  profileController.streamKycCard(req, res, next)
+);
+
 // Nộp hồ sơ Onboarding Người Bán (Họ tên, SĐT, Cơ sở, Ngân hàng + Thẻ SV)
 router.post('/seller-onboarding', upload.single('cardImage'), (req, res, next) =>
   profileController.submitSellerOnboarding(req, res, next)
@@ -52,6 +57,17 @@ router.get('/withdrawals', (req, res, next) =>
 // Xem lịch sử biến động sổ cái CoinTransaction
 router.get('/coins/history', (req, res, next) =>
   profileController.getCoinHistory(req, res, next)
+);
+
+// Điểm danh nhận Xu hàng ngày & Nhiệm vụ tuần
+router.get('/check-in-status', (req, res, next) =>
+  profileController.getCheckInStatus(req, res, next)
+);
+router.post('/check-in', (req, res, next) =>
+  profileController.checkInDaily(req, res, next)
+);
+router.post('/claim-quest', (req, res, next) =>
+  profileController.claimQuest(req, res, next)
 );
 
 export default router;
