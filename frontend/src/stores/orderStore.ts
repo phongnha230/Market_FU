@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { orderService, BackendOrder } from '@/services/orderService';
+import { socketClient } from '@/services/socketClient';
 
 export interface OrderStep {
   title: string;
@@ -45,6 +47,9 @@ export interface OrderItem {
 
 interface OrderState {
   orders: OrderItem[];
+  fetchOrders: () => Promise<void>;
+  verifyHandshake: (orderId: string, handshakeToken?: string, handshakeOtp?: string) => Promise<boolean>;
+  initSocketListeners: () => () => void;
   createOrder: (params: {
     product: OrderItem['product'];
     type?: 'inter-campus' | 'safe-handoff';
@@ -134,6 +139,123 @@ export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
       orders: INITIAL_ORDERS,
+
+      fetchOrders: async () => {
+        try {
+          const res = await orderService.getOrders();
+          if (res.orders && res.orders.length > 0) {
+            const mapped: OrderItem[] = res.orders.map((bo) => {
+              const statusMap: Record<string, OrderItem['status']> = {
+                PENDING: 'processing',
+                PAID: 'processing',
+                SHIPPING: 'shipping',
+                DELIVERED: 'delivered',
+                COMPLETED: 'completed',
+                CANCELLED: 'processing',
+                DISPUTED: 'disputed',
+              };
+              const statusColorMap: Record<string, string> = {
+                PENDING: 'text-amber-600',
+                PAID: 'text-blue-600',
+                SHIPPING: 'text-fpt-orange',
+                DELIVERED: 'text-emerald-600',
+                COMPLETED: 'text-emerald-600',
+                CANCELLED: 'text-slate-400',
+                DISPUTED: 'text-rose-600',
+              };
+
+              return {
+                id: bo.id,
+                code: bo.orderCode.startsWith('#') ? bo.orderCode : `#${bo.orderCode}`,
+                type: bo.orderType === 'SHIP_COD' ? 'inter-campus' : 'safe-handoff',
+                typeLabel: bo.orderType === 'SHIP_COD' ? 'Inter-Campus Express • FPT CampusShip' : 'Nội bộ Campus - Safe Handoff',
+                timeLabel: new Date(bo.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
+                status: statusMap[bo.status] || 'processing',
+                statusText: bo.status === 'COMPLETED' ? 'Giao dịch thành công' : bo.status === 'PAID' ? 'Đã nạp Escrow bảo hộ' : bo.status === 'SHIPPING' ? 'Đang vận chuyển' : bo.status === 'DELIVERED' ? 'Đã giao tới nơi' : 'Chờ xử lý',
+                statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
+                reviewed: bo.reviews && bo.reviews.length > 0,
+                product: {
+                  title: bo.product?.title || 'Sản phẩm FPT Market',
+                  subtitle: bo.product?.meetupLocation || 'Bàn giao trực tiếp campus',
+                  price: bo.payment.price,
+                  escrowBadge: bo.orderType === 'SHIP_COD' ? 'Đã cọc Escrow bảo hộ 48h' : 'Xác thực QR Handshake',
+                  conditionBadge: 'Like New',
+                  imageUrl: bo.product?.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg',
+                  seller: {
+                    name: bo.seller?.profile?.fullName || bo.seller?.email || 'Người bán FPT',
+                    cohortCampus: `${bo.seller?.profile?.campus || 'Hòa Lạc'}`,
+                    verifiedText: 'Sinh viên FPT đã xác thực thẻ',
+                  },
+                },
+                tracking: bo.shipping?.trackingCode
+                  ? {
+                      routeTitle: `Giao hàng tới ${bo.shipping.shippingAddress}`,
+                      estimatedArrival: 'Dự kiến 1-2 ngày tới',
+                      currentLocation: bo.shipping.shippingPartner || 'GHTK',
+                      trackingCode: bo.shipping.trackingCode,
+                      steps: [
+                        { title: 'Tạo đơn', status: 'completed' },
+                        { title: 'Lấy hàng', status: bo.status !== 'PENDING' ? 'completed' : 'current' },
+                        { title: 'Vận chuyển', status: bo.status === 'SHIPPING' ? 'current' : bo.status === 'DELIVERED' || bo.status === 'COMPLETED' ? 'completed' : 'pending' },
+                        { title: 'Giao tới KTX', status: bo.status === 'DELIVERED' || bo.status === 'COMPLETED' ? 'completed' : 'pending' },
+                      ],
+                    }
+                  : undefined,
+              };
+            });
+
+            set((state) => {
+              const nonColliding = state.orders.filter((o) => !mapped.some((m) => m.id === o.id || m.code === o.code));
+              return { orders: [...mapped, ...nonColliding] };
+            });
+          }
+        } catch {
+          // offline fallback
+        }
+      },
+
+      verifyHandshake: async (orderId, handshakeToken, handshakeOtp) => {
+        try {
+          const res = await orderService.verifyHandshake(orderId, { handshakeToken, handshakeOtp });
+          if (res) {
+            get().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
+            return true;
+          }
+        } catch {
+          // fallback
+        }
+        return false;
+      },
+
+      initSocketListeners: () => {
+        const cleanupNew = socketClient.onNewOrderReceived(() => {
+          get().fetchOrders();
+        });
+        const cleanupPaid = socketClient.onOrderPaid((data) => {
+          get().updateOrderStatus(data.orderId || data.orderCode, 'processing', 'Đã nạp tiền vào Escrow');
+        });
+        const cleanupDone = socketClient.onOrderCompleted((data) => {
+          get().updateOrderStatus(data.orderId || data.orderCode, 'completed', 'Giao dịch Handshake thành công');
+        });
+        const cleanupShip = socketClient.onOrderShippingUpdated((data) => {
+          if (data.status === 'DELIVERED') {
+            get().updateOrderStatus(data.orderId, 'delivered', 'Đã giao tới nơi • Bắt đầu 48h test');
+          } else {
+            get().updateOrderStatus(data.orderId, 'shipping', 'Đang vận chuyển');
+          }
+        });
+        const cleanupCancel = socketClient.onOrderCancelled((data) => {
+          get().updateOrderStatus(data.orderId || data.orderCode, 'processing', 'Đơn hàng đã bị hủy');
+        });
+
+        return () => {
+          cleanupNew();
+          cleanupPaid();
+          cleanupDone();
+          cleanupShip();
+          cleanupCancel();
+        };
+      },
 
       createOrder: ({ product, type = 'inter-campus', deliveryNote }) => {
         const randomNum = Math.floor(10000 + Math.random() * 90000);

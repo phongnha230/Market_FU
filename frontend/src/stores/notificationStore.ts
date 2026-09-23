@@ -14,10 +14,15 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+import { notificationService, BackendNotification } from '@/services/notificationService';
+import { socketClient } from '@/services/socketClient';
+
 interface NotificationState {
   notifications: NotificationItem[];
 
   // Actions
+  fetchNotifications: () => Promise<void>;
+  initSocketListeners: () => () => void;
   addNotification: (params: Omit<NotificationItem, 'id' | 'isRead' | 'createdAt'>) => NotificationItem;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -82,6 +87,47 @@ export const useNotificationStore = create<NotificationState>()(
     (set, get) => ({
       notifications: INITIAL_NOTIFICATIONS,
 
+      fetchNotifications: async () => {
+        try {
+          const res = await notificationService.getUserNotifications();
+          if (res.notifications && res.notifications.length > 0) {
+            const mapped: NotificationItem[] = res.notifications.map((n) => ({
+              id: n.id,
+              userId: n.userId,
+              title: n.title,
+              body: n.body,
+              type: n.type,
+              targetUrl: n.type === 'CHAT' ? '/chat' : n.type === 'ORDER' ? '/orders' : '/profile',
+              isRead: n.isRead,
+              createdAt: new Date(n.createdAt).toLocaleDateString('vi-VN'),
+            }));
+            set({ notifications: mapped });
+          }
+        } catch {
+          // fallback
+        }
+      },
+
+      initSocketListeners: () => {
+        const cleanup = socketClient.onNewNotification((notif) => {
+          if (!notif) return;
+          const newNotif: NotificationItem = {
+            id: notif.id || `notif-${Date.now()}`,
+            userId: notif.userId || '',
+            title: notif.title || 'Thông báo mới',
+            body: notif.body || '',
+            type: notif.type || 'SYSTEM',
+            targetUrl: notif.targetUrl || '/profile',
+            isRead: false,
+            createdAt: 'Vừa xong',
+          };
+          set((state) => ({
+            notifications: [newNotif, ...state.notifications],
+          }));
+        });
+        return cleanup;
+      },
+
       addNotification: (params) => {
         const newNotif: NotificationItem = {
           ...params,
@@ -98,6 +144,7 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       markAsRead: (id) => {
+        notificationService.markAsRead(id).catch(() => {});
         set((state) => ({
           notifications: state.notifications.map((n) =>
             n.id === id ? { ...n, isRead: true } : n
@@ -106,6 +153,7 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       markAllAsRead: () => {
+        notificationService.markAllAsRead().catch(() => {});
         set((state) => ({
           notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
         }));

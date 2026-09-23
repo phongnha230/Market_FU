@@ -23,6 +23,8 @@ export interface AiChatSessionItem {
   updatedAt: string;
 }
 
+import { aiService } from '@/services/aiService';
+
 interface AiChatState {
   sessions: AiChatSessionItem[];
   activeSessionId: string;
@@ -31,6 +33,7 @@ interface AiChatState {
   createNewSession: (title?: string) => AiChatSessionItem;
   setActiveSession: (sessionId: string) => void;
   appendMessage: (sessionId: string, senderRole: AiSenderRole, content: string, suggestedProductIds?: string[]) => AiChatMessageItem;
+  sendMessageToAi: (content: string, campus?: string) => Promise<AiChatMessageItem>;
   getActiveMessages: () => AiChatMessageItem[];
   deleteSession: (sessionId: string) => void;
   resetAiChat: () => void;
@@ -114,6 +117,28 @@ export const useAiChatStore = create<AiChatState>()(
         }));
 
         return newMsg;
+      },
+
+      sendMessageToAi: async (content: string, campus = 'HOL') => {
+        const sessionId = get().activeSessionId;
+        // 1. Thêm tin nhắn của User
+        get().appendMessage(sessionId, 'USER', content);
+
+        try {
+          // 2. Gọi backend Gemini AI
+          const beSessionId = sessionId.startsWith('ai-ses-') || sessionId.startsWith('ai-session-') ? undefined : sessionId;
+          const result = await aiService.assistantChat(content, beSessionId, campus);
+          
+          const suggestedIds = (result.suggestedProducts || []).map((p) => p.id);
+          return get().appendMessage(sessionId, 'MODEL', result.reply, suggestedIds);
+        } catch {
+          // Fallback phản hồi nếu offline
+          return get().appendMessage(
+            sessionId,
+            'MODEL',
+            'Xin lỗi bạn, kết nối tới Cóc AI tạm thời gián đoạn. Tôi đã ghi nhận câu hỏi của bạn và sẽ hỗ trợ ngay khi đường truyền ổn định!'
+          );
+        }
       },
 
       getActiveMessages: () => {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useWalletStore } from './walletStore';
+import { voucherService, BackendVoucher, BackendUserVoucher } from '@/services/voucherService';
 
 export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
@@ -34,14 +35,57 @@ export interface UserVoucher {
 interface VoucherState {
   availableVouchers: Voucher[];
   myVouchers: UserVoucher[];
+  isLoading: boolean;
 
   // Actions
-  redeemVoucher: (voucherId: string) => { success: boolean; message: string; voucher?: UserVoucher };
-  useVoucherCode: (userVoucherIdOrCode: string) => { success: boolean; message: string };
+  fetchAvailableVouchers: () => Promise<void>;
+  fetchMyVouchers: () => Promise<void>;
+  redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
+  useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
   getUserVouchersByStatus: (status?: UserVoucherStatus) => UserVoucher[];
   getAvailableByPartner: (partner?: VoucherPartner) => Voucher[];
   resetVouchers: () => void;
 }
+
+const mapPartnerLabel = (partner: VoucherPartner): string => {
+  switch (partner) {
+    case 'CANTEEN':
+      return 'Căn Tin FPT';
+    case 'PASSIO':
+      return 'Passio Coffee';
+    case 'SEVEN_ELEVEN':
+      return '7-Eleven FPT';
+    case 'OTHER':
+    default:
+      return 'Đối Tác Campus';
+  }
+};
+
+const mapBackendVoucher = (bv: BackendVoucher): Voucher => ({
+  id: bv.id,
+  title: bv.title,
+  description: bv.description || '',
+  partner: bv.partner,
+  partnerLabel: mapPartnerLabel(bv.partner),
+  coinCost: bv.coinCost,
+  discountValue: bv.discountValue,
+  quantity: bv.quantity,
+  imageUrl: bv.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
+  validDays: bv.validDays,
+  isActive: bv.isActive,
+});
+
+const mapBackendUserVoucher = (buv: BackendUserVoucher): UserVoucher => ({
+  id: buv.id,
+  userId: buv.userId,
+  voucherId: buv.voucherId,
+  voucher: mapBackendVoucher(buv.voucher),
+  voucherCode: buv.voucherCode,
+  status: buv.status,
+  usedAt: buv.usedAt ? new Date(buv.usedAt).toLocaleString('vi-VN') : undefined,
+  expiredAt: new Date(buv.expiredAt).toLocaleDateString('vi-VN'),
+  createdAt: buv.createdAt ? new Date(buv.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+});
 
 export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
   {
@@ -133,102 +177,96 @@ export const useVoucherStore = create<VoucherState>()(
     (set, get) => ({
       availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
       myVouchers: INITIAL_USER_VOUCHERS,
+      isLoading: false,
 
-      redeemVoucher: (voucherId) => {
-        const voucher = get().availableVouchers.find((v) => v.id === voucherId && v.isActive);
-        if (!voucher) {
-          return { success: false, message: 'Voucher không tồn tại hoặc đã hết hiệu lực!' };
+      // 1. Tải danh sách Voucher từ Backend
+      fetchAvailableVouchers: async () => {
+        try {
+          set({ isLoading: true });
+          const res = await voucherService.getVouchers({ isActive: true, limit: 50 });
+          if (res.vouchers && res.vouchers.length > 0) {
+            set({ availableVouchers: res.vouchers.map(mapBackendVoucher) });
+          }
+        } catch (error) {
+          console.warn('⚠️ [VoucherStore] Không thể tải voucher từ server, dùng cache offline');
+        } finally {
+          set({ isLoading: false });
         }
-        if (voucher.quantity <= 0) {
-          return { success: false, message: 'Rất tiếc, kho voucher này đã được đổi hết!' };
-        }
-
-        // Khấu trừ Coin từ walletStore
-        const wallet = useWalletStore.getState();
-        const deducted = wallet.deductCoins(
-          voucher.coinCost,
-          'REDEEM_VOUCHER',
-          `Đổi "${voucher.title}" (-${voucher.coinCost} Coin)`,
-          voucher.id
-        );
-
-        if (!deducted) {
-          return {
-            success: false,
-            message: `Bạn không đủ Coin! Cần ${voucher.coinCost} Coin (Hiện có: ${wallet.campusCoins} Coin).`,
-          };
-        }
-
-        // Tạo mã code ngẫu nhiên duy nhất
-        const randomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-        const voucherCode = `FUV-${voucher.partner.substring(0, 4)}-${randomCode}`;
-
-        // Hạn sử dụng: hiện tại + validDays
-        const expireDate = new Date();
-        expireDate.setDate(expireDate.getDate() + voucher.validDays);
-        const expiredAt = `${expireDate.getDate().toString().padStart(2, '0')}/${(
-          expireDate.getMonth() + 1
-        )
-          .toString()
-          .padStart(2, '0')}/${expireDate.getFullYear()}`;
-
-        const newUserVoucher: UserVoucher = {
-          id: `uv-${Date.now()}`,
-          userId: 'user-default',
-          voucherId: voucher.id,
-          voucher,
-          voucherCode,
-          status: 'UNUSED',
-          expiredAt,
-          createdAt: 'Vừa xong',
-        };
-
-        set((state) => ({
-          availableVouchers: state.availableVouchers.map((v) =>
-            v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
-          ),
-          myVouchers: [newUserVoucher, ...state.myVouchers],
-        }));
-
-        return {
-          success: true,
-          message: `Đổi thành công "${voucher.title}"! Mã quét đã được thêm vào túi đồ của bạn.`,
-          voucher: newUserVoucher,
-        };
       },
 
-      useVoucherCode: (userVoucherIdOrCode) => {
+      // 2. Tải danh sách Voucher đã đổi của tôi từ Backend
+      fetchMyVouchers: async () => {
+        try {
+          const res = await voucherService.getMyVouchers({ limit: 50 });
+          if (res.userVouchers) {
+            set({ myVouchers: res.userVouchers.map(mapBackendUserVoucher) });
+          }
+        } catch (error) {
+          console.warn('⚠️ [VoucherStore] Không thể tải ví voucher cá nhân từ server, dùng cache offline');
+        }
+      },
+
+      // 3. Đổi voucher bằng Campus Coins qua API Backend
+      redeemVoucher: async (voucherId) => {
+        try {
+          const res = await voucherService.redeemVoucher(voucherId);
+          const mappedVoucher = mapBackendUserVoucher(res.userVoucher);
+
+          // Cập nhật số dư Xu trong walletStore
+          useWalletStore.setState((s) => ({
+            campusCoins: res.remainingCoins ?? Math.max(0, s.campusCoins - mappedVoucher.voucher.coinCost),
+          }));
+
+          // Thêm voucher mới đổi vào danh sách myVouchers
+          set((state) => ({
+            availableVouchers: state.availableVouchers.map((v) =>
+              v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
+            ),
+            myVouchers: [mappedVoucher, ...state.myVouchers],
+          }));
+
+          return {
+            success: true,
+            message: res.message || `Đổi thành công "${mappedVoucher.voucher.title}"!`,
+            voucher: mappedVoucher,
+          };
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || error.message || 'Lỗi khi đổi voucher';
+          return { success: false, message: errMsg };
+        }
+      },
+
+      // 4. Quét mã sử dụng Voucher tại quầy đối tác qua API Backend
+      useVoucherCode: async (userVoucherIdOrCode) => {
         const target = get().myVouchers.find(
           (uv) => uv.id === userVoucherIdOrCode || uv.voucherCode === userVoucherIdOrCode
         );
+        const code = target ? target.voucherCode : userVoucherIdOrCode;
 
-        if (!target) {
-          return { success: false, message: 'Không tìm thấy mã voucher này!' };
+        try {
+          const res = await voucherService.useVoucher(code);
+          const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+          set((state) => ({
+            myVouchers: state.myVouchers.map((uv) =>
+              uv.voucherCode === code || uv.id === userVoucherIdOrCode
+                ? {
+                    ...uv,
+                    status: 'USED',
+                    usedAt: `${nowStr} - Hôm nay`,
+                  }
+                : uv
+            ),
+          }));
+
+          return {
+            success: true,
+            message: res.message || `Sử dụng thành công mã ưu đãi!`,
+          };
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || error.message || 'Lỗi khi kích hoạt voucher';
+          return { success: false, message: errMsg };
         }
-
-        if (target.status === 'USED') {
-          return { success: false, message: 'Mã voucher này đã được sử dụng trước đó!' };
-        }
-
-        if (target.status === 'EXPIRED') {
-          return { success: false, message: 'Mã voucher này đã hết hạn sử dụng!' };
-        }
-
-        const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-        set((state) => ({
-          myVouchers: state.myVouchers.map((uv) =>
-            uv.id === target.id
-              ? {
-                  ...uv,
-                  status: 'USED',
-                  usedAt: `${nowStr} - Hôm nay`,
-                }
-              : uv
-          ),
-        }));
-
-        return { success: true, message: `Áp dụng thành công mã giảm ${target.voucher.discountValue.toLocaleString('vi-VN')}đ!` };
       },
 
       getUserVouchersByStatus: (status) => {

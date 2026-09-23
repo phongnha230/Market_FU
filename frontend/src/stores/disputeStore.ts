@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useOrderStore } from './orderStore';
 import { useWalletStore } from './walletStore';
+import { reportService, BackendDispute } from '@/services/reportService';
 
-export type DisputeStatus = 'PENDING' | 'INVESTIGATING' | 'REFUNDED' | 'REJECTED';
+export type DisputeStatus = 'PENDING' | 'INVESTIGATING' | 'REFUNDED' | 'REJECTED' | 'CANCELLED';
 
 export interface DisputeItem {
   id: string;
@@ -24,8 +25,10 @@ export interface DisputeItem {
 
 interface DisputeState {
   disputes: DisputeItem[];
+  isLoading: boolean;
 
   // Actions
+  fetchDisputes: () => Promise<void>;
   createDispute: (params: {
     orderId: string;
     orderCode: string;
@@ -33,16 +36,32 @@ interface DisputeState {
     details?: string;
     proofVideoUrl: string;
     refundAmount?: number;
-  }) => { success: boolean; message: string; dispute?: DisputeItem };
+  }) => Promise<{ success: boolean; message: string; dispute?: DisputeItem }>;
   resolveDisputeByAdmin: (
     disputeId: string,
     action: 'REFUND' | 'REJECT',
     adminNote: string
-  ) => { success: boolean; message: string };
+  ) => Promise<{ success: boolean; message: string }>;
   getDisputeByOrder: (orderId: string) => DisputeItem | undefined;
   getDisputesByStatus: (status?: DisputeStatus) => DisputeItem[];
   resetDisputes: () => void;
 }
+
+const mapBackendDispute = (bd: BackendDispute): DisputeItem => ({
+  id: bd.id,
+  orderId: bd.orderId,
+  orderCode: bd.order?.orderCode || `#ORD-${bd.orderId.slice(-6)}`,
+  claimantId: bd.claimantId,
+  claimantName: bd.order?.buyer?.profile?.fullName || 'Người mua',
+  claimantRole: 'BUYER',
+  reason: bd.reason,
+  proofVideoUrl: bd.proofVideoUrl,
+  status: bd.status === 'RESOLVED' ? 'REFUNDED' : (bd.status as DisputeStatus),
+  adminNote: bd.adminNote || undefined,
+  refundAmount: bd.order?.payment?.totalAmount || undefined,
+  createdAt: new Date(bd.createdAt).toLocaleString('vi-VN'),
+  resolvedAt: bd.resolvedAt ? new Date(bd.resolvedAt).toLocaleString('vi-VN') : undefined,
+});
 
 export const INITIAL_DISPUTES: DisputeItem[] = [
   {
@@ -72,79 +91,96 @@ export const useDisputeStore = create<DisputeState>()(
   persist(
     (set, get) => ({
       disputes: INITIAL_DISPUTES,
+      isLoading: false,
 
-      createDispute: ({ orderId, orderCode, reason, details, proofVideoUrl, refundAmount }) => {
+      // 1. Tải danh sách khiếu nại từ Backend
+      fetchDisputes: async () => {
+        try {
+          set({ isLoading: true });
+          const res = await reportService.getDisputes({ limit: 50 });
+          if (res.disputes && res.disputes.length > 0) {
+            set({ disputes: res.disputes.map(mapBackendDispute) });
+          }
+        } catch (error) {
+          console.warn('⚠️ [DisputeStore] Không thể tải khiếu nại từ server, dùng cache offline');
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // 2. Tạo khiếu nại đơn hàng qua Backend API
+      createDispute: async ({ orderId, orderCode, reason, details, proofVideoUrl, refundAmount }) => {
         const existing = get().disputes.find((d) => d.orderId === orderId);
         if (existing) {
           return { success: false, message: 'Đơn hàng này đang có khiếu nại đang được xử lý!' };
         }
 
-        const newDispute: DisputeItem = {
-          id: `dsp-${Date.now()}`,
-          orderId,
-          orderCode,
-          claimantId: 'user-default',
-          claimantName: 'Lê Minh Quân',
-          claimantRole: 'BUYER',
-          reason,
-          details,
-          proofVideoUrl,
-          status: 'PENDING',
-          refundAmount,
-          createdAt: 'Vừa xong',
-        };
+        try {
+          const res = await reportService.createDispute({
+            orderId,
+            reason: details ? `${reason}. Chi tiết: ${details}` : reason,
+            proofVideoUrl,
+          });
 
-        set((state) => ({
-          disputes: [newDispute, ...state.disputes],
-        }));
+          const newDispute = mapBackendDispute(res);
 
-        // Chuyển trạng thái đơn hàng sang 'disputed'
-        useOrderStore.getState().updateOrderStatus(orderId, 'disputed', 'Đang tranh chấp Escrow');
+          set((state) => ({
+            disputes: [newDispute, ...state.disputes],
+          }));
 
-        return {
-          success: true,
-          message: 'Đã nộp đơn khiếu nại thành công! Tiền cọc Escrow được bảo hộ an toàn và Admin sẽ xử lý trong 24h.',
-          dispute: newDispute,
-        };
+          // Cập nhật trạng thái đơn hàng trên orderStore
+          useOrderStore.getState().updateOrderStatus(orderId, 'disputed', 'Đang tranh chấp Escrow');
+
+          return {
+            success: true,
+            message: 'Đã nộp đơn khiếu nại thành công! Tiền cọc Escrow được bảo hộ an toàn và Admin sẽ xử lý trong 24h.',
+            dispute: newDispute,
+          };
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || error.message || 'Lỗi khi gửi khiếu nại';
+          return { success: false, message: errMsg };
+        }
       },
 
-      resolveDisputeByAdmin: (disputeId, action, adminNote) => {
+      // 3. Admin phân xử khiếu nại qua Backend API
+      resolveDisputeByAdmin: async (disputeId, action, adminNote) => {
         const target = get().disputes.find((d) => d.id === disputeId);
         if (!target) return { success: false, message: 'Không tìm thấy đơn khiếu nại' };
 
-        const newStatus: DisputeStatus = action === 'REFUND' ? 'REFUNDED' : 'REJECTED';
+        try {
+          const decision = action === 'REFUND' ? 'REFUND_BUYER' : 'PAY_SELLER';
+          await reportService.resolveDispute(disputeId, {
+            decision,
+            adminNote,
+          });
 
-        set((state) => ({
-          disputes: state.disputes.map((d) =>
-            d.id === disputeId
-              ? {
-                  ...d,
-                  status: newStatus,
-                  adminNote,
-                  resolvedAt: 'Vừa xong',
-                }
-              : d
-          ),
-        }));
+          const newStatus: DisputeStatus = action === 'REFUND' ? 'REFUNDED' : 'REJECTED';
 
-        // Cập nhật trạng thái đơn hàng
-        if (action === 'REFUND') {
-          useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Đã phán quyết hoàn tiền cọc');
-          if (target.refundAmount) {
-            // Hoàn coin lại ví
-            const coins = Math.ceil(target.refundAmount / 1000);
-            useWalletStore.getState().addCoins(
-              coins,
-              'ADMIN_ADJUSTMENT',
-              `Hoàn tiền bảo hộ Escrow đơn hàng ${target.orderCode}`,
-              target.id
-            );
+          set((state) => ({
+            disputes: state.disputes.map((d) =>
+              d.id === disputeId
+                ? {
+                    ...d,
+                    status: newStatus,
+                    adminNote,
+                    resolvedAt: 'Vừa xong',
+                  }
+                : d
+            ),
+          }));
+
+          // Cập nhật trạng thái đơn hàng
+          if (action === 'REFUND') {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Đã phán quyết hoàn tiền cọc');
+          } else {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Khiếu nại bị bác bỏ');
           }
-        } else {
-          useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Khiếu nại bị bác bỏ');
-        }
 
-        return { success: true, message: `Đã xử lý khiếu nại thành công: ${newStatus}` };
+          return { success: true, message: `Đã xử lý khiếu nại thành công: ${newStatus}` };
+        } catch (error: any) {
+          const errMsg = error.response?.data?.message || error.message || 'Lỗi khi xử lý khiếu nại';
+          return { success: false, message: errMsg };
+        }
       },
 
       getDisputeByOrder: (orderId) => {

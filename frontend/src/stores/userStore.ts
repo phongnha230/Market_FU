@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface UserProfile {
+  id?: string;
   name: string;
   studentId: string;
   cohort: string;
@@ -38,6 +39,9 @@ export interface UserProfile {
 interface UserState {
   user: UserProfile;
   isLoggedIn: boolean;
+  accessToken: string | null;
+  setAccessToken: (token: string | null) => void;
+  setUser: (user: UserProfile) => void;
   login: (email?: string) => void;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
@@ -52,6 +56,7 @@ interface UserState {
 }
 
 const DEFAULT_USER: UserProfile = {
+  id: 'user-default',
   name: 'Lê Minh Quân',
   studentId: 'HE172819',
   cohort: 'K17 SE',
@@ -104,6 +109,10 @@ export const useUserStore = create<UserState>()(
     (set) => ({
       user: DEFAULT_USER,
       isLoggedIn: true,
+      accessToken: null,
+
+      setAccessToken: (token) => set({ accessToken: token }),
+      setUser: (user) => set({ user }),
 
       login: (email) =>
         set((state) => ({
@@ -114,6 +123,7 @@ export const useUserStore = create<UserState>()(
       logout: () =>
         set(() => ({
           isLoggedIn: false,
+          accessToken: null,
         })),
 
       updateProfile: (data) =>

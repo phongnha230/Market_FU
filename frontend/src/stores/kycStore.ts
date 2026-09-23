@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { reportService, BackendKycVerification } from '@/services/reportService';
 
 export type KycType = 'student' | 'seller'; // Sinh viên (Người mua) vs Người bán (Seller)
 export type KycStatus = 'pending' | 'approved' | 'rejected' | 'reupload_required';
@@ -32,12 +33,34 @@ export interface KycApplication {
 interface KycStoreState {
   applications: KycApplication[];
   activeTypeTab: KycType; // 'student' or 'seller'
+  isLoading: boolean;
   setActiveTypeTab: (type: KycType) => void;
+  fetchApplications: () => Promise<void>;
   submitApplication: (data: Omit<KycApplication, 'id' | 'status' | 'submittedAt' | 'aiMatchScore'>) => KycApplication;
-  approveApplication: (id: string, reviewer?: string) => void;
-  rejectApplication: (id: string, reason?: string) => void;
+  approveApplication: (id: string, reviewer?: string) => Promise<boolean>;
+  rejectApplication: (id: string, reason?: string) => Promise<boolean>;
   requestReupload: (id: string, reason?: string) => void;
 }
+
+const mapBackendKyc = (bk: BackendKycVerification): KycApplication => ({
+  id: bk.id,
+  type: (bk.type === 'SELLER' ? 'seller' : 'student') as KycType,
+  fullName: bk.user?.profile?.fullName || bk.user?.email || 'Sinh viên FPT',
+  studentId: bk.studentId,
+  email: bk.user?.email || '',
+  campus: bk.user?.profile?.campus || 'Hòa Lạc',
+  major: 'Kỹ thuật phần mềm (SE)',
+  cohort: 'K18',
+  phone: bk.user?.profile?.phoneNumber || '0901234567',
+  frontCardUrl: bk.cardImageUrl,
+  backCardUrl: bk.cardImageUrl,
+  status: (bk.status === 'APPROVED' ? 'approved' : bk.status === 'REJECTED' ? 'rejected' : 'pending') as KycStatus,
+  rejectionReason: bk.rejectedReason || undefined,
+  submittedAt: new Date(bk.createdAt).toLocaleString('vi-VN'),
+  reviewedAt: bk.reviewedAt ? new Date(bk.reviewedAt).toLocaleString('vi-VN') : undefined,
+  reviewedBy: bk.reviewedBy || undefined,
+  aiMatchScore: 98,
+});
 
 const INITIAL_APPLICATIONS: KycApplication[] = [
   // 1. Sinh viên (Người mua)
@@ -99,57 +122,17 @@ const INITIAL_APPLICATIONS: KycApplication[] = [
     studentId: 'AI180019',
     email: 'tuhmai180019@fpt.edu.vn',
     campus: 'Hòa Lạc',
-    major: 'Trí tuệ Nhân tạo (AI)',
+    major: 'An toàn Thông tin (IA)',
     cohort: 'K18',
-    phone: '0983 234 567',
+    phone: '0982 111 222',
     frontCardUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
     backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    selfieCardUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
     status: 'pending',
-    submittedAt: '15 phút trước',
+    submittedAt: '10 phút trước',
     aiMatchScore: 98,
-    storeName: 'Tú Gear & Phụ Kiện Đồ Án FPT',
-    primaryCategory: 'Đồ Công Nghệ & Bàn Phím',
-    bankAccount: 'TPBank • 03829102910',
-  },
-  {
-    id: 'kyc-sel-2',
-    type: 'seller',
-    fullName: 'Phan Linh Trang',
-    studentId: 'SB170073',
-    email: 'trangplsb170073@fpt.edu.vn',
-    campus: 'Quy Nhơn',
-    major: 'Quản trị Kinh doanh (BA)',
-    cohort: 'K17',
-    phone: '0935 678 123',
-    frontCardUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    status: 'pending',
-    submittedAt: '45 phút trước',
-    aiMatchScore: 92,
-    storeName: 'Trang Pass Giáo Trình K17-K19',
-    primaryCategory: 'Sách & Giáo Trình',
-    bankAccount: 'Vietcombank • 1029384756',
-  },
-  {
-    id: 'kyc-sel-3',
-    type: 'seller',
-    fullName: 'Vũ Sắc Bồng',
-    studentId: 'CS186144',
-    email: 'bongvscs186144@fpt.edu.vn',
-    campus: 'Cần Thơ',
-    major: 'Khoa học Máy tính (CS)',
-    cohort: 'K18',
-    phone: '0971 222 333',
-    frontCardUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    status: 'approved',
-    submittedAt: '1 ngày trước',
-    reviewedAt: 'Hôm qua',
-    reviewedBy: 'SuperAdmin BQT',
-    aiMatchScore: 99,
-    storeName: 'Bồng Computer & Màn Hình Di Động',
+    storeName: 'Tú TechZone Hòa Lạc',
     primaryCategory: 'Đồ Công Nghệ & Màn Hình',
+    bankAccount: 'TPBank • 0982111222',
   },
 ];
 
@@ -158,8 +141,23 @@ export const useKycStore = create<KycStoreState>()(
     (set, get) => ({
       applications: INITIAL_APPLICATIONS,
       activeTypeTab: 'student',
+      isLoading: false,
 
       setActiveTypeTab: (type) => set({ activeTypeTab: type }),
+
+      fetchApplications: async () => {
+        try {
+          set({ isLoading: true });
+          const res = await reportService.getKycVerifications({ limit: 50 });
+          if (res.verifications && res.verifications.length > 0) {
+            set({ applications: res.verifications.map(mapBackendKyc) });
+          }
+        } catch {
+          // offline fallback
+        } finally {
+          set({ isLoading: false });
+        }
+      },
 
       submitApplication: (data) => {
         const newApp: KycApplication = {
@@ -177,7 +175,13 @@ export const useKycStore = create<KycStoreState>()(
         return newApp;
       },
 
-      approveApplication: (id, reviewer = 'SuperAdmin BQT') => {
+      approveApplication: async (id, reviewer = 'SuperAdmin BQT') => {
+        try {
+          await reportService.approveKyc(id, 200);
+        } catch {
+          // offline fallback
+        }
+
         set((state) => ({
           applications: state.applications.map((app) =>
             app.id === id
@@ -190,9 +194,16 @@ export const useKycStore = create<KycStoreState>()(
               : app
           ),
         }));
+        return true;
       },
 
-      rejectApplication: (id, reason = 'Thông tin thẻ sinh viên không trùng khớp với hệ thống FAP') => {
+      rejectApplication: async (id, reason = 'Thông tin thẻ sinh viên không trùng khớp với hệ thống FAP') => {
+        try {
+          await reportService.rejectKyc(id, reason);
+        } catch {
+          // offline fallback
+        }
+
         set((state) => ({
           applications: state.applications.map((app) =>
             app.id === id
@@ -205,6 +216,7 @@ export const useKycStore = create<KycStoreState>()(
               : app
           ),
         }));
+        return true;
       },
 
       requestReupload: (id, reason = 'Ảnh thẻ mờ hoặc bị lóa sáng, vui lòng chụp lại rõ nét cả 2 mặt') => {

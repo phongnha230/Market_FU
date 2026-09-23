@@ -42,12 +42,18 @@ export interface ChatConversation {
   unreadCount: number;
 }
 
+import { chatService, BackendConversation, BackendMessage } from '@/services/chatService';
+import { socketClient } from '@/services/socketClient';
+
 interface ChatState {
   conversations: ChatConversation[];
   messagesByConversation: Record<string, ChatMessage[]>;
   activeConversationId: string | null;
 
   // Actions
+  fetchConversations: () => Promise<void>;
+  fetchMessages: (conversationId: string) => Promise<void>;
+  initSocketListeners: () => () => void;
   setActiveConversation: (conversationId: string) => void;
   sendMessage: (params: {
     conversationId: string;
@@ -200,9 +206,123 @@ export const useChatStore = create<ChatState>()(
       messagesByConversation: INITIAL_MESSAGES,
       activeConversationId: 'conv-1',
 
+      fetchConversations: async () => {
+        try {
+          const res = await chatService.getConversations();
+          if (res.conversations && res.conversations.length > 0) {
+            const mapped: ChatConversation[] = res.conversations.map((c) => ({
+              id: c.id,
+              buyerId: c.buyerId,
+              sellerId: c.sellerId,
+              productId: c.productId,
+              product: {
+                id: c.product?.id || c.productId,
+                title: c.product?.title || 'Sản phẩm FPT Market',
+                price: c.product?.price || 0,
+                imageUrl: c.product?.images?.[0] || '/products/keyboard-akko.jpg',
+                status: (c.product?.status as any) || 'AVAILABLE',
+              },
+              otherUser: {
+                id: c.otherUser?.id || '',
+                name: c.otherUser?.fullName || 'Sinh viên FPT',
+                avatarUrl: c.otherUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
+                campus: c.otherUser?.campus || 'Hòa Lạc',
+                cohort: c.otherUser?.studentVerification?.studentId || 'K17',
+                isOnline: true,
+              },
+              lastMessageText: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
+              lastMessageAt: c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+              unreadCount: c.unreadCount || 0,
+            }));
+            set({ conversations: mapped });
+          }
+        } catch {
+          // fallback
+        }
+      },
+
+      fetchMessages: async (conversationId: string) => {
+        try {
+          const res = await chatService.getMessages(conversationId);
+          if (res.messages) {
+            const mapped: ChatMessage[] = res.messages.map((m) => ({
+              id: m.id,
+              conversationId: m.conversationId,
+              senderId: m.senderId,
+              senderRole: 'buyer',
+              messageType: m.type,
+              text: m.text,
+              mediaUrl: m.mediaUrl,
+              offerPrice: m.offerPrice,
+              meetupLocation: m.meetupLocation,
+              isRead: m.isRead,
+              createdAt: new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            }));
+            set((state) => ({
+              messagesByConversation: {
+                ...state.messagesByConversation,
+                [conversationId]: mapped,
+              },
+            }));
+          }
+        } catch {
+          // fallback
+        }
+      },
+
+      initSocketListeners: () => {
+        const cleanupMsg = socketClient.onReceiveMessage((savedMsg) => {
+          if (!savedMsg?.conversationId) return;
+          const conversationId = savedMsg.conversationId;
+          const newMsg: ChatMessage = {
+            id: savedMsg.id || `msg-${Date.now()}`,
+            conversationId,
+            senderId: savedMsg.senderId,
+            senderRole: 'buyer',
+            messageType: savedMsg.type || 'TEXT',
+            text: savedMsg.text,
+            mediaUrl: savedMsg.mediaUrl,
+            offerPrice: savedMsg.offerPrice,
+            meetupLocation: savedMsg.meetupLocation,
+            isRead: false,
+            createdAt: new Date(savedMsg.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          };
+
+          set((state) => {
+            const currentMsgs = state.messagesByConversation[conversationId] || [];
+            if (currentMsgs.some((m) => m.id === newMsg.id)) return state;
+
+            const updatedConversations = state.conversations.map((c) =>
+              c.id === conversationId
+                ? {
+                    ...c,
+                    lastMessageText: newMsg.text || 'Tin nhắn mới',
+                    lastMessageAt: newMsg.createdAt,
+                    unreadCount: state.activeConversationId === conversationId ? 0 : (c.unreadCount || 0) + 1,
+                  }
+                : c
+            );
+
+            return {
+              conversations: updatedConversations,
+              messagesByConversation: {
+                ...state.messagesByConversation,
+                [conversationId]: [...currentMsgs, newMsg],
+              },
+            };
+          });
+        });
+
+        return () => {
+          cleanupMsg();
+        };
+      },
+
       setActiveConversation: (conversationId) => {
         set({ activeConversationId: conversationId });
+        socketClient.joinConversation(conversationId);
         get().markAsRead(conversationId);
+        get().fetchMessages(conversationId);
       },
 
       sendMessage: ({
@@ -250,10 +370,31 @@ export const useChatStore = create<ChatState>()(
           };
         });
 
+        // Bắn Socket realtime
+        socketClient.sendMessage({
+          conversationId,
+          text: newMsg.text,
+          type: messageType,
+          mediaUrl,
+          offerPrice,
+          meetupLocation,
+        });
+
+        // Backup lưu REST API
+        chatService
+          .sendMessage(conversationId, {
+            text: newMsg.text,
+            type: messageType,
+            offerPrice,
+            meetupLocation,
+          })
+          .catch(() => {});
+
         return newMsg;
       },
 
       sendOfferPrice: (conversationId, offerPrice) => {
+        socketClient.sendOfferPrice(conversationId, offerPrice);
         return get().sendMessage({
           conversationId,
           messageType: 'OFFER_PRICE',
@@ -263,6 +404,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       proposeMeetupLocation: (conversationId, location) => {
+        socketClient.sendMeetupLocation(conversationId, location);
         return get().sendMessage({
           conversationId,
           messageType: 'MEETUP_LOCATION',
@@ -272,6 +414,8 @@ export const useChatStore = create<ChatState>()(
       },
 
       markAsRead: (conversationId) => {
+        socketClient.markAsRead(conversationId);
+        chatService.markAsRead(conversationId).catch(() => {});
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === conversationId ? { ...c, unreadCount: 0 } : c
