@@ -11,6 +11,8 @@ import {
   RotateCcw,
   ChevronRight,
 } from 'lucide-react';
+import { useUserStore } from '@/stores/userStore';
+import { aiService } from '@/services/aiService';
 
 interface ChatMessage {
   id: string;
@@ -18,6 +20,7 @@ interface ChatMessage {
   text: string;
   timestamp: string;
   quickLinks?: { label: string; url: string }[];
+  suggestedProducts?: any[];
 }
 
 const INITIAL_MESSAGES: ChatMessage[] = [
@@ -35,11 +38,11 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 ];
 
 const SUGGESTION_CHIPS = [
+  'Có bao nhiêu cách mua hàng?',
+  'Quy trình trả hàng & khiếu nại 48h?',
   'Làm sao để đăng ký bán đồ?',
-  'Chưa duyệt thẻ SV có mua được không?',
   'Điểm hẹn Safe Handoff ở Campus?',
   'Hệ thống FPT Coin dùng thế nào?',
-  'Làm gì khi nghi ngờ bị lừa đảo?'
 ];
 
 export default function AIChatbotWidget() {
@@ -84,6 +87,28 @@ export default function AIChatbotWidget() {
   // Logic trí tuệ nhân tạo phản hồi tự động theo ngữ cảnh sinh viên FPT
   const generateBotReply = (query: string): { reply: string; links?: { label: string; url: string }[] } => {
     const q = query.toLowerCase();
+
+    // 0. Cách mua hàng & Quy trình mua hàng
+    if (q.includes('cách mua') || q.includes('quy trình mua') || q.includes('mua hàng') || q.includes('bao nhiêu cách') || q.includes('đặt hàng')) {
+      return {
+        reply: `Trên sàn Market FU hiện có **2 hình thức mua hàng chính** an toàn cho sinh viên:\n\n1️⃣ **Giao dịch trực tiếp Safe Handoff (MEETUP):**\n• Dành cho sinh viên cùng campus.\n• Hẹn gặp tại điểm an toàn (Sảnh Alpha, Thư viện Beta, Cổng Dom KTX...).\n• Người mua đưa **Mã QR Handshake** hoặc **OTP 6 số** cho người bán quét để xác nhận nhận hàng.\n• Thanh toán: Tiền mặt hoặc VietQR.\n\n2️⃣ **Giao hàng Ship COD / Đặt cọc Escrow (SHIP_COD):**\n• Dành cho mua đồ liên campus hoặc ship tận phòng.\n• Tiền được nạp vào ví trung gian **Escrow của sàn** (khóa an toàn).\n• Người mua có **48 giờ dùng thử (Golden Test Period)** để cắm test máy móc trước khi giải ngân cho người bán!`,
+        links: [
+          { label: '🛡️ Điểm hẹn an toàn Safe Handoff', url: '/safety' },
+          { label: '📦 Quản lý đơn hàng', url: '/orders' }
+        ]
+      };
+    }
+
+    // 0.1 Trả hàng, Khiếu nại, Hoàn tiền Escrow
+    if (q.includes('trả hàng') || q.includes('hoàn tiền') || q.includes('khiếu nại') || q.includes('dispute') || q.includes('hỏng') || q.includes('lỗi') || q.includes('nứt')) {
+      return {
+        reply: `🛡️ **Quy trình Trả hàng & Khiếu nại Escrow:**\n\n1️⃣ **Thời hạn vàng 48 Giờ:** Bạn có 48 giờ sau khi nhận hàng để cắm sạc/test máy.\n2️⃣ **Khóa tiền tức thì:** Vào trang Đơn hàng -> bấm **"Khiếu nại & Trả hàng"**, hệ thống sẽ lập tức **đóng băng tiền trong ví Escrow** (người bán chưa thể nhận).\n3️⃣ **Video bằng chứng:** Tải lên video test lỗi/unboxing.\n4️⃣ **Phương án xử lý:**\n• Hoàn tiền 100%: Gửi lại hàng tại bàn lễ tân Thư viện hoặc điểm Dropoff.\n• Thương lượng bồi thường 20-50% nếu đồ chỉ trầy xước nhẹ.\n• Admin sẽ can thiệp phân xử sau 24h nếu 2 bên không thống nhất!`,
+        links: [
+          { label: '⚠️ Mở hồ sơ khiếu nại đơn hàng', url: '/orders/dispute?code=ORD-88392-HCM-HL' },
+          { label: 'Chính sách bảo vệ người mua', url: '/guidelines' }
+        ]
+      };
+    }
 
     // 1. Đăng ký seller / Bán hàng
     if (q.includes('bán') || q.includes('seller') || q.includes('đăng tin') || q.includes('rao vặt')) {
@@ -161,7 +186,7 @@ export default function AIChatbotWidget() {
     };
   };
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputMessage).trim();
     if (!query || isTyping) return;
 
@@ -176,7 +201,29 @@ export default function AIChatbotWidget() {
     setInputMessage('');
     setIsTyping(true);
 
-    // Giả lập bot phản hồi tự nhiên (600ms)
+    try {
+      const userCampus = useUserStore.getState().user.campus || 'Hòa Lạc';
+      const aiRes = await aiService.assistantChat(query, userCampus);
+      if (aiRes && aiRes.reply) {
+        const botMsg: ChatMessage = {
+          id: 'bot-' + Date.now(),
+          sender: 'bot',
+          text: aiRes.reply,
+          timestamp: 'Vừa xong',
+          quickLinks: [
+            { label: '🔍 Khám phá chợ đồ cũ', url: '/posts' },
+            { label: '🛡️ Điểm hẹn an toàn campus', url: '/safety' },
+          ],
+          suggestedProducts: aiRes.suggestedProducts,
+        };
+        setMessages((prev) => [...prev, botMsg]);
+        setIsTyping(false);
+        return;
+      }
+    } catch {
+      // Fallback nếu API backend chưa sẵn sàng hoặc offline
+    }
+
     setTimeout(() => {
       const { reply, links } = generateBotReply(query);
       const botMsg: ChatMessage = {
@@ -188,7 +235,7 @@ export default function AIChatbotWidget() {
       };
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
-    }, 600);
+    }, 400);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -323,6 +370,46 @@ export default function AIChatbotWidget() {
                             <ChevronRight className="w-3.5 h-3.5 text-orange-500" />
                           </Link>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Danh sách sản phẩm AI gợi ý thực tế từ DB */}
+                    {msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
+                        <div className="text-[11px] font-bold text-orange-950 flex items-center gap-1">
+                          <span>📦 Gợi ý món đồ phù hợp ({msg.suggestedProducts.length}):</span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          {msg.suggestedProducts.map((p) => (
+                            <Link
+                              key={p.id}
+                              href={`/posts/${p.id}`}
+                              onClick={() => setIsOpen(false)}
+                              className="flex items-center gap-2 p-1.5 rounded-xl bg-orange-50/70 hover:bg-orange-100/80 border border-orange-200/60 transition-colors group"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-slate-200 overflow-hidden shrink-0 relative">
+                                <img
+                                  src={p.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg'}
+                                  alt={p.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-slate-800 text-[11px] truncate group-hover:text-fpt-orange">
+                                  {p.title}
+                                </p>
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <span className="font-extrabold text-orange-600">
+                                    {p.price?.toLocaleString('vi-VN')} đ
+                                  </span>
+                                  <span className="text-slate-400">•</span>
+                                  <span className="text-slate-500">{p.campus || 'Campus'}</span>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-3.5 h-3.5 text-orange-400 group-hover:text-orange-600 shrink-0" />
+                            </Link>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

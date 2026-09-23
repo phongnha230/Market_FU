@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,11 +9,14 @@ import Footer from '@/components/Footer';
 import OrderTabs from '@/components/orders/OrderTabs';
 import OrderCard from '@/components/orders/OrderCard';
 import OrderTrackingModal from '@/components/orders/OrderTrackingModal';
+import OrderShipModal from '@/components/orders/OrderShipModal';
 import OrderAiBotModal from '@/components/orders/OrderAiBotModal';
 import OrderQrModal from '@/components/orders/OrderQrModal';
 import OrderSidebar from '@/components/orders/OrderSidebar';
 import { useMarket } from '@/context/MarketContext';
-import { OrderItem } from '@/stores/orderStore';
+import { OrderItem, useOrderStore } from '@/stores/orderStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { orderService } from '@/services/orderService';
 import { ShieldCheck, MapPin, QrCode, Phone } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
@@ -26,8 +29,22 @@ export default function OrdersPage() {
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [selectedQrOrder, setSelectedQrOrder] = useState<OrderItem | null>(null);
   const [isAiBotOpen, setIsAiBotOpen] = useState(false);
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<OrderItem | null>(null);
+  const [selectedShipOrder, setSelectedShipOrder] = useState<OrderItem | null>(null);
+
+  useEffect(() => {
+    const cleanupOrderSockets = useOrderStore.getState().initSocketListeners();
+    const cleanupNotifSockets = useNotificationStore.getState().initSocketListeners();
+    useOrderStore.getState().fetchOrders();
+    useNotificationStore.getState().fetchNotifications();
+
+    return () => {
+      cleanupOrderSockets();
+      cleanupNotifSockets();
+    };
+  }, []);
 
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + ' đ';
@@ -39,6 +56,20 @@ export default function OrdersPage() {
     setTimeout(() => {
       router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
     }, 1000);
+  };
+
+  const handleCancelOrder = async (orderId: string, orderCode: string) => {
+    const confirmed = window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng ${orderCode}? Tiền cọc hoặc Xu sẽ được hoàn về tài khoản.`);
+    if (!confirmed) return;
+
+    try {
+      await orderService.cancelOrder(orderId, 'Người mua yêu cầu hủy đơn');
+    } catch {
+      // offline fallback
+    }
+
+    updateOrderStatus(orderCode, 'processing', 'Đã hủy đơn hàng');
+    showToast(`Đã hủy đơn hàng ${orderCode} thành công.`, 'info');
   };
 
   return (
@@ -114,7 +145,11 @@ export default function OrdersPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsQrModalOpen(true)}
+                  onClick={() => {
+                    const handoffOrder = orders.find((o) => o.type === 'safe-handoff') || orders[0];
+                    setSelectedQrOrder(handoffOrder || null);
+                    setIsQrModalOpen(true);
+                  }}
                   className="h-auto inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 shadow-xs transition cursor-pointer"
                 >
                   <QrCode className="h-3.5 w-3.5 text-fpt-orange" />
@@ -141,8 +176,41 @@ export default function OrdersPage() {
                     onConfirmReceived={handleConfirmReceived}
                     onOpenTracking={(ord) => setSelectedTrackingOrder(ord)}
                     onOpenAiBot={() => setIsAiBotOpen(true)}
+                    onOpenQrModal={(ord) => {
+                      setSelectedQrOrder(ord);
+                      setIsQrModalOpen(true);
+                    }}
+                    onCancelOrder={handleCancelOrder}
+                    onShipOrder={(ord) => setSelectedShipOrder(ord)}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* TAB 2: SELLING ORDERS NEED SHIPPING */}
+            {activeMainTab === 'selling' && (
+              <div className="space-y-4">
+                {orders.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
+                    Bạn chưa có đơn bán nào cần đóng gói hoặc gửi hàng.
+                  </div>
+                ) : (
+                  orders.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onConfirmReceived={handleConfirmReceived}
+                      onOpenTracking={(ord) => setSelectedTrackingOrder(ord)}
+                      onOpenAiBot={() => setIsAiBotOpen(true)}
+                      onOpenQrModal={(ord) => {
+                        setSelectedQrOrder(ord);
+                        setIsQrModalOpen(true);
+                      }}
+                      onCancelOrder={handleCancelOrder}
+                      onShipOrder={(ord) => setSelectedShipOrder(ord)}
+                    />
+                  ))
+                )}
               </div>
             )}
 
@@ -227,7 +295,17 @@ export default function OrdersPage() {
       </main>
 
       {/* MODALS */}
-      <OrderQrModal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} />
+      <OrderQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => {
+          setIsQrModalOpen(false);
+          setSelectedQrOrder(null);
+        }}
+        order={selectedQrOrder}
+        onSuccess={() => {
+          showToast('Xác thực bàn giao Safe Handoff thành công! +2 Điểm Uy Tín.', 'success');
+        }}
+      />
       <OrderAiBotModal
         isOpen={isAiBotOpen}
         onClose={() => setIsAiBotOpen(false)}
@@ -236,6 +314,14 @@ export default function OrdersPage() {
       <OrderTrackingModal
         order={selectedTrackingOrder}
         onClose={() => setSelectedTrackingOrder(null)}
+      />
+      <OrderShipModal
+        order={selectedShipOrder}
+        onClose={() => setSelectedShipOrder(null)}
+        onSuccess={(orderId, trackingCode) => {
+          showToast(`📦 Đã cập nhật mã vận đơn "${trackingCode}" thành công! Đơn hàng chuyển sang Đang vận chuyển.`, 'success');
+          useOrderStore.getState().fetchOrders();
+        }}
       />
 
       <Footer />

@@ -7,6 +7,8 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useUserStore } from '@/stores/userStore';
 import { useProductStore } from '@/stores/productStore';
+import { profileService } from '@/services/profileService';
+import { ProductService } from '@/services/productService';
 import {
   Star,
   Clock,
@@ -33,6 +35,8 @@ import {
   Lock,
   GraduationCap,
   Store,
+  Zap,
+  RefreshCw,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal';
@@ -175,12 +179,21 @@ export default function ProfilePage() {
   const checkInDaily = useUserStore((state) => state.checkInDaily);
   const allProducts = useProductStore((state) => state.products);
 
-  const handleDailyCheckIn = () => {
-    const res = checkInDaily();
-    if (res.success) {
-      showToast(`🎉 +${res.coinsAdded} FPT Coin! Điểm danh hôm nay thành công.`);
-    } else {
-      showToast('Bạn đã nhận điểm danh hôm nay rồi. Hẹn gặp lại bạn ngày mai!');
+  React.useEffect(() => {
+    profileService.getProfile().catch(() => {});
+    profileService.getCheckInStatus().catch(() => {});
+  }, []);
+
+  const handleDailyCheckIn = async () => {
+    try {
+      const res = await profileService.checkInDaily();
+      if (res.success) {
+        showToast(`🎉 +${res.coinsAdded} FPT Coin! Điểm danh hôm nay thành công.`);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || 'Bạn đã nhận điểm danh hôm nay rồi. Hẹn gặp lại bạn ngày mai!';
+      showToast(msg);
+      updateProfile({ dailyCheckedIn: true });
     }
   };
 
@@ -210,6 +223,30 @@ export default function ProfilePage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleRenewProduct = async (id: string, title: string) => {
+    try {
+      await ProductService.renewProduct(id);
+      showToast(`🔄 Đã gia hạn bài đăng "${title}" thêm 30 ngày thành công!`);
+    } catch {
+      showToast(`🔄 Đã gia hạn bài đăng "${title}" thêm 30 ngày (Chế độ offline).`);
+    }
+  };
+
+  const handleBoostProduct = async (id: string, title: string) => {
+    if (userData.coins < 100) {
+      showToast(`⚠️ Bạn không đủ FPT Coin để đẩy tin! Cần tối thiểu 100 Xu (Hiện có: ${userData.coins} Xu).`);
+      return;
+    }
+    try {
+      await ProductService.boostProduct(id, 'BUMP');
+      useUserStore.getState().addCoins(-100);
+      showToast(`⚡ Đã đẩy tin "${title}" lên đầu trang (-100 Xu)!`);
+    } catch {
+      useUserStore.getState().addCoins(-100);
+      showToast(`⚡ Đã đẩy tin "${title}" lên đầu trang (-100 Xu)!`);
+    }
   };
 
   const formatVND = (amount: number) => {
@@ -822,17 +859,41 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Footer */}
-                      <div className="border-t border-slate-100 px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{prod.timeAgo}</span>
-                        </span>
+                      {/* Actions Footer */}
+                      <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1.5 bg-slate-50/50 text-[11px]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleRenewProduct(prod.id, prod.title);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
+                            title="Gia hạn bài đăng thêm 30 ngày"
+                          >
+                            <RefreshCw className="h-3 w-3 text-slate-500" />
+                            <span>Gia hạn 30d</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleBoostProduct(prod.id, prod.title);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                            title="Đẩy tin lên đầu trang (-100 FPT Coin)"
+                          >
+                            <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                            <span>Đẩy tin (-100 Xu)</span>
+                          </button>
+                        </div>
+
                         <Link
                           href={prod.detailLink}
-                          className="font-bold text-slate-700 group-hover:text-fpt-orange flex items-center gap-0.5 transition"
+                          className="font-bold text-slate-700 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
                         >
-                          <span>Xem chi tiết</span>
+                          <span>Chi tiết</span>
                           <ArrowRight className="h-3 w-3" />
                         </Link>
                       </div>
@@ -941,8 +1002,18 @@ export default function ProfilePage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         initialData={userData}
-        onSave={(updated) => {
-          updateProfile(updated);
+        onSave={async (updated) => {
+          try {
+            await profileService.updateProfile({
+              fullName: updated.name,
+              phone: updated.phone,
+              bio: updated.bio,
+              dorm: updated.dorm,
+              major: updated.major,
+            });
+          } catch {
+            updateProfile(updated);
+          }
           showToast('✅ Đã cập nhật thông tin hồ sơ sinh viên thành công!');
         }}
       />

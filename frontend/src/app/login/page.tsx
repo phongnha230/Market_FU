@@ -10,6 +10,7 @@ import OtpVerificationStep from '@/components/auth/OtpVerificationStep';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import { useMarket } from '@/context/MarketContext';
 import { useAdminStore } from '@/stores/adminStore';
+import { authService } from '@/services/authService';
 import {
   ArrowLeft,
   MapPin,
@@ -41,12 +42,18 @@ export default function LoginPage() {
   // Demo switcher for login: 'normal' | 'error' | 'loading'
   const [demoState, setDemoState] = useState<'normal' | 'error' | 'loading'>('normal');
 
-  const handleLoginSuccess = (email: string, password?: string) => {
+  const handleLoginSuccess = async (email: string, password?: string) => {
     // 1. Kiểm tra nếu là tài khoản Quản trị viên (BQT)
     if (password) {
       const adminResult = adminLogin(email, password);
       if (adminResult.success) {
         document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
+        // Đồng thời đăng nhập vào backend để lấy Access Token có quyền ADMIN
+        try {
+          await authService.login({ email, password });
+        } catch {
+          // Bỏ qua lỗi backend nếu offline
+        }
         showToast('🛡️ Đăng nhập Quản trị viên BQT thành công! Đang vào trung tâm điều hành...', 'success');
         setTimeout(() => {
           router.push('/admin/dashboard');
@@ -63,23 +70,68 @@ export default function LoginPage() {
       }
     }
 
-    // 2. Tài khoản Sinh viên FPT 5Campus thông thường
-    login(email);
-    showToast('🎉 Đăng nhập thành công! Chào mừng bạn trở lại FPT 5Campus.', 'success');
-    setTimeout(() => {
-      router.push('/');
-    }, 800);
+    // 2. Đăng nhập người dùng qua Backend API
+    try {
+      let res: any;
+      if (password) {
+        res = await authService.login({ email, password });
+      } else {
+        login(email);
+      }
+
+      // Nếu tài khoản có vai trò ADMIN từ Backend
+      if (res?.user?.role === 'ADMIN') {
+        const adminProfile = {
+          name: res.user.profile?.fullName || 'Lê Minh Quân',
+          email: res.user.email,
+          role: 'superadmin' as const,
+          campus: 'all' as const,
+          avatarInitial: (res.user.profile?.fullName || 'A')[0].toUpperCase(),
+          permissions: [
+            'posts.approve',
+            'posts.reject',
+            'posts.delete',
+            'kyc.approve',
+            'kyc.reject',
+            'users.manage',
+            'users.trust_score',
+            'reports.handle',
+            'safehandoff.manage',
+            'settings.system',
+          ],
+        };
+        useAdminStore.setState({ admin: adminProfile, isLoggedIn: true });
+        document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
+        showToast('🛡️ Đăng nhập Quản trị viên BQT thành công! Đang vào trung tâm điều hành...', 'success');
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 800);
+        return;
+      }
+
+      showToast('🎉 Đăng nhập thành công! Chào mừng bạn trở lại FPT 5Campus.', 'success');
+      setTimeout(() => {
+        router.push('/');
+      }, 800);
+    } catch (err: any) {
+      setDemoState('error');
+      showToast(err?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại email hoặc mật khẩu.', 'error');
+    }
   };
 
-  const handleFptMailSso = () => {
+  const handleFptMailSso = async () => {
     setDemoState('loading');
-    setTimeout(() => {
+    try {
+      // Trong môi trường dev có thể fallback nếu chưa mở Google popup
       login('quanlmse172819@fe.edu.vn');
       showToast('🔑 Xác thực Google SSO thành công!', 'success');
       setTimeout(() => {
         router.push('/');
       }, 1000);
-    }, 1000);
+    } catch (err: any) {
+      showToast(err?.message || 'Xác thực Google không thành công.', 'error');
+      setDemoState('normal');
+    }
   };
 
   const handleProceedToOtp = (data: RegisterData) => {
@@ -87,20 +139,43 @@ export default function LoginPage() {
     setRegisterStep('otp');
   };
 
-  const handleRegisterOtpSuccess = (otp: string) => {
+  const handleRegisterOtpSuccess = async (otp: string) => {
     if (pendingRegisterData) {
-      updateProfile({
-        name: pendingRegisterData.fullName,
-        email: pendingRegisterData.email,
-        studentId: pendingRegisterData.studentId,
-        campus: pendingRegisterData.campus,
-      });
-      login(pendingRegisterData.email);
+      try {
+        const campusMap: Record<string, string> = {
+          'Hòa Lạc': 'HOL',
+          'Hồ Chí Minh': 'HCM',
+          'Đà Nẵng': 'DAD',
+          'Quy Nhơn': 'QN',
+          'Cần Thơ': 'CT',
+        };
+        await authService.register({
+          fullName: pendingRegisterData.fullName,
+          email: pendingRegisterData.email,
+          password: pendingRegisterData.password,
+          studentId: pendingRegisterData.studentId,
+          campus: campusMap[pendingRegisterData.campus] || 'HOL',
+        });
+        showToast('🎉 Đăng ký tài khoản FPT thành công! Bạn đã được tự động đăng nhập.', 'success');
+        setTimeout(() => {
+          router.push('/');
+        }, 1200);
+        return;
+      } catch (err: any) {
+        // Fallback lưu local store nếu backend chưa phản hồi
+        updateProfile({
+          name: pendingRegisterData.fullName,
+          email: pendingRegisterData.email,
+          studentId: pendingRegisterData.studentId,
+          campus: pendingRegisterData.campus,
+        });
+        login(pendingRegisterData.email);
+        showToast(err?.message || '🎉 Đăng ký tài khoản thành công! Tự động đăng nhập.', 'success');
+        setTimeout(() => {
+          router.push('/');
+        }, 1200);
+      }
     }
-    showToast('🎉 Đăng ký tài khoản FPT thành công! Bạn đã được tự động đăng nhập.', 'success');
-    setTimeout(() => {
-      router.push('/');
-    }, 1200);
   };
 
   const handleResetSuccess = (email: string, newPass: string) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Truck,
@@ -10,14 +10,17 @@ import {
   BadgeDollarSign,
   Heart,
   AlertTriangle,
+  Flag,
 } from 'lucide-react';
 import { ProductDetail } from '@/types/product';
+import ReportModal from '@/components/modals/ReportModal';
 
 interface ProductActionBoxProps {
   product: ProductDetail;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onOpenOfferModal: () => void;
+  onShowToast?: (msg: string) => void;
 }
 
 export default function ProductActionBox({
@@ -25,7 +28,9 @@ export default function ProductActionBox({
   isFavorite,
   onToggleFavorite,
   onOpenOfferModal,
+  onShowToast,
 }: ProductActionBoxProps) {
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const isInterCampus =
     product.location.toLowerCase().includes('hcm') ||
     product.location.toLowerCase().includes('đà nẵng') ||
@@ -57,7 +62,7 @@ export default function ProductActionBox({
           </div>
 
           <Link
-            href="/checkout"
+            href={`/checkout?productId=${encodeURIComponent(product.id)}`}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 via-fpt-orange to-amber-600 py-3 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition-all active:scale-98"
           >
             <Package className="h-4.5 w-4.5 stroke-[2.5]" />
@@ -112,6 +117,29 @@ export default function ProductActionBox({
           <strong>Lưu ý giao dịch:</strong> Chỉ nên hẹn gặp trực tiếp tại Cổng trường hoặc Sảnh KTX để kiểm tra đồ cẩn thận trước khi chuyển khoản. Tuyệt đối không cọc trước.
         </p>
       </div>
+
+      {/* REPORT BUTTON */}
+      <div className="flex items-center justify-center pt-0.5">
+        <button
+          type="button"
+          onClick={() => setIsReportOpen(true)}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-rose-600 transition cursor-pointer"
+        >
+          <Flag className="h-3 w-3" />
+          <span>Báo cáo bài viết vi phạm / nghi vấn lừa đảo</span>
+        </button>
+      </div>
+
+      <ReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        targetType="PRODUCT"
+        targetId={product.id}
+        targetTitle={product.title}
+        onToast={(msg) => {
+          if (onShowToast) onShowToast(msg);
+        }}
+      />
     </div>
   );
 }

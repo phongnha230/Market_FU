@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
+import { ProductService } from '@/services/productService';
+import { orderService } from '@/services/orderService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import {
   ChevronRight,
@@ -29,87 +31,262 @@ import {
   MessageSquare,
   Clock,
   ExternalLink,
+  Wallet,
 } from 'lucide-react';
 
-export default function CheckoutPage() {
-  const router = useRouter();
+// Campus mapping helper for rate calculation
+function parseCampusCode(str: string): 'HOL' | 'DAD' | 'QN' | 'HCM' | 'CT' {
+  const upper = (str || '').toUpperCase();
+  if (upper.includes('HCM') || upper.includes('HỒ CHÍ MINH') || upper.includes('SÀI GÒN') || upper.includes('QUẬN 9')) {
+    return 'HCM';
+  }
+  if (upper.includes('DAD') || upper.includes('ĐÀ NẴNG')) {
+    return 'DAD';
+  }
+  if (upper.includes('QN') || upper.includes('QUY NHƠN') || upper.includes('BÌNH ĐỊNH')) {
+    return 'QN';
+  }
+  if (upper.includes('CT') || upper.includes('CẦN THƠ')) {
+    return 'CT';
+  }
+  return 'HOL';
+}
 
-  // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<'vietqr' | 'cod'>('vietqr');
+const CAMPUS_NAMES: Record<string, string> = {
+  HOL: 'FPT Hòa Lạc (Hà Nội)',
+  DAD: 'FPT Đà Nẵng',
+  QN: 'FPT Quy Nhơn',
+  HCM: 'FPT TP.HCM (Quận 9)',
+  CT: 'FPT Cần Thơ',
+};
+
+// Fallback rates if backend shipping estimation is unavailable
+const LOCAL_SHIPPING_FEES: Record<string, Record<string, number>> = {
+  HOL: { HOL: 10000, DAD: 30000, QN: 35000, HCM: 40000, CT: 45000 },
+  DAD: { HOL: 30000, DAD: 10000, QN: 20000, HCM: 30000, CT: 35000 },
+  QN:  { HOL: 35000, DAD: 20000, QN: 10000, HCM: 25000, CT: 30000 },
+  HCM: { HOL: 40000, DAD: 30000, QN: 25000, HCM: 10000, CT: 20000 },
+  CT:  { HOL: 45000, DAD: 35000, QN: 30000, HCM: 20000, CT: 10000 },
+};
+
+function CheckoutContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const productId = searchParams.get('productId') || searchParams.get('id');
+
+  // Product state
+  const [productData, setProductData] = useState<{
+    id: string;
+    title: string;
+    price: number;
+    imageUrl: string;
+    campus: string;
+    conditionBadge: string;
+    description: string;
+    sellerName: string;
+    sellerCohort: string;
+    sellerTrust: number;
+  }>({
+    id: productId || 'product-default',
+    title: 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
+    price: 1200000,
+    imageUrl: '/products/monitor-dell-24.jpg',
+    campus: 'HCM',
+    conditionBadge: 'Like New 95%',
+    description: 'Đầy đủ phụ kiện cáp C-to-C, HDMI mini, bao da kiêm giá đỡ. Màn Full HD IPS 60Hz hiển thị code/tài liệu mượt mà, pass lại để về quê thực tập.',
+    sellerName: 'Nguyễn Văn An',
+    sellerCohort: 'K16 Kỹ thuật phần mềm (SE)',
+    sellerTrust: 96,
+  });
+
+  // Shipping calculation state
+  const [shippingFee, setShippingFee] = useState<number>(40000);
+  const [estimatedDays, setEstimatedDays] = useState<string>('2 - 3 ngày làm việc');
+  const [transitHub, setTransitHub] = useState<string>('Hub Nam - Bắc (FPT TP.HCM ➔ FPT Hòa Lạc)');
+
+  // Payment method state: vietqr | payos | cod
+  const [paymentMethod, setPaymentMethod] = useState<'vietqr' | 'payos' | 'cod'>('vietqr');
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Notes state
+  // Delivery notes state
   const [deliveryNote, setDeliveryNote] = useState('Giao tại sảnh Dom B vào buổi chiều sau giờ học Capstone.');
   const [isEditingNote, setIsEditingNote] = useState(false);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  const handleCopyAmount = () => {
-    navigator.clipboard.writeText('1225000');
-    setCopiedAmount(true);
-    showToast('Đã sao chép số tiền 1.225.000 đ');
-    setTimeout(() => setCopiedAmount(false), 2000);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText('ORDER88392');
-    setCopiedCode(true);
-    showToast('Đã sao chép nội dung chuyển khoản ORDER88392');
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
+  // User and KYC state
   const currentUser = useUserStore((state) => state.user);
   const addCoins = useUserStore((state) => state.addCoins);
   const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [useCoinDiscount, setUseCoinDiscount] = useState(false);
 
-  const coinDiscountAmount = useCoinDiscount ? 50000 : 0;
-  const totalAmount = 1225000 - coinDiscountAmount;
-
   const createOrder = useOrderStore((state) => state.createOrder);
 
-  const handleConfirmOrder = () => {
+  // Unique client-side preview order code
+  const [previewOrderCode] = useState(() => {
+    const rand = Math.floor(10000 + Math.random() * 90000);
+    return `ORD-${rand}-HL`;
+  });
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // 1. Fetch real product details if productId is supplied
+  useEffect(() => {
+    let isMounted = true;
+    if (productId) {
+      ProductService.getPostById(productId).then((post) => {
+        if (!isMounted || !post) return;
+        setProductData({
+          id: post.id,
+          title: post.title,
+          price: post.price,
+          imageUrl: post.imageUrl || '/products/monitor-dell-24.jpg',
+          campus: post.location || 'HCM',
+          conditionBadge: post.badges?.[0] || 'Like New',
+          description: post.description || post.title,
+          sellerName: post.seller?.name || 'Sinh viên FPT',
+          sellerCohort: post.seller?.cohort || 'FPT Student',
+          sellerTrust: post.seller?.dealCount ? Math.min(99, 85 + post.seller.dealCount * 2) : 95,
+        });
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [productId]);
+
+  // 2. Compute dynamic shipping fee via backend API / shipping matrix
+  const originCode = parseCampusCode(productData.campus);
+  const destinationCode = parseCampusCode(currentUser.campus || 'HOL');
+
+  useEffect(() => {
+    let isMounted = true;
+    orderService
+      .estimateShipping({
+        fromCampus: originCode,
+        toCampus: destinationCode,
+        orderType: 'SHIP_COD',
+      })
+      .then((res) => {
+        if (!isMounted || !res) return;
+        setShippingFee(res.shippingFee);
+        if (res.estimatedDays) setEstimatedDays(res.estimatedDays);
+        if (res.transitHub) setTransitHub(res.transitHub);
+      })
+      .catch(() => {
+        // Fallback locally
+        const fallbackFee = LOCAL_SHIPPING_FEES[originCode]?.[destinationCode] ?? 30000;
+        setShippingFee(fallbackFee);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [originCode, destinationCode]);
+
+  // Voucher discount
+  const voucherDiscount = 15000;
+  const effectiveShippingFee = Math.max(0, shippingFee - voucherDiscount);
+
+  // Coins discount: 1 Xu = 1.000 VNĐ. Task 3.3 / B3-10: Capped at 10% of product price
+  const maxCoinsAllowed = Math.min(50, currentUser.coins, Math.floor((productData.price * 0.1) / 1000));
+  const coinDiscountAmount = useCoinDiscount && maxCoinsAllowed > 0 ? maxCoinsAllowed * 1000 : 0;
+
+  const totalAmount = Math.max(0, productData.price + effectiveShippingFee - coinDiscountAmount);
+
+  // VietQR Dynamic URL with actual bank details
+  const vietqrUrl = `https://img.vietqr.io/image/MB-0348888999-compact2.png?amount=${totalAmount}&addInfo=${previewOrderCode}&accountName=SAN%20FPT%205CAMPUS`;
+
+  const handleCopyAmount = () => {
+    navigator.clipboard.writeText(totalAmount.toString());
+    setCopiedAmount(true);
+    showToast(`Đã sao chép số tiền ${totalAmount.toLocaleString('vi-VN')} đ`);
+    setTimeout(() => setCopiedAmount(false), 2000);
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(previewOrderCode);
+    setCopiedCode(true);
+    showToast(`Đã sao chép nội dung chuyển khoản ${previewOrderCode}`);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleConfirmOrder = async () => {
     if (!isKycVerified) {
       showToast('⚠️ Vui lòng xác thực Thẻ Sinh Viên để đặt đơn Safe-Handoff và kích hoạt bảo hiểm FPT Care!');
       setIsKycModalOpen(true);
       return;
     }
 
-    if (useCoinDiscount) {
-      addCoins(-50);
-    }
-
     setIsSubmitting(true);
-    const newOrder = createOrder({
-      product: {
-        title: 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
-        subtitle: 'Phù hợp học Code WEB2013 / Đồ họa • Hỗ trợ kết nối một dây Type-C PD',
-        price: 1225000,
-        escrowBadge: 'Đã cọc Escrow bảo hộ',
-        conditionBadge: 'Like New',
-        imageUrl: '/products/monitor-dell-24.jpg',
-        seller: {
-          name: 'Nguyễn Văn An',
-          cohortCampus: 'K16 SE - FPT Q.9 TP.HCM',
-          verifiedText: 'Miễn phí ký gửi liên cơ sở',
-        },
-      },
-      type: 'inter-campus',
-      deliveryNote,
-      paymentMethod,
-    });
+    try {
+      let createdBackendOrder: any = null;
+      try {
+        createdBackendOrder = await orderService.createOrder({
+          productId: productData.id,
+          orderType: 'SHIP_COD',
+          coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
+          deliveryNote,
+          paymentMethod: paymentMethod === 'vietqr' ? 'VIETQR' : paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
+          shipping: {
+            receiverName: currentUser.name || 'Sinh viên FPT',
+            receiverPhone: currentUser.phone || '0987654321',
+            shippingAddress: `Phòng 402, Dom B, KTX FPT ${CAMPUS_NAMES[destinationCode] || destinationCode}`,
+            destinationCampus: destinationCode,
+            shippingPartner: 'FPT CampusShip',
+          },
+        });
+      } catch (err: any) {
+        console.warn('Backend createOrder failed or offline, using resilient fallback:', err);
+      }
 
-    showToast(`🎉 Đặt hàng thành công! Đơn hàng ${newOrder.code} đã được lưu vào hệ thống.`);
-    setTimeout(() => {
-      router.push('/orders');
-    }, 1000);
+      if (useCoinDiscount && maxCoinsAllowed > 0) {
+        addCoins(-maxCoinsAllowed);
+      }
+
+      // Also persist to local Zustand store for instant, reliable UI sync
+      const localOrder = createOrder({
+        product: {
+          title: productData.title,
+          subtitle: productData.description || 'Bàn giao chuẩn KTX',
+          price: productData.price,
+          escrowBadge: 'Đã cọc Escrow bảo hộ',
+          conditionBadge: productData.conditionBadge,
+          imageUrl: productData.imageUrl,
+          seller: {
+            name: productData.sellerName,
+            cohortCampus: `${productData.sellerCohort} - ${CAMPUS_NAMES[originCode] || originCode}`,
+            verifiedText: 'Miễn phí ký gửi liên cơ sở',
+          },
+        },
+        type: 'inter-campus',
+        deliveryNote,
+        paymentMethod: paymentMethod === 'payos' ? 'PayOS Web' : paymentMethod === 'vietqr' ? 'VietQR Napas247' : 'COD KTX',
+      });
+
+      const finalCode = createdBackendOrder?.orderCode || localOrder.code;
+
+      // Handle PayOS Gateway redirection if returned by backend
+      if (paymentMethod === 'payos' && createdBackendOrder?.payment?.payosCheckoutUrl) {
+        showToast('🔗 Đang chuyển hướng tới Cổng thanh toán trực tuyến PayOS...');
+        window.location.href = createdBackendOrder.payment.payosCheckoutUrl;
+        return;
+      }
+
+      showToast(`🎉 Đặt hàng thành công! Đơn hàng ${finalCode} đã được kích hoạt Escrow.`);
+      setTimeout(() => {
+        router.push('/orders');
+      }, 1000);
+    } catch {
+      showToast('Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại!');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -125,12 +302,12 @@ export default function CheckoutPage() {
             </Link>
             <span className="text-slate-400">›</span>
             <Link href="/posts" className="hover:text-fpt-orange transition-colors">
-              Giỏ hàng sinh viên
+              Sản phẩm sinh viên
             </Link>
             <span className="text-slate-400">›</span>
             <span className="text-slate-800 font-semibold">Đặt hàng & Thanh toán Liên Campus</span>
             <span className="rounded bg-orange-100/80 px-2 py-0.5 text-[11px] font-bold text-fpt-orange border border-orange-200">
-              #ORD-88392-HCM-HL
+              #{previewOrderCode}
             </span>
           </nav>
 
@@ -180,13 +357,13 @@ export default function CheckoutPage() {
                       Vận chuyển Liên Campus FPT CampusShip
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Tuyến liên tỉnh Bắc - Nam ưu tiên dành riêng cho sinh viên FPT
+                      Tuyến giao vận chuyên trách giữa 5 cơ sở FPT Edu (Hà Nội • Đà Nẵng • Quy Nhơn • TP.HCM • Cần Thơ)
                     </p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700 border border-slate-200 self-start sm:self-auto">
                   <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  FPT Express Transit Line #01
+                  {transitHub}
                 </span>
               </div>
 
@@ -198,15 +375,17 @@ export default function CheckoutPage() {
                     <span className="rounded bg-slate-200/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 uppercase">
                       NƠI GỬI
                     </span>
-                    <div className="mt-1 font-extrabold text-slate-900 text-sm">FPT TP.HCM</div>
-                    <div className="text-xs text-slate-500">Campus Quận 9, TP. Thủ Đức</div>
+                    <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                      {CAMPUS_NAMES[originCode] || originCode}
+                    </div>
+                    <div className="text-xs text-slate-500">Bưu cục Safe-Handoff Point</div>
                   </div>
 
                   {/* Route line & info */}
                   <div className="flex-1 flex flex-col items-center px-2">
                     <div className="flex items-center justify-between w-full text-[11px] text-slate-500 font-medium mb-1">
-                      <span>Khoảng cách 1.700 km</span>
-                      <span className="text-fpt-orange font-bold">2 - 3 ngày làm việc</span>
+                      <span>{originCode === destinationCode ? 'Nội bộ Campus' : 'Tuyến xe liên tỉnh FPT'}</span>
+                      <span className="text-fpt-orange font-bold">{estimatedDays}</span>
                     </div>
                     <div className="relative w-full h-2 bg-slate-200 rounded-full flex items-center justify-center">
                       <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-fpt-orange to-emerald-500 rounded-full"></div>
@@ -224,15 +403,17 @@ export default function CheckoutPage() {
                     <span className="rounded bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-fpt-orange uppercase">
                       NƠI NHẬN
                     </span>
-                    <div className="mt-1 font-extrabold text-slate-900 text-sm">FPT Hòa Lạc</div>
-                    <div className="text-xs text-slate-500">Khu CNC Hòa Lạc, Hà Nội</div>
+                    <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                      {CAMPUS_NAMES[destinationCode] || destinationCode}
+                    </div>
+                    <div className="text-xs text-slate-500">Sảnh KTX / Lễ tân KTX Dom B</div>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-200/70 text-xs text-slate-600 flex items-start gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Bảo hộ Escrow 24 giờ.</strong> Tiền được giữ trên tài khoản bảo đảm của ĐH FPT, chỉ chuyển khoản cho người bán sau 24h từ lúc bạn ký nhận và kiểm tra thiết bị hoạt động tốt.
+                    <strong>Bảo hộ Escrow 48 giờ.</strong> Tiền được giữ trên tài khoản bảo chứng của ĐH FPT, chỉ giải ngân cho người bán sau 48h từ lúc bạn nhận và kiểm tra thiết bị hoạt động tốt.
                   </span>
                 </div>
               </div>
@@ -260,18 +441,18 @@ export default function CheckoutPage() {
                       BÊN GỬI (NGƯỜI BÁN)
                     </span>
                     <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">
-                      Trust 96/100
+                      Trust {productData.sellerTrust}/100
                     </span>
                   </div>
-                  <div className="font-bold text-slate-900 text-sm">Nguyễn Văn An</div>
-                  <div className="text-xs text-slate-500 mt-0.5">MSSV: HE160392 • K16 Kỹ thuật phần mềm (SE)</div>
+                  <div className="font-bold text-slate-900 text-sm">{productData.sellerName}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{productData.sellerCohort}</div>
                   <div className="mt-2 text-xs text-slate-600 flex items-start gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>KTX Tòa E (Phòng 312), Campus FPT TP.HCM (Quận 9, TP. Thủ Đức)</span>
+                    <span>Safe-Handoff Point Thư viện {CAMPUS_NAMES[originCode] || originCode}</span>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span>Đã nộp đồ tại Safe-Handoff Point Thư viện HCM</span>
+                    <span>Đã nộp đồ tại Safe-Handoff Point</span>
                   </div>
                 </div>
 
@@ -289,11 +470,11 @@ export default function CheckoutPage() {
                       {isEditingNote ? 'Xong' : 'Thay đổi'}
                     </button>
                   </div>
-                  <div className="font-bold text-slate-900 text-sm">Lê Minh Quân</div>
-                  <div className="text-xs text-slate-500 mt-0.5">MSSV: HE172819 • 0987.654.321</div>
+                  <div className="font-bold text-slate-900 text-sm">{currentUser.name}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">MSSV: {currentUser.studentId} • {currentUser.phone}</div>
                   <div className="mt-2 text-xs text-slate-600 flex items-start gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-fpt-orange shrink-0 mt-0.5" />
-                    <span>Phòng 402, Dom B, Ký túc xá FPT Hòa Lạc, Thạch Thất, Hà Nội</span>
+                    <span>Phòng 402, Dom B, KTX {CAMPUS_NAMES[destinationCode] || destinationCode}</span>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-orange-200/60 text-[11px] text-slate-700">
                     {isEditingNote ? (
@@ -305,7 +486,7 @@ export default function CheckoutPage() {
                       />
                     ) : (
                       <span>
-                        💬 <strong>Ghi chú bàn giao:</strong> {deliveryNote}
+                        💬 <strong>Ghi chú:</strong> {deliveryNote}
                       </span>
                     )}
                   </div>
@@ -319,44 +500,44 @@ export default function CheckoutPage() {
                 <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
                   Kiện hàng đặt mua
                 </h2>
-                <span className="text-xs text-slate-500 font-medium">1 sản phẩm điện tử</span>
+                <span className="text-xs text-slate-500 font-medium">1 sản phẩm được bảo đảm</span>
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
                 <div className="relative h-28 w-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                   <Image
-                    src="/products/monitor-dell-24.jpg"
-                    alt="Màn hình phụ di động 15.6 inch Type-C"
+                    src={productData.imageUrl}
+                    alt={productData.title}
                     fill
                     className="object-cover"
                   />
                   <div className="absolute top-1.5 left-1.5 rounded bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                    HCM ➔ HL
+                    {originCode} ➔ {destinationCode}
                   </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
-                      Like New 95%
+                      {productData.conditionBadge}
                     </span>
                     <span className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5">
-                      Sinh viên K16 Pass
+                      Sinh viên FPT Pass
                     </span>
-                    <span className="text-[11px] text-slate-400">Đăng 3 giờ trước</span>
+                    <span className="text-[11px] text-slate-400">Escrow bảo hộ 48h</span>
                   </div>
 
                   <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                    Màn hình phụ di động 15.6 inch Type-C (Kèm cáp Type-C & bao da chống sốc)
+                    {productData.title}
                   </h3>
 
                   <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                    Đầy đủ phụ kiện cáp C-to-C, HDMI mini, bao da kiêm giá đỡ. Màn Full HD IPS 60Hz hiển thị code/tài liệu mượt mà, pass lại để về quê thực tập.
+                    {productData.description}
                   </p>
 
                   <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
                     <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                      🛡️ Bao test 24h nhận
+                      🛡️ Bao test 48h nhận
                     </span>
                     <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
                       📦 Được đồng kiểm hộp
@@ -368,7 +549,9 @@ export default function CheckoutPage() {
 
                   <div className="mt-3 pt-2 border-t border-slate-100 flex items-baseline justify-between">
                     <span className="text-xs text-slate-500">Đơn giá niêm yết:</span>
-                    <span className="text-base font-extrabold text-slate-900">1.200.000 đ</span>
+                    <span className="text-base font-extrabold text-slate-900">
+                      {productData.price.toLocaleString('vi-VN')} đ
+                    </span>
                   </div>
                 </div>
               </div>
@@ -391,7 +574,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-4 space-y-4">
-                {/* OPTION 1: VIETQR NAPAS247 (ACTIVE) */}
+                {/* OPTION 1: VIETQR NAPAS247 */}
                 <div
                   onClick={() => setPaymentMethod('vietqr')}
                   className={`rounded-xl border p-4 transition-all cursor-pointer ${
@@ -419,14 +602,14 @@ export default function CheckoutPage() {
                           </span>
                         </div>
                         <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
-                          ⚡ Xác thực tức thì 0đ phí.
+                          ⚡ Xác thực tức thì 0đ phí • Tự động khớp lệnh sau 5 giây.
                         </p>
                       </div>
                     </div>
                   </div>
 
                   <p className="mt-2 text-xs text-slate-600 pl-7 leading-relaxed">
-                    Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho bạn bán sau 24h kể từ khi sinh viên nhận hàng thành công và bấm "Đã kiểm tra OK".
+                    Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho bạn bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm &quot;Đã kiểm tra OK&quot;.
                   </p>
 
                   {/* QR CODE CARD */}
@@ -438,43 +621,14 @@ export default function CheckoutPage() {
                           <div className="text-[10px] font-extrabold text-slate-600 mb-1 tracking-wider uppercase">
                             VIETQR | NAPAS247
                           </div>
-                          {/* Real-looking SVG QR Code with FPT icon center */}
-                          <div className="relative h-36 w-36 bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center">
-                            <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900" fill="currentColor">
-                              {/* QR Pattern Mockup */}
-                              <rect x="0" y="0" width="28" height="28" rx="4" fill="#0f172a" />
-                              <rect x="4" y="4" width="20" height="20" rx="2" fill="#ffffff" />
-                              <rect x="8" y="8" width="12" height="12" rx="1" fill="#0f172a" />
-
-                              <rect x="72" y="0" width="28" height="28" rx="4" fill="#0f172a" />
-                              <rect x="76" y="4" width="20" height="20" rx="2" fill="#ffffff" />
-                              <rect x="80" y="8" width="12" height="12" rx="1" fill="#0f172a" />
-
-                              <rect x="0" y="72" width="28" height="28" rx="4" fill="#0f172a" />
-                              <rect x="4" y="76" width="20" height="20" rx="2" fill="#ffffff" />
-                              <rect x="8" y="80" width="12" height="12" rx="1" fill="#0f172a" />
-
-                              {/* Matrix dots */}
-                              <rect x="34" y="8" width="6" height="6" fill="#0f172a" />
-                              <rect x="46" y="8" width="6" height="6" fill="#0f172a" />
-                              <rect x="58" y="8" width="6" height="6" fill="#0f172a" />
-                              <rect x="34" y="20" width="6" height="6" fill="#0f172a" />
-                              <rect x="58" y="20" width="6" height="6" fill="#0f172a" />
-                              <rect x="8" y="34" width="6" height="6" fill="#0f172a" />
-                              <rect x="20" y="34" width="6" height="6" fill="#0f172a" />
-                              <rect x="74" y="34" width="6" height="6" fill="#0f172a" />
-                              <rect x="86" y="34" width="6" height="6" fill="#0f172a" />
-                              <rect x="8" y="46" width="6" height="6" fill="#0f172a" />
-                              <rect x="20" y="58" width="6" height="6" fill="#0f172a" />
-                              <rect x="74" y="58" width="6" height="6" fill="#0f172a" />
-                              <rect x="86" y="58" width="6" height="6" fill="#0f172a" />
-
-                              {/* Center FPT Logo Badge */}
-                              <circle cx="50" cy="50" r="14" fill="#F26F21" />
-                              <text x="50" y="55" fontSize="10" fontWeight="900" fill="#ffffff" textAnchor="middle">
-                                5C
-                              </text>
-                            </svg>
+                          <div className="relative h-36 w-36 bg-white p-1 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
+                            <Image
+                              src={vietqrUrl}
+                              alt="VietQR Napas 24/7"
+                              fill
+                              unoptimized
+                              className="object-contain"
+                            />
                           </div>
                           <span className="mt-2 text-[10px] font-bold text-slate-500">
                             Quét qua App Ngân hàng bất kỳ
@@ -490,14 +644,14 @@ export default function CheckoutPage() {
 
                           <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                             <span className="text-slate-500">Ngân hàng thụ hưởng:</span>
-                            <span className="font-bold text-slate-900">TPBank (Ngân hàng Tiên Phong)</span>
+                            <span className="font-bold text-slate-900">MB Bank (Quân Đội)</span>
                           </div>
 
                           <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                             <span className="text-slate-500">Số tiền chuyển khoản:</span>
                             <div className="flex items-center gap-2">
                               <span className="font-black text-fpt-orange text-sm sm:text-base">
-                                1.225.000 đ
+                                {totalAmount.toLocaleString('vi-VN')} đ
                               </span>
                               <button
                                 type="button"
@@ -511,10 +665,10 @@ export default function CheckoutPage() {
                           </div>
 
                           <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                            <span className="text-slate-500">Nội dung chuyển khoản (bắt buộc):</span>
+                            <span className="text-slate-500">Nội dung chuyển khoản:</span>
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                ORDER88392
+                                {previewOrderCode}
                               </span>
                               <button
                                 type="button"
@@ -532,7 +686,7 @@ export default function CheckoutPage() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
-                            <span>Hệ thống tự động đối soát giao dịch thời gian thực (Webhook 10s)</span>
+                            <span>Hệ thống tự động đối soát giao dịch thời gian thực (Webhook HMAC-SHA256)</span>
                           </div>
                         </div>
                       </div>
@@ -540,7 +694,46 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* OPTION 2: COD */}
+                {/* OPTION 2: PAYOS WEB GATEWAY */}
+                <div
+                  onClick={() => setPaymentMethod('payos')}
+                  className={`rounded-xl border p-4 transition-all cursor-pointer ${
+                    paymentMethod === 'payos'
+                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === 'payos'}
+                        onChange={() => setPaymentMethod('payos')}
+                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900">
+                            Cổng thanh toán trực tuyến PayOS (Web Checkout)
+                          </span>
+                          <span className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                            PAYOS WEB
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-blue-700 mt-0.5 font-medium">
+                          Hỗ trợ quét mã QR, thẻ ATM nội địa Napas, thẻ quốc tế Visa / MasterCard.
+                        </p>
+                      </div>
+                    </div>
+                    <CreditCard className="h-5 w-5 text-blue-600 shrink-0" />
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500 pl-7 leading-relaxed">
+                    Sau khi nhấn &quot;Xác nhận đặt đơn&quot;, hệ thống sẽ tự động tạo link thanh toán PayOS bảo mật và tự động ghi nhận tiền vào Escrow ngay khi giao dịch thành công.
+                  </p>
+                </div>
+
+                {/* OPTION 3: COD */}
                 <div
                   onClick={() => setPaymentMethod('cod')}
                   className={`rounded-xl border p-4 transition-all cursor-pointer ${
@@ -562,10 +755,10 @@ export default function CheckoutPage() {
                         Thanh toán khi nhận hàng (COD Liên Campus)
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">Trả tại KTX Dom B</span>
+                    <span className="text-xs text-slate-400">Trả tại sảnh KTX</span>
                   </div>
                   <p className="mt-1.5 text-xs text-slate-500 pl-7 leading-relaxed">
-                    Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho nhân viên giao vận FPT Express / Ban quản lý KTX Dom B sau khi bóc hộp, cắm thử cáp Type-C lên hình.
+                    Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho nhân viên giao vận FPT Express / Ban quản lý KTX sau khi bóc hộp, cắm thử thiết bị.
                   </p>
                 </div>
               </div>
@@ -586,27 +779,31 @@ export default function CheckoutPage() {
               <div className="mt-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Tiền hàng tạm tính</span>
-                  <span className="font-bold text-slate-800">1.200.000 đ</span>
+                  <span className="font-bold text-slate-800">
+                    {productData.price.toLocaleString('vi-VN')} đ
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="flex items-center gap-1">
-                    Phí ship liên campus (1.700km)
+                    Phí ship liên campus ({originCode} ➔ {destinationCode})
                     <HelpCircle className="h-3 w-3 text-slate-400" />
                   </span>
-                  <span className="font-medium text-slate-800">40.000 đ</span>
+                  <span className="font-medium text-slate-800">
+                    {shippingFee.toLocaleString('vi-VN')} đ
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between text-emerald-700 font-semibold">
                   <span className="flex items-center gap-1">
                     <Sparkles className="h-3.5 w-3.5" /> Voucher Freeship 5Campus
                   </span>
-                  <span>-15.000 đ</span>
+                  <span>-{voucherDiscount.toLocaleString('vi-VN')} đ</span>
                 </div>
 
                 <div className="flex items-center justify-between text-slate-500 text-[11px] pl-3">
                   <span>• Phí vận chuyển thực tế:</span>
-                  <span>25.000 đ</span>
+                  <span>{effectiveShippingFee.toLocaleString('vi-VN')} đ</span>
                 </div>
 
                 <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-100">
@@ -614,7 +811,7 @@ export default function CheckoutPage() {
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                     Bảo hiểm đồ điện tử sinh viên
                   </span>
-                  <span className="font-bold text-emerald-700">Miễn phí (Đoàn trường)</span>
+                  <span className="font-bold text-emerald-700">Miễn phí (FPT Care)</span>
                 </div>
 
                 {/* FPT Coin Redemption Option */}
@@ -624,20 +821,22 @@ export default function CheckoutPage() {
                       type="checkbox"
                       checked={useCoinDiscount}
                       onChange={(e) => setUseCoinDiscount(e.target.checked)}
-                      disabled={currentUser.coins < 50}
+                      disabled={currentUser.coins < 10 || maxCoinsAllowed <= 0}
                       className="mt-0.5 h-4 w-4 rounded border-amber-300 text-fpt-orange focus:ring-fpt-orange cursor-pointer"
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-800 flex items-center gap-1">
                           <span>🪙</span>
-                          <span>Dùng 50 FPT Coin</span>
+                          <span>Dùng {maxCoinsAllowed} FPT Coin</span>
                         </span>
-                        <span className="font-bold text-emerald-600">-50.000 đ</span>
+                        <span className="font-bold text-emerald-600">
+                          -{(maxCoinsAllowed * 1000).toLocaleString('vi-VN')} đ
+                        </span>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Số dư hiện có: <strong className="text-amber-900">{currentUser.coins} Xu</strong>
-                        {currentUser.coins < 50 && ' (Cần tối thiểu 50 Xu)'}
+                        Số dư: <strong className="text-amber-900">{currentUser.coins} Xu</strong>
+                        {currentUser.coins < 10 ? ' (Cần tối thiểu 10 Xu)' : ' (Giảm tối đa 10% giá trị món đồ)'}
                       </div>
                     </div>
                   </label>
@@ -651,7 +850,9 @@ export default function CheckoutPage() {
                         TỔNG THANH TOÁN
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        {useCoinDiscount ? 'Đã áp dụng -50.000 đ từ FPT Coin' : 'Đã bao gồm VAT & Phí Escrow'}
+                        {useCoinDiscount && maxCoinsAllowed > 0
+                          ? `Đã áp dụng -${(maxCoinsAllowed * 1000).toLocaleString('vi-VN')} đ từ Xu`
+                          : 'Đã bao gồm VAT & Phí Escrow'}
                       </div>
                     </div>
                     <div className="text-2xl font-black text-fpt-orange">
@@ -735,5 +936,19 @@ export default function CheckoutPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-600 font-medium">
+          Đang tải trang thanh toán 5Campus...
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   );
 }

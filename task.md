@@ -144,7 +144,7 @@ Hệ thống Backend được module hóa độc lập, chia thành 4 phân hệ
 
 ### Nhiệm vụ: Xây dựng quy trình luân chuyển đơn hàng, tích hợp VietQR, quét QR Handshake bảo mật, xử lý Webhook COD và đánh giá 2 chiều.
 
-- [ ] **Task 3.1: Phân Hệ Đơn Hàng & Sinh Mã QR Giao Dịch (Orders Module)**
+- [x] **Task 3.1: Phân Hệ Đơn Hàng & Sinh Mã QR Giao Dịch (Orders Module)**
   - *File:* `src/modules/orders/`
   - Viết `order.service.ts`:
     - Nếu `MEETUP`: Sinh mã VietQR động Napas 247 (`img.vietqr.io/image/...`) để người mua quét trả tiền khi gặp.
@@ -156,7 +156,7 @@ Hệ thống Backend được module hóa độc lập, chia thành 4 phân hệ
   - `GET /api/orders/:id`: Lấy chi tiết tiến trình đơn hàng.
   - `POST /api/orders/:id/dispute`: Người mua mở khiếu nại trong thời hạn bao test (kèm link video bằng chứng).
 
-- [ ] **Task 3.2: Xử Lý Webhook Vận Chuyển Bên Thứ 3 (Ship COD Webhook)**
+- [x] **Task 3.2: Xử Lý Webhook Vận Chuyển Bên Thứ 3 (Ship COD Webhook)**
   - *File:* `src/modules/orders/webhook.service.ts`, `src/modules/orders/webhook.routes.ts`
   - `POST /api/webhooks/shipping`: Nhận Webhook từ đối tác giao hàng (GHTK/GHN):
     - **Xác thực Chữ ký bảo mật (HMAC Signature Verification):** Chống request giả mạo.
@@ -166,7 +166,7 @@ Hệ thống Backend được module hóa độc lập, chia thành 4 phân hệ
       - Kích hoạt thời gian **48h Bao test**.
       - Bắn thông báo Realtime & Push FCM cho người mua và người bán.
 
-- [ ] **Task 3.3: Hệ Thống Đánh Giá 2 Chiều & Gamification Xu Thưởng (Reviews & Coins)**
+- [x] **Task 3.3: Hệ Thống Đánh Giá 2 Chiều & Gamification Xu Thưởng (Reviews & Coins)**
   - *File:* `src/modules/reviews/`, `src/modules/products/`
   - Viết `Review.model.ts`: `orderId`, `reviewerId`, `revieweeId`, `rating` (1-5), `comment`, `images`, `isPublic` (boolean).
   - `POST /api/reviews`: Gửi đánh giá cho đối phương (Chỉ cho phép khi đơn đã `COMPLETED` và hết thời gian bao test).
@@ -187,32 +187,32 @@ Hệ thống Backend được module hóa độc lập, chia thành 4 phân hệ
 
 ### Nhiệm vụ: Xây dựng hệ thống quản trị admin, kho voucher đổi Xu và tự động dọn dẹp tin hết hạn theo lịch.
 
-- [ ] **Task 4.1: Khiếu Nại Đổi Trả & Phân Quản Trị Admin (Dispute & Admin Module)**
+- [x] **Task 4.1: Khiếu Nại Đổi Trả & Phân Quản Trị Admin (Dispute & Admin Module)**
   - *File:* `src/modules/reports/`
-  - `POST /api/orders/:id/dispute`: Người mua gửi khiếu nại trong thời hạn 24h-48h bao test (Bắt buộc kèm link video quay khui hộp test lỗi).
-  - `GET /api/admin/kyc-requests`: Danh sách sinh viên chờ duyệt thẻ $\rightarrow$ `PATCH /api/admin/kyc/:id/approve` & `reject`.
-  - `GET /api/admin/disputes`: Danh sách khiếu nại $\rightarrow$ `POST /api/admin/disputes/:id/resolve` (Quyết định Hoàn tiền cho Người mua hoặc Chuyển tiền cho Người bán).
-  - `POST /api/reports`: Tố cáo tài khoản lừa đảo $\rightarrow$ Admin khóa tài khoản (`status = 'BANNED'`).
-  - `GET /api/admin/reports` $\rightarrow$ `PATCH /api/admin/reports/:id/resolve` (BAN_USER, HIDE_PRODUCT, DISMISS).
+  - `POST /api/reports/disputes`: Người mua gửi khiếu nại trong thời hạn 24h-48h bao test (Bắt buộc kèm link video quay khui hộp test lỗi).
+  - `GET /api/reports/kyc/verifications`: Danh sách sinh viên chờ duyệt thẻ $\rightarrow$ `PATCH /api/reports/kyc/:id/approve` & `reject`.
+  - `GET /api/reports/disputes`: Danh sách khiếu nại $\rightarrow$ `PATCH /api/reports/disputes/:id/resolve` (Quyết định Hoàn tiền cho Người mua hoặc Chuyển tiền cho Người bán).
+  - `POST /api/reports`: Tố cáo tài khoản lừa đảo $\rightarrow$ Admin khóa tài khoản (`isActive = false`).
+  - `GET /api/reports` $\rightarrow$ `PATCH /api/reports/:id/resolve` (BAN_USER, HIDE_PRODUCT, DISMISS).
 
-- [ ] **Task 4.2: Kho Voucher Campus Coin (Vouchers Module)**
+- [x] **Task 4.2: Kho Voucher Campus Coin (Vouchers Module)**
   - *File:* `src/modules/vouchers/`
   - Sinh viên đổi Xu lấy Voucher ưu đãi: Căn tin, Passio Coffee, 7-Eleven, Circle K trong campus.
   - `GET /api/vouchers`: Danh sách Voucher đang có, kèm giá Xu và số lượng còn lại.
-  - `POST /api/vouchers/redeem`: Đổi Xu lấy Voucher $\rightarrow$ Sinh mã Barcode/QR độc nhất dùng 1 lần, ghi `CoinTransaction` (`REDEEM_VOUCHER`).
-  - `GET /api/vouchers/my-vouchers`: Ví Voucher cá nhân.
-  - `PATCH /api/vouchers/use`: Quét mã tại quầy $\rightarrow$ Đánh dấu `isUsed = true`.
-  - `POST /api/vouchers/admin/create`: Admin thêm loại Voucher mới (đối tác, mệnh giá, giá Xu).
+  - `POST /api/vouchers/:id/redeem`: Đổi Xu lấy Voucher $\rightarrow$ Sinh mã Barcode/QR độc nhất dùng 1 lần, ghi `CoinTransaction` (`REDEEM_VOUCHER`).
+  - `GET /api/vouchers/my-vouchers` hoặc `/me`: Ví Voucher cá nhân.
+  - `POST /api/vouchers/use`: Quét mã tại quầy $\rightarrow$ Đánh dấu `status = 'USED'`.
+  - `POST /api/vouchers`: Admin thêm loại Voucher mới (đối tác, mệnh giá, giá Xu, số lượng).
 
-- [ ] **Task 4.3: Lập Lịch Tự Động Dọn Dẹp Bài Đăng 30 Ngày (Node-Cron Service)**
-  - *File:* `src/cron/expirePosts.cron.ts`
+- [x] **Task 4.3: Lập Lịch Tự Động Dọn Dẹp Bài Đăng 30 Ngày (Node-Cron Service)**
+  - *File:* `src/cron/expire-products.cron.ts`
   - Cấu hình `src/config/mail.ts` (Nodemailer Gmail SMTP) để gửi email thông báo.
   - Thiết lập cron job chạy vào `00:00:00` hàng ngày (`cron.schedule('0 0 * * *', ...)`):
-    - **Quét ngày 27:** Tìm các bài đăng có `status = 'AVAILABLE'` tạo cách đây 27 ngày $\rightarrow$ Kích hoạt Notification & Email nhắc người bán bấm nút "Gia hạn thêm 30 ngày".
-    - **Quét ngày 30:** `PostModel.updateMany({ status: 'AVAILABLE', createdAt: { $lte: date30DaysAgo } }, { $set: { status: 'EXPIRED' } })` $\rightarrow$ Tự động ẩn tin quá hạn khỏi sàn.
-  - Email Templates cần implement:
+    - **Quét ngày 27:** Tìm các bài đăng có `status = 'AVAILABLE'` sắp hết hạn sau 3 ngày $\rightarrow$ Kích hoạt Notification & Email nhắc người bán gia hạn thêm 30 ngày.
+    - **Quét ngày 30:** `prisma.product.updateMany({ where: { status: 'AVAILABLE', expiredAt: { lte: now } }, data: { status: 'EXPIRED' } })` $\rightarrow$ Tự động ẩn tin quá hạn khỏi sàn.
+  - Email Templates đã tích hợp:
     - `sendKycResultEmail`: Chúc mừng Tích Xanh + 200 Xu hoặc thông báo từ chối kèm lý do.
-    - `sendPostExpiringEmail`: Cảnh báo tin đăng sắp hết hạn ngày 27 kèm nút Gia hạn 30 ngày.
+    - `sendPostExpiringEmail`: Cảnh báo tin đăng sắp hết hạn ngày 27 kèm link Gia hạn 30 ngày.
     - `sendOrderCompletedReceiptEmail`: Biên lai giao dịch điện tử khi hoàn tất đơn hàng.
 
 ---

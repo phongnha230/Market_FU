@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { safehandoffService } from '@/services/safehandoffService';
 import {
   ShieldCheck,
   MapPin,
@@ -59,6 +60,59 @@ const HUBS_5CAMPUS = [
 
 export default function SafetyPage() {
   const [selectedCampusTab, setSelectedCampusTab] = useState(0);
+  const [liveCampusHubs, setLiveCampusHubs] = useState<typeof HUBS_5CAMPUS | null>(null);
+
+  React.useEffect(() => {
+    safehandoffService
+      .getHubs()
+      .then((res) => {
+        if (res.hubs && res.hubs.length > 0) {
+          const hol = res.hubs.filter((h) => h.campus === 'HOL');
+          const hcm = res.hubs.filter((h) => h.campus === 'HCM');
+          const dad = res.hubs.filter((h) => h.campus === 'DAD');
+          const ctQn = res.hubs.filter((h) => h.campus === 'CT' || h.campus === 'QN');
+
+          const grouped = [
+            {
+              campus: 'Campus Hòa Lạc (Hà Nội)',
+              badge: `${hol.length} Điểm Safe-Handoff`,
+              locations: hol.map((h) => ({
+                name: `${h.name} (${h.code})`,
+                note: h.notes || h.locationDetails || 'Điểm giao nhận an toàn',
+              })),
+            },
+            {
+              campus: 'Campus TP. Hồ Chí Minh (Q.9)',
+              badge: `${hcm.length} Điểm Safe-Handoff`,
+              locations: hcm.map((h) => ({
+                name: `${h.name} (${h.code})`,
+                note: h.notes || h.locationDetails || 'Điểm giao nhận an toàn',
+              })),
+            },
+            {
+              campus: 'Campus Đà Nẵng',
+              badge: `${dad.length} Điểm Safe-Handoff`,
+              locations: dad.map((h) => ({
+                name: `${h.name} (${h.code})`,
+                note: h.notes || h.locationDetails || 'Điểm giao nhận an toàn',
+              })),
+            },
+            {
+              campus: 'Campus Cần Thơ & Quy Nhơn',
+              badge: `${ctQn.length} Điểm Safe-Handoff`,
+              locations: ctQn.map((h) => ({
+                name: `${h.name} (${h.code})`,
+                note: h.notes || h.locationDetails || 'Điểm giao nhận an toàn',
+              })),
+            },
+          ];
+          setLiveCampusHubs(grouped);
+        }
+      })
+      .catch((err) => console.log('Using default hubs cache:', err));
+  }, []);
+
+  const displayHubs = liveCampusHubs || HUBS_5CAMPUS;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
@@ -200,7 +254,7 @@ export default function SafetyPage() {
 
           {/* Campus Selector Tabs */}
           <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-            {HUBS_5CAMPUS.map((c, idx) => (
+            {displayHubs.map((c, idx) => (
               <button
                 key={c.campus}
                 type="button"
@@ -218,7 +272,7 @@ export default function SafetyPage() {
 
           {/* Selected Campus Hubs List */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            {HUBS_5CAMPUS[selectedCampusTab].locations.map((loc, i) => (
+            {(displayHubs[selectedCampusTab] || displayHubs[0])?.locations.map((loc, i) => (
               <div
                 key={i}
                 className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-2 hover:border-emerald-300 hover:bg-emerald-50/20 transition"

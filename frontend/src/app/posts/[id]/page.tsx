@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ProductGallery from '@/components/post-detail/ProductGallery';
@@ -12,6 +12,7 @@ import SimilarProductsSection from '@/components/post-detail/SimilarProductsSect
 import PostDetailModals from '@/components/post-detail/PostDetailModals';
 import { ProductDetail } from '@/types/product';
 import { ProductService } from '@/services/productService';
+import { chatService } from '@/services/chatService';
 import { DETAIL_PRODUCT_AKKO, SIMILAR_PRODUCTS } from '@/constants/mockProducts';
 import { useMarket } from '@/context/MarketContext';
 import {
@@ -25,6 +26,7 @@ import {
 
 export default function ProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = (params?.id as string) || 'akko-3087-v2';
 
   const { showToast } = useMarket();
@@ -62,9 +64,14 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleToggleFavorite = () => {
+  const handleToggleFavorite = async () => {
     const nextState = !isFavorite;
     setIsFavorite(nextState);
+    try {
+      await ProductService.toggleFavorite(product.id);
+    } catch {
+      // Offline fallback
+    }
     showToast(
       nextState
         ? '❤️ Đã lưu tin vào danh sách quan tâm của bạn!'
@@ -73,18 +80,43 @@ export default function ProductDetailPage() {
     );
   };
 
-  const handleSendChat = (msg: string) => {
-    showToast(`✅ Đã gửi tin nhắn đến ${product.seller.name}! Người bán sẽ phản hồi sớm.`, 'success');
+  const handleSendChat = async (msg: string) => {
     setIsChatModalOpen(false);
+    showToast(`✅ Đang mở cuộc trò chuyện với ${product.seller.name}...`, 'success');
+    try {
+      const convRes = await chatService.createOrGetConversation(product.id);
+      if (convRes?.id) {
+        await chatService.sendMessage(convRes.id, {
+          text: msg,
+          type: 'TEXT',
+        });
+      }
+    } catch {
+      // offline fallback
+    }
+    router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
   };
 
-  const handleSendOffer = (price: string, note: string) => {
+  const handleSendOffer = async (price: string, note: string) => {
     const num = Number(price.replace(/\D/g, ''));
+    setIsOfferModalOpen(false);
     showToast(
-      `✅ Đã gửi đề nghị giá ${num > 0 ? formatVND(num) : price} tới ${product.seller.name}!`,
+      `✅ Đã gửi đề nghị giá ${num > 0 ? formatVND(num) : price} tới ${product.seller.name}! Đang chuyển sang chat...`,
       'success'
     );
-    setIsOfferModalOpen(false);
+    try {
+      const convRes = await chatService.createOrGetConversation(product.id);
+      if (convRes?.id) {
+        await chatService.sendMessage(convRes.id, {
+          text: note ? `Đề xuất giá: ${num > 0 ? formatVND(num) : price} - Ghi chú: ${note}` : `Đề xuất giá: ${num > 0 ? formatVND(num) : price}`,
+          type: 'OFFER_PRICE',
+          offerPrice: num > 0 ? num : undefined,
+        });
+      }
+    } catch {
+      // offline fallback
+    }
+    router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
   };
 
   const galleryImages = product.galleryImages || DETAIL_PRODUCT_AKKO.galleryImages;
@@ -222,6 +254,7 @@ export default function ProductDetailPage() {
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
               onOpenOfferModal={() => setIsOfferModalOpen(true)}
+              onShowToast={(msg) => showToast(msg, 'info')}
             />
           </div>
         </div>

@@ -14,6 +14,8 @@ import { useUserStore } from '@/stores/userStore';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { ShieldAlert } from 'lucide-react';
 import { Conversation, ChatMessage, INITIAL_CONVERSATIONS } from '@/types/chat';
+import { useChatStore } from '@/stores/chatStore';
+import { socketClient } from '@/services/socketClient';
 
 function ChatContent() {
   const searchParams = useSearchParams();
@@ -24,6 +26,7 @@ function ChatContent() {
   const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
+  const chatStore = useChatStore();
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
   const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'unread'>('all');
@@ -32,6 +35,67 @@ function ChatContent() {
   const [isTypingOther] = useState(true);
 
   const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize socket & fetch live conversations
+  useEffect(() => {
+    chatStore.fetchConversations();
+    const cleanup = chatStore.initSocketListeners();
+    return () => {
+      cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedConvId) {
+      chatStore.setActiveConversation(selectedConvId);
+      chatStore.fetchMessages(selectedConvId);
+    }
+  }, [selectedConvId]);
+
+  // Đồng bộ hóa danh sách hội thoại từ chatStore (MongoDB & Socket)
+  useEffect(() => {
+    if (chatStore.conversations && chatStore.conversations.length > 0) {
+      const mapped: Conversation[] = chatStore.conversations.map((c) => {
+        const storeMsgs = chatStore.messagesByConversation[c.id] || [];
+        return {
+          id: c.id,
+          name: c.otherUser?.name || 'Sinh viên FPT',
+          role: 'seller',
+          roleLabel: 'Người bán',
+          cohortCampus: `${c.otherUser?.cohort || 'K18'} • ${c.otherUser?.campus || 'Hòa Lạc'}`,
+          avatar: c.otherUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
+          isOnline: c.otherUser?.isOnline ?? true,
+          verified: true,
+          lastMessage: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
+          time: c.lastMessageAt || 'Vừa xong',
+          unreadCount: c.unreadCount || 0,
+          productImage: c.product?.imageUrl,
+          pinnedProduct: {
+            title: c.product?.title || 'Sản phẩm FPT Market',
+            price: c.product?.price || 0,
+            conditionBadge: 'Đang mở bán',
+            locationNote: c.otherUser?.campus || 'Campus',
+            imageUrl: c.product?.imageUrl || '/products/keyboard-akko.jpg',
+            suggestedOffer: `${Math.round((c.product?.price || 100000) * 0.9).toLocaleString('vi-VN')} đ`,
+          },
+          messages: storeMsgs.length > 0
+            ? storeMsgs.map((m) => ({
+                id: m.id,
+                sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
+                text: m.text || '',
+                time: m.createdAt,
+                offerPrice: m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined,
+              }))
+            : [],
+        };
+      });
+
+      setConversations((prev) => {
+        const nonColliding = prev.filter((p) => !mapped.some((m) => m.id === p.id));
+        return [...mapped, ...nonColliding];
+      });
+    }
+  }, [chatStore.conversations, chatStore.messagesByConversation, currentUser.id, currentUser.studentId]);
 
   // If query params passed a seller, match or focus
   useEffect(() => {
@@ -96,6 +160,13 @@ function ChatContent() {
         return c;
       })
     );
+
+    // Gửi qua socket và lưu backend
+    chatStore.sendMessage({
+      conversationId: activeConv.id,
+      text,
+      messageType: 'TEXT',
+    });
 
     setInputText('');
 
@@ -223,10 +294,14 @@ function ChatContent() {
               product={activeConv.pinnedProduct}
               partnerName={activeConv.name}
               onOfferPrice={(offer) => {
+                const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
+                chatStore.sendOfferPrice(activeConv.id, numericPrice);
                 handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
                 showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
               }}
               onScheduleMeeting={() => {
+                const defaultLocation = 'Sảnh Alpha / Cổng KTX';
+                chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
                 handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
                 showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
               }}

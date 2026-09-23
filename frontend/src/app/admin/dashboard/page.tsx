@@ -25,10 +25,32 @@ import {
   TrendingUp,
   FileCheck,
 } from 'lucide-react';
+import { reportService, SemesterAnalyticsData } from '@/services/reportService';
 
 export default function AdminDashboard() {
   const [selectedCampus, setSelectedCampus] = useState('Toàn quốc (5 Campus)');
   const [selectedSemester, setSelectedSemester] = useState('Kỳ Fall 2024');
+  const [analyticsData, setAnalyticsData] = useState<SemesterAnalyticsData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const data = await reportService.getSemesterAnalytics({
+        semester: selectedSemester,
+        campus: selectedCampus,
+      });
+      setAnalyticsData(data);
+    } catch (err) {
+      console.error('Failed to fetch semester analytics:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAnalytics();
+  }, [selectedCampus, selectedSemester]);
 
   return (
     <AdminLayoutShell>
@@ -94,17 +116,18 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {}}
-              className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-slate-700 shadow-2xs h-auto"
+              onClick={fetchAnalytics}
+              disabled={loading}
+              className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-slate-700 shadow-2xs h-auto cursor-pointer"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
-              <span>Làm mới</span>
+              <RotateCcw className={`h-3.5 w-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Đang tải...' : 'Làm mới'}</span>
             </Button>
 
             {/* Export button */}
             <Button
               size="sm"
-              className="rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 h-auto"
+              className="rounded-xl bg-[#F27024] hover:bg-[#E05C10] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/25 h-auto cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Xuất báo cáo</span>
@@ -126,7 +149,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-black text-slate-900 tracking-tight">485.200.000</span>
+              <span className="text-2xl font-black text-slate-900 tracking-tight">
+                {(analyticsData?.metrics.escrowHoldingAmount || 485200000).toLocaleString('vi-VN')}
+              </span>
               <span className="text-xs font-bold text-slate-500">đ</span>
             </div>
 
@@ -159,7 +184,7 @@ export default function AdminDashboard() {
                   <TrendingUp className="h-3 w-3" />
                   +18.4%
                 </Badge>
-                <div className="text-[10px] text-slate-400 mt-0.5">so với T8/2024</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">theo {analyticsData?.semesterLabel || selectedSemester}</div>
               </div>
             </div>
           </Card>
@@ -176,7 +201,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-black text-slate-900 tracking-tight">3.420</span>
+              <span className="text-2xl font-black text-slate-900 tracking-tight">
+                {(analyticsData?.metrics.completedCount || 3420).toLocaleString('vi-VN')}
+              </span>
               <span className="text-xs font-bold text-slate-500">lượt</span>
             </div>
 
@@ -197,7 +224,7 @@ export default function AdminDashboard() {
                   <TrendingUp className="h-3 w-3" />
                   +12.6%
                 </Badge>
-                <div className="text-[10px] text-slate-400 mt-0.5">248 tin hôm nay</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">{analyticsData?.metrics.totalOrders || 3680} đơn tổng</div>
               </div>
             </div>
           </Card>
@@ -214,7 +241,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-black text-slate-900 tracking-tight">18.250</span>
+              <span className="text-2xl font-black text-slate-900 tracking-tight">
+                {(analyticsData?.metrics.kycVerifiedCount || 18250).toLocaleString('vi-VN')}
+              </span>
               <span className="text-xs font-bold text-slate-500">SV</span>
             </div>
 
@@ -264,7 +293,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-black text-emerald-600 tracking-tight">99.92%</span>
+              <span className="text-2xl font-black text-emerald-600 tracking-tight">
+                {analyticsData?.metrics.safetyRate || 99.92}%
+              </span>
             </div>
 
             <div className="mt-3.5 flex items-center justify-between">
@@ -274,7 +305,9 @@ export default function AdminDashboard() {
               </Badge>
 
               <div className="text-right">
-                <div className="text-[11px] font-extrabold text-rose-600">Chỉ 3 khiếu nại</div>
+                <div className="text-[11px] font-extrabold text-rose-600">
+                  {analyticsData?.metrics.disputedCount !== undefined ? `${analyticsData.metrics.disputedCount} khiếu nại` : 'Chỉ 3 khiếu nại'}
+                </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Đang xử lý trong 2h</div>
               </div>
             </div>

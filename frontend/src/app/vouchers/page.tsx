@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMarket } from '@/hooks/useMarket';
+import { useVoucherStore } from '@/stores/voucherStore';
+import { profileService } from '@/services/profileService';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import {
   INITIAL_VOUCHERS,
@@ -62,20 +64,37 @@ export default function VouchersPage() {
     return true;
   });
 
+  // Fetch live vouchers & check-in status on mount
+  useEffect(() => {
+    useVoucherStore.getState().fetchAvailableVouchers();
+    useVoucherStore.getState().fetchMyVouchers();
+    profileService.getCheckInStatus().catch(() => {});
+  }, []);
+
   // Action handlers
-  const handleCheckIn = () => {
-    const res = checkInDaily();
-    if (res.success) {
-      showToast('🎉 Điểm danh thành công! Bạn nhận được +20 Campus Coins.', 'success');
-    } else {
-      showToast('Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.', 'info');
+  const handleCheckIn = async () => {
+    try {
+      const res = await profileService.checkInDaily();
+      if (res.success) {
+        showToast(`🎉 Điểm danh thành công! Bạn nhận được +${res.coinsAdded} Campus Coins.`, 'success');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || 'Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.';
+      showToast(msg, 'info');
+      checkInDaily();
     }
   };
 
-  const handleApplyCode = (code: string) => {
-    const upperCode = code.toUpperCase();
-    const found = vouchers.find((v) => v.code === upperCode);
+  const handleApplyCode = async (code: string) => {
+    const upperCode = code.toUpperCase().trim();
+    const res = await useVoucherStore.getState().useVoucherCode(upperCode);
 
+    if (res.success) {
+      showToast(res.message || `🎟️ Áp dụng thành công mã "${upperCode}"!`, 'success');
+      return;
+    }
+
+    const found = vouchers.find((v) => v.code === upperCode);
     if (found) {
       saveVoucher(found.id, {
         id: found.id,
@@ -86,7 +105,7 @@ export default function VouchersPage() {
       });
       showToast(`🎟️ Áp dụng thành công mã "${found.code}"! Đã lưu ưu đãi vào ví của bạn.`, 'success');
     } else {
-      showToast(`Mã voucher "${upperCode}" không tồn tại hoặc đã hết hạn trên 5Campus!`, 'error');
+      showToast(res.message || `Mã voucher "${upperCode}" không tồn tại hoặc đã hết hạn trên 5Campus!`, 'error');
     }
   };
 
@@ -101,12 +120,14 @@ export default function VouchersPage() {
     showToast(`🔖 Đã lưu "${voucher.title}" vào ví! Sẽ tự áp dụng khi thanh toán.`, 'success');
   };
 
-  const handleRedeemVoucher = (voucher: VoucherItem) => {
+  const handleRedeemVoucher = async (voucher: VoucherItem) => {
     if (!voucher.coinCost) return;
     if (user.coins < voucher.coinCost) {
       showToast(`Bạn không đủ Coins! Cần thêm ${voucher.coinCost - user.coins} Coins nữa.`, 'warning');
       return;
     }
+
+    await useVoucherStore.getState().redeemVoucher(voucher.id);
 
     addCoins(-voucher.coinCost);
     saveVoucher(voucher.id, {
@@ -119,12 +140,18 @@ export default function VouchersPage() {
     showToast(`🪙 Đổi thành công! Đã trừ ${voucher.coinCost} Coins và cộng voucher vào ví.`, 'success');
   };
 
-  const handleClaimQuest = (questId: string, coinsAmount: number) => {
-    const res = claimQuestCoins(questId, coinsAmount);
-    if (res.success) {
+  const handleClaimQuest = async (questId: string, coinsAmount: number) => {
+    try {
+      await profileService.claimQuest(questId, coinsAmount);
+      claimQuestCoins(questId, coinsAmount);
       showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
-    } else {
-      showToast('Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!', 'info');
+    } catch (err: any) {
+      const res = claimQuestCoins(questId, coinsAmount);
+      if (res.success) {
+        showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
+      } else {
+        showToast(err.response?.data?.error?.message || 'Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!', 'info');
+      }
     }
   };
 

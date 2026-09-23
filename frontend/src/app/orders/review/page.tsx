@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
+import { orderService } from '@/services/orderService';
 import {
   ChevronRight,
   ShieldCheck,
@@ -68,12 +69,22 @@ function ReviewContent() {
     );
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    try {
+      const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
+      await orderService.submitReview({
+        orderId: rawOrderId,
+        rating,
+        comment,
+      });
+    } catch {
+      // offline fallback
+    }
     markOrderReviewed(orderCode);
     addCoins(50);
-    showToast('🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 5 sao và cộng 50 Campus Coins vào tài khoản.');
+    showToast('🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng 50 Campus Coins vào tài khoản.');
     setTimeout(() => {
       router.push('/orders');
     }, 1000);

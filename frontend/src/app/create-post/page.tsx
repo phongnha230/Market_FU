@@ -8,6 +8,8 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useProductStore } from '@/stores/productStore';
 import { useUserStore } from '@/stores/userStore';
+import { ProductService } from '@/services/productService';
+import { aiService } from '@/services/aiService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import {
   UploadCloud,
@@ -134,11 +136,40 @@ export default function CreatePostPage() {
     return 'Tiện ích sinh viên';
   };
 
+  const [isScanningAi, setIsScanningAi] = useState(false);
+
+  // Handle Gemini AI vision scanning
+  const handleAiScanImage = async (file: File) => {
+    setIsScanningAi(true);
+    showToast('🤖 Gemini 1.5 Flash đang phân tích ảnh sản phẩm...');
+    try {
+      const res = await aiService.visionScanPost(file);
+      if (res.title) setTitle(res.title);
+      if (res.suggestedPrice) setPrice(res.suggestedPrice.toString());
+      if (res.description) setDescription(res.description);
+      if (res.condition) {
+        setCondition(
+          res.condition.includes('100')
+            ? 'Mới 100% Nguyên seal'
+            : res.condition.includes('99')
+            ? 'Mới 99% Like new'
+            : 'Đã qua sử dụng (Tốt)'
+        );
+      }
+      showToast('✨ Gemini AI đã nhận diện món đồ và tự động điền form trong 3s!');
+    } catch (err: any) {
+      showToast(err?.message || 'Không thể quét ảnh bằng AI, vui lòng tự điền thông tin.');
+    } finally {
+      setIsScanningAi(false);
+    }
+  };
+
   // Handle image upload from file input
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
       const newUrls: string[] = [];
-      Array.from(e.target.files).forEach((file) => {
+      filesArray.forEach((file) => {
         if (images.length + newUrls.length < 6) {
           const objectUrl = URL.createObjectURL(file);
           newUrls.push(objectUrl);
@@ -146,6 +177,11 @@ export default function CreatePostPage() {
       });
       setImages((prev) => [...prev, ...newUrls].slice(0, 6));
       showToast(`Đã thêm ${newUrls.length} ảnh vào bài đăng!`);
+
+      // Tự động phân tích ảnh đầu tiên bằng Gemini Vision nếu còn trống tiêu đề
+      if (filesArray[0] && (!title || title.includes('Giáo trình PRF192'))) {
+        handleAiScanImage(filesArray[0]);
+      }
     }
   };
 
@@ -188,7 +224,7 @@ export default function CreatePostPage() {
   };
 
   // Submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       showToast('Vui lòng nhập tiêu đề sản phẩm!');
@@ -205,25 +241,67 @@ export default function CreatePostPage() {
       return;
     }
 
-    const newPost = addProduct({
-      title: title.trim(),
-      price: Number(price) || 0,
-      originalPrice: Math.round((Number(price) || 0) * 1.3),
-      imageUrl: images[0] || '/products/book-prf192.jpg',
-      badges: [condition, negotiable ? 'Có fix SV' : 'Giá chuẩn'],
-      location: `${getCampusShortName(campus)} • ${pickupLocation || 'KTX'}`,
-      campusTag: getCampusShortName(campus),
-      seller: {
-        name: currentUser.name,
-        cohort: currentUser.cohort,
-        initial: currentUser.name.split(' ').pop()?.charAt(0) || 'Q',
-        verified: true,
-      },
-      category,
-    });
+    try {
+      const campusMap: Record<string, string> = {
+        hola: 'HOL',
+        hcm: 'HCM',
+        dn: 'DAD',
+        qn: 'QN',
+        ct: 'CT',
+      };
 
-    setCreatedPostId(newPost.id);
-    setIsSuccessModalOpen(true);
+      const conditionMap: Record<string, string> = {
+        'Mới 100% Nguyên seal': 'NEW_100',
+        'Mới 99% Like new': 'LIKE_NEW_99',
+        'Đã qua sử dụng (Tốt)': 'USED_GOOD',
+        'Đã qua sử dụng (Khá)': 'USED_FAIR',
+      };
+
+      const formData = new FormData();
+      formData.append('title', title.trim());
+      formData.append('description', description);
+      formData.append('price', price);
+      formData.append('category', category);
+      formData.append('campus', campusMap[campus] || 'HOL');
+      formData.append('location', pickupLocation || 'KTX');
+      formData.append('condition', conditionMap[condition] || 'USED_GOOD');
+
+      images.forEach((img) => {
+        formData.append('imageUrls', img);
+      });
+
+      const created = await ProductService.createProduct(formData);
+      setCreatedPostId(created.id);
+      setIsSuccessModalOpen(true);
+      return;
+    } catch (err: any) {
+      if (err?.code === 'KYC_REQUIRED_TO_SELL' || err?.message?.includes('KYC')) {
+        showToast('⚠️ Bạn cần xác thực Thẻ Sinh Viên để có quyền đăng bán đồ.');
+        setIsKycModalOpen(true);
+        return;
+      }
+
+      // Fallback lưu local store nếu backend chưa phản hồi
+      const newPost = addProduct({
+        title: title.trim(),
+        price: Number(price) || 0,
+        originalPrice: Math.round((Number(price) || 0) * 1.3),
+        imageUrl: images[0] || '/products/book-prf192.jpg',
+        badges: [condition, negotiable ? 'Có fix SV' : 'Giá chuẩn'],
+        location: `${getCampusShortName(campus)} • ${pickupLocation || 'KTX'}`,
+        campusTag: getCampusShortName(campus),
+        seller: {
+          name: currentUser.name,
+          cohort: currentUser.cohort,
+          initial: currentUser.name.split(' ').pop()?.charAt(0) || 'Q',
+          verified: true,
+        },
+        category,
+      });
+
+      setCreatedPostId(newPost.id);
+      setIsSuccessModalOpen(true);
+    }
   };
 
   // Save draft

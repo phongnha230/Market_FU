@@ -31,6 +31,8 @@ import SettingsModal from '@/components/modals/SettingsModal';
 import { CAMPUSES } from '@/constants/marketplace';
 import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { useChatStore } from '@/stores/chatStore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +65,23 @@ export default function Navbar({
   const logout = useUserStore((state) => state.logout);
   const updateProfile = useUserStore((state) => state.updateProfile);
   const favoritesCount = useFavoriteStore((state) => state.favorites.length);
+  const notificationStore = useNotificationStore();
+  const chatStore = useChatStore();
+  const unreadNotifs = useNotificationStore((state) => state.getUnreadCount());
+  const unreadMessages = useChatStore((state) => state.getTotalUnreadCount());
+
+  React.useEffect(() => {
+    if (isLoggedIn) {
+      notificationStore.fetchNotifications();
+      const cleanupNotif = notificationStore.initSocketListeners();
+      chatStore.fetchConversations();
+      const cleanupChat = chatStore.initSocketListeners();
+      return () => {
+        cleanupNotif();
+        cleanupChat();
+      };
+    }
+  }, [isLoggedIn]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -212,21 +231,31 @@ export default function Navbar({
           {/* Notification button */}
           <Button
             variant="ghost"
-            title="Thông báo"
-            onClick={() => showToast('🔔 Bạn có 3 thông báo mới từ bạn bè cùng Campus!')}
+            title={`Thông báo (${unreadNotifs} mới)`}
+            onClick={() => {
+              if (unreadNotifs > 0) {
+                const latest = notificationStore.notifications[0];
+                showToast(`🔔 ${latest ? latest.title + ': ' + latest.body : 'Bạn có thông báo mới'}`);
+                notificationStore.markAllAsRead();
+              } else {
+                showToast('🔔 Bạn không có thông báo mới nào.');
+              }
+            }}
             className="relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <Bell className="h-4.5 w-4.5" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-              3
-            </span>
+            {unreadNotifs > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
+                {unreadNotifs > 9 ? '9+' : unreadNotifs}
+              </span>
+            )}
           </Button>
 
           {/* Chat message button */}
           <Button
             asChild
             variant="ghost"
-            title="Tin nhắn (2 mới)"
+            title={`Tin nhắn (${unreadMessages} mới)`}
             className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
               activeTab === 'chat'
                 ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
@@ -235,9 +264,11 @@ export default function Navbar({
           >
             <Link href="/chat">
               <MessageSquare className="h-4.5 w-4.5" />
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-                2
-              </span>
+              {unreadMessages > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              )}
             </Link>
           </Button>
 
@@ -517,7 +548,11 @@ export default function Navbar({
               className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
             >
               <span>Tin nhắn</span>
-              <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">2 mới</span>
+              {unreadMessages > 0 && (
+                <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
+                  {unreadMessages} mới
+                </span>
+              )}
             </Link>
           </nav>
         </div>

@@ -12,6 +12,7 @@ import {
   MapPin,
   Settings,
   Store,
+  Ticket,
   MoreVertical,
   X,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { label: 'Xác minh Thẻ SV', href: '/admin/kyc', icon: ShieldCheck, badge: '14', badgeColor: 'bg-emerald-700 text-white border-transparent' },
   { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
   { label: 'Báo cáo & Gian lận', href: '/admin/reports', icon: AlertTriangle },
+  { label: 'Kho Voucher Căn tin', href: '/admin/vouchers', icon: Ticket },
   { label: 'Safe-Handoff Hub', href: '/admin/safehandoff', icon: MapPin },
   { label: 'Cài đặt Hệ thống', href: '/admin/settings', icon: Settings },
 ];

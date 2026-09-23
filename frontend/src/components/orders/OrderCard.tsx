@@ -12,6 +12,8 @@ import {
   MessageSquare,
   AlertTriangle,
   Compass,
+  QrCode,
+  XCircle,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
@@ -20,6 +22,9 @@ interface OrderCardProps {
   onConfirmReceived: (code: string) => void;
   onOpenTracking: (order: OrderItem) => void;
   onOpenAiBot: () => void;
+  onOpenQrModal?: (order: OrderItem) => void;
+  onCancelOrder?: (orderId: string, orderCode: string) => void;
+  onShipOrder?: (order: OrderItem) => void;
 }
 
 export default function OrderCard({
@@ -27,6 +32,9 @@ export default function OrderCard({
   onConfirmReceived,
   onOpenTracking,
   onOpenAiBot,
+  onOpenQrModal,
+  onCancelOrder,
+  onShipOrder,
 }: OrderCardProps) {
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + ' đ';
@@ -225,6 +233,29 @@ export default function OrderCard({
           </Link>
         </Button>
 
+        {order.status === 'processing' && onCancelOrder && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onCancelOrder(order.id, order.code)}
+            className="h-auto rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <XCircle className="h-3.5 w-3.5 text-slate-400" />
+            <span>Hủy đơn</span>
+          </Button>
+        )}
+
+        {onShipOrder && order.status === 'processing' && (
+          <Button
+            type="button"
+            onClick={() => onShipOrder(order)}
+            className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Truck className="h-3.5 w-3.5 text-white" />
+            <span>Gửi hàng / Nhập mã vận đơn</span>
+          </Button>
+        )}
+
         <Button
           type="button"
           variant="outline"
@@ -243,6 +274,18 @@ export default function OrderCard({
           >
             <Compass className="h-3.5 w-3.5 text-slate-500" />
             <span>Theo dõi hành trình chi tiết (Tracking)</span>
+          </Button>
+        )}
+
+        {order.type === 'safe-handoff' && order.status !== 'completed' && onOpenQrModal && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenQrModal(order)}
+            className="h-auto rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3.5 py-2 text-xs font-bold hover:bg-emerald-100 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <QrCode className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Mã QR Bàn giao</span>
           </Button>
         )}
 

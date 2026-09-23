@@ -31,7 +31,7 @@ import {
   LATEST_PRODUCTS,
   SIMILAR_PRODUCTS,
 } from '@/constants/mockProducts';
-import { stripVietnamese } from '@/services/productService';
+import { stripVietnamese, ProductService } from '@/services/productService';
 import {
   HOT_TAGS as hotSuggestions,
   CAMPUSES,
@@ -61,6 +61,7 @@ function PostsPageContent() {
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [liveProducts, setLiveProducts] = useState<ProductItem[]>(ALL_PRODUCTS);
 
   useEffect(() => {
     if (initialQ) setSearchKeyword(initialQ);
@@ -68,9 +69,28 @@ function PostsPageContent() {
     if (initialCategory) setSelectedCategories([initialCategory]);
   }, [initialQ, initialCampus, initialCategory]);
 
+  useEffect(() => {
+    let isMounted = true;
+    ProductService.searchPosts({
+      keyword: searchKeyword,
+      campus: selectedCampus,
+      categories: selectedCategories,
+      sort: sortOption,
+    })
+      .then((res) => {
+        if (isMounted && res.items && res.items.length > 0) {
+          setLiveProducts(res.items);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [searchKeyword, selectedCampus, selectedCategories, sortOption]);
+
   // Bộ lọc thời gian thực
   const filteredPosts = useMemo(() => {
-    let list = [...ALL_PRODUCTS];
+    let list = [...liveProducts];
 
     if (searchKeyword.trim()) {
       const rawQ = searchKeyword.toLowerCase().trim();

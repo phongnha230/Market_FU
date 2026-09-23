@@ -12,6 +12,7 @@ import DisputeResolution from '@/components/dispute/DisputeResolution';
 import DisputeEvidence from '@/components/dispute/DisputeEvidence';
 import DisputeSidebar from '@/components/dispute/DisputeSidebar';
 import { useMarket } from '@/context/MarketContext';
+import { useDisputeStore } from '@/stores/disputeStore';
 
 function DisputeContent() {
   const router = useRouter();
@@ -31,21 +32,38 @@ function DisputeContent() {
   const [dropoffPoint, setDropoffPoint] = useState<'library' | 'meet'>('library');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmitDispute = (e: React.FormEvent) => {
+  const handleSubmitDispute = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      updateOrderStatus(
-        cleanCode,
-        'disputed',
-        'Đã khóa Escrow • Chờ người bán phản hồi khiếu nại'
-      );
-      showToast('Đã gửi hồ sơ khiếu nại thành công! Tiền được khóa trong ví Escrow.', 'success');
-      setTimeout(() => {
-        router.push('/orders');
-      }, 1500);
-    }, 1200);
+    try {
+      const orderId = matchedOrder?.id || cleanCode.replace('#', '');
+      const proofVideoUrl = 'https://storage.marketfu.com/disputes/video-unbox-test.mp4';
+      const reasonLabel = selectedReason === 'defect' ? 'Hàng lỗi kỹ thuật/hỏng hóc khi test' : 'Hàng không đúng như mô tả trên sàn';
+
+      const res = await useDisputeStore.getState().createDispute({
+        orderId,
+        orderCode: cleanCode,
+        reason: reasonLabel,
+        details: description,
+        proofVideoUrl,
+        refundAmount: matchedOrder?.product.price,
+      });
+
+      if (res.success) {
+        updateOrderStatus(cleanCode, 'disputed', 'Đã khóa Escrow • Chờ xử lý khiếu nại');
+        showToast(res.message, 'success');
+        setTimeout(() => {
+          router.push('/orders');
+        }, 1200);
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi gửi hồ sơ khiếu nại', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

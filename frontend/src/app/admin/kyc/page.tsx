@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import { useKycStore, KycApplication, KycType, KycStatus } from '@/stores/kycStore';
@@ -37,7 +37,12 @@ export default function AdminKycPage() {
     approveApplication,
     rejectApplication,
     requestReupload,
+    fetchApplications,
   } = useKycStore();
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   const { user, setKycStatus } = useUserStore();
 
