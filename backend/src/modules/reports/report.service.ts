@@ -4,6 +4,7 @@ import { notificationService } from '../notifications/notification.service';
 import { emitToUser } from '../../utils/socket';
 import { sendKycResultEmail } from '../../config/mail';
 import { TokenPayload } from '../../utils/token';
+import { auditLogger } from '../../utils/auditLogger';
 import {
   CreateReportInput,
   ResolveReportInput,
@@ -635,6 +636,28 @@ export class ReportService {
       }
     });
 
+    // Ghi nhận Audit Log phân xử khiếu nại (Hoàn tiền hoặc Giải ngân)
+    if (isRefund) {
+      auditLogger.recordRefund({
+        orderId: dispute.orderId,
+        orderCode: dispute.order.orderCode,
+        buyerId: dispute.order.buyerId,
+        amount: dispute.order.payment?.totalAmount || 0,
+        coinsRefunded: dispute.order.payment?.coinsUsed || 0,
+        reason: adminNote || 'Admin duyệt khiếu nại hoàn tiền cho người mua',
+        actor: 'ADMIN',
+      });
+    } else {
+      auditLogger.recordEscrowRelease({
+        orderId: dispute.orderId,
+        orderCode: dispute.order.orderCode,
+        sellerId: dispute.order.sellerId,
+        amount: dispute.order.payment?.totalAmount || 0,
+        reason: adminNote || 'Admin bác bỏ khiếu nại, giải ngân cho người bán',
+        releasedBy: 'ADMIN',
+      });
+    }
+
     // Bắn thông báo kết quả cho cả 2 bên
     const buyerMsg = isRefund
       ? `Khiếu nại đơn hàng #${dispute.order.orderCode} đã được BQT chấp thuận! Sàn sẽ tiến hành hoàn tiền cho bạn.`
@@ -888,6 +911,15 @@ export class ReportService {
       }
     });
 
+    // Ghi nhận Audit Log sự kiện Admin duyệt KYC Thẻ Sinh Viên
+    auditLogger.recordKycDecision({
+      targetUserId: userId,
+      adminId,
+      decision: 'APPROVED',
+      studentId: kyc.studentId,
+      bonusCoinsAwarded: bonusCoins,
+    });
+
     // Gửi email thông báo kết quả
     const userEmail = kyc.user.email;
     const fullName = kyc.user.profile?.fullName || 'Sinh viên FU';
@@ -960,6 +992,14 @@ export class ReportService {
           },
         },
       });
+    });
+
+    // Ghi nhận Audit Log sự kiện Admin từ chối KYC Thẻ Sinh Viên
+    auditLogger.recordKycDecision({
+      targetUserId: userId,
+      adminId,
+      decision: 'REJECTED',
+      reason: reason.trim(),
     });
 
     const userEmail = kyc.user.email;

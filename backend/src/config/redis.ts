@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import { ENV } from './env';
+import { logger } from './logger';
 
 let isConnected = false;
 let hasLoggedOfflineWarning = false;
@@ -199,6 +200,10 @@ export const acquireLock = async (
       if (result === 'OK') {
         return { key: lockKey, lockId };
       }
+      logger.audit('CONCURRENCY', `Tranh chấp khóa phân tán trên tài nguyên '${lockKey}'`, {
+        resourceKey: lockKey,
+        ttlMs,
+      });
       return null;
     } catch {
       // Fall through to in-memory lock
@@ -208,6 +213,10 @@ export const acquireLock = async (
   const now = Date.now();
   const existing = inMemoryLocks.get(lockKey);
   if (existing && existing.expireAt > now) {
+    logger.audit('CONCURRENCY', `Tranh chấp khóa phân tán trên tài nguyên '${lockKey}' (Memory Fallback)`, {
+      resourceKey: lockKey,
+      ttlMs,
+    });
     return null; // Resource is already locked
   }
 

@@ -81,6 +81,11 @@ const envSchema = z.object({
   // 14. Meilisearch Full-text & Instant Search Engine
   MEILISEARCH_HOST: z.string().default('http://localhost:7700'),
   MEILISEARCH_KEY: z.string().default('masterKeyFU2026Secure'),
+
+  // 15. Logging & Observability (VPS Deployment)
+  LOG_DIR: z.string().default('logs'),
+  LOG_RETENTION_DAYS: z.coerce.number().default(14),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
 
 const parseEnv = () => {

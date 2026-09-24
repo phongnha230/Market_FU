@@ -6,6 +6,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { emitToUser } from '../../utils/socket';
 import { sendOrderCompletedReceiptEmail } from '../../config/mail';
 import { notificationService } from '../notifications/notification.service';
+import { auditLogger } from '../../utils/auditLogger';
 import {
   CreateOrderInput,
   VerifyHandshakeInput,
@@ -245,6 +246,17 @@ export class OrderService {
       });
 
       return order;
+    });
+
+    // Ghi nhận Audit Log sự kiện khóa tiền cọc Escrow cho VPS giám sát
+    auditLogger.recordEscrowHold({
+      orderId: newOrder.id,
+      orderCode,
+      buyerId,
+      sellerId: product.sellerId,
+      amount: totalAmount,
+      coinsUsed: actualCoinsUsed,
+      paymentMethod,
     });
 
     // 8. Bắn thông báo Realtime & Push tới người bán
@@ -514,6 +526,23 @@ export class OrderService {
       return resOrder;
     });
 
+    // Ghi nhận Audit Log sự kiện xác thực Handshake và giải ngân Escrow
+    auditLogger.recordHandshakeVerified({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      buyerId: order.buyerId,
+      sellerId: order.sellerId,
+      method: isTokenMatch ? 'QR_SCAN' : 'OTP_MANUAL',
+    });
+
+    auditLogger.recordEscrowRelease({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      sellerId: order.sellerId,
+      amount: order.payment.totalAmount,
+      reason: 'Hoàn tất bàn giao đồ trực tiếp Handshake tại campus',
+    });
+
     // Thông báo Realtime cho người mua
     await notificationService.sendNotification({
       userId: order.buyerId,
@@ -731,6 +760,17 @@ export class OrderService {
         where: { id: orderId },
         data: { status: 'CANCELLED' },
       });
+    });
+
+    // Ghi nhận Audit Log sự kiện hủy đơn & hoàn tiền/xu cho người mua
+    auditLogger.recordRefund({
+      orderId: order.id,
+      orderCode: order.orderCode,
+      buyerId: order.buyerId,
+      amount: order.payment.totalAmount,
+      coinsRefunded: order.payment.coinsUsed,
+      reason,
+      actor: userId,
     });
 
     const otherUserId = order.buyerId === userId ? order.sellerId : order.buyerId;

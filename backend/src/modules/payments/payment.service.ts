@@ -5,6 +5,7 @@ import { getCache, setCache } from '../../config/redis';
 import { AppError } from '../../middlewares/error.middleware';
 import { emitToUser } from '../../utils/socket';
 import { notificationService } from '../notifications/notification.service';
+import { auditLogger } from '../../utils/auditLogger';
 import { WebhookPaymentInput } from './payment.dto';
 
 /**
@@ -148,6 +149,16 @@ export class PaymentService {
     }
 
     const updatedOrder = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+
+    // Ghi nhận Audit Log sự kiện webhook thanh toán thành công
+    auditLogger.recordPaymentWebhook({
+      gateway: 'PAYOS',
+      orderCode: order.orderCode,
+      transactionId: payload.referenceCode,
+      amount: transferAmount,
+      isSuccess: true,
+      rawCode: payload.referenceCode,
+    });
 
     // Bắn thông báo tới Người mua
     await notificationService.sendNotification({

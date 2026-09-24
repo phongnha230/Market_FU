@@ -22,8 +22,14 @@ import reviewRoutes from './modules/reviews/review.routes';
 import safeHandoffRoutes from './modules/safehandoff/safehandoff.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
+import { requestTracingMiddleware } from './middlewares/tracing.middleware';
+import { httpLoggingMiddleware } from './middlewares/logging.middleware';
 
 const app: Application = express();
+
+// 0. Request Correlation & Observability (Gắn x-request-id & theo dõi độ trễ API cho VPS)
+app.use(requestTracingMiddleware);
+app.use(httpLoggingMiddleware);
 
 // 1. Security Headers (Helmet) - cho phép client tải media tĩnh cross-origin
 app.use(

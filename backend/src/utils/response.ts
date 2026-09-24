@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { getRequestId } from '../middlewares/tracing.middleware';
 
 /**
  * Chuẩn Response theo mục 5 của GEMINI.md:
@@ -7,7 +8,7 @@ import { Response } from 'express';
  */
 
 export interface ApiResponse<T = any> {
-  success: boolean;
+  success: true;
   data?: T;
   meta?: {
     page?: number;
@@ -23,6 +24,7 @@ export interface ApiErrorResponse {
   error: {
     code: string;
     message: string;
+    requestId?: string;
     details?: any;
   };
 }
@@ -59,11 +61,13 @@ export const sendError = (
   code = 'BAD_REQUEST',
   details?: any
 ): Response => {
+  const requestId = getRequestId();
   const payload: ApiErrorResponse = {
     success: false,
     error: {
       code,
       message,
+      requestId,
       ...(details && { details }),
     },
   };
