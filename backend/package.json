@@ -11,6 +11,14 @@
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "test:integration": "tsx --test tests/integration/*.test.ts",
     "test:e2e": "tsx --test tests/e2e/**/*.test.ts",
+    "test:api": "bru run bruno-collection -r --env Local",
+    "test:api:auth": "bru run bruno-collection/01-Auth --env Local",
+    "test:api:products": "bru run bruno-collection/02-Products --env Local",
+    "test:api:orders": "bru run bruno-collection/03-Orders --env Local",
+    "test:api:payments": "bru run bruno-collection/04-Payments --env Local",
+    "test:api:safehandoff": "bru run bruno-collection/05-SafeHandoff --env Local",
+    "test:api:vouchers": "bru run bruno-collection/06-Vouchers --env Local",
+    "test:api:admin": "bru run bruno-collection/07-Admin-And-Disputes --env Local",
     "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint src --ext .ts"
   },
@@ -56,6 +64,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
     "@types/sharp": "^0.31.1",
+    "@usebruno/cli": "^4.2.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   },

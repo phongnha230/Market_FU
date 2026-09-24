@@ -1,0 +1,26 @@
+{
+  "name": "market-fu-bruno-api-tests",
+  "version": "1.0.0",
+  "description": "Bộ kiểm thử API tự động với Bruno CLI cho hệ thống FU Student Second-hand Market",
+  "scripts": {
+    "test": "bru run -r --env Local",
+    "test:all": "bru run -r --env Local",
+    "test:health": "bru run HealthCheck.bru --env Local",
+    "test:auth": "bru run 01-Auth --env Local",
+    "test:products": "bru run 02-Products --env Local",
+    "test:orders": "bru run 03-Orders --env Local",
+    "test:payments": "bru run 04-Payments --env Local",
+    "test:safehandoff": "bru run 05-SafeHandoff --env Local",
+    "test:vouchers": "bru run 06-Vouchers --env Local",
+    "test:admin": "bru run 07-Admin-And-Disputes --env Local",
+    "test:report": "bru run -r --env Local --reporter-html test-report.html"
+  },
+  "keywords": [
+    "bruno",
+    "api-testing",
+    "crud",
+    "fpt-marketplace"
+  ],
+  "author": "FPT University Team",
+  "license": "ISC"
+}

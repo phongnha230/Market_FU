@@ -132,3 +132,51 @@ backend/bruno-collection/
    - `04-Admin-Update-Voucher` ➔ Cập nhật voucher.
    - `05-Redeem-Voucher` ➔ Đổi voucher bằng Xu.
    - `08-Admin-Delete-Voucher` ➔ Xóa voucher thử nghiệm.
+
+---
+
+## ⚡ Chạy Test Tự Động Qua Terminal (CLI Runner)
+
+Dự án đã tích hợp sẵn `@usebruno/cli` (phiên bản `4.2.0`) và cấu hình sẵn các lệnh trong `package.json` để bạn có thể chạy kiểm thử API trực tiếp từ dòng lệnh mà không bắt buộc phải mở giao diện đồ họa.
+
+### Cách 1: Chạy từ thư mục `backend/`
+```bash
+# Chạy toàn bộ API collection
+npm run test:api
+
+# Hoặc chạy riêng từng luồng tính năng:
+npm run test:api:auth        # Kiểm thử Auth & Profile
+npm run test:api:products    # Kiểm thử CRUD Sản phẩm
+npm run test:api:orders      # Kiểm thử Đơn hàng & Đánh giá
+npm run test:api:payments    # Kiểm thử Thanh toán & Webhooks
+npm run test:api:safehandoff # Kiểm thử Trạm Safe-Handoff & Điểm danh
+npm run test:api:vouchers    # Kiểm thử Voucher & Đổi quà
+npm run test:api:admin       # Kiểm thử Quản trị, Khiếu nại, KYC
+```
+
+### Cách 2: Chạy trực tiếp từ thư mục `backend/bruno-collection/`
+```bash
+cd backend/bruno-collection
+
+# Chạy toàn bộ test
+npm test
+
+# Chạy riêng từng chức năng
+npm run test:auth
+npm run test:products
+npm run test:orders
+npm run test:payments
+npm run test:safehandoff
+npm run test:vouchers
+npm run test:admin
+
+# Xuất báo cáo HTML trực quan (test-report.html)
+npm run test:report
+```
+
+### Cách 3: Mở trong giao diện Bruno App (GUI)
+1. Mở ứng dụng **Bruno**.
+2. Chọn **"Open Collection"** và chọn thư mục `backend/bruno-collection`.
+3. Chọn Environment **`Local`** ở góc trên bên phải.
+4. Chạy từng request hoặc bấm **"Run"** cả thư mục theo thứ tự số thứ tự.
+
