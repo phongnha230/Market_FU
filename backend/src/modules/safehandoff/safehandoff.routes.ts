@@ -5,29 +5,18 @@ import { authenticate, authorize } from '../../middlewares/auth.middleware';
 const router = Router();
 
 // 1. Danh sách trạm Safe-Handoff (Công khai cho toàn bộ sinh viên xem)
-router.get('/', (req, res, next) => safeHandoffController.getHubs(req, res, next));
+router.get('/', safeHandoffController.getHubs);
 
 // 2. Tìm trạm Safe-Handoff gần nhất (Redis Geospatial, đặt trước :id)
-router.get('/nearby', (req, res, next) => safeHandoffController.getNearbyHubs(req, res, next));
+router.get('/nearby', safeHandoffController.getNearbyHubs);
 
 // 3. Chi tiết 1 trạm
-router.get('/:id', (req, res, next) => safeHandoffController.getHubById(req, res, next));
+router.get('/:id', safeHandoffController.getHubById);
 
-// 3. Quản trị trạm (Dành riêng cho ADMIN)
-router.post('/', authenticate, authorize('ADMIN'), (req, res, next) =>
-  safeHandoffController.createHub(req, res, next)
-);
-
-router.patch('/:id', authenticate, authorize('ADMIN'), (req, res, next) =>
-  safeHandoffController.updateHub(req, res, next)
-);
-
-router.patch('/:id/toggle', authenticate, authorize('ADMIN'), (req, res, next) =>
-  safeHandoffController.toggleHubStatus(req, res, next)
-);
-
-router.delete('/:id', authenticate, authorize('ADMIN'), (req, res, next) =>
-  safeHandoffController.deleteHub(req, res, next)
-);
+// 4. Quản trị trạm (Dành riêng cho ADMIN)
+router.post('/', authenticate, authorize('ADMIN'), safeHandoffController.createHub);
+router.patch('/:id', authenticate, authorize('ADMIN'), safeHandoffController.updateHub);
+router.patch('/:id/toggle', authenticate, authorize('ADMIN'), safeHandoffController.toggleHubStatus);
+router.delete('/:id', authenticate, authorize('ADMIN'), safeHandoffController.deleteHub);
 
 export default router;

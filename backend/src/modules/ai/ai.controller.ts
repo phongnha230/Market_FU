@@ -10,7 +10,7 @@ export class AiController {
    * POST /api/ai/vision-post
    * Quét ảnh món đồ bằng Gemini Vision để gợi ý thông tin đăng bài
    */
-  async visionPost(req: Request, res: Response, next: NextFunction) {
+  visionPost = async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) {
         throw new AppError('Vui lòng tải lên một tệp hình ảnh (field: image)', 400, 'MISSING_IMAGE');
@@ -21,52 +21,55 @@ export class AiController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * POST /api/ai/assistant-chat
    * Chatbot tư vấn tìm đồ phòng trọ theo giá và campus
    */
-  async assistantChat(req: AuthRequest, res: Response, next: NextFunction) {
+  assistantChat = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const authReq = req as AuthRequest;
       const validatedData = assistantChatSchema.parse(req.body);
-      const result = await aiService.assistantChat(req.user!.userId, validatedData);
+      const result = await aiService.assistantChat(authReq.user!.userId, validatedData);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * GET /api/ai/sessions
    * Lấy danh sách các phiên trò chuyện với AI
    */
-  async getUserSessions(req: AuthRequest, res: Response, next: NextFunction) {
+  getUserSessions = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const authReq = req as AuthRequest;
       const query = querySessionsSchema.parse(req.query);
       const { sessions, pagination } = await aiService.getUserSessions(
-        req.user!.userId,
+        authReq.user!.userId,
         query
       );
       return sendPaginated(res, sessions, pagination);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * GET /api/ai/sessions/:id
    * Xem chi tiết lịch sử tin nhắn trong một phiên chat
    */
-  async getSessionDetail(req: AuthRequest, res: Response, next: NextFunction) {
+  getSessionDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const authReq = req as AuthRequest;
       const sessionId = req.params.id as string;
-      const session = await aiService.getSessionDetail(req.user!.userId, sessionId);
+      const session = await aiService.getSessionDetail(authReq.user!.userId, sessionId);
       return sendSuccess(res, session);
     } catch (error) {
       next(error);
     }
-  }
+  };
 }
 
 export const aiController = new AiController();

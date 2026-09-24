@@ -11,7 +11,7 @@ export class SafeHandoffController {
   /**
    * Lấy danh sách trạm Safe-Handoff (Public / User / Admin)
    */
-  async getHubs(req: Request, res: Response, next: NextFunction) {
+  getHubs = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = QuerySafeHandoffHubsSchema.parse(req.query);
       const result = await safeHandoffService.getHubs(query);
@@ -19,24 +19,24 @@ export class SafeHandoffController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Lấy chi tiết 1 trạm
    */
-  async getHubById(req: Request, res: Response, next: NextFunction) {
+  getHubById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const hub = await safeHandoffService.getHubById(req.params.id as string);
       return sendSuccess(res, hub);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Tạo trạm mới (Admin)
    */
-  async createHub(req: Request, res: Response, next: NextFunction) {
+  createHub = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CreateSafeHandoffHubSchema.parse(req.body);
       const hub = await safeHandoffService.createHub(input);
@@ -44,12 +44,12 @@ export class SafeHandoffController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Cập nhật thông tin trạm (Admin)
    */
-  async updateHub(req: Request, res: Response, next: NextFunction) {
+  updateHub = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = UpdateSafeHandoffHubSchema.parse(req.body);
       const hub = await safeHandoffService.updateHub(req.params.id as string, input);
@@ -57,36 +57,36 @@ export class SafeHandoffController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Bật / Tắt trạng thái hoạt động (Admin)
    */
-  async toggleHubStatus(req: Request, res: Response, next: NextFunction) {
+  toggleHubStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const hub = await safeHandoffService.toggleHubStatus(req.params.id as string);
       return sendSuccess(res, hub);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Xóa trạm (Admin)
    */
-  async deleteHub(req: Request, res: Response, next: NextFunction) {
+  deleteHub = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await safeHandoffService.deleteHub(req.params.id as string);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * Tìm kiếm các trạm Safe-Handoff gần nhất (Redis Geospatial)
    */
-  async getNearbyHubs(req: Request, res: Response, next: NextFunction) {
+  getNearbyHubs = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const lat = parseFloat((req.query.latitude as string) || (req.query.lat as string) || '21.0135');
       const lng = parseFloat((req.query.longitude as string) || (req.query.lng as string) || '105.5262');
@@ -98,7 +98,7 @@ export class SafeHandoffController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 }
 
 export const safeHandoffController = new SafeHandoffController();

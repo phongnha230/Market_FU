@@ -13,12 +13,12 @@ import {
 import { sendSuccess } from '../../utils/response';
 import { ENV } from '../../config/env';
 import { prisma } from '../../config/prisma';
-import { verifyRefreshToken } from '../../utils/token';
+import { verifyRefreshToken, verifyAccessToken } from '../../utils/token';
 import { verifyRecaptcha } from '../../middlewares/recaptcha.middleware';
 
 export class AuthController {
   // Đăng ký (Có xác thực Google reCAPTCHA)
-  async register(req: Request, res: Response, next: NextFunction) {
+  register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = registerSchema.parse(req.body);
 
@@ -38,10 +38,10 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // Đăng nhập
-  async login(req: Request, res: Response, next: NextFunction) {
+  login = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = loginSchema.parse(req.body);
       const result = await authService.login(validatedData);
@@ -57,10 +57,10 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // Google OAuth
-  async googleAuth(req: Request, res: Response, next: NextFunction) {
+  googleAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = googleAuthSchema.parse(req.body);
       const result = await authService.googleAuth(validatedData);
@@ -76,10 +76,10 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // Đăng nhập Số điện thoại + OTP Firebase (Dùng cho cả Web & Mobile)
-  async phoneAuth(req: Request, res: Response, next: NextFunction) {
+  phoneAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = phoneAuthSchema.parse(req.body);
       const result = await authService.phoneAuth(validatedData);
@@ -95,10 +95,10 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // Cấp lại token
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
+  refreshToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const token = req.cookies.refreshToken || req.body.refreshToken;
       const tokens = await authService.refreshToken(token);
@@ -114,11 +114,21 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // Đăng xuất (Thu hồi toàn bộ Refresh Token của phiên làm việc)
-  async logout(req: Request, res: Response, next: NextFunction) {
+  logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.split(' ')[1];
+          (req as any).user = verifyAccessToken(token);
+        } catch {
+          // Ignored: Controller sẽ fallback sang Refresh Token trong cookie/body
+        }
+      }
+
       const authUser = (req as AuthRequest).user;
       if (authUser?.userId) {
         await prisma.user.update({
@@ -151,25 +161,26 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // --------------------------------------------------------------------------
   // Thay đổi mật khẩu (User đã đăng nhập)
   // --------------------------------------------------------------------------
-  async changePassword(req: AuthRequest, res: Response, next: NextFunction) {
+  changePassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const authReq = req as AuthRequest;
       const validatedData = changePasswordSchema.parse(req.body);
-      const result = await authService.changePassword(req.user!.userId, validatedData);
+      const result = await authService.changePassword(authReq.user!.userId, validatedData);
       sendSuccess(res, result, undefined, 200);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // --------------------------------------------------------------------------
   // Quên mật khẩu: Gửi mã OTP xác nhận về Email (Chưa đăng nhập)
   // --------------------------------------------------------------------------
-  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+  forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = forgotPasswordSchema.parse(req.body);
       const result = await authService.forgotPassword(validatedData);
@@ -177,12 +188,12 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // --------------------------------------------------------------------------
   // Quên mật khẩu: Xác thực OTP và đặt lại mật khẩu mới
   // --------------------------------------------------------------------------
-  async resetPassword(req: Request, res: Response, next: NextFunction) {
+  resetPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = resetPasswordSchema.parse(req.body);
       const result = await authService.resetPassword(validatedData);
@@ -190,7 +201,7 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 }
 
 export const authController = new AuthController();

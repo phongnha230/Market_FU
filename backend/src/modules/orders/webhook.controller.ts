@@ -12,7 +12,7 @@ export class ShippingWebhookController {
    * Public endpoint cho GHTK/GHN gọi server-to-server.
    * Xác thực chữ ký HMAC trên rawBody rồi mới giao cho ShippingWebhookService xử lý.
    */
-  async handleShippingWebhook(req: Request, res: Response, next: NextFunction) {
+  handleShippingWebhook = async (req: Request, res: Response, next: NextFunction) => {
     try {
       verifyShippingWebhookSignature(
         (req as any).rawBody,
@@ -28,7 +28,7 @@ export class ShippingWebhookController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 }
 
 export const shippingWebhookController = new ShippingWebhookController();

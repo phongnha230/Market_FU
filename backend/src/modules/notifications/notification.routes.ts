@@ -7,11 +7,11 @@ const notificationController = new NotificationController();
 
 router.use(authenticate);
 
-router.get('/', notificationController.getUserNotifications.bind(notificationController));
-router.get('/unread-count', notificationController.getUnreadCount.bind(notificationController));
-router.patch('/:id/read', notificationController.markAsRead.bind(notificationController));
-router.patch('/read-all', notificationController.markAllAsRead.bind(notificationController));
-router.post('/fcm-token', notificationController.registerDeviceToken.bind(notificationController));
-router.delete('/fcm-token', notificationController.removeDeviceToken.bind(notificationController));
+router.get('/', notificationController.getUserNotifications);
+router.get('/unread-count', notificationController.getUnreadCount);
+router.patch('/:id/read', notificationController.markAsRead);
+router.patch('/read-all', notificationController.markAllAsRead);
+router.post('/fcm-token', notificationController.registerDeviceToken);
+router.delete('/fcm-token', notificationController.removeDeviceToken);
 
 export default router;

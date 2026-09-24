@@ -12,33 +12,34 @@ export class UserController {
   // --------------------------------------------------------------------------
   // Delegation methods sang ProfileController (Tương thích ngược)
   // --------------------------------------------------------------------------
-  async getMyProfile(req: AuthRequest, res: Response, next: NextFunction) {
+  getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
     return profileController.getMyProfile(req, res, next);
-  }
+  };
 
-  async updateMyProfile(req: AuthRequest, res: Response, next: NextFunction) {
+  updateMyProfile = async (req: Request, res: Response, next: NextFunction) => {
     return profileController.updateMyProfile(req, res, next);
-  }
+  };
 
-  async updateBankAccount(req: AuthRequest, res: Response, next: NextFunction) {
+  updateBankAccount = async (req: Request, res: Response, next: NextFunction) => {
     return profileController.updateBankAccount(req, res, next);
-  }
+  };
 
-  async submitKyc(req: AuthRequest, res: Response, next: NextFunction) {
+  submitKyc = async (req: Request, res: Response, next: NextFunction) => {
     return profileController.submitKyc(req, res, next);
-  }
+  };
 
   /**
    * [GET /api/users/me/favorites] Lấy danh sách sản phẩm yêu thích (Chuẩn RESTful resource)
    */
-  async getMyFavorites(req: AuthRequest, res: Response, next: NextFunction) {
+  getMyFavorites = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const products = await productService.getMyFavorites(req.user!.userId);
+      const authReq = req as AuthRequest;
+      const products = await productService.getMyFavorites(authReq.user!.userId);
       return sendSuccess(res, products);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // --------------------------------------------------------------------------
   // Quản trị User (Admin) & Chi tiết User
@@ -46,7 +47,7 @@ export class UserController {
   /**
    * [GET /api/users] Danh sách người dùng
    */
-  async getUsers(req: Request, res: Response, next: NextFunction) {
+  getUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = queryUserSchema.parse(req.query);
       const { users, pagination } = await userService.getUsers(query);
@@ -54,12 +55,12 @@ export class UserController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * [GET /api/users/:id] Chi tiết người dùng theo ID
    */
-  async getUserById(req: Request, res: Response, next: NextFunction) {
+  getUserById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       let currentUser: any = (req as any).user;
@@ -76,12 +77,12 @@ export class UserController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * [PATCH /api/users/:id/status] Khóa hoặc mở khóa tài khoản người dùng
    */
-  async updateUserStatus(req: Request, res: Response, next: NextFunction) {
+  updateUserStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { isActive } = updateUserStatusSchema.parse(req.body);
@@ -90,12 +91,12 @@ export class UserController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   /**
    * [GET /api/users/leaderboard/reputation] Bảng xếp hạng sinh viên uy tín nhất từ Redis ZSET
    */
-  async getReputationLeaderboard(req: Request, res: Response, next: NextFunction) {
+  getReputationLeaderboard = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10), 50) : 10;
       const leaderboard = await trendingService.getReputationLeaderboard(limit);
@@ -103,7 +104,7 @@ export class UserController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 }
 
 export const userController = new UserController();
