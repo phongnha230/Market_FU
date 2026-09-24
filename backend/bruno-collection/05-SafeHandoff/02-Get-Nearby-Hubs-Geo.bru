@@ -1,0 +1,23 @@
+meta {
+  name: 02-Get-Nearby-Hubs-Geo
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/safe-handoff/nearby?latitude=21.0135&longitude=105.5262&radiusKm=5&limit=10
+  body: none
+  auth: none
+}
+
+params:query {
+  latitude: 21.0135
+  longitude: 105.5262
+  radiusKm: 5
+  limit: 10
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}

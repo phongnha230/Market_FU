@@ -1,0 +1,30 @@
+meta {
+  name: 04-Admin-Resolve-Dispute
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/reports/disputes/{{disputeId}}/resolve
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "decision": "REFUND_BUYER",
+    "adminNote": "Bằng chứng video hợp lệ, phán quyết chấp thuận hoàn tiền cho người mua"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

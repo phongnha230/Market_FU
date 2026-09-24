@@ -1,0 +1,17 @@
+meta {
+  name: 06-Trending-Items
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/products/trending/items
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.data: isDefined
+}

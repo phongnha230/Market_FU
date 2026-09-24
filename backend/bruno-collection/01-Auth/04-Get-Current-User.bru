@@ -1,0 +1,21 @@
+meta {
+  name: 04-Get-Current-User
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/users/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.data.id: isDefined
+}

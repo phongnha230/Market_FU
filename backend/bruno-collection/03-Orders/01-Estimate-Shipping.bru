@@ -1,0 +1,25 @@
+meta {
+  name: 01-Estimate-Shipping
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/orders/shipping/estimate?fromCampus=HOL&toCampus=HCM&orderType=SHIP_COD
+  body: none
+  auth: bearer
+}
+
+params:query {
+  fromCampus: HOL
+  toCampus: HCM
+  orderType: SHIP_COD
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: in [200, 400]
+}

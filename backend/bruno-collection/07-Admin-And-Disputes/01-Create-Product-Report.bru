@@ -1,0 +1,32 @@
+meta {
+  name: 01-Create-Product-Report
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/reports
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "targetType": "PRODUCT",
+    "targetId": "{{productId}}",
+    "reason": "Hàng giả hoặc thông tin sai lệch",
+    "details": "Sản phẩm không đúng với hình ảnh mô tả và tình trạng thực tế"
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 404]
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "FU-Student-Marketplace-API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

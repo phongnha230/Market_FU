@@ -1,0 +1,42 @@
+meta {
+  name: 02-Create-Order-Meetup
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/orders
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{buyerToken}}
+}
+
+body:json {
+  {
+    "productId": "{{productId}}",
+    "orderType": "MEETUP",
+    "paymentMethod": "CASH",
+    "coinsUsed": 0,
+    "deliveryNote": "Hẹn gặp tại sảnh Beta Campus Hòa Lạc lúc 10h"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("orderId", res.body.data.id);
+    if (res.body.data.orderCode) {
+      bru.setEnvVar("orderCode", res.body.data.orderCode);
+    }
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 404]
+}

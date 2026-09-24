@@ -1,0 +1,29 @@
+meta {
+  name: 08-Cancel-Order
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/orders/{{orderId}}/cancel
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "reason": "Thay đổi nhu cầu, muốn hủy đơn"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

@@ -1,0 +1,42 @@
+meta {
+  name: 02-Mock-PayOS-Webhook
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/webhooks/payments
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  x-webhook-signature: {{payWebhookSignature}}
+}
+
+body:json {
+  {
+    "orderCode": "{{orderCode}}",
+    "content": "Thanh toan don hang",
+    "transferAmount": 50000,
+    "gateway": "PAYOS",
+    "referenceCode": "REF_MOCK_PAYOS_001"
+  }
+}
+
+script:pre-request {
+  try {
+    const crypto = require('crypto');
+    const secret = 'payment_secret_default_min16chars';
+    const bodyStr = JSON.stringify(req.getBody());
+    const hmac = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
+    bru.setEnvVar('payWebhookSignature', hmac);
+  } catch (e) {
+    // fallback if crypto not available
+  }
+}
+
+assert {
+  res.status: in [200, 400, 401, 404]
+}

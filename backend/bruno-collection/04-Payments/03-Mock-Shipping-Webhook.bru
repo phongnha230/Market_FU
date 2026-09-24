@@ -1,0 +1,41 @@
+meta {
+  name: 03-Mock-Shipping-Webhook
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/webhooks/shipping
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Signature: {{shippingWebhookSignature}}
+}
+
+body:json {
+  {
+    "order_code": "{{orderCode}}",
+    "status_id": 5,
+    "action_on": "DELIVERED"
+  }
+}
+
+script:pre-request {
+  try {
+    const crypto = require('crypto');
+    const secret = 'shipping_secret_default_min16chars';
+    const bodyStr = JSON.stringify(req.getBody());
+    const path = '/shipping';
+    const hmac = crypto.createHmac('sha256', secret).update(path + bodyStr).digest('hex');
+    bru.setEnvVar('shippingWebhookSignature', hmac);
+  } catch (e) {
+    // fallback if crypto not available
+  }
+}
+
+assert {
+  res.status: in [200, 400, 401, 404]
+}

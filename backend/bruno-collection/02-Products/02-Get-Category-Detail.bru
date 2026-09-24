@@ -1,0 +1,15 @@
+meta {
+  name: 02-Get-Category-Detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/categories/giao-trinh
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+}

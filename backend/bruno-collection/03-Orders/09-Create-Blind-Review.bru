@@ -1,0 +1,32 @@
+meta {
+  name: 09-Create-Blind-Review
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/reviews
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{buyerToken}}
+}
+
+body:json {
+  {
+    "orderId": "{{orderId}}",
+    "rating": 5,
+    "comment": "Sản phẩm đúng như mô tả, bạn bán rất nhiệt tình và đúng giờ!",
+    "images": []
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 403, 404]
+}

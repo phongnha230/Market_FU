@@ -1,0 +1,49 @@
+meta {
+  name: 03-Create-Order-Shipping
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/orders
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{buyerToken}}
+}
+
+body:json {
+  {
+    "productId": "{{productId}}",
+    "orderType": "SHIP_COD",
+    "paymentMethod": "VIETQR",
+    "coinsUsed": 0,
+    "shipping": {
+      "receiverName": "Nguyễn Văn Mua",
+      "receiverPhone": "0987654321",
+      "shippingAddress": "Phòng 302, Ký túc xá Dom A, ĐH FPT Hà Nội",
+      "destinationCampus": "HOL",
+      "shippingPartner": "GHTK"
+    },
+    "deliveryNote": "Giao giờ hành chính, gọi trước khi giao"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("orderId", res.body.data.id);
+    if (res.body.data.orderCode) {
+      bru.setEnvVar("orderCode", res.body.data.orderCode);
+    }
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 404]
+}

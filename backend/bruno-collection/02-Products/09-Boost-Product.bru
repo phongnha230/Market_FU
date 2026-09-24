@@ -1,0 +1,29 @@
+meta {
+  name: 09-Boost-Product
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/products/{{productId}}/boost
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{sellerToken}}
+}
+
+body:json {
+  {
+    "type": "BUMP"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

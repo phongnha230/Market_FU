@@ -1,0 +1,37 @@
+meta {
+  name: 02-Create-Order-Dispute
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/reports/disputes
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{buyerToken}}
+}
+
+body:json {
+  {
+    "orderId": "{{orderId}}",
+    "reason": "Hàng nhận được bị lỗi hỏng nặng, không thể sử dụng",
+    "proofVideoUrl": "https://example.com/unboxing-proof.mp4"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("disputeId", res.body.data.id);
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 404]
+}

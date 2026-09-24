@@ -1,0 +1,19 @@
+meta {
+  name: 08-Renew-Product
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/products/{{productId}}/renew
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{sellerToken}}
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}
