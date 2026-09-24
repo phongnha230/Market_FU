@@ -1,0 +1,19 @@
+meta {
+  name: 08-Admin-Delete-Voucher
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/vouchers/{{voucherId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

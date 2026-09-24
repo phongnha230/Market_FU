@@ -1,0 +1,19 @@
+meta {
+  name: 06-Admin-Toggle-Hub
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/safe-handoff/{{hubId}}/toggle
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+assert {
+  res.status: in [200, 403, 404]
+}

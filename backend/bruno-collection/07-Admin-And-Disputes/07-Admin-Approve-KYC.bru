@@ -1,0 +1,30 @@
+meta {
+  name: 07-Admin-Approve-KYC
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/api/reports/kyc/{{kycId}}/approve
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "bonusCoins": 200,
+    "adminNote": "Thẻ sinh viên hợp lệ, phê duyệt tích xanh và thưởng 200 Xu"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

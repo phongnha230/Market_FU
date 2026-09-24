@@ -1,0 +1,32 @@
+meta {
+  name: 05-Update-My-Profile
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/profile/me
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "fullName": "Sinh Viên FPT",
+    "phoneNumber": "0912345678",
+    "campus": "HOL"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}

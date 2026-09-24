@@ -1,0 +1,16 @@
+meta {
+  name: 11-Reputation-Leaderboard
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/users/leaderboard/reputation
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}

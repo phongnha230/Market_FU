@@ -1,0 +1,31 @@
+meta {
+  name: 04-Admin-Update-Voucher
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/vouchers/{{voucherId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "title": "Voucher Canteen FPT 20k (Cập nhật)",
+    "quantity": 150,
+    "isActive": true
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

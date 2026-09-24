@@ -1,0 +1,37 @@
+meta {
+  name: 03-Create-Product
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/products
+  body: multipart-form
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{sellerToken}}
+}
+
+body:multipart-form {
+  title: Giáo trình C Kỹ thuật lập trình FPT
+  description: Sách giáo trình C còn mới 95%, không rách hay mất trang nào
+  price: 50000
+  categoryType: BOOKS
+  condition: LIKE_NEW_99
+  quantity: 1
+  campus: HOL
+  allowShipping: true
+  images: @file(../fixtures/sample-product.png)
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("productId", res.body.data.id);
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400]
+}

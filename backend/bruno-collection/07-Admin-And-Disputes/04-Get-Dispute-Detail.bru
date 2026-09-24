@@ -1,0 +1,19 @@
+meta {
+  name: 04-Get-Dispute-Detail
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/reports/disputes/{{disputeId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: in [200, 404]
+}

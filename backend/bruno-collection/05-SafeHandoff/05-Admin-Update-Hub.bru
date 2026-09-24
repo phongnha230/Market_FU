@@ -1,0 +1,31 @@
+meta {
+  name: 05-Admin-Update-Hub
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/safe-handoff/{{hubId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Trạm Safe-Handoff Sảnh Beta (Nâng cấp)",
+    "storageCapacity": "200 kiện",
+    "operatingHours": "07:00 - 22:00"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

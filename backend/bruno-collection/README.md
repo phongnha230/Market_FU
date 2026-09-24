@@ -1,114 +1,134 @@
-# FU Student Second-Hand Market - Bruno API Test Collection
+# FU Student Second-Hand Market - Bruno API Test Collection (Chuẩn RESTful CRUD)
 
-Bộ API Collection hoàn chỉnh cho công cụ kiểm thử **Bruno** (Open-source API Client thay thế Postman) được thiết kế bám sát kiến trúc hệ thống và quy chuẩn kỹ thuật của dự án FU Student Second-hand Market.
+Bộ API Collection hoàn chỉnh cho **Bruno** (Open-source API Client) được tái cấu trúc bám sát chuẩn **RESTful CRUD (Create - Read - Update - Delete - Actions)** và quy chuẩn kỹ thuật hệ thống FU Student Second-hand Market.
 
 ---
 
-## 📁 Cấu Trúc Thư Mục & Luồng Nghiệp Vụ
+## 📁 Cấu Trúc Toàn Bộ Collection Chuẩn CRUD
 
 ```text
 backend/bruno-collection/
-├── bruno.json                      <-- File cấu hình Collection Bruno
-├── README.md                       <-- Hướng dẫn chi tiết sử dụng Collection
-├── HealthCheck.bru                 <-- Kiểm tra trạng thái máy chủ (GET /api/health)
+├── bruno.json                               <-- Cấu hình Collection Bruno
+├── README.md                                <-- Tài liệu hướng dẫn chi tiết
+├── HealthCheck.bru                          <-- GET /api/health (Kiểm tra server)
 ├── environments/
-│   ├── Local.bru                   <-- Biến môi trường Local (http://localhost:5000)
-│   └── Local.example.bru           <-- Bản mẫu cấu hình môi trường
+│   ├── Local.bru                            <-- Biến môi trường Local (http://localhost:5000)
+│   └── Local.example.bru                    <-- Bản mẫu cấu hình môi trường
+├── fixtures/
+│   └── sample-product.png                   <-- Ảnh mẫu dùng cho multipart/form-data upload
 │
-├── 01-Auth/                        <-- Xác thực & Quản lý phiên đăng nhập
-│   ├── 01-Login-Buyer.bru          <-- Đăng nhập Người mua & lưu buyerToken
-│   ├── 02-Login-Seller.bru         <-- Đăng nhập Người bán & lưu sellerToken
-│   ├── 03-Login-Admin.bru          <-- Đăng nhập Quản trị viên & lưu adminToken
-│   ├── 04-Get-Current-User.bru     <-- Lấy thông tin tài khoản hiện tại
-│   ├── 05-Refresh-Token.bru        <-- Cấp mới access token từ refresh token
-│   └── 06-Logout.bru               <-- Đăng xuất và thu hồi Refresh Token trong Redis
+├── 01-Auth/                                 <-- Xác thực & Quản lý người dùng
+│   ├── 01-Login-Buyer.bru                   <-- [POST] Đăng nhập Buyer (Lưu buyerToken & token)
+│   ├── 02-Login-Seller.bru                  <-- [POST] Đăng nhập Seller (Lưu sellerToken)
+│   ├── 03-Login-Admin.bru                   <-- [POST] Đăng nhập Admin (Lưu adminToken)
+│   ├── 04-Get-Current-User.bru              <-- [GET - READ] Lấy thông tin user hiện tại (Lưu userId)
+│   ├── 05-Update-My-Profile.bru             <-- [PATCH - UPDATE] Cập nhật họ tên, SĐT, cơ sở
+│   ├── 06-Update-Bank-Account.bru           <-- [PATCH - UPDATE] Cập nhật số tài khoản ngân hàng
+│   ├── 07-Refresh-Token.bru                 <-- [POST] Cấp mới Access Token từ Refresh Token
+│   └── 08-Logout.bru                        <-- [POST] Đăng xuất và thu hồi Refresh Token
 │
-├── 02-Products/                    <-- Danh mục & Sản phẩm chợ sinh viên
-│   ├── 01-Get-Categories.bru       <-- Lấy danh mục sản phẩm (Cached Redis)
-│   ├── 02-Get-Category-Detail.bru  <-- Xem chi tiết danh mục theo slug
-│   ├── 03-Get-Products.bru         <-- Lọc & tìm kiếm sản phẩm (lưu productId)
-│   ├── 04-Get-Product-Detail.bru   <-- Xem chi tiết sản phẩm & tăng view
-│   ├── 05-Trending-Searches.bru    <-- Top từ khóa hot (Redis ZSET)
-│   ├── 06-Trending-Items.bru       <-- Top sản phẩm hot nhất (Redis ZSET)
-│   ├── 07-Toggle-Favorite.bru      <-- Thêm/xóa sản phẩm yêu thích (Wishlist)
-│   ├── 08-Renew-Product.bru        <-- Người bán gia hạn bài đăng thêm 30 ngày
-│   └── 09-Boost-Product.bru        <-- Dùng Xu đẩy tin bài viết lên đầu sàn
+├── 02-Products/                             <-- CRUD Trọn vẹn Danh mục & Sản phẩm
+│   ├── 01-Get-Categories.bru                <-- [GET - READ ALL] Lấy danh mục sản phẩm
+│   ├── 02-Get-Category-Detail.bru           <-- [GET - READ ONE] Chi tiết danh mục theo slug
+│   ├── 03-Create-Product.bru                <-- [POST - CREATE] Seller đăng bán sản phẩm (Lưu productId)
+│   ├── 04-Get-Products.bru                  <-- [GET - READ ALL] Tìm kiếm, lọc phân trang (Fallback productId)
+│   ├── 05-Get-Product-Detail.bru            <-- [GET - READ ONE] Xem chi tiết sản phẩm theo {{productId}}
+│   ├── 06-Update-Product.bru                <-- [PATCH - UPDATE] Seller sửa thông tin (tiêu đề, giá, mô tả)
+│   ├── 07-Update-Product-Status.bru         <-- [PATCH - UPDATE STATUS] Đổi trạng thái (AVAILABLE, RESERVED, SOLD)
+│   ├── 08-Renew-Product.bru                 <-- [POST - ACTION] Gia hạn bài đăng thêm 30 ngày
+│   ├── 09-Boost-Product.bru                 <-- [POST - ACTION] Dùng Xu đẩy tin bài viết lên đầu sàn
+│   ├── 10-Toggle-Favorite.bru               <-- [POST - ACTION] Thả tim / Bỏ tim sản phẩm
+│   ├── 11-Get-My-Favorites.bru              <-- [GET - READ] Danh sách Wishlist yêu thích của tôi
+│   ├── 12-Trending-Searches.bru             <-- [GET - QUERY] Top từ khóa tìm kiếm hot (Redis ZSET)
+│   ├── 13-Trending-Items.bru                <-- [GET - QUERY] Top sản phẩm hot nhất theo view (Redis ZSET)
+│   └── 14-Delete-Product.bru                <-- [DELETE - DELETE] Soft-delete món đồ (Chuyển sang HIDDEN)
 │
-├── 03-Orders/                      <-- Đơn hàng, Giao nhận & Đánh giá mù
-│   ├── 01-Estimate-Shipping.bru    <-- Ước tính cước phí vận chuyển liên campus
-│   ├── 02-Create-Order-Meetup.bru  <-- Tạo đơn hẹn gặp trực tiếp (lưu orderId, orderCode)
-│   ├── 03-Create-Order-Shipping.bru<-- Tạo đơn giao nhận SHIP_COD
-│   ├── 04-Get-My-Orders.bru        <-- Danh sách đơn hàng của tôi
-│   ├── 05-Get-Order-Detail.bru     <-- Xem chi tiết đơn hàng
-│   ├── 06-Verify-Handshake.bru     <-- Quét mã QR/OTP xác nhận giao nhận an toàn
-│   ├── 07-Seller-Update-Shipping.bru<-- Người bán cập nhật mã vận đơn & giao hàng
-│   ├── 08-Cancel-Order.bru         <-- Hủy đơn hàng và hoàn tiền/hàng
-│   └── 09-Create-Blind-Review.bru  <-- Đánh giá mù 2 chiều sau khi giao dịch
+├── 03-Orders/                               <-- CRUD Đơn hàng, Giao nhận & Đánh giá mù
+│   ├── 01-Estimate-Shipping.bru             <-- [GET - QUERY] Ước tính cước phí ship liên campus
+│   ├── 02-Create-Order-Meetup.bru           <-- [POST - CREATE] Người mua đặt đơn hẹn gặp (Lưu orderId, orderCode)
+│   ├── 03-Create-Order-Shipping.bru         <-- [POST - CREATE] Người mua đặt đơn SHIP_COD
+│   ├── 04-Get-My-Orders.bru                 <-- [GET - READ ALL] Danh sách đơn hàng theo role BUYER/SELLER
+│   ├── 05-Get-Order-Detail.bru              <-- [GET - READ ONE] Chi tiết đơn hàng theo {{orderId}}
+│   ├── 06-Seller-Update-Shipping.bru        <-- [PATCH - UPDATE] Người bán cập nhật mã vận đơn & trạng thái
+│   ├── 07-Verify-Handshake.bru              <-- [POST - ACTION] Quét mã QR/OTP xác nhận giao hàng thành công
+│   ├── 08-Create-Blind-Review.bru           <-- [POST - CREATE] Tạo đánh giá mù 2 chiều sau khi giao dịch
+│   ├── 09-Get-Order-Reviews.bru             <-- [GET - READ] Xem các đánh giá liên quan đến đơn hàng
+│   └── 10-Cancel-Order.bru                  <-- [POST - ACTION] Hủy đơn hàng và hoàn tiền/hàng
 │
-├── 04-Payments/                    <-- Thanh toán & Webhooks
-│   ├── 01-Check-Payment-Status.bru <-- Kiểm tra trạng thái thanh toán VietQR / PayOS
-│   ├── 02-Mock-PayOS-Webhook.bru   <-- Giả lập Webhook PayOS/SePay (HMAC-SHA256)
-│   └── 03-Mock-Shipping-Webhook.bru<-- Giả lập Webhook đối tác vận chuyển GHTK/GHN
+├── 04-Payments/                             <-- Thanh toán & Webhooks (Bảo mật HMAC)
+│   ├── 01-Check-Payment-Status.bru          <-- [GET - READ] Kiểm tra trạng thái thanh toán theo orderCode
+│   ├── 02-Mock-PayOS-Webhook.bru            <-- [POST - ACTION] Webhook PayOS/SePay (Tự động ký HMAC-SHA256)
+│   └── 03-Mock-Shipping-Webhook.bru         <-- [POST - ACTION] Webhook vận chuyển GHTK/GHN (Ký HMAC-SHA256)
 │
-├── 05-SafeHandoff/                 <-- Điểm giao dịch an toàn & Điểm danh Xu
-│   ├── 01-Get-All-Hubs.bru         <-- Danh sách các trạm Safe-Handoff trong campus
-│   ├── 02-Get-Nearby-Hubs-Geo.bru  <-- Tìm trạm gần nhất theo tọa độ (Redis Geo)
-│   ├── 03-Get-Daily-Checkin-Status.bru <-- Trạng thái điểm danh tháng (Redis Bitmap)
-│   └── 04-Daily-Checkin-Claim-Coin.bru <-- Điểm danh nhận Xu thưởng hàng ngày
+├── 05-SafeHandoff/                          <-- CRUD Trạm Giao Dịch An Toàn & Điểm Danh Xu
+│   ├── 01-Admin-Create-Hub.bru              <-- [POST - CREATE] Admin tạo trạm giao dịch an toàn mới (Lưu hubId)
+│   ├── 02-Get-All-Hubs.bru                  <-- [GET - READ ALL] Xem danh sách các trạm đang hoạt động
+│   ├── 03-Get-Hub-Detail.bru                <-- [GET - READ ONE] Xem chi tiết 1 trạm theo {{hubId}}
+│   ├── 04-Get-Nearby-Hubs-Geo.bru           <-- [GET - QUERY] Tìm trạm gần nhất theo tọa độ (Redis Geo)
+│   ├── 05-Admin-Update-Hub.bru              <-- [PATCH - UPDATE] Admin cập nhật thông tin trạm
+│   ├── 06-Admin-Toggle-Hub.bru              <-- [PATCH - UPDATE STATUS] Bật / Tắt trạng thái hoạt động trạm
+│   ├── 07-Get-Daily-Checkin-Status.bru      <-- [GET - READ] Kiểm tra chuỗi điểm danh tháng (Redis Bitmap)
+│   ├── 08-Daily-Checkin-Claim-Coin.bru      <-- [POST - ACTION] Điểm danh nhận Xu thưởng hàng ngày
+│   └── 09-Admin-Delete-Hub.bru              <-- [DELETE - DELETE] Admin xóa trạm Safe-Handoff
 │
-├── 06-Vouchers/                    <-- Đổi Voucher Canteen/Passio bằng Xu
-│   ├── 01-Get-Available-Vouchers.bru <-- Xem danh sách Voucher có thể đổi
-│   ├── 02-Redeem-Voucher.bru       <-- Đổi Voucher bằng Xu tích lũy
-│   └── 03-Get-My-Vouchers.bru      <-- Xem danh sách Voucher đã sở hữu
+├── 06-Vouchers/                             <-- CRUD Voucher Ưu Đãi Đối Tác
+│   ├── 01-Admin-Create-Voucher.bru          <-- [POST - CREATE] Admin tạo voucher mới (Lưu voucherId)
+│   ├── 02-Get-Available-Vouchers.bru        <-- [GET - READ ALL] Xem danh sách voucher công khai (Fallback voucherId)
+│   ├── 03-Get-Voucher-Detail.bru            <-- [GET - READ ONE] Xem chi tiết 1 voucher theo {{voucherId}}
+│   ├── 04-Admin-Update-Voucher.bru          <-- [PATCH - UPDATE] Admin chỉnh sửa voucher (số lượng, hạn dùng)
+│   ├── 05-Redeem-Voucher.bru                <-- [POST - ACTION] Đổi voucher bằng Xu tích lũy
+│   ├── 06-Get-My-Vouchers.bru               <-- [GET - READ] Xem danh sách voucher cá nhân đã đổi
+│   ├── 07-Use-Voucher.bru                   <-- [POST - ACTION] Quét mã QR sử dụng voucher tại cửa hàng
+│   └── 08-Admin-Delete-Voucher.bru          <-- [DELETE - DELETE] Admin xóa voucher
 │
-└── 07-Admin-And-Disputes/          <-- Quản trị, Khiếu nại, KYC & Báo cáo
-    ├── 01-Create-Product-Report.bru <-- Tố cáo sản phẩm vi phạm quy định
-    ├── 02-Create-Order-Dispute.bru  <-- Người mua mở khiếu nại hoàn tiền kèm video
-    ├── 03-Admin-Get-Disputes.bru    <-- Admin xem danh sách khiếu nại chờ xử lý
-    ├── 04-Admin-Resolve-Dispute.bru <-- Admin phân xử khiếu nại (Hoàn tiền/Thanh toán)
-    ├── 05-Admin-Get-KYC-Verifications.bru <-- Admin duyệt danh sách thẻ SV KYC
-    ├── 06-Admin-Approve-KYC.bru     <-- Admin duyệt thẻ SV và cộng Xu thưởng
-    ├── 07-Admin-Create-Voucher.bru  <-- Admin tạo Voucher ưu đãi mới
-    ├── 08-Semester-Analytics.bru    <-- Thống kê doanh số theo học kỳ & cơ sở
-    └── 09-Reputation-Leaderboard.bru<-- Bảng xếp hạng uy tín sinh viên (Redis ZSET)
+└── 07-Admin-And-Disputes/                   <-- CRUD Khiếu nại, Tố cáo, Quản trị User & KYC
+    ├── 01-Create-Product-Report.bru         <-- [POST - CREATE] Người dùng gửi tố cáo vi phạm bài đăng/user
+    ├── 02-Create-Order-Dispute.bru          <-- [POST - CREATE] Người mua mở khiếu nại hoàn tiền (Lưu disputeId)
+    ├── 03-Admin-Get-Disputes.bru            <-- [GET - READ ALL] Admin xem danh sách khiếu nại PENDING
+    ├── 04-Get-Dispute-Detail.bru            <-- [GET - READ ONE] Xem chi tiết khiếu nại theo {{disputeId}}
+    ├── 05-Admin-Resolve-Dispute.bru         <-- [PATCH - UPDATE] Admin phán quyết hoàn tiền Buyer hoặc trả Seller
+    ├── 06-Admin-Get-KYC-Verifications.bru   <-- [GET - READ ALL] Admin xem danh sách thẻ SV chờ duyệt (Lưu kycId)
+    ├── 07-Admin-Approve-KYC.bru             <-- [PATCH - UPDATE] Admin duyệt thẻ SV (Cấp tích xanh + Xu)
+    ├── 08-Admin-Get-Users.bru               <-- [GET - READ ALL] Admin xem danh sách người dùng (Lưu userId)
+    ├── 09-Admin-Update-User-Status.bru      <-- [PATCH - UPDATE] Admin khóa / mở khóa tài khoản người dùng
+    ├── 10-Semester-Analytics.bru            <-- [GET - READ] Báo cáo thống kê doanh số theo kỳ học & Campus
+    └── 11-Reputation-Leaderboard.bru        <-- [GET - READ] Bảng xếp hạng uy tín sinh viên (Redis ZSET)
 ```
 
 ---
 
-## ⚙️ Hướng Dẫn Sử Dụng Với Bruno App
+## 🔄 Chu Trình Kiểm Thử Khuyến Nghị (Chaining Environment Variables)
 
-1. Mở ứng dụng **Bruno** trên máy tính của bạn.
-2. Chọn **"Open Collection"** trên màn hình chính.
-3. Điều hướng và chọn thư mục:
-   ```text
-   <Đường_dẫn_dự_án>/backend/bruno-collection
-   ```
-4. Ở góc trên bên phải của Bruno, chọn Environment là **`Local`**.
-5. Thứ tự chạy khuyến nghị để tự động lưu các biến phụ thuộc:
-   - **Bước 1**: Chạy `HealthCheck` để chắc chắn backend đang hoạt động.
-   - **Bước 2**: Chạy các request trong `01-Auth` (`01-Login-Buyer`, `02-Login-Seller`, `03-Login-Admin`) để tự động gán token tương ứng.
-   - **Bước 3**: Chạy `02-Products/03-Get-Products` để hệ thống tự động gán biến `productId`.
-   - **Bước 4**: Chạy `03-Orders/02-Create-Order-Meetup` để tự động gán `orderId` và `orderCode`.
-   - **Bước 5**: Chạy các luồng thanh toán, safe-handoff, vouchers và admin tùy theo kịch bản cần kiểm thử.
+Để các biến môi trường được kế thừa và tái sử dụng chuẩn xác qua từng bước kiểm thử:
 
----
-
-## 🔑 Tài Khoản Kiểm Thử Mặc Định (Đã Seed Sẵn)
-
-> **Lưu ý quan trọng**: Theo yêu cầu, luồng Đăng ký & Xác thực mã OTP được lược bỏ trong Collection này vì phụ thuộc vào luồng gửi mã email thực tế. Toàn bộ kịch bản sử dụng các tài khoản sinh viên và quản trị viên có sẵn sau:
-
-| Vai trò | Email | Mật khẩu mặc định | Ghi chú |
-| :--- | :--- | :--- | :--- |
-| **Buyer** (Người mua) | `buyer@fpt.edu.vn` | `Password123@` | Sinh viên cơ sở Hòa Lạc |
-| **Seller** (Người bán) | `seller@fpt.edu.vn` | `Password123@` | Đã xác thực KYC Tích Xanh |
-| **Admin** (Quản trị viên) | `admin@fpt.edu.vn` | `AdminPassword123@` | Toàn quyền kiểm duyệt sàn |
-
----
-
-## 🛡️ Tự Động Tạo Chữ Ký Webhook (HMAC-SHA256)
-
-Các request Webhook trong mục `04-Payments`:
-- `02-Mock-PayOS-Webhook`
-- `03-Mock-Shipping-Webhook`
-
-Được tích hợp sẵn đoạn mã `script:pre-request` sử dụng thư viện Node.js `crypto` để tự động tính toán mã băm HMAC-SHA256 từ `body` và gán vào header `x-webhook-signature` / `Signature`, đảm bảo tương thích 100% với middleware xác thực webhook nghiêm ngặt trên backend.
+1. **Khởi động**: Chạy `HealthCheck` để xác nhận máy chủ backend đang online.
+2. **Xác thực**:
+   - Chạy `01-Auth/01-Login-Buyer` ➔ Tự động lưu `token`, `buyerToken`, `refreshToken`.
+   - Chạy `01-Auth/02-Login-Seller` ➔ Tự động lưu `sellerToken`.
+   - Chạy `01-Auth/03-Login-Admin` ➔ Tự động lưu `adminToken`.
+   - Chạy `01-Auth/04-Get-Current-User` ➔ Tự động lưu `userId`.
+3. **Chu trình CRUD Sản phẩm (`02-Products`)**:
+   - `03-Create-Product` ➔ Tạo sản phẩm mới kèm ảnh `fixtures/sample-product.png`, tự động lưu `productId`.
+   - `04-Get-Products` ➔ Kiểm tra sản phẩm vừa tạo trong danh sách sàn.
+   - `05-Get-Product-Detail` ➔ Kiểm tra chi tiết sản phẩm theo `{{productId}}`.
+   - `06-Update-Product` ➔ Cập nhật giá và mô tả sản phẩm.
+   - `07-Update-Product-Status` ➔ Cập nhật trạng thái sản phẩm (`AVAILABLE`).
+   - `08-Renew-Product` & `09-Boost-Product` ➔ Gia hạn và đẩy tin.
+   - `14-Delete-Product` ➔ Xóa món đồ sau khi kiểm thử xong.
+4. **Chu trình CRUD Đơn hàng (`03-Orders`)**:
+   - `02-Create-Order-Meetup` ➔ Tạo đơn hàng, tự động lưu `orderId` và `orderCode`.
+   - `05-Get-Order-Detail` ➔ Xem chi tiết đơn hàng.
+   - `06-Seller-Update-Shipping` ➔ Cập nhật vận đơn.
+   - `07-Verify-Handshake` ➔ Xác thực giao nhận hoàn tất.
+   - `08-Create-Blind-Review` ➔ Đánh giá đơn hàng.
+5. **Chu trình CRUD Trạm Safe-Handoff (`05-SafeHandoff`)**:
+   - `01-Admin-Create-Hub` ➔ Tạo trạm, tự động lưu `hubId`.
+   - `02-Get-All-Hubs` & `03-Get-Hub-Detail` ➔ Xem danh sách và chi tiết trạm.
+   - `05-Admin-Update-Hub` & `06-Admin-Toggle-Hub` ➔ Cập nhật và đổi trạng thái.
+   - `09-Admin-Delete-Hub` ➔ Xóa trạm thử nghiệm.
+6. **Chu trình CRUD Voucher (`06-Vouchers`)**:
+   - `01-Admin-Create-Voucher` ➔ Tạo voucher, tự động lưu `voucherId`.
+   - `02-Get-Available-Vouchers` & `03-Get-Voucher-Detail` ➔ Xem danh sách và chi tiết.
+   - `04-Admin-Update-Voucher` ➔ Cập nhật voucher.
+   - `05-Redeem-Voucher` ➔ Đổi voucher bằng Xu.
+   - `08-Admin-Delete-Voucher` ➔ Xóa voucher thử nghiệm.

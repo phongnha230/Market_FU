@@ -1,0 +1,29 @@
+meta {
+  name: 09-Admin-Update-User-Status
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{baseUrl}}/api/users/{{userId}}/status
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "isActive": true
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

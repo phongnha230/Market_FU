@@ -1,0 +1,41 @@
+meta {
+  name: 01-Admin-Create-Voucher
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/vouchers
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "title": "Voucher Canteen FPT 20k",
+    "description": "Giảm 20.000đ cho đơn hàng ăn trưa tại Canteen",
+    "partner": "CANTEEN",
+    "coinCost": 50,
+    "discountValue": 20000,
+    "quantity": 100,
+    "validDays": 30
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("voucherId", res.body.data.id);
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 403]
+}

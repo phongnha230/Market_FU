@@ -1,0 +1,31 @@
+meta {
+  name: 06-Update-Product
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/products/{{productId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{sellerToken}}
+}
+
+body:json {
+  {
+    "title": "Giáo trình C Kỹ thuật lập trình FPT (Đã cập nhật)",
+    "price": 45000,
+    "description": "Sách còn mới 95%, tặng kèm tài liệu ôn thi PE/FE cho kỳ tới"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

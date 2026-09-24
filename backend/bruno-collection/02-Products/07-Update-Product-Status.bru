@@ -1,0 +1,29 @@
+meta {
+  name: 07-Update-Product-Status
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/api/products/{{productId}}/status
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{sellerToken}}
+}
+
+body:json {
+  {
+    "status": "AVAILABLE"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

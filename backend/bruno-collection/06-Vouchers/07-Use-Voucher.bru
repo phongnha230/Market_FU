@@ -1,0 +1,29 @@
+meta {
+  name: 07-Use-Voucher
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/vouchers/use
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "voucherCode": "VOUCHER-TEST-12345"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 404]
+}

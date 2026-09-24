@@ -14,6 +14,12 @@ auth:bearer {
   token: {{token}}
 }
 
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("userId", res.body.data.id);
+  }
+}
+
 assert {
   res.status: eq 200
   res.body.success: eq true

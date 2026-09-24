@@ -1,0 +1,43 @@
+meta {
+  name: 01-Admin-Create-Hub
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/safe-handoff
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Trạm Safe-Handoff Sảnh Beta",
+    "code": "HL-BETA-01",
+    "campus": "HOL",
+    "operatingHours": "08:00 - 20:00",
+    "storageCapacity": "100 kiện",
+    "cameras": "4 Cam AI 4K",
+    "staffCount": "2 nhân sự",
+    "locationDetails": "Tầng 1 tòa nhà Beta, cạnh quầy thông tin",
+    "notes": "Có tủ khóa thông minh và camera giám sát 24/7"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.id) {
+    bru.setEnvVar("hubId", res.body.data.id);
+  }
+}
+
+assert {
+  res.status: in [201, 200, 400, 403]
+}

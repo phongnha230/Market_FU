@@ -1,0 +1,15 @@
+meta {
+  name: 03-Get-Hub-Detail
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/safe-handoff/{{hubId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+}

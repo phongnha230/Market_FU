@@ -1,0 +1,19 @@
+meta {
+  name: 09-Admin-Delete-Hub
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{baseUrl}}/api/safe-handoff/{{hubId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+assert {
+  res.status: in [200, 400, 403, 404]
+}

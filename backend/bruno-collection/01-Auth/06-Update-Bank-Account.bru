@@ -1,0 +1,32 @@
+meta {
+  name: 06-Update-Bank-Account
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/profile/bank-account
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "bankName": "MB Bank",
+    "accountNo": "098765432100",
+    "accountName": "NGUYEN VAN SINH VIEN"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}

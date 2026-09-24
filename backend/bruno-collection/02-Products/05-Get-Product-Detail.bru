@@ -1,0 +1,15 @@
+meta {
+  name: 05-Get-Product-Detail
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/products/{{productId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+}

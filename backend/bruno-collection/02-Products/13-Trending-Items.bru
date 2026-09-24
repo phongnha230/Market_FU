@@ -1,0 +1,20 @@
+meta {
+  name: 13-Trending-Items
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/products/trending/items?limit=8
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 8
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}

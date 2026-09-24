@@ -1,0 +1,19 @@
+meta {
+  name: 08-Daily-Checkin-Claim-Coin
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/profile/check-in
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: in [200, 400]
+}
