@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma';
-import { saveImageToStorage, saveMediaToStorage, isValidVideoBuffer } from '../../config/storage';
+import { saveImageToStorage, saveMediaToStorage, isValidVideoBuffer, isValidImageBuffer } from '../../config/storage';
 import { syncProductToMeili, deleteProductFromMeili, searchProductsMeili } from '../../config/meilisearch';
 import { AppError } from '../../middlewares/error.middleware';
 import { getCache, setCache } from '../../config/redis';
@@ -76,10 +76,17 @@ export class ProductService {
       throw new AppError('Chỉ được tải lên tối đa 5 hình ảnh cho mỗi sản phẩm', 400, 'TOO_MANY_IMAGES');
     }
 
-    // Kiểm tra dung lượng từng ảnh (tối đa 5MB)
+    // Kiểm tra dung lượng từng ảnh (tối đa 5MB) và Magic Bytes chống giả mạo
     for (const img of imageFiles) {
       if (img.size > 5 * 1024 * 1024) {
         throw new AppError(`Hình ảnh '${img.originalname}' vượt quá dung lượng tối đa 5MB`, 400, 'IMAGE_TOO_LARGE');
+      }
+      if (!isValidImageBuffer(img.buffer)) {
+        throw new AppError(
+          `Tệp hình ảnh '${img.originalname}' không đúng định dạng hợp lệ (thiếu Magic Bytes JPEG/PNG/WebP/GIF)`,
+          400,
+          'INVALID_IMAGE_SIGNATURE'
+        );
       }
     }
 

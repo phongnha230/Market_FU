@@ -4,8 +4,8 @@ import { z } from 'zod';
 const normalizeHashtag = (tag: string) => tag.replace(/^#/, '').toLowerCase().trim();
 
 export const createProductSchema = z.object({
-  title: z.string().min(5, 'Tiêu đề sản phẩm phải có ít nhất 5 ký tự'),
-  description: z.string().min(10, 'Mô tả chi tiết sản phẩm ít nhất 10 ký tự'),
+  title: z.string().min(5, 'Tiêu đề sản phẩm phải có ít nhất 5 ký tự').max(150, 'Tiêu đề tối đa 150 ký tự'),
+  description: z.string().min(10, 'Mô tả chi tiết sản phẩm ít nhất 10 ký tự').max(5000, 'Mô tả tối đa 5000 ký tự'),
   price: z.coerce.number().min(0, 'Giá bán không được nhỏ hơn 0'),
   originalPrice: z.coerce.number().optional(),
   categoryId: z.string().optional(),
@@ -13,7 +13,7 @@ export const createProductSchema = z.object({
   condition: z.enum(['NEW_100', 'LIKE_NEW_99', 'USED_GOOD', 'USED_FAIR']),
   quantity: z.coerce.number().min(1).default(1),
   campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']),
-  meetupLocation: z.string().optional(),
+  meetupLocation: z.string().max(200, 'Địa điểm hẹn tối đa 200 ký tự').optional(),
   allowShipping: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(true)),
   // Hashtags: nhận dạng cả string "quạt,điện tử" hoặc mảng ["#quạt", "#điện tử"]
   hashtags: z
@@ -38,8 +38,8 @@ export const queryProductSchema = z.object({
   condition: z.enum(['NEW_100', 'LIKE_NEW_99', 'USED_GOOD', 'USED_FAIR']).optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
-  search: z.string().optional(),
-  hashtag: z.string().optional(), // Lọc theo 1 hashtag cụ thể: ?hashtag=quạt
+  search: z.string().max(100, 'Từ khóa tìm kiếm tối đa 100 ký tự').optional(),
+  hashtag: z.string().max(50, 'Hashtag tối đa 50 ký tự').optional(), // Lọc theo 1 hashtag cụ thể: ?hashtag=quạt
   sortBy: z.enum(['newest', 'price_asc', 'price_desc', 'views']).default('newest'),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(50).default(20),

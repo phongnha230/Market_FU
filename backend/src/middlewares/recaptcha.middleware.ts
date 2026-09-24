@@ -9,15 +9,19 @@ import { ENV } from '../config/env';
 export const verifyRecaptcha = async (recaptchaToken?: string): Promise<boolean> => {
   const secretKey = ENV.RECAPTCHA_SECRET_KEY;
 
-  // Nếu trong môi trường phát triển (Dev) và chưa cấu hình key, cho phép bỏ qua để dễ test
-  if (!secretKey) {
-    if (ENV.NODE_ENV === 'development') {
-      return true;
-    }
-    throw new AppError('Server chưa cấu hình RECAPTCHA_SECRET_KEY', 500, 'RECAPTCHA_CONFIG_ERROR');
+  // Cho phép bỏ qua khi chạy tự động hóa Unit Test hoặc khi bật cờ SKIP_RECAPTCHA=true
+  if (ENV.NODE_ENV === 'test' || process.env.SKIP_RECAPTCHA === 'true') {
+    return true;
   }
 
-  if (!recaptchaToken) {
+  if (!secretKey) {
+    if (ENV.NODE_ENV === 'production') {
+      throw new AppError('Máy chủ Production bắt buộc phải cấu hình RECAPTCHA_SECRET_KEY', 500, 'RECAPTCHA_CONFIG_ERROR');
+    }
+    return true;
+  }
+
+  if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
     throw new AppError('Vui lòng xác thực reCAPTCHA (Xác minh bạn không phải robot)', 400, 'RECAPTCHA_MISSING');
   }
 

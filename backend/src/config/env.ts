@@ -80,7 +80,7 @@ const envSchema = z.object({
 
   // 14. Meilisearch Full-text & Instant Search Engine
   MEILISEARCH_HOST: z.string().default('http://localhost:7700'),
-  MEILISEARCH_KEY: z.string().default('masterKeyFU2026Secure'),
+  MEILISEARCH_KEY: z.string().default(''),
 
   // 15. Logging & Observability (VPS Deployment)
   LOG_DIR: z.string().default('logs'),
@@ -102,15 +102,19 @@ const parseEnv = () => {
       process.exit(1);
     }
 
-    // Trong môi trường dev, fallback an toàn để tránh crash khi chưa cấu hình đủ file .env
+    // Trong môi trường dev/test, fallback tự sinh chuỗi bảo mật ngẫu nhiên trong bộ nhớ (không hardcode secret vào git)
+    const crypto = require('crypto');
+    const devFallbackSecret = () => crypto.randomBytes(32).toString('hex');
+    const devFallbackShort = () => crypto.randomBytes(16).toString('hex');
+
     return envSchema.parse({
       ...process.env,
       DATABASE_URL: process.env.DATABASE_URL || 'mongodb://localhost:27017/campus_market_dev',
-      JWT_SECRET: process.env.JWT_SECRET || 'fu_campus_market_secret_access_jwt_2026_dev_min32chars',
-      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'fu_campus_market_secret_refresh_jwt_2026_dev_min32chars',
-      SHIPPING_WEBHOOK_SECRET: process.env.SHIPPING_WEBHOOK_SECRET || 'shipping_secret_default_min16chars',
-      PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || 'payment_secret_default_min16chars',
-      HANDSHAKE_QR_SECRET: process.env.HANDSHAKE_QR_SECRET || 'handshake_qr_secret_default_min16chars',
+      JWT_SECRET: process.env.JWT_SECRET || devFallbackSecret(),
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || devFallbackSecret(),
+      SHIPPING_WEBHOOK_SECRET: process.env.SHIPPING_WEBHOOK_SECRET || devFallbackShort(),
+      PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || devFallbackShort(),
+      HANDSHAKE_QR_SECRET: process.env.HANDSHAKE_QR_SECRET || devFallbackSecret(),
     });
   }
 

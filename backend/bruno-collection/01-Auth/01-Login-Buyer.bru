@@ -27,6 +27,9 @@ script:post-response {
     bru.setEnvVar("buyerToken", res.body.data.tokens.accessToken);
     bru.setEnvVar("refreshToken", res.body.data.tokens.refreshToken);
   }
+  if (res.body && res.body.data && res.body.data.user) {
+    bru.setEnvVar("buyerId", res.body.data.user.id);
+  }
 }
 
 assert {

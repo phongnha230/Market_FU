@@ -160,13 +160,13 @@ export class SemesterAnalyticsService {
       }
     }
 
-    // Nếu dữ liệu DB chưa có nhiều đơn, kết hợp số cơ bản thực tế
-    const effectiveEscrow = escrowHoldingAmount > 0 ? escrowHoldingAmount : 485200000;
-    const effectiveCompleted = completedCount > 0 ? completedCount : 3420;
-    const effectiveKyc = kycCount > 0 ? kycCount : 18250;
-    const effectiveGMV = totalGMV > 0 ? totalGMV : 1250000000;
+    // Dữ liệu analytics thực tế từ cơ sở dữ liệu (Bảo mật F-16: Không sinh số liệu tài chính giả mạo)
+    const effectiveEscrow = escrowHoldingAmount;
+    const effectiveCompleted = completedCount;
+    const effectiveKyc = kycCount;
+    const effectiveGMV = totalGMV;
 
-    const safetyRate = orders.length > 0 ? Math.max(98.5, ((orders.length - disputedCount) / orders.length) * 100) : 99.4;
+    const safetyRate = orders.length > 0 ? ((orders.length - disputedCount) / orders.length) * 100 : 100;
 
     return {
       semester: semesterKey,
@@ -181,13 +181,13 @@ export class SemesterAnalyticsService {
         completedCount: effectiveCompleted,
         kycVerifiedCount: effectiveKyc,
         totalGMV: effectiveGMV,
-        completedGMV: completedGMV > 0 ? completedGMV : Math.round(effectiveGMV * 0.88),
-        totalOrders: orders.length > 0 ? orders.length : 3680,
+        completedGMV: completedGMV,
+        totalOrders: orders.length,
         disputedCount,
         cancelledCount,
         holdingCount,
         safetyRate: Number(safetyRate.toFixed(1)),
-        operatingHubsCount: hubsCount || 18,
+        operatingHubsCount: hubsCount,
       },
       campusBreakdown: Object.values(campusMap),
     };

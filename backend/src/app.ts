@@ -27,6 +27,9 @@ import { httpLoggingMiddleware } from './middlewares/logging.middleware';
 
 const app: Application = express();
 
+// Bảo mật F-11: Cấu hình trust proxy đúng chuẩn cho Reverse Proxy (Nginx, Cloudflare)
+app.set('trust proxy', 1);
+
 // 0. Request Correlation & Observability (Gắn x-request-id & theo dõi độ trễ API cho VPS)
 app.use(requestTracingMiddleware);
 app.use(httpLoggingMiddleware);

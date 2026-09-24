@@ -63,7 +63,7 @@ export class ProductController {
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const viewerIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.ip || 'anonymous';
+      const viewerIp = (req as any).user?.userId || req.ip || 'anonymous';
       const product = await productService.getProductById(id, viewerIp);
       sendSuccess(res, product);
     } catch (error) {

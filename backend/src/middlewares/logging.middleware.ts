@@ -6,10 +6,7 @@ export const httpLoggingMiddleware = (req: Request, res: Response, next: NextFun
 
   res.on('finish', () => {
     const durationMs = Date.now() - startTime;
-    const clientIp =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
-      'unknown';
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
     const userId = (req as any).user?.userId || (req as any).user?.id;
 

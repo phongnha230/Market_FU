@@ -14,10 +14,10 @@ router.post('/google', authRateLimiter, authController.googleAuth);
 router.post('/phone', authRateLimiter, authController.phoneAuth);
 
 // ============================================================================
-// 2. QUẢN LÝ PHIÊN ĐĂNG NHẬP & TOKEN
+// 2. QUẢN LÝ PHIÊN ĐĂNG NHẬP & TOKEN (Áp dụng Rate Limiter chống lạm dụng)
 // ============================================================================
-router.post('/refresh-token', authController.refreshToken);
-router.post('/logout', authController.logout);
+router.post('/refresh-token', authRateLimiter, authController.refreshToken);
+router.post('/logout', authRateLimiter, authController.logout);
 
 // ============================================================================
 // 3. THAY ĐỔI MẬT KHẨU (Bắt buộc đăng nhập)

@@ -97,19 +97,38 @@ backend/bruno-collection/
 
 ---
 
+## 👥 Danh Sách Tài Khoản Mẫu Được Khởi Tạo Sẵn (`backend/prisma/seed.ts`)
+
+Chạy lệnh sau tại thư mục `backend` để nạp dữ liệu mẫu vào cơ sở dữ liệu:
+```bash
+npm run db:seed
+```
+
+| Vai trò | Email đăng nhập | Mật khẩu | Trạng thái KYC sinh viên | Số Xu (Coins) | Mục đích trong Bruno Test |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Buyer (Sinh viên)** | `buyer@fpt.edu.vn` | `Password123@` | ✅ `APPROVED` (MSSV: `HE170001`) | 500 Xu | Dùng `{{buyerToken}}` để tạo đơn mua hàng, mở khiếu nại, đánh giá đơn |
+| **Seller (Người bán)** | `seller@fpt.edu.vn` | `Password123@` | ✅ `APPROVED` (MSSV: `SE160002`, Tích xanh) | 1.000 Xu | Dùng `{{sellerToken}}` để đăng bán đồ, cập nhật vận đơn, xác nhận OTP/Handshake |
+| **SuperAdmin** | `admin@fpt.edu.vn` | `AdminPassword123@` | ✅ `APPROVED` (Mã: `ADMIN001`) | 10.000 Xu | Dùng `{{adminToken}}` để quản lý trạm Safe-Handoff, tạo Voucher, duyệt KYC, phán quyết khiếu nại |
+| **CampusMod** | `mod.hola@fpt.edu.vn` | `Password123@` | ✅ Campus Moderator | 5.000 Xu | Quản trị viên cơ sở Hòa Lạc |
+
+> [!NOTE]
+> Hệ thống áp dụng quy tắc kinh doanh: **Người bán không được tự mua sản phẩm của chính mình (`SELF_BUY_NOT_ALLOWED`)**. Bộ Bruno Collection phân tách rõ ràng `buyerToken` và `sellerToken` giúp chu trình mua bán chạy mượt mà 100% không bị xung đột logic.
+
+---
+
 ## 🔄 Chu Trình Kiểm Thử Khuyến Nghị (Chaining Environment Variables)
 
 Để các biến môi trường được kế thừa và tái sử dụng chuẩn xác qua từng bước kiểm thử:
 
 1. **Khởi động**: Chạy `HealthCheck` để xác nhận máy chủ backend đang online.
 2. **Xác thực**:
-   - Chạy `01-Auth/01-Login-Buyer` ➔ Tự động lưu `token`, `buyerToken`, `refreshToken`.
-   - Chạy `01-Auth/02-Login-Seller` ➔ Tự động lưu `sellerToken`.
-   - Chạy `01-Auth/03-Login-Admin` ➔ Tự động lưu `adminToken`.
-   - Chạy `01-Auth/04-Get-Current-User` ➔ Tự động lưu `userId`.
+   - Chạy `01-Auth/01-Login-Buyer` ➔ Tự động lưu `token`, `buyerToken`, `refreshToken`, `buyerId`.
+   - Chạy `01-Auth/02-Login-Seller` ➔ Tự động lưu `sellerToken`, `sellerId`.
+   - Chạy `01-Auth/03-Login-Admin` ➔ Tự động lưu `adminToken`, `adminId`, `userId`.
+   - Chạy `01-Auth/04-Get-Current-User` ➔ Đọc thông tin cá nhân của User đang dùng `{{token}}`.
 3. **Chu trình CRUD Sản phẩm (`02-Products`)**:
-   - `03-Create-Product` ➔ Tạo sản phẩm mới kèm ảnh `fixtures/sample-product.png`, tự động lưu `productId`.
-   - `04-Get-Products` ➔ Kiểm tra sản phẩm vừa tạo trong danh sách sàn.
+   - `03-Create-Product` ➔ Người bán (`sellerToken`) tạo sản phẩm mới kèm ảnh `fixtures/sample-product.png`, tự động lưu `productId`.
+   - `04-Get-Products` ➔ Kiểm tra sản phẩm vừa tạo trong danh sách sàn (nếu chưa có `productId`, tự động gán từ sản phẩm mẫu có sẵn).
    - `05-Get-Product-Detail` ➔ Kiểm tra chi tiết sản phẩm theo `{{productId}}`.
    - `06-Update-Product` ➔ Cập nhật giá và mô tả sản phẩm.
    - `07-Update-Product-Status` ➔ Cập nhật trạng thái sản phẩm (`AVAILABLE`).

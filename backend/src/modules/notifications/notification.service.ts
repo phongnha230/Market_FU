@@ -122,18 +122,27 @@ export class NotificationService {
     // ─── Kênh D: Gửi Email HTML qua Nodemailer ───
     if (email && email.to) {
       try {
+        const escapeHtml = (text: string) =>
+          text.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m] || m));
+
+        const safeTitle = escapeHtml(title || '');
+        const safeBody = escapeHtml(body || '');
+        // Bảo mật F-14: Chỉ chấp nhận URL http://, https:// hoặc đường dẫn tương đối /, đồng thời HTML-escape chống XSS
+        const isSafeUrl = typeof targetUrl === 'string' && /^(https?:\/\/|\/)/i.test(targetUrl.trim());
+        const safeTargetUrl = isSafeUrl ? escapeHtml(targetUrl.trim()) : null;
+
         await mailTransporter.sendMail({
           from: ENV.EMAIL_FROM || `"Campus Marketplace FU" <${ENV.EMAIL_USER || 'no-reply@marketfu.com'}>`,
           to: email.to,
-          subject: email.subject || `[MarketFU] ${title}`,
+          subject: email.subject || `[MarketFU] ${safeTitle}`,
           html:
             email.html ||
             `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
               <h2 style="color: #F27024; text-align: center;">SÀN ĐỒ CŨ SINH VIÊN FU (MARKETFU)</h2>
-              <h3 style="color: #333;">${title}</h3>
-              <p style="color: #555; font-size: 15px;">${body}</p>
-              ${targetUrl ? `<div style="text-align: center; margin: 25px 0;"><a href="${targetUrl}" style="background-color: #F27024; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem Chi Tiết</a></div>` : ''}
+              <h3 style="color: #333;">${safeTitle}</h3>
+              <p style="color: #555; font-size: 15px;">${safeBody}</p>
+              ${safeTargetUrl ? `<div style="text-align: center; margin: 25px 0;"><a href="${safeTargetUrl}" style="background-color: #F27024; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem Chi Tiết</a></div>` : ''}
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
               <p style="color: #999; font-size: 12px; text-align: center;">Email này được gửi tự động từ hệ thống Campus Marketplace FPT University.</p>
             </div>

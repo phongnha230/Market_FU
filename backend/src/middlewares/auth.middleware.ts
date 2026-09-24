@@ -16,10 +16,8 @@ export const authenticate = (
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
-  } else if ((req as any).cookies && (req as any).cookies.accessToken) {
-    token = (req as any).cookies.accessToken;
-  } else if (req.query && typeof req.query.token === 'string') {
-    token = req.query.token;
+  } else if ((req as any).cookies?.accessToken || (req as any).cookies?.auth_token) {
+    token = (req as any).cookies?.accessToken || (req as any).cookies?.auth_token;
   }
 
   if (!token) {

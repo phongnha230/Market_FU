@@ -107,7 +107,11 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
         socket.join(`conversation_${conversationId}`);
         socket.emit('joined_conversation', { conversationId });
       } catch (error: any) {
-        socket.emit('error', { code: 'SERVER_ERROR', message: error.message });
+        const isAppError = error?.name === 'AppError' || error?.isOperational;
+        socket.emit('error', {
+          code: isAppError ? error.code || 'JOIN_CONVERSATION_FAILED' : 'SERVER_ERROR',
+          message: isAppError ? error.message : 'Đã có lỗi xảy ra khi tham gia cuộc trò chuyện',
+        });
       }
     });
 
@@ -134,9 +138,10 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
         const { chatService } = await import('../modules/chats/chat.service');
         await chatService.persistAndBroadcastMessage(userId, conversationId, messageInput);
       } catch (error: any) {
+        const isAppError = error?.name === 'AppError' || error?.isOperational;
         socket.emit('error', {
-          code: error.code || 'SEND_MESSAGE_FAILED',
-          message: error.message,
+          code: isAppError ? error.code || 'SEND_MESSAGE_FAILED' : 'SERVER_ERROR',
+          message: isAppError ? error.message : 'Không thể gửi tin nhắn, vui lòng thử lại sau',
         });
       }
     };

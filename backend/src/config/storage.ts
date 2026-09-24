@@ -82,12 +82,61 @@ const buildMediaUrl = (relativePath: string): string => {
  * 1. Nén và Lưu trữ hình ảnh định dạng WebP
  * - Nếu có R2: Nén WebP rồi upload trực tiếp lên Cloudflare R2 bucket
  * - Nếu chưa có R2 key: Nén WebP và lưu vào thư mục local (kyc_cards lưu riêng tại private_uploads/)
+/**
+ * Kiểm tra Magic Bytes để xác thực file hình ảnh thực tế (JPEG, PNG, WebP, GIF),
+ * chống giả mạo header MIME hoặc chèn mã độc thực thi (Bảo mật F-05 Fix)
  */
+export const isValidImageBuffer = (buffer: Buffer): boolean => {
+  if (!buffer || buffer.length < 8) return false;
+
+  // 1. JPEG / JPG: 0xFF 0xD8 0xFF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return true;
+  }
+
+  // 2. PNG: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return true;
+  }
+
+  // 3. WebP: 'RIFF' tại 0..3 và 'WEBP' tại 8..11
+  if (buffer.length >= 12) {
+    const riff = buffer.toString('ascii', 0, 4);
+    const webp = buffer.toString('ascii', 8, 12);
+    if (riff === 'RIFF' && webp === 'WEBP') {
+      return true;
+    }
+  }
+
+  // 4. GIF: 'GIF87a' hoặc 'GIF89a'
+  if (buffer.length >= 6) {
+    const gif = buffer.toString('ascii', 0, 6);
+    if (gif === 'GIF87a' || gif === 'GIF89a') {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export const saveImageToStorage = async (
   fileBuffer: Buffer,
   folder: string,
   options?: { quality?: number; maxWidth?: number }
 ): Promise<{ secure_url: string; public_id: string }> => {
+  if (!isValidImageBuffer(fileBuffer)) {
+    throw new Error('Tệp đính kèm không đúng định dạng hình ảnh hợp lệ (thiếu Magic Bytes JPEG/PNG/WebP/GIF)');
+  }
+
   const fileId = crypto.randomUUID();
   const filename = `${fileId}.webp`;
   const publicId = `${folder}/${filename}`.replace(/\\/g, '/');

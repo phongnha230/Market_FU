@@ -445,12 +445,12 @@ export class AuthService {
       include: { profile: true },
     });
 
-    if (!user) {
-      throw new AppError('Email này chưa được đăng ký trong hệ thống', 404, 'EMAIL_NOT_FOUND');
-    }
-
-    if (!user.isActive) {
-      throw new AppError('Tài khoản gắn với email này đã bị khóa', 403, 'ACCOUNT_LOCKED');
+    if (!user || !user.isActive) {
+      // Bảo mật (F-04): Trả về phản hồi đồng nhất, chống User Enumeration dò quét email sinh viên
+      return {
+        email,
+        message: 'Nếu email tồn tại trong hệ thống, mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
+      };
     }
 
     // Sinh mã OTP ngẫu nhiên 6 chữ số bằng CSPRNG (Cryptographically Secure Pseudo-Random Number Generator)
@@ -467,17 +467,12 @@ export class AuthService {
       5 * 60
     );
 
-    // In ra console trong môi trường phát triển để test dễ dàng mà không cần chờ mail
-    if (ENV.NODE_ENV === 'development') {
-      console.log(`🔑 [DEBUG OTP] Password Reset OTP cho ${email}: ${otp}`);
-    }
-
     // Gửi email qua SMTP
     await sendPasswordResetOtpEmail(user.email, otp, user.profile?.fullName || 'Sinh viên FU');
 
     return {
       email: user.email,
-      message: 'Mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
+      message: 'Nếu email tồn tại trong hệ thống, mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
     };
   }
 

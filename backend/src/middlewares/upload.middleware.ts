@@ -11,10 +11,10 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'vide
  * 1. Chỉ chấp nhận Ảnh (Avatar, Thẻ SV KYC) - Tối đa 5MB
  */
 const imageFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype.toLowerCase())) {
     cb(null, true);
   } else {
-    cb(new AppError('Chỉ cho phép tải lên file hình ảnh (jpg, jpeg, png, webp)', 400, 'INVALID_IMAGE_TYPE'));
+    cb(new AppError('Chỉ cho phép tải lên file hình ảnh an toàn (jpg, jpeg, png, webp)', 400, 'INVALID_IMAGE_TYPE'));
   }
 };
 
@@ -35,8 +35,8 @@ export const upload = uploadImage;
  * - Từng file ảnh được validate tối đa 5MB trong service
  */
 const mediaFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype) || file.mimetype.startsWith('image/');
-  const isVideo = ALLOWED_VIDEO_TYPES.includes(file.mimetype) || file.mimetype.startsWith('video/');
+  const isImage = ALLOWED_IMAGE_TYPES.includes(file.mimetype.toLowerCase());
+  const isVideo = ALLOWED_VIDEO_TYPES.includes(file.mimetype.toLowerCase());
 
   if (isImage || isVideo) {
     cb(null, true);

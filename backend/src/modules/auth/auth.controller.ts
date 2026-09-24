@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
+import { AppError } from '../../middlewares/error.middleware';
 import { authService } from './auth.service';
 import {
   registerSchema,
@@ -97,10 +98,13 @@ export class AuthController {
     }
   };
 
-  // Cấp lại token
+  // Cấp lại token (Bảo mật F-15: Ưu tiên HttpOnly cookie, chống XSS)
   refreshToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.cookies.refreshToken || req.body.refreshToken;
+      const token = req.cookies?.refreshToken || (typeof req.body?.refreshToken === 'string' ? req.body.refreshToken.trim() : undefined);
+      if (!token) {
+        throw new AppError('Thiếu Refresh Token để duy trì phiên đăng nhập', 401, 'REFRESH_TOKEN_MISSING');
+      }
       const tokens = await authService.refreshToken(token);
 
       res.cookie('refreshToken', tokens.refreshToken, {

@@ -697,10 +697,22 @@ export class ProfileService {
   }
 
   /**
-   * Nhận thưởng nhiệm vụ tuần (Quest Coins)
+   * Nhận thưởng nhiệm vụ tuần (Quest Coins) - Bảo mật: Xác thực định mức coin server-side chống gian lận
    */
-  async claimQuest(userId: string, input: { questId: string; amount: number }) {
-    const rewardCoins = input.amount || 20;
+  async claimQuest(userId: string, input: { questId: string; amount?: number }) {
+    // Whitelist định mức coin server-side nghiêm ngặt cho từng loại nhiệm vụ
+    const QUEST_REWARDS: Record<string, number> = {
+      WEEKLY_001: 20,
+      WEEKLY_002: 50,
+      WEEKLY_LISTING: 50,
+      FIRST_REVIEW: 30,
+      KYC_COMPLETE: 100,
+      DAILY_SHARE: 10,
+    };
+
+    // Xác định mức thưởng: nếu có trong whitelist thì dùng giá trị server; nếu không thì chặn trần tối đa 20 coin
+    const predefinedReward = QUEST_REWARDS[input.questId];
+    const rewardCoins = predefinedReward !== undefined ? predefinedReward : Math.min(Math.max(1, Number(input.amount) || 20), 20);
 
     const result = await prisma.$transaction(async (tx) => {
       const updatedProfile = await tx.profile.update({

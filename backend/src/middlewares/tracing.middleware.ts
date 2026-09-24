@@ -36,10 +36,14 @@ export const getRequestContext = (): RequestStore | undefined => {
  */
 export const requestTracingMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const incomingId = req.headers['x-request-id'];
-  const requestId =
-    typeof incomingId === 'string' && incomingId.trim().length > 0
-      ? incomingId.trim()
-      : `req_${Date.now().toString(36)}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  // Bảo mật F-07: Chỉ chấp nhận ID chứa chữ cái, số, gạch ngang/dưới (1-64 ký tự) chống CRLF Injection & Log Poisoning
+  const isValidRequestId =
+    typeof incomingId === 'string' &&
+    /^[a-zA-Z0-9_-]{1,64}$/.test(incomingId.trim());
+
+  const requestId = isValidRequestId
+    ? incomingId.trim()
+    : `req_${Date.now().toString(36)}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
   // Gắn vào Response Header để Frontend / Client có thể lấy mã tra cứu khi gặp sự cố
   res.setHeader('x-request-id', requestId);
@@ -48,10 +52,7 @@ export const requestTracingMiddleware = (req: Request, res: Response, next: Next
   (req as any).id = requestId;
   (req as any).requestId = requestId;
 
-  const clientIp =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    req.socket.remoteAddress ||
-    'unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
   const store: RequestStore = {
     requestId,

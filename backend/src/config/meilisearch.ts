@@ -6,7 +6,7 @@ let hasLoggedOfflineWarning = false;
 
 export const meiliClient = new Meilisearch({
   host: ENV.MEILISEARCH_HOST,
-  apiKey: ENV.MEILISEARCH_KEY,
+  apiKey: ENV.MEILISEARCH_KEY || undefined,
 });
 
 export const isMeilisearchReady = (): boolean => isAvailable;

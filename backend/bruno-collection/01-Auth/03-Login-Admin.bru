@@ -27,6 +27,10 @@ script:post-response {
     bru.setEnvVar("adminToken", res.body.data.tokens.accessToken);
     bru.setEnvVar("refreshToken", res.body.data.tokens.refreshToken);
   }
+  if (res.body && res.body.data && res.body.data.user) {
+    bru.setEnvVar("adminId", res.body.data.user.id);
+    bru.setEnvVar("userId", res.body.data.user.id);
+  }
 }
 
 assert {
