@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
-interface ProductCardProps {
+export interface ProductCardProps {
+  id: string;
   title: string;
   price: string;
   location: string;
   seller: string;
-  sellerYear: string;
-  image: string;
+  sellerYear?: string;
+  image: any;
   badge?: string;
+  badgeVariant?: 'white' | 'green';
   isVerified?: boolean;
+  onPress?: () => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -22,43 +25,91 @@ const ProductCard: React.FC<ProductCardProps> = ({
   sellerYear,
   image,
   badge,
+  badgeVariant = 'white',
   isVerified = true,
+  onPress,
 }) => {
+  const [isLiked, setIsLiked] = useState(false);
+
+  const imageSource = typeof image === 'string' ? { uri: image } : image;
+
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={0.9}>
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: image }} style={styles.image} contentFit="cover" transition={200} />
+    <TouchableOpacity
+      style={styles.cardContainer}
+      activeOpacity={0.88}
+      onPress={onPress}
+    >
+      {/* Image Thumbnail Container */}
+      <View style={styles.imageWrapper}>
+        <Image
+          source={imageSource}
+          style={styles.productImage}
+          contentFit="cover"
+          transition={200}
+        />
+
+        {/* Top-left Badge */}
         {badge && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge}</Text>
+          <View
+            style={[
+              styles.badgeContainer,
+              badgeVariant === 'green' ? styles.greenBadge : styles.whiteBadge,
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                badgeVariant === 'green' ? styles.greenBadgeText : styles.whiteBadgeText,
+              ]}
+            >
+              {badge}
+            </Text>
           </View>
         )}
-        <TouchableOpacity style={styles.wishlistBtn}>
-          <Ionicons name="heart-outline" size={20} color="#333" />
+
+        {/* Top-right Heart Button */}
+        <TouchableOpacity
+          style={styles.heartButton}
+          activeOpacity={0.8}
+          onPress={() => setIsLiked(!isLiked)}
+        >
+          <Ionicons
+            name={isLiked ? 'heart' : 'heart-outline'}
+            size={16}
+            color={isLiked ? '#EF4444' : '#1E293B'}
+          />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.price}>{price}₫</Text>
-        <Text style={styles.title} numberOfLines={2}>
+      {/* Info Body */}
+      <View style={styles.contentBody}>
+        {/* Price */}
+        <Text style={styles.priceText}>{price}đ</Text>
+
+        {/* Title */}
+        <Text style={styles.titleText} numberOfLines={2}>
           {title}
         </Text>
 
-        <View style={styles.metaItem}>
-          <Ionicons name="location-sharp" size={12} color="#888" />
-          <Text style={styles.metaText} numberOfLines={1}>
+        {/* Location Row */}
+        <View style={styles.locationRow}>
+          <Text style={styles.locationText} numberOfLines={1}>
             {location}
           </Text>
         </View>
 
+        {/* Seller Info */}
         <View style={styles.sellerRow}>
-          <Text style={styles.sellerText}>
-            {seller} ({sellerYear})
+          <Text style={styles.sellerName} numberOfLines={1}>
+            {seller} {sellerYear ? `(${sellerYear})` : ''}
           </Text>
           {isVerified && (
-            <View style={styles.verifyBadge}>
-              <Ionicons name="checkmark-circle" size={12} color="#34C759" />
-            </View>
+            <Ionicons
+              name="checkmark-circle"
+              size={13}
+              color="#10B981"
+              style={{ marginLeft: 3 }}
+            />
           )}
         </View>
       </View>
@@ -67,85 +118,106 @@ const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: '48%',
-    marginBottom: 16,
-    overflow: 'hidden',
+  cardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    width: '48.5%',
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F2F2F2',
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  imageContainer: {
+  imageWrapper: {
     width: '100%',
     aspectRatio: 1,
+    backgroundColor: '#F8FAFC',
     position: 'relative',
   },
-  image: {
+  productImage: {
     width: '100%',
     height: '100%',
   },
-  badge: {
+  badgeContainer: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    top: 7,
+    left: 7,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    zIndex: 2,
+  },
+  whiteBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  greenBadge: {
+    backgroundColor: '#10B981',
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    color: '#333',
   },
-  wishlistBtn: {
+  whiteBadgeText: {
+    color: '#0F172A',
+  },
+  greenBadgeText: {
+    color: '#FFFFFF',
+  },
+  heartButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    top: 7,
+    right: 7,
     width: 28,
     height: 28,
     borderRadius: 14,
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
-  infoContainer: {
+  contentBody: {
     padding: 10,
   },
-  price: {
+  priceText: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#E65100', // Màu giá cam đậm chuẩn Chợ Tốt / Shopee
+    color: '#DC2626',
+    marginBottom: 4,
   },
-  title: {
+  titleText: {
     fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
-    marginTop: 4,
-    height: 36,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+    marginBottom: 6,
+    minHeight: 36,
   },
-  metaItem: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 4,
   },
-  metaText: {
+  locationText: {
     fontSize: 11,
-    color: '#888',
-    marginLeft: 4,
+    color: '#64748B',
+    fontWeight: '500',
   },
   sellerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
   },
-  sellerText: {
-    fontSize: 10,
-    color: '#666',
-  },
-  verifyBadge: {
-    marginLeft: 4,
+  sellerName: {
+    fontSize: 11,
+    color: '#0F172A',
+    fontWeight: '600',
   },
 });
 

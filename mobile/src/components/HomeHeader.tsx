@@ -8,57 +8,92 @@ interface HomeHeaderProps {
   userName: string;
   campusName: string;
   avatarUrl?: string;
+  onSearchPress?: () => void;
+  onNotificationPress?: () => void;
+  onAvatarPress?: () => void;
+  onCampusChangePress?: () => void;
 }
 
-const HomeHeader: React.FC<HomeHeaderProps> = ({ userName, campusName, avatarUrl }) => {
+const HomeHeader: React.FC<HomeHeaderProps> = ({
+  userName = 'Quân',
+  campusName = 'HÒA LẠC',
+  avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  onSearchPress,
+  onNotificationPress,
+  onAvatarPress,
+  onCampusChangePress,
+}) => {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
       {/* Top Bar: Logo - Campus - Actions */}
       <View style={styles.topBar}>
+        {/* Left: Logo */}
         <View style={styles.leftSection}>
           <Image
             source={require('../../assets/images/logo.png')}
             style={styles.logo}
             contentFit="contain"
-            transition={300}
+            transition={200}
           />
-          <View style={styles.campusContainer}>
-            <Text style={styles.campusTitle}>FPT 5Campus</Text>
-            <TouchableOpacity style={styles.campusPicker}>
-              <Text style={styles.campusName}>{campusName}</Text>
-              <Ionicons name="chevron-down" size={14} color="#F27024" />
-            </TouchableOpacity>
-          </View>
         </View>
 
+        {/* Center: Campus title + selector */}
+        <View style={styles.centerSection}>
+          <Text style={styles.brandTitle}>FPT 5Campus</Text>
+          <TouchableOpacity
+            style={styles.campusBadge}
+            activeOpacity={0.7}
+            onPress={onCampusChangePress}
+          >
+            <Text style={styles.campusBadgeText}>{campusName}</Text>
+            <Ionicons name="caret-down" size={10} color="#F27024" style={{ marginLeft: 3 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Right: Search, Notifications, Avatar */}
         <View style={styles.rightSection}>
-          <TouchableOpacity style={styles.iconButton} hitSlop={10}>
-            <Ionicons name="search-outline" size={24} color="#333" />
+          <TouchableOpacity
+            style={styles.iconButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={onSearchPress}
+          >
+            <Ionicons name="search-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} hitSlop={10}>
-            <View style={styles.notificationBadge} />
-            <Ionicons name="notifications-outline" size={24} color="#333" />
+
+          <TouchableOpacity
+            style={styles.iconButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={onNotificationPress}
+          >
+            <View style={styles.notificationDot} />
+            <Ionicons name="notifications-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.avatarButton}>
+
+          <TouchableOpacity
+            style={styles.avatarButton}
+            activeOpacity={0.8}
+            onPress={onAvatarPress}
+          >
             <Image
-              source={avatarUrl ? { uri: avatarUrl } : require('../../assets/images/default-avatar.png')}
+              source={{ uri: avatarUrl }}
               style={styles.avatar}
               contentFit="cover"
+              transition={200}
             />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Greeting Section */}
-      <View style={styles.greetingSection}>
-        <Text style={styles.greetingText}>
-          Chào {userName} <Text style={styles.handIcon}>👋</Text>
+      {/* Greeting Row */}
+      <View style={styles.greetingRow}>
+        <Text style={styles.greetingTitle}>
+          Chào {userName} <Text style={styles.waveEmoji}>👋</Text>
         </Text>
-        <View style={styles.statusBadge}>
-          <View style={styles.dot} />
-          <Text style={styles.statusText}>{campusName} sôi động</Text>
+        <View style={styles.liveBadge}>
+          <View style={styles.greenPulseDot} />
+          <Text style={styles.liveBadgeText}>Hòa Lạc sôi động</Text>
         </View>
       </View>
     </View>
@@ -67,64 +102,71 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ userName, campusName, avatarUrl
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 50,
+    justifyContent: 'space-between',
+    height: 48,
   },
   leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    marginRight: 8,
-  },
-  campusContainer: {
+    width: 60,
     justifyContent: 'center',
   },
-  campusTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
+  logo: {
+    width: 38,
+    height: 38,
   },
-  campusPicker: {
+  centerSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  campusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 2,
   },
-  campusName: {
+  campusBadgeText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#F27024',
-    textTransform: 'uppercase',
-    marginRight: 2,
+    letterSpacing: 0.2,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    width: 110,
   },
   iconButton: {
-    padding: 8,
-    marginLeft: 4,
+    padding: 6,
+    position: 'relative',
+    marginLeft: 2,
   },
-  notificationBadge: {
+  notificationDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF3B30',
-    zIndex: 1,
+    backgroundColor: '#EF4444',
+    zIndex: 2,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: '#FFFFFF',
   },
   avatarButton: {
     marginLeft: 8,
@@ -133,41 +175,46 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
   },
-  greetingSection: {
+  greetingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
-  greetingText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-  },
-  handIcon: {
+  greetingTitle: {
     fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
-  statusBadge: {
+  waveEmoji: {
+    fontSize: 20,
+  },
+  liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9F4',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
-  dot: {
+  greenPulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#34C759',
+    backgroundColor: '#10B981',
     marginRight: 6,
   },
-  statusText: {
+  liveBadgeText: {
     fontSize: 11,
-    color: '#333',
-    fontWeight: '500',
+    color: '#047857',
+    fontWeight: '600',
   },
 });
 
