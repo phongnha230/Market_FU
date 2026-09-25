@@ -1,0 +1,634 @@
+'use client';
+
+import React, { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import {
+  Card,
+  Button,
+  Badge,
+  Separator,
+  Avatar,
+  AvatarFallback,
+} from '@/components/ui';
+import { useOrderStore } from '@/stores/orderStore';
+import { useUserStore } from '@/stores/userStore';
+import { ProductService } from '@/services/productService';
+import {
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
+  Truck,
+  Copy,
+  Check,
+  QrCode,
+  ArrowRight,
+  ShoppingBag,
+  MessageSquare,
+  MapPin,
+  Calendar,
+  Sparkles,
+  Coins,
+  Building2,
+  ExternalLink,
+  ChevronRight,
+  AlertCircle,
+  HelpCircle,
+  Receipt,
+  FileCheck,
+} from 'lucide-react';
+
+function OrderSuccessContent() {
+  const searchParams = useSearchParams();
+  const orderCode = searchParams.get('orderCode') || 'ORD-88392-HCM-HL';
+  const paymentMethodParam = searchParams.get('paymentMethod') || 'vietqr';
+  const amountParam = searchParams.get('amount');
+  const productId = searchParams.get('productId');
+
+  const paymentMethod = paymentMethodParam.toLowerCase();
+  const isOnlinePayment = paymentMethod === 'vietqr' || paymentMethod === 'payos';
+
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedVoucher, setCopiedVoucher] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const currentUser = useUserStore((state) => state.user);
+  const orders = useOrderStore((state) => state.orders);
+
+  // Find local order or fallback
+  const existingOrder = orders.find((o) => o.code === orderCode) || orders[0];
+
+  const [productData, setProductData] = useState({
+    id: productId || 'prod-default',
+    title: existingOrder?.product?.title || 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
+    price: amountParam ? parseInt(amountParam, 10) : existingOrder?.product?.price || 1225000,
+    imageUrl: existingOrder?.product?.imageUrl || '/products/monitor-dell-24.jpg',
+    conditionBadge: existingOrder?.product?.conditionBadge || 'Like New 95%',
+    sellerName: existingOrder?.product?.seller?.name || 'Nguyễn Văn An',
+    sellerCohort: existingOrder?.product?.seller?.cohortCampus || 'K16 SE - FPT TP.HCM',
+    originCampus: 'FPT TP.HCM (Quận 9)',
+    destinationCampus: 'FPT Hòa Lạc (Dom B, KTX)',
+  });
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCopyOrderCode = () => {
+    navigator.clipboard.writeText(orderCode);
+    setCopiedCode(true);
+    showToast(`Đã sao chép mã đơn hàng #${orderCode}`);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyVoucher = () => {
+    navigator.clipboard.writeText('FPT5CAMPUS-FREESHIP20K');
+    setCopiedVoucher(true);
+    showToast('Đã sao chép mã voucher giảm 20.000đ!');
+    setTimeout(() => setCopiedVoucher(false), 2000);
+  };
+
+  // Fetch product data if provided
+  useEffect(() => {
+    let isMounted = true;
+    if (productId) {
+      ProductService.getPostById(productId).then((post) => {
+        if (!isMounted || !post) return;
+        setProductData((prev) => ({
+          ...prev,
+          title: post.title,
+          price: amountParam ? parseInt(amountParam, 10) : post.price,
+          imageUrl: post.imageUrl || prev.imageUrl,
+          conditionBadge: post.badges?.[0] || prev.conditionBadge,
+          sellerName: post.seller?.name || prev.sellerName,
+          sellerCohort: post.seller?.cohort || prev.sellerCohort,
+        }));
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [productId, amountParam]);
+
+  // Current formatted timestamp
+  const orderTimeFormatted = new Date().toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans">
+      <Navbar />
+
+      <main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
+        {/* BREADCRUMBS */}
+        <div className="mb-6 flex items-center gap-2 text-xs font-medium text-slate-500 flex-wrap">
+          <Link href="/" className="hover:text-fpt-orange transition-colors">
+            Trang chủ
+          </Link>
+          <span className="text-slate-400">›</span>
+          <Link href="/checkout" className="hover:text-fpt-orange transition-colors">
+            Thanh toán
+          </Link>
+          <span className="text-slate-400">›</span>
+          <span className="text-slate-800 font-semibold">Đặt hàng thành công</span>
+          <span className="rounded bg-orange-100/80 px-2 py-0.5 text-[11px] font-bold text-fpt-orange border border-orange-200">
+            #{orderCode}
+          </span>
+        </div>
+
+        {/* 1. TOP CELEBRATION STATUS BANNER */}
+        <Card
+          className={`mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs ${
+            isOnlinePayment
+              ? 'border-emerald-200/80 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 text-white'
+              : 'border-orange-200/80 bg-gradient-to-br from-fpt-orange via-amber-600 to-slate-900 text-white'
+          }`}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-start sm:items-center gap-4">
+              <div
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md ${
+                  isOnlinePayment
+                    ? 'bg-white text-emerald-600'
+                    : 'bg-white text-fpt-orange'
+                }`}
+              >
+                <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className="border-white/30 bg-white/15 text-white font-bold text-[10px] tracking-wider uppercase px-2.5 py-0.5"
+                  >
+                    {isOnlinePayment
+                      ? paymentMethod === 'payos'
+                        ? 'CỔNG THANH TOÁN PAYOS WEB'
+                        : 'VIETQR NAPAS247 • ESCROW TỰ ĐỘNG'
+                      : 'THANH TOÁN KHI NHẬN HÀNG (COD)'}
+                  </Badge>
+                  <span className="text-xs text-white/80 font-medium">
+                    Đặt lúc: {orderTimeFormatted}
+                  </span>
+                </div>
+
+                <h1 className="mt-1.5 text-xl sm:text-2xl font-black tracking-tight text-white">
+                  {isOnlinePayment
+                    ? 'Thanh toán & Đặt hàng thành công!'
+                    : 'Đặt đơn hàng COD thành công!'}
+                </h1>
+
+                <p className="mt-1 text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
+                  {isOnlinePayment
+                    ? 'Khoản thanh toán của bạn đã được đóng băng an toàn trong Ví Escrow của Sàn ĐH FPT. Người bán sẽ chỉ nhận được tiền sau 48h kiểm tra hàng.'
+                    : 'Đơn hàng đã được ghi nhận vào hệ thống điều phối bưu tá KTX. Bạn sẽ kiểm tra hàng thực tế trước khi thanh toán tiền mặt/chuyển khoản.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Action Badges */}
+            <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2.5 shrink-0">
+              <div className="rounded-xl bg-black/25 backdrop-blur-xs px-3.5 py-2 border border-white/15 text-left md:text-right">
+                <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider block">
+                  MÃ ĐƠN HÀNG
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="font-mono text-sm sm:text-base font-extrabold text-white">
+                    {orderCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyOrderCode}
+                    className="rounded p-1 text-white/80 hover:bg-white/20 transition cursor-pointer"
+                    title="Sao chép mã đơn"
+                  >
+                    {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white border border-white/25">
+                <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                <span>Bảo hiểm FPT Care 48 Giờ Active</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* 2. MAIN 2-COLUMN GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT COLUMN: 8 COLS */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* CARD 1: KIỆN HÀNG & LỘ TRÌNH SHIP */}
+            <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-fpt-orange" />
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                    Chi tiết kiện hàng bưu phẩm
+                  </h2>
+                </div>
+                <Badge variant="fpt" className="text-[10px]">
+                  FPT CAMPUSSHIP
+                </Badge>
+              </div>
+
+              {/* Product Info Row */}
+              <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
+                <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                  <Image
+                    src={productData.imageUrl}
+                    alt={productData.title}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute top-1.5 left-1.5 rounded bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    {productData.conditionBadge}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] text-slate-600">
+                      Sinh viên FPT Pass
+                    </Badge>
+                    <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Đã kiểm định bưu cục
+                    </span>
+                  </div>
+
+                  <h3 className="mt-1 text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                    {productData.title}
+                  </h3>
+
+                  {/* Seller info */}
+                  <div className="mt-2 flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="bg-fpt-orange text-[10px] font-bold text-white">
+                          {productData.sellerName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-slate-700 font-medium">
+                        Người bán: <strong>{productData.sellerName}</strong> ({productData.sellerCohort})
+                      </span>
+                    </div>
+
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 border-slate-200 text-slate-700 hover:text-fpt-orange"
+                    >
+                      <Link href="/chat">
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        <span>Nhắn tin người bán</span>
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transit Route Visualization */}
+              <div className="mt-5 rounded-xl bg-slate-50/80 border border-slate-200/80 p-4">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-3">
+                  <span className="flex items-center gap-1.5">
+                    <Truck className="h-4 w-4 text-fpt-orange" />
+                    Lộ trình điều phối FPT CampusShip
+                  </span>
+                  <span className="text-emerald-700 font-semibold text-[11px]">
+                    Dự kiến: 2 - 3 ngày làm việc
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-lg bg-white p-3 border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      ĐIỂM GỬI HÀNG
+                    </span>
+                    <div className="font-extrabold text-slate-900 mt-0.5">
+                      {productData.originCampus}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Bưu cục Safe-Handoff Thư viện
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-white p-3 border border-slate-200">
+                    <span className="text-[10px] font-bold text-fpt-orange uppercase tracking-wider">
+                      ĐIỂM NHẬN HÀNG (BẠN)
+                    </span>
+                    <div className="font-extrabold text-slate-900 mt-0.5">
+                      {productData.destinationCampus}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Sảnh Lễ tân KTX Dom B (Phòng 402)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* CARD 2: MÃ QR NHẬN HÀNG SAFE-HANDOFF PASS */}
+            <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5 text-fpt-orange" />
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                    Phiếu nhận hàng điện tử (Safe-Handoff QR Pass)
+                  </h2>
+                </div>
+                <Badge variant="outline" className="text-slate-500 text-[10px]">
+                  XÁC THỰC DANH TÍNH
+                </Badge>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                {/* QR Canvas Demo */}
+                <div className="md:col-span-4 flex flex-col items-center justify-center p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <div className="relative h-32 w-32 bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center">
+                    <Image
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${orderCode}&color=0f172a`}
+                      alt="Safe-Handoff QR Pass"
+                      width={120}
+                      height={120}
+                      unoptimized
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="mt-2 font-mono text-xs font-extrabold text-slate-800">
+                    PIN: 8829
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Mã xác thực 1 lần
+                  </span>
+                </div>
+
+                {/* Instructions */}
+                <div className="md:col-span-8 space-y-2.5 text-xs text-slate-600">
+                  <h4 className="font-bold text-slate-800 text-sm">
+                    Cách thức nhận hàng an toàn tại Campus:
+                  </h4>
+                  <ul className="space-y-2 pl-4 list-disc text-slate-600 leading-relaxed">
+                    <li>
+                      Khi bưu phẩm tới KTX, bạn sẽ nhận được thông báo đẩy trên App / Telegram bot 5Campus.
+                    </li>
+                    <li>
+                      Xuất trình mã QR này hoặc cung cấp mã PIN <strong>8829</strong> cho bưu tá / lễ tân Dom B.
+                    </li>
+                    {isOnlinePayment ? (
+                      <li>
+                        <strong>Đã thanh toán Escrow:</strong> Bạn không cần trả thêm bất kỳ khoản tiền nào. Nhận đồ về phòng, cắm thử 48h rồi bấm xác nhận giải ngân.
+                      </li>
+                    ) : (
+                      <li>
+                        <strong>Đơn COD:</strong> Bạn có quyền mở hộp kiểm tra thiết bị hoạt động tốt trước khi thanh toán số tiền <strong>{productData.price.toLocaleString('vi-VN')} đ</strong> cho người giao.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </Card>
+
+            {/* CARD 3: TIẾN TRÌNH ĐƠN HÀNG TIẾP THEO */}
+            <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+              <h3 className="text-sm font-extrabold text-slate-900 pb-3 border-b border-slate-100">
+                Quy trình xử lý đơn hàng tiếp theo
+              </h3>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-3 relative">
+                  <div className="flex items-center gap-1.5 text-fpt-orange font-bold text-[11px] mb-1">
+                    <span className="flex h-5 w-5 rounded-full bg-fpt-orange text-white items-center justify-center text-[10px]">
+                      1
+                    </span>
+                    <span>Đã nhận đơn</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Thông báo đã gửi tới người bán để chuẩn bị đóng thùng bưu phẩm.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] mb-1">
+                    <span className="flex h-5 w-5 rounded-full bg-slate-200 text-slate-700 items-center justify-center text-[10px]">
+                      2
+                    </span>
+                    <span>Gửi Safe-Hub</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Người bán nộp hàng tại Bưu cục Thư viện trong 24h.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] mb-1">
+                    <span className="flex h-5 w-5 rounded-full bg-slate-200 text-slate-700 items-center justify-center text-[10px]">
+                      3
+                    </span>
+                    <span>Vận chuyển</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Xe chuyên trách FPT CampusShip trung chuyển tới KTX của bạn.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] mb-1">
+                    <span className="flex h-5 w-5 rounded-full bg-slate-200 text-slate-700 items-center justify-center text-[10px]">
+                      4
+                    </span>
+                    <span>Nhận & Test 48h</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Đồng kiểm bóc hộp, bao test 48h trước khi giải ngân Escrow.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN: 4 COLS */}
+          <div className="lg:col-span-4 space-y-5">
+            {/* TÓM TẮT THANH TOÁN & BIÊN LAI */}
+            <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4.5 w-4.5 text-slate-700" />
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    Biên lai thanh toán
+                  </h3>
+                </div>
+                <Badge
+                  variant={isOnlinePayment ? 'success' : 'warning'}
+                  className="text-[10px]"
+                >
+                  {isOnlinePayment ? 'ĐÃ NẠP ESCROW' : 'COD CHỜ THU'}
+                </Badge>
+              </div>
+
+              <div className="mt-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Tiền sản phẩm:</span>
+                  <span className="font-bold text-slate-800">
+                    {productData.price.toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Phí ship CampusShip:</span>
+                  <span className="text-slate-800">25.000 đ</span>
+                </div>
+
+                <div className="flex items-center justify-between text-emerald-700 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Voucher Freeship FPT
+                  </span>
+                  <span>-25.000 đ</span>
+                </div>
+
+                <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-100">
+                  <span>Phí bảo chứng Escrow:</span>
+                  <span className="font-bold text-emerald-700">Miễn phí 0đ</span>
+                </div>
+
+                {/* TOTAL */}
+                <div className="pt-3 border-t border-slate-200 flex items-baseline justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 uppercase">
+                      {isOnlinePayment ? 'TỔNG ĐÃ THANH TOÁN' : 'SỐ TIỀN CẦN TRẢ (COD)'}
+                    </span>
+                    <div className="text-[10px] text-slate-400">
+                      {isOnlinePayment ? 'Bảo lưu qua MB Bank Escrow' : 'Thu tiền mặt / QR khi nhận'}
+                    </div>
+                  </div>
+                  <div className="text-xl font-black text-fpt-orange">
+                    {productData.price.toLocaleString('vi-VN')}{' '}
+                    <span className="text-xs font-bold">đ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="mt-5 space-y-2.5">
+                <Button
+                  asChild
+                  className="w-full h-11 text-xs sm:text-sm font-bold bg-fpt-orange hover:bg-fpt-orange-hover shadow-sm shadow-orange-500/25"
+                >
+                  <Link href="/orders">
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>Xem & Quản lý đơn hàng</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full h-10 text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  <Link href="/posts">
+                    <span>Tiếp tục tìm đồ pass</span>
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+            {/* CARD QUÀ TẶNG SINH VIÊN */}
+            <Card className="rounded-2xl border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/80 p-5 shadow-xs">
+              <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm pb-2 border-b border-amber-200/70">
+                <Coins className="h-4.5 w-4.5 text-amber-600" />
+                <span>Quà tặng giao dịch thành công!</span>
+              </div>
+
+              <div className="mt-3 space-y-3 text-xs">
+                <div className="flex items-center justify-between rounded-xl bg-white/90 p-2.5 border border-amber-200/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🪙</span>
+                    <div>
+                      <div className="font-extrabold text-amber-950">+50 FPT Coin</div>
+                      <div className="text-[10px] text-amber-700">Đã cộng vào ví tài khoản</div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 text-[10px]">
+                    NHẬN THÀNH CÔNG
+                  </Badge>
+                </div>
+
+                <div className="rounded-xl bg-white/90 p-2.5 border border-amber-200/80">
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="font-bold text-slate-700">Voucher 20.000đ đơn tiếp theo</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyVoucher}
+                      className="text-fpt-orange font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      {copiedVoucher ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                      <span>{copiedVoucher ? 'Đã sao chép' : 'Sao chép'}</span>
+                    </button>
+                  </div>
+                  <div className="font-mono text-xs font-extrabold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                    FPT5CAMPUS-FREESHIP20K
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* TRỢ GIÚP ĐƠN HÀNG */}
+            <Card className="rounded-2xl border-slate-200/80 bg-white p-4 text-xs text-slate-600 shadow-xs space-y-2">
+              <div className="flex items-center gap-2 text-slate-900 font-bold">
+                <HelpCircle className="h-4 w-4 text-fpt-orange" />
+                <span>Cần trợ giúp về bưu kiện này?</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Đường dây nóng CTSV & Ban Quản Lý KTX luôn trực sẵn để giải quyết sự cố giao dịch hoặc chuyển nhầm phòng.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700">Hotline: 024.7300.1866</span>
+                <Link
+                  href="/orders/dispute"
+                  className="text-[11px] font-bold text-fpt-orange hover:underline"
+                >
+                  Quy chế khiếu nại →
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </main>
+
+      {/* FLOATING TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 text-white px-5 py-3 shadow-xl backdrop-blur-md text-xs sm:text-sm font-semibold animate-in slide-in-from-bottom-4 duration-200">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      <Footer />
+    </div>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-600 font-medium">
+          Đang tải thông tin đơn hàng thành công...
+        </div>
+      }
+    >
+      <OrderSuccessContent />
+    </Suspense>
+  );
+}

@@ -278,10 +278,12 @@ function CheckoutContent() {
         return;
       }
 
-      showToast(`🎉 Đặt hàng thành công! Đơn hàng ${finalCode} đã được kích hoạt Escrow.`);
+      showToast(`🎉 Đặt hàng thành công! Đơn hàng ${finalCode} đã được khởi tạo.`);
       setTimeout(() => {
-        router.push('/orders');
-      }, 1000);
+        router.push(
+          `/checkout/success?orderCode=${finalCode}&paymentMethod=${paymentMethod}&amount=${totalAmount}&productId=${productData.id}`
+        );
+      }, 600);
     } catch {
       showToast('Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại!');
     } finally {
