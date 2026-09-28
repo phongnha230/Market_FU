@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   MapPin,
   Bell,
@@ -25,6 +25,7 @@ import {
   ShoppingBag,
   Store,
 } from 'lucide-react';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal';
 import SettingsModal from '@/components/modals/SettingsModal';
@@ -33,11 +34,14 @@ import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useProductStore } from '@/stores/productStore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { initWebPush } from '@/utils/webPush';
 
 interface NavbarProps {
   selectedCampus?: string;
@@ -48,9 +52,11 @@ export default function Navbar({
   selectedCampus = 'hola',
   onSelectCampus,
 }: NavbarProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const [currentCampus, setCurrentCampus] = useState(selectedCampus);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
 
   // User Dropdown & Modal States
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -58,9 +64,20 @@ export default function Navbar({
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+    initWebPush().catch(() => {});
+  }, []);
 
   const userData = useUserStore((state) => state.user);
   const isSeller = userData.kycStatus === 'approved_seller';
+  const isEduEmail = Boolean(
+    userData.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    userData.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isVerifiedStudent = isEduEmail || userData.kycStatus === 'approved_student' || userData.kycStatus === 'approved_seller';
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const logout = useUserStore((state) => state.logout);
   const updateProfile = useUserStore((state) => state.updateProfile);
@@ -70,8 +87,23 @@ export default function Navbar({
   const unreadNotifs = useNotificationStore((state) => state.getUnreadCount());
   const unreadMessages = useChatStore((state) => state.getTotalUnreadCount());
 
+  // Prevent hydration mismatch by using initial values on SSR and until mounted on client
+  const mountedIsLoggedIn = isMounted && isLoggedIn;
+  const mountedUnreadNotifs = isMounted ? unreadNotifs : 0;
+  const mountedUnreadMessages = isMounted ? unreadMessages : 0;
+  const mountedFavoritesCount = isMounted ? favoritesCount : 0;
+
+  const products = useProductStore((state) => state.products);
+  const todayPostsCount = React.useMemo(() => {
+    return products.filter((p) => {
+      if (!p.timeAgo) return false;
+      const lower = p.timeAgo.toLowerCase();
+      return lower.includes('giờ') || lower.includes('phút') || lower.includes('vừa') || lower.includes('hôm nay');
+    }).length;
+  }, [products]);
+
   React.useEffect(() => {
-    if (isLoggedIn) {
+    if (mountedIsLoggedIn) {
       notificationStore.fetchNotifications();
       const cleanupNotif = notificationStore.initSocketListeners();
       chatStore.fetchConversations();
@@ -81,7 +113,7 @@ export default function Navbar({
         cleanupChat();
       };
     }
-  }, [isLoggedIn]);
+  }, [mountedIsLoggedIn]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -144,7 +176,7 @@ export default function Navbar({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>1.420 tin mới hôm nay</span>
+              <span suppressHydrationWarning>{todayPostsCount} tin mới hôm nay</span>
             </div>
             <div className="flex items-center gap-1 text-slate-500">
               <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
@@ -165,97 +197,102 @@ export default function Navbar({
                 alt="FPT 5Campus Marketplace"
                 fill
                 priority
+                sizes="(max-width: 640px) 176px, 208px"
                 className="object-contain object-left"
               />
             </div>
           </Link>
 
           {/* Nav links */}
-          <nav className="hidden lg:flex items-center gap-6 xl:gap-9 text-sm font-medium whitespace-nowrap">
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 text-sm font-semibold whitespace-nowrap">
             <Link
               href="/"
-              className={`relative py-1.5 whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all ${
                 activeTab === 'home'
-                  ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Trang chủ
             </Link>
             <Link
               href="/posts"
-              className={`relative py-1.5 whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all ${
                 activeTab === 'explore'
-                  ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Khám phá
             </Link>
             <Link
               href="/vouchers"
-              className={`relative py-1.5 whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
                 activeTab === 'vouchers'
-                  ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              Voucher
+              <span>Ưu đãi & Săn Xu</span>
+              <span className="rounded-full bg-orange-100 text-fpt-orange px-1.5 py-0.2 text-[10px] font-extrabold">
+                HOT
+              </span>
             </Link>
             <Link
               href="/favorites"
-              className={`relative py-1.5 whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
                 activeTab === 'favorites'
-                  ? 'text-fpt-orange font-bold after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-fpt-orange after:rounded-full'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              Yêu thích
+              <span>Yêu thích</span>
+              {mountedFavoritesCount > 0 && (
+                <span className="rounded-full bg-rose-100 text-rose-600 px-1.5 py-0.2 text-[10px] font-bold">
+                  {mountedFavoritesCount}
+                </span>
+              )}
             </Link>
           </nav>
         </div>
 
         {/* Right action tools */}
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-3.5 shrink-0">
-          {/* Quick search button */}
-          <Link
-            href="/posts"
-            title="Tìm kiếm tin đăng"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-          >
-            <Search className="h-4.5 w-4.5" />
-          </Link>
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Notification button & Dropdown popover */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              title={`Thông báo (${mountedUnreadNotifs} mới) - Bấm 1 lần mở xem nhanh, bấm đúp (2 lần) vào trang thông báo`}
+              onClick={() => setIsNotifDropdownOpen((prev) => !prev)}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                setIsNotifDropdownOpen(false);
+                router.push('/notifications');
+              }}
+              className={cn(
+                'relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer',
+                isNotifDropdownOpen && 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
+              )}
+            >
+              <Bell className="h-4.5 w-4.5" />
+              {mountedUnreadNotifs > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
+                  {mountedUnreadNotifs > 9 ? '9+' : mountedUnreadNotifs}
+                </span>
+              )}
+            </Button>
 
-          <Separator orientation="vertical" className="hidden sm:block h-5 w-[1px] bg-slate-200/80" />
-
-          {/* Notification button */}
-          <Button
-            variant="ghost"
-            title={`Thông báo (${unreadNotifs} mới)`}
-            onClick={() => {
-              if (unreadNotifs > 0) {
-                const latest = notificationStore.notifications[0];
-                showToast(`🔔 ${latest ? latest.title + ': ' + latest.body : 'Bạn có thông báo mới'}`);
-                notificationStore.markAllAsRead();
-              } else {
-                showToast('🔔 Bạn không có thông báo mới nào.');
-              }
-            }}
-            className="relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
-          >
-            <Bell className="h-4.5 w-4.5" />
-            {unreadNotifs > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-                {unreadNotifs > 9 ? '9+' : unreadNotifs}
-              </span>
-            )}
-          </Button>
+            <NotificationDropdown
+              isOpen={isNotifDropdownOpen}
+              onClose={() => setIsNotifDropdownOpen(false)}
+            />
+          </div>
 
           {/* Chat message button */}
           <Button
             asChild
             variant="ghost"
-            title={`Tin nhắn (${unreadMessages} mới)`}
+            title={`Tin nhắn (${mountedUnreadMessages} mới)`}
             className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
               activeTab === 'chat'
                 ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
@@ -264,20 +301,20 @@ export default function Navbar({
           >
             <Link href="/chat">
               <MessageSquare className="h-4.5 w-4.5" />
-              {unreadMessages > 0 && (
+              {mountedUnreadMessages > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                  {mountedUnreadMessages > 9 ? '9+' : mountedUnreadMessages}
                 </span>
               )}
             </Link>
           </Button>
 
           {/* FPT Coin Widget */}
-          {isLoggedIn && (
+          {mountedIsLoggedIn && (
             <Link
-              href="/vouchers"
-              title="Ví FPT Coin & Săn Voucher"
-              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 px-3 py-1.5 text-xs font-bold text-amber-800 hover:from-amber-100 hover:to-orange-100 hover:border-amber-300 transition shadow-2xs group cursor-pointer"
+              href="/vouchers#quests"
+              title="Ví FPT Coin & Nhiệm vụ săn Xu"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 px-3 py-1.5 text-xs font-bold text-amber-900 hover:from-amber-100 hover:to-orange-100 hover:border-amber-300 transition shadow-2xs group cursor-pointer"
             >
               <span className="text-sm leading-none">🪙</span>
               <span className="font-extrabold text-amber-900">{userData.coins}</span>
@@ -285,34 +322,19 @@ export default function Navbar({
             </Link>
           )}
 
-          <Separator orientation="vertical" className="hidden md:block h-5 w-[1px] bg-slate-200/80" />
-
-          {/* + Đăng bán / Mở Seller CTA Button */}
+          {/* + Đăng bán CTA Button */}
           <Button
             asChild
-            className={`h-9 flex items-center gap-1.5 rounded-xl px-4 text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-95 ${
-              isSeller
-                ? 'bg-fpt-orange text-white hover:bg-fpt-orange-hover hover:shadow'
-                : 'bg-orange-50 text-fpt-orange border border-orange-200 hover:bg-orange-100'
-            }`}
+            className="h-9 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-fpt-orange-hover text-white px-3.5 sm:px-4 text-xs sm:text-sm font-semibold shadow-xs shadow-orange-500/25 transition-all active:scale-95 cursor-pointer"
           >
             <Link href="/create-post">
-              {isSeller ? (
-                <>
-                  <Plus className="h-4 w-4 stroke-[2.5]" />
-                  <span className="hidden sm:inline">Đăng bán</span>
-                </>
-              ) : (
-                <>
-                  <Store className="h-4 w-4" />
-                  <span className="hidden sm:inline">Mở Seller</span>
-                </>
-              )}
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span className="hidden sm:inline">Đăng bán</span>
             </Link>
           </Button>
 
           {/* USER PROFILE PILL OR LOGIN BUTTON */}
-          {!isLoggedIn ? (
+          {!mountedIsLoggedIn ? (
             <Button
               asChild
               variant="outline"
@@ -328,23 +350,24 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className={`flex items-center gap-2.5 rounded-full border p-1 pr-3.5 transition-all cursor-pointer ${
+                className={`flex items-center gap-2 rounded-full border p-1 pr-3 transition-all cursor-pointer ${
                   isUserMenuOpen
-                    ? 'border-fpt-orange bg-orange-50/60 shadow-xs ring-2 ring-orange-100'
-                    : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-100/70 shadow-2xs'
+                    ? 'border-fpt-orange bg-orange-50/70 shadow-xs ring-2 ring-orange-100'
+                    : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50 shadow-2xs'
                 }`}
               >
-                <Avatar size="sm" className="h-7.5 w-7.5 ring-1 ring-slate-200">
-                  <AvatarFallback className="bg-fpt-blue text-xs font-bold text-white shadow-xs">
-                    {userData.name.charAt(userData.name.lastIndexOf(' ') + 1) || 'Q'}
+                <Avatar size="sm" className="h-7 w-7 ring-1 ring-slate-200/80">
+                  <AvatarImage src={userData.avatarUrl} alt={userData.name} />
+                  <AvatarFallback className="bg-gradient-to-br from-orange-400 to-fpt-orange text-xs font-bold text-white shadow-xs">
+                    {userData.name.slice(0, 2).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-xs font-semibold text-slate-800 leading-tight">
-                    {userData.name}
+                  <span className="text-xs font-semibold text-slate-800 leading-tight max-w-[120px] truncate">
+                    {userData.name.replace(/\s*\([^)]*\)/, '') || 'Sinh viên FPT'}
                   </span>
-                  <span className="text-[10px] text-slate-500 leading-none">
-                    {userData.cohort}
+                  <span className="text-[10px] text-slate-400 font-medium leading-none">
+                    {userData.cohort || (isVerifiedStudent ? 'FPT Student' : 'Chưa xác thực SV')}
                   </span>
                 </div>
                 <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180 text-fpt-orange' : ''}`} />
@@ -361,20 +384,30 @@ export default function Navbar({
                     {/* Header info */}
                     <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-fpt-blue font-bold text-white shadow-xs">
-                          Q
-                        </div>
+                        <Avatar className="h-10 w-10 shrink-0 ring-1 ring-slate-200">
+                          <AvatarImage src={userData.avatarUrl} alt={userData.name} />
+                          <AvatarFallback className="bg-fpt-blue font-bold text-white shadow-xs">
+                            {userData.name.slice(0, 2).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-slate-900 truncate">
                             {userData.name}
                           </p>
                           <p className="text-[11px] text-slate-500 truncate">
-                            {userData.cohort} • {userData.major}
+                            {userData.cohort ? `${userData.cohort} • ` : ''}{userData.major || (isVerifiedStudent ? 'Sinh viên FPT' : 'Tài khoản mới')}
                           </p>
-                          <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Đã xác thực @fpt.edu.vn</span>
-                          </p>
+                          {isVerifiedStudent ? (
+                            <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>{isEduEmail ? 'Đã xác thực @fpt.edu.vn' : 'Sinh viên FPT đã xác thực'}</span>
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5">
+                              <ShieldCheck className="h-3 w-3" />
+                              <span>Chưa xác thực Thẻ SV FPT</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -543,14 +576,26 @@ export default function Navbar({
               Đơn hàng
             </Link>
             <Link
+              href="/notifications"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+            >
+              <span>Thông báo</span>
+              {mountedUnreadNotifs > 0 && (
+                <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {mountedUnreadNotifs} mới
+                </span>
+              )}
+            </Link>
+            <Link
               href="/chat"
               onClick={() => setIsMobileMenuOpen(false)}
               className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
             >
               <span>Tin nhắn</span>
-              {unreadMessages > 0 && (
+              {mountedUnreadMessages > 0 && (
                 <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
-                  {unreadMessages} mới
+                  {mountedUnreadMessages} mới
                 </span>
               )}
             </Link>

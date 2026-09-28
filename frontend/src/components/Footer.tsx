@@ -18,6 +18,7 @@ export default function Footer() {
                   src="/fpt-5campus-logo.png"
                   alt="FPT 5Campus Marketplace"
                   fill
+                  sizes="192px"
                   className="object-contain object-left"
                 />
               </div>

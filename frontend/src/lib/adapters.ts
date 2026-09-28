@@ -48,6 +48,26 @@ export function formatTimeAgo(dateStr?: string | Date): string {
   return date.toLocaleDateString('vi-VN');
 }
 
+export function extractImageUrl(img: any): string {
+  if (!img) return '';
+  let url = '';
+  if (typeof img === 'string') {
+    url = img.trim();
+  } else if (typeof img === 'object') {
+    if (typeof img.imageUrl === 'string') url = img.imageUrl.trim();
+    else if (typeof img.url === 'string') url = img.url.trim();
+    else if (typeof img.src === 'string') url = img.src.trim();
+  }
+
+  if (!url || url.includes('api.marketfu.com') || url.includes('marketfu.com')) {
+    return '';
+  }
+
+  return url;
+}
+
+const FALLBACK_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
 /**
  * Adapter: Chuyển đổi đối tượng Product từ Backend sang ProductItem chuẩn của Frontend
  */
@@ -67,14 +87,19 @@ export function adaptBackendProduct(item: any): ProductItem {
     initial: ((item.seller?.fullName || item.seller?.name || 'U')[0] || 'U').toUpperCase(),
     verified: item.seller?.studentVerification?.status === 'APPROVED' || item.seller?.verified === true,
     avatarUrl: item.seller?.avatarUrl || undefined,
-    rating: item.seller?.reputationScore ? Math.min(5.0, Number((item.seller.reputationScore / 20).toFixed(1))) : 5.0,
+    rating: item.seller?.reputationScore ? Math.min(5.0, Number((item.seller.reputationScore / 20).toFixed(1))) : 0,
     reviewCount: item.seller?.reviewCount || 0,
     dealCount: item.seller?.dealCount || 0,
-    responseRate: '98%',
+    responseRate: '0%',
   };
 
-  const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : [];
-  const primaryImage = images[0] || item.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+  const rawImages = Array.isArray(item.images) ? item.images : [];
+  const imageUrls: string[] = rawImages
+    .map(extractImageUrl)
+    .filter((url: string) => url.length > 0);
+
+  const directImage = extractImageUrl(item.imageUrl);
+  const primaryImage = imageUrls[0] || directImage || FALLBACK_PRODUCT_IMAGE;
 
   return {
     id: item.id || item._id,
@@ -97,7 +122,11 @@ export function adaptBackendProduct(item: any): ProductItem {
  */
 export function adaptBackendProductDetail(item: any): ProductDetail {
   const base = adaptBackendProduct(item);
-  const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : [base.imageUrl];
+  const rawImages = Array.isArray(item.images) ? item.images : [];
+  const imageUrls: string[] = rawImages
+    .map(extractImageUrl)
+    .filter((url: string) => url.length > 0);
+  const images = imageUrls.length > 0 ? imageUrls : [base.imageUrl];
 
   const galleryImages = images.map((img: string, idx: number) => ({
     src: img,
@@ -127,37 +156,52 @@ export function adaptBackendUser(user: any): UserProfile {
     throw new Error('User data is missing');
   }
 
-  const profile = user.profile || {};
-  const kyc = user.studentVerification || {};
+  const profile = user.profile || user;
+  const kyc = user.studentVerification || user.kyc || profile.kyc || {};
+
+  const emailLower = String(user.email || profile.email || '').toLowerCase().trim();
+  const isEdu = emailLower.endsWith('@fpt.edu.vn') || emailLower.endsWith('@fe.edu.vn');
 
   let kycStatus: UserProfile['kycStatus'] = 'unverified';
-  if (kyc.status === 'APPROVED') {
+  const statusUpper = String(kyc.status || '').toUpperCase();
+  if (statusUpper === 'APPROVED' || user.role === 'SELLER') {
     kycStatus = user.role === 'SELLER' ? 'approved_seller' : 'approved_student';
-  } else if (kyc.status === 'PENDING') {
+  } else if (statusUpper === 'PENDING') {
     kycStatus = 'pending';
-  } else if (kyc.status === 'REJECTED') {
+  } else if (statusUpper === 'REJECTED') {
     kycStatus = 'rejected';
+  } else if (isEdu) {
+    // Tài khoản email trường @fpt.edu.vn hoặc @fe.edu.vn mặc định đã xác thực sinh viên
+    kycStatus = 'approved_student';
   }
 
+  const studentId = kyc.studentId || profile.studentId || user.studentId || '';
+  const cohortMatch = studentId.match(/\d{2}/)?.[0];
+  const derivedCohort = profile.cohort || (cohortMatch ? `K${cohortMatch}` : isEdu ? 'K17' : '');
+  const isSE = studentId.toUpperCase().includes('SE') || studentId.toUpperCase().includes('HE');
+  const derivedMajor = profile.major || (isSE ? 'Kỹ thuật Phần mềm (SE)' : isEdu ? 'Kỹ thuật Phần mềm' : 'Công nghệ thông tin');
+
   return {
-    name: profile.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
-    studentId: kyc.studentId || profile.studentId || '',
-    cohort: profile.cohort || 'K17',
-    major: profile.major || 'Kỹ thuật phần mềm',
+    id: user.userId || user.id || profile.userId || profile.id,
+    name: profile.fullName || user.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
+    studentId,
+    cohort: derivedCohort,
+    major: derivedMajor,
     campus: formatCampusTag(profile.campus || user.campus || 'HOL'),
-    dorm: profile.dorm || 'KTX',
-    phone: profile.phone || '',
-    email: user.email || '',
+    dorm: profile.dorm || '',
+    phone: profile.phoneNumber || profile.phone || '',
+    email: user.email || profile.email || '',
     bio: profile.bio || '',
-    avatarUrl: profile.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-    coins: user.campusCoins ?? 0,
-    trustScore: user.reputationScore ?? 100,
+    avatarUrl: profile.avatarUrl || user.avatarUrl || '',
+    coins: user.campusCoins ?? profile.campusCoins ?? 0,
+    trustScore: user.reputationScore ?? profile.reputationScore ?? 100,
     savedVoucherIds: [],
     claimedQuestIds: [],
     dailyCheckedIn: false,
     kycStatus,
     kycRole: user.role === 'SELLER' ? 'seller' : 'student',
     kycApplicationId: kyc.id,
+    kycRejectionReason: kyc.rejectedReason || profile.kyc?.rejectedReason || '',
     vouchers: [],
     settings: {
       emailNotifications: true,

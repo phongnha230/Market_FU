@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useUserStore } from '@/stores/userStore';
 import { X, QrCode, Copy } from 'lucide-react';
 
 interface QrShareModalProps {
@@ -14,6 +15,8 @@ export default function QrShareModal({
   onClose,
   onToast,
 }: QrShareModalProps) {
+  const user = useUserStore((s) => s.user);
+
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
@@ -50,10 +53,10 @@ export default function QrShareModal({
 
         <div>
           <p className="text-xs font-bold text-slate-800">
-            Lê Minh Quân • K17 SE
+            {user.name || 'Sinh viên FPT'}{user.cohort ? ` • ${user.cohort}` : ''}{user.major ? ` ${user.major}` : ''}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Quét mã để kết nối nhanh trên Campus Hòa Lạc
+            Quét mã để kết nối nhanh trên Campus {user.campus || 'FPT'}
           </p>
         </div>
 

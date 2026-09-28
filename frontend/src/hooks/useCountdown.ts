@@ -9,6 +9,7 @@ export interface CountdownResult {
   formattedSeconds: string;
   isExpired: boolean;
   totalSeconds: number;
+  reset: (newSeconds?: number) => void;
 }
 
 export function useCountdown(initialSeconds: number): CountdownResult {
@@ -28,6 +29,10 @@ export function useCountdown(initialSeconds: number): CountdownResult {
     return () => clearInterval(interval);
   }, [secondsRemaining]);
 
+  const reset = (newSeconds?: number) => {
+    setSecondsRemaining(typeof newSeconds === 'number' ? newSeconds : initialSeconds);
+  };
+
   const hours = Math.floor(secondsRemaining / 3600);
   const minutes = Math.floor((secondsRemaining % 3600) / 60);
   const seconds = secondsRemaining % 60;
@@ -41,5 +46,6 @@ export function useCountdown(initialSeconds: number): CountdownResult {
     formattedSeconds: seconds.toString().padStart(2, '0'),
     isExpired: secondsRemaining <= 0,
     totalSeconds: secondsRemaining,
+    reset,
   };
 }
