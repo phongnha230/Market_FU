@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useUserStore } from '@/stores/userStore';
+import { useWalletStore } from '@/stores/walletStore';
 import {
   X,
   Award,
@@ -37,52 +39,12 @@ export default function VoucherModals({
   const [reportReason, setReportReason] = useState('scalping');
   const [reportDetails, setReportDetails] = useState('');
 
+  const user = useUserStore((s) => s.user);
+  const transactions = useWalletStore((s) => s.transactions);
+
   // 1. History Modal
   const renderHistoryModal = () => {
     if (!isHistoryOpen) return null;
-
-    const coinTransactions = [
-      {
-        id: 'tx-1',
-        title: 'Điểm danh sinh viên hàng ngày',
-        amount: '+20 Coins',
-        date: 'Hôm nay, 08:30',
-        campus: 'Hola Campus',
-        type: 'plus',
-      },
-      {
-        id: 'tx-2',
-        title: 'Thưởng xác thực KYC Thẻ SV Hola K17',
-        amount: '+100 Coins',
-        date: 'Hôm qua, 14:15',
-        campus: 'Hola Campus',
-        type: 'plus',
-      },
-      {
-        id: 'tx-3',
-        title: 'Đánh giá kèm ảnh đơn giáo trình PRF192',
-        amount: '+50 Coins',
-        date: '16/09/2025',
-        campus: 'TP.HCM (Q.9)',
-        type: 'plus',
-      },
-      {
-        id: 'tx-4',
-        title: 'Đổi voucher giảm 20.000đ CampusShip',
-        amount: '-200 Coins',
-        date: '14/09/2025',
-        campus: 'Toàn hệ thống',
-        type: 'minus',
-      },
-      {
-        id: 'tx-5',
-        title: 'Thưởng tham gia phiên chợ Pass đồ Dom A',
-        amount: '+80 Coins',
-        date: '10/09/2025',
-        campus: 'Hola Campus',
-        type: 'plus',
-      },
-    ];
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
@@ -94,7 +56,9 @@ export default function VoucherModals({
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900">Lịch Sử Ví Campus Coins</h3>
-                <p className="text-xs text-slate-500">Mã SV: HE172819 • Lê Minh Quân (Hola K17)</p>
+                <p className="text-xs text-slate-500">
+                  {user.studentId ? `Mã SV: ${user.studentId} • ` : ''}{user.name || 'Sinh viên FPT'} ({user.campus || 'Hola'})
+                </p>
               </div>
             </div>
             <button
@@ -120,9 +84,9 @@ export default function VoucherModals({
             <div className="text-right">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-xs">
                 <Award className="h-3.5 w-3.5" />
-                Diamond Tier
+                {coins >= 500 ? 'Diamond Tier' : coins >= 200 ? 'Gold Tier' : 'Silver Tier'}
               </span>
-              <p className="mt-1 text-[11px] text-orange-100">Cần 150 Coins lên Master</p>
+              <p className="mt-1 text-[11px] text-orange-100">{user.campus || 'Campus FPT'}</p>
             </div>
           </div>
 
@@ -131,28 +95,32 @@ export default function VoucherModals({
             <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
               Biến động gần đây
             </div>
-            {coinTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition"
-              >
-                <div>
-                  <h5 className="text-xs font-bold text-slate-900">{tx.title}</h5>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                    <span>{tx.date}</span>
-                    <span>•</span>
-                    <span>{tx.campus}</span>
+            {transactions.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                Chưa có biến động số dư xu nào.
+              </div>
+            ) : (
+              transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition"
+                >
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-900">{tx.description}</h5>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                      <span>{tx.createdAt}</span>
+                    </div>
+                  </div>
+                  <div
+                    className={`text-xs font-black ${
+                      tx.amount > 0 ? 'text-emerald-600' : 'text-rose-500'
+                    }`}
+                  >
+                    {tx.amount > 0 ? `+${tx.amount}` : tx.amount} Coins
                   </div>
                 </div>
-                <div
-                  className={`text-xs font-black ${
-                    tx.type === 'plus' ? 'text-emerald-600' : 'text-rose-500'
-                  }`}
-                >
-                  {tx.amount}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <button

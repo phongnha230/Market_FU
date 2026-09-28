@@ -1,8 +1,8 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import { Sparkles, Coins, ShieldCheck, Truck, Award, Calendar, ChevronRight, Info } from 'lucide-react';
+import CompactHeader from '@/components/layout/CompactHeader';
+import { useUserStore } from '@/stores/userStore';
 
 interface VoucherHeroBannerProps {
   coins: number;
@@ -17,6 +17,8 @@ export default function VoucherHeroBanner({
   onCheckIn,
   onOpenHistory,
 }: VoucherHeroBannerProps) {
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const user = useUserStore((state) => state.user);
   const coinValueVND = (coins * 100).toLocaleString('vi-VN');
   const targetCoins = 500;
   const progressPercent = Math.min(100, Math.round((coins / targetCoins) * 100));
@@ -24,16 +26,14 @@ export default function VoucherHeroBanner({
 
   return (
     <div className="w-full space-y-3">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-slate-500">
-        <Link href="/" className="hover:text-fpt-orange transition-colors flex items-center gap-1">
-          <span>🏠</span> Trang chủ
-        </Link>
-        <ChevronRight className="h-3 w-3 text-slate-400" />
-        <span className="text-slate-500">Tiện ích & Ưu đãi</span>
-        <ChevronRight className="h-3 w-3 text-slate-400" />
-        <span className="font-semibold text-fpt-orange">Kho Voucher & Campus Coins</span>
-      </nav>
+      {/* Compact in-container Header matching Image 2 */}
+      <CompactHeader
+        breadcrumbs={[
+          { label: 'Tiện ích & Ưu đãi' },
+          { label: 'Kho Voucher & Campus Coins' },
+        ]}
+        activeTab="vouchers"
+      />
 
       {/* Hero Banner Box */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#FF5E0E] via-[#F26F21] to-[#FF7B29] p-6 lg:p-8 text-white shadow-lg">
@@ -107,7 +107,12 @@ export default function VoucherHeroBanner({
                   </button>
                 </div>
                 <div className="text-xs text-slate-500 font-medium mt-0.5">
-                  = {coinValueVND}đ khi thanh toán đơn hoặc trừ ship • <span className="text-slate-700 font-semibold">K17 SE • Hola Campus</span>
+                  = {coinValueVND}đ khi thanh toán đơn hoặc trừ ship •{' '}
+                  <span className="text-slate-700 font-semibold">
+                    {isLoggedIn
+                      ? `${user.cohort || 'K17'} ${user.major || 'SE'} • ${user.campus || 'Hola'} Campus`
+                      : 'Chưa đăng nhập ví'}
+                  </span>
                 </div>
               </div>
 

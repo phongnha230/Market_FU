@@ -18,10 +18,15 @@ import VoucherCard from '@/components/vouchers/VoucherCard';
 import VoucherQuests from '@/components/vouchers/VoucherQuests';
 import VoucherPolicyBanner from '@/components/vouchers/VoucherPolicyBanner';
 import VoucherModals from '@/components/vouchers/VoucherModals';
+import AuthPromptModal from '@/components/modals/AuthPromptModal';
+import { useUserStore } from '@/stores/userStore';
 
 export default function VouchersPage() {
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const {
     user,
+    orders,
     addCoins,
     saveVoucher,
     checkInDaily,
@@ -73,6 +78,11 @@ export default function VouchersPage() {
 
   // Action handlers
   const handleCheckIn = async () => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để điểm danh nhận Campus Coins!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
     try {
       const res = await profileService.checkInDaily();
       if (res.success) {
@@ -86,6 +96,11 @@ export default function VouchersPage() {
   };
 
   const handleApplyCode = async (code: string) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để áp dụng mã ưu đãi!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
     const upperCode = code.toUpperCase().trim();
     const res = await useVoucherStore.getState().useVoucherCode(upperCode);
 
@@ -109,7 +124,141 @@ export default function VouchersPage() {
     }
   };
 
+  const incrementVoucherClaim = (voucherId: string) => {
+    setVouchers((prev) =>
+      prev.map((v) => {
+        if (v.id === voucherId) {
+          const newClaimed = (v.claimedCount || 0) + 1;
+          const total = v.totalLimit || 100;
+          const newPct = Math.min(100, Math.round((newClaimed / total) * 100));
+          return {
+            ...v,
+            claimedCount: newClaimed,
+            usedPercentage: newPct,
+            usedText: `Đã dùng ${newPct}% (${newClaimed}/${total})`,
+            actionType: 'saved' as const,
+          };
+        }
+        return v;
+      })
+    );
+  };
+
+  // Dynamic Quests based on real user state
+  const liveQuests = React.useMemo(() => {
+    return quests.map((q) => {
+      const isClaimed = user.claimedQuestIds?.includes(q.id);
+
+      if (q.id === 'quest-kyc') {
+        const isKyc = user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
+        if (isClaimed) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claimed' as const,
+            statusText: '✓ Đã hoàn thành và nhận thưởng',
+            actionLabel: 'Đã nhận ✓',
+          };
+        }
+        if (isKyc) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claim' as const,
+            statusText: '✓ Đã xác thực KYC thẻ sinh viên',
+            actionLabel: 'Nhận 100 Coins',
+          };
+        }
+        return {
+          ...q,
+          isCompleted: false,
+          actionType: 'link' as const,
+          statusText: 'Chưa xác thực thẻ SV',
+          actionLabel: 'Xác thực ngay',
+        };
+      }
+
+      if (q.id === 'quest-safepoint') {
+        if (isClaimed) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claimed' as const,
+            statusText: '✓ Đã hoàn thành',
+            actionLabel: 'Đã nhận ✓',
+          };
+        }
+        if (user.dailyCheckedIn) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claim' as const,
+            statusText: '✓ Đã điểm danh hôm nay',
+            actionLabel: 'Nhận 40 Coins',
+          };
+        }
+        return {
+          ...q,
+          isCompleted: false,
+          actionType: 'link' as const,
+          statusText: 'Chưa điểm danh hôm nay',
+          actionLabel: 'Điểm danh ngay',
+        };
+      }
+
+      if (q.id === 'quest-review') {
+        const reviewedCount = orders.filter((o) => o.reviewed).length;
+        const hasReview = reviewedCount > 0;
+        if (isClaimed) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claimed' as const,
+            statusText: '✓ Đã hoàn thành',
+            actionLabel: 'Đã nhận ✓',
+          };
+        }
+        if (hasReview) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claim' as const,
+            statusText: '✓ Đã hoàn tất đánh giá',
+            actionLabel: 'Nhận 50 Coins',
+          };
+        }
+        return {
+          ...q,
+          isCompleted: false,
+          actionType: 'link' as const,
+          statusText: `Tiến độ: ${reviewedCount} / 1 đánh giá`,
+          actionLabel: 'Đánh giá ngay',
+        };
+      }
+
+      if (q.id === 'quest-post') {
+        if (isClaimed) {
+          return {
+            ...q,
+            isCompleted: true,
+            actionType: 'claimed' as const,
+            statusText: '✓ Đã hoàn thành',
+            actionLabel: 'Đã nhận ✓',
+          };
+        }
+        return q;
+      }
+
+      return q;
+    });
+  }, [quests, user]);
+
   const handleSaveVoucher = (voucher: VoucherItem) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để lưu voucher vào ví cá nhân!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
     saveVoucher(voucher.id, {
       id: voucher.id,
       title: voucher.title,
@@ -117,10 +266,16 @@ export default function VouchersPage() {
       discount: voucher.discount,
       expiry: voucher.expiry,
     });
+    incrementVoucherClaim(voucher.id);
     showToast(`🔖 Đã lưu "${voucher.title}" vào ví! Sẽ tự áp dụng khi thanh toán.`, 'success');
   };
 
   const handleRedeemVoucher = async (voucher: VoucherItem) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để đổi voucher từ Campus Coins!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (!voucher.coinCost) return;
     if (user.coins < voucher.coinCost) {
       showToast(`Bạn không đủ Coins! Cần thêm ${voucher.coinCost - user.coins} Coins nữa.`, 'warning');
@@ -137,14 +292,20 @@ export default function VouchersPage() {
       discount: voucher.discount,
       expiry: voucher.expiry,
     });
+    incrementVoucherClaim(voucher.id);
     showToast(`🪙 Đổi thành công! Đã trừ ${voucher.coinCost} Coins và cộng voucher vào ví.`, 'success');
   };
 
   const handleClaimQuest = async (questId: string, coinsAmount: number) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để nhận thưởng nhiệm vụ!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
     try {
-      await profileService.claimQuest(questId, coinsAmount);
-      claimQuestCoins(questId, coinsAmount);
-      showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
+      const res = await profileService.claimQuest(questId, coinsAmount);
+      const added = res?.coinsAdded || coinsAmount;
+      showToast(`🎉 Chúc mừng! Bạn nhận được +${added} Campus Coins từ nhiệm vụ.`, 'success');
     } catch (err: any) {
       const res = claimQuestCoins(questId, coinsAmount);
       if (res.success) {
@@ -245,11 +406,13 @@ export default function VouchersPage() {
         </div>
 
         {/* 5. Weekly Coin Quests */}
-        <VoucherQuests
-          quests={quests}
-          claimedQuestIds={user.claimedQuestIds || []}
-          onClaimQuest={handleClaimQuest}
-        />
+        <div id="quests" className="scroll-mt-6">
+          <VoucherQuests
+            quests={liveQuests}
+            claimedQuestIds={user.claimedQuestIds || []}
+            onClaimQuest={handleClaimQuest}
+          />
+        </div>
 
         {/* 6. Policy & Guarantee Banner */}
         <VoucherPolicyBanner
@@ -268,6 +431,14 @@ export default function VouchersPage() {
         onCloseReport={() => setIsReportOpen(false)}
         coins={user.coins}
         onReportSuccess={handleReportSuccess}
+      />
+
+      {/* Auth Prompt Modal */}
+      <AuthPromptModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        actionType="voucher"
+        redirectUrl="/vouchers"
       />
     </div>
   );

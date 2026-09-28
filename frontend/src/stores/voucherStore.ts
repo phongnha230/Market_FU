@@ -34,10 +34,13 @@ export interface UserVoucher {
 
 interface VoucherState {
   availableVouchers: Voucher[];
+  myVouchersByUser: Record<string, UserVoucher[]>;
+  activeUserId: string | null;
   myVouchers: UserVoucher[];
   isLoading: boolean;
 
   // Actions
+  setActiveUser: (userId: string | null) => void;
   fetchAvailableVouchers: () => Promise<void>;
   fetchMyVouchers: () => Promise<void>;
   redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
@@ -142,29 +145,7 @@ export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
   },
 ];
 
-export const INITIAL_USER_VOUCHERS: UserVoucher[] = [
-  {
-    id: 'uv-1',
-    userId: 'user-default',
-    voucherId: 'vch-canteen-10k',
-    voucher: INITIAL_AVAILABLE_VOUCHERS[0],
-    voucherCode: 'FUV-CANT-8921A',
-    status: 'UNUSED',
-    expiredAt: '30/10/2026',
-    createdAt: 'Hôm qua',
-  },
-  {
-    id: 'uv-2',
-    userId: 'user-default',
-    voucherId: 'vch-passio-15k',
-    voucher: INITIAL_AVAILABLE_VOUCHERS[1],
-    voucherCode: 'FUV-PASS-9938B',
-    status: 'USED',
-    usedAt: '15:20 - 18/09/2026',
-    expiredAt: '30/10/2026',
-    createdAt: '3 ngày trước',
-  },
-];
+export const INITIAL_USER_VOUCHERS: UserVoucher[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -176,8 +157,20 @@ export const useVoucherStore = create<VoucherState>()(
   persist(
     (set, get) => ({
       availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-      myVouchers: INITIAL_USER_VOUCHERS,
+      myVouchersByUser: {},
+      activeUserId: null,
+      myVouchers: [],
       isLoading: false,
+
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim() : null;
+        const state = get();
+        const userVouchers = uId && state.myVouchersByUser[uId] ? state.myVouchersByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          myVouchers: userVouchers,
+        });
+      },
 
       // 1. Tải danh sách Voucher từ Backend
       fetchAvailableVouchers: async () => {
@@ -199,7 +192,14 @@ export const useVoucherStore = create<VoucherState>()(
         try {
           const res = await voucherService.getMyVouchers({ limit: 50 });
           if (res.userVouchers) {
-            set({ myVouchers: res.userVouchers.map(mapBackendUserVoucher) });
+            const mapped = res.userVouchers.map(mapBackendUserVoucher);
+            const activeUid = get().activeUserId;
+            set((state) => ({
+              myVouchers: mapped,
+              myVouchersByUser: activeUid
+                ? { ...state.myVouchersByUser, [activeUid]: mapped }
+                : state.myVouchersByUser,
+            }));
           }
         } catch (error) {
           console.warn('⚠️ [VoucherStore] Không thể tải ví voucher cá nhân từ server, dùng cache offline');
@@ -217,12 +217,19 @@ export const useVoucherStore = create<VoucherState>()(
             campusCoins: res.remainingCoins ?? Math.max(0, s.campusCoins - mappedVoucher.voucher.coinCost),
           }));
 
+          const activeUid = get().activeUserId || 'guest';
+          const updatedMyVouchers = [mappedVoucher, ...get().myVouchers];
+
           // Thêm voucher mới đổi vào danh sách myVouchers
           set((state) => ({
             availableVouchers: state.availableVouchers.map((v) =>
               v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
             ),
-            myVouchers: [mappedVoucher, ...state.myVouchers],
+            myVouchers: updatedMyVouchers,
+            myVouchersByUser: {
+              ...state.myVouchersByUser,
+              [activeUid]: updatedMyVouchers,
+            },
           }));
 
           return {
@@ -246,17 +253,24 @@ export const useVoucherStore = create<VoucherState>()(
         try {
           const res = await voucherService.useVoucher(code);
           const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          const activeUid = get().activeUserId || 'guest';
+
+          const updatedList = get().myVouchers.map((uv) =>
+            uv.voucherCode === code || uv.id === userVoucherIdOrCode
+              ? {
+                  ...uv,
+                  status: 'USED' as UserVoucherStatus,
+                  usedAt: `${nowStr} - Hôm nay`,
+                }
+              : uv
+          );
 
           set((state) => ({
-            myVouchers: state.myVouchers.map((uv) =>
-              uv.voucherCode === code || uv.id === userVoucherIdOrCode
-                ? {
-                    ...uv,
-                    status: 'USED',
-                    usedAt: `${nowStr} - Hôm nay`,
-                  }
-                : uv
-            ),
+            myVouchers: updatedList,
+            myVouchersByUser: {
+              ...state.myVouchersByUser,
+              [activeUid]: updatedList,
+            },
           }));
 
           return {
@@ -284,12 +298,25 @@ export const useVoucherStore = create<VoucherState>()(
       resetVouchers: () =>
         set({
           availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-          myVouchers: INITIAL_USER_VOUCHERS,
+          myVouchers: [],
+          activeUserId: null,
         }),
     }),
     {
       name: 'fu_market_vouchers_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (!state.activeUserId) {
+            state.myVouchers = [];
+          } else {
+            state.myVouchers = state.myVouchersByUser?.[state.activeUserId] || [];
+          }
+          state.myVouchers = (state.myVouchers || []).filter(
+            (uv) => uv.id !== 'uv-1' && uv.id !== 'uv-2' && uv.userId !== 'user-default'
+          );
+        }
+      },
     }
   )
 );
