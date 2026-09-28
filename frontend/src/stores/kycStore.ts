@@ -24,10 +24,16 @@ export interface KycApplication {
   reviewedAt?: string;
   reviewedBy?: string;
   aiMatchScore: number;
+  ocrData?: any;
   // Seller-specific details
   storeName?: string;
   primaryCategory?: string;
+  bankName?: string;
   bankAccount?: string;
+  bankAccountName?: string;
+  citizenId?: string;
+  citizenFrontCardUrl?: string;
+  citizenBackCardUrl?: string;
 }
 
 interface KycStoreState {
@@ -40,106 +46,56 @@ interface KycStoreState {
   approveApplication: (id: string, reviewer?: string) => Promise<boolean>;
   rejectApplication: (id: string, reason?: string) => Promise<boolean>;
   requestReupload: (id: string, reason?: string) => void;
+  scanKycWithAi: (id: string) => Promise<boolean>;
 }
 
-const mapBackendKyc = (bk: BackendKycVerification): KycApplication => ({
-  id: bk.id,
-  type: (bk.type === 'SELLER' ? 'seller' : 'student') as KycType,
-  fullName: bk.user?.profile?.fullName || bk.user?.email || 'Sinh viên FPT',
-  studentId: bk.studentId,
-  email: bk.user?.email || '',
-  campus: bk.user?.profile?.campus || 'Hòa Lạc',
-  major: 'Kỹ thuật phần mềm (SE)',
-  cohort: 'K18',
-  phone: bk.user?.profile?.phoneNumber || '0901234567',
-  frontCardUrl: bk.cardImageUrl,
-  backCardUrl: bk.cardImageUrl,
-  status: (bk.status === 'APPROVED' ? 'approved' : bk.status === 'REJECTED' ? 'rejected' : 'pending') as KycStatus,
-  rejectionReason: bk.rejectedReason || undefined,
-  submittedAt: new Date(bk.createdAt).toLocaleString('vi-VN'),
-  reviewedAt: bk.reviewedAt ? new Date(bk.reviewedAt).toLocaleString('vi-VN') : undefined,
-  reviewedBy: bk.reviewedBy || undefined,
-  aiMatchScore: 98,
-});
+const mapBackendKyc = (bk: BackendKycVerification): KycApplication => {
+  const ocr = bk.ocrData;
+  const studentId = (bk.studentId || ocr?.ocrStudentId || 'QE190161').trim().toUpperCase();
 
-const INITIAL_APPLICATIONS: KycApplication[] = [
-  // 1. Sinh viên (Người mua)
-  {
-    id: 'kyc-stu-1',
-    type: 'student',
-    fullName: 'Nguyễn Tuấn Anh',
-    studentId: 'HE172839',
-    email: 'tuananh17383@fpt.edu.vn',
-    campus: 'Hòa Lạc',
-    major: 'Kỹ thuật Phần mềm (SE)',
-    cohort: 'K17',
-    phone: '0978 123 456',
-    frontCardUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    selfieCardUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-    status: 'pending',
-    submittedAt: '25 phút trước',
-    aiMatchScore: 100,
-  },
-  {
-    id: 'kyc-stu-2',
-    type: 'student',
-    fullName: 'Trần Mai Hương',
-    studentId: 'SE180412',
-    email: 'huongtms180412@fpt.edu.vn',
-    campus: 'TP.HCM',
-    major: 'Trí tuệ Nhân tạo (AI)',
-    cohort: 'K18',
-    phone: '0912 345 678',
-    frontCardUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    status: 'pending',
-    submittedAt: '1 giờ trước',
-    aiMatchScore: 95,
-  },
-  {
-    id: 'kyc-stu-3',
-    type: 'student',
-    fullName: 'Đặng Khang',
-    studentId: 'DG180082',
-    email: 'khangddg180082@fpt.edu.vn',
-    campus: 'Đà Nẵng',
-    major: 'Thiết kế Mỹ thuật số (GD)',
-    cohort: 'K18',
-    phone: '0905 888 999',
-    frontCardUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    status: 'reupload_required',
-    rejectionReason: 'Ảnh chụp mặt trước bị lóa ánh đèn phòng, không rõ mã vạch và họ tên',
-    submittedAt: '3 giờ trước',
-    aiMatchScore: 45,
-  },
-  // 2. Người bán (Seller)
-  {
-    id: 'kyc-sel-1',
-    type: 'seller',
-    fullName: 'Hoàng Minh Tú',
-    studentId: 'AI180019',
-    email: 'tuhmai180019@fpt.edu.vn',
-    campus: 'Hòa Lạc',
-    major: 'An toàn Thông tin (IA)',
-    cohort: 'K18',
-    phone: '0982 111 222',
-    frontCardUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
-    backCardUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-    status: 'pending',
-    submittedAt: '10 phút trước',
-    aiMatchScore: 98,
-    storeName: 'Tú TechZone Hòa Lạc',
-    primaryCategory: 'Đồ Công Nghệ & Màn Hình',
-    bankAccount: 'TPBank • 0982111222',
-  },
-];
+  // Quy chuẩn Đại học FPT: 2 chữ số ngay sau 2 chữ cái đầu là Khóa K (ví dụ: QE190161 -> "19" -> K19)
+  const cohortDigits = studentId.slice(2, 4);
+  const deducedCohort = cohortDigits && !isNaN(Number(cohortDigits)) ? `K${cohortDigits}` : (ocr?.ocrCohort || 'K19');
+
+  // Quy tắc Campus theo ký tự đầu tiên
+  const firstChar = studentId[0] || 'Q';
+  const campusPrefixMap: Record<string, string> = {
+    Q: 'Quy Nhơn',
+    H: 'Hòa Lạc',
+    S: 'Hồ Chí Minh',
+    D: 'Đà Nẵng',
+    C: 'Cần Thơ',
+  };
+  const deducedCampus = ocr?.ocrCampus || campusPrefixMap[firstChar] || bk.user?.profile?.campus || 'Quy Nhơn';
+
+  return {
+    id: bk.id,
+    type: (bk.type === 'SELLER' ? 'seller' : 'student') as KycType,
+    fullName: bk.user?.profile?.fullName || ocr?.ocrFullName || bk.user?.email || 'Sinh viên FPT',
+    studentId,
+    email: bk.user?.email || '',
+    campus: bk.user?.profile?.campus || deducedCampus,
+    major: 'Kỹ thuật phần mềm (SE)',
+    cohort: deducedCohort,
+    phone: bk.user?.profile?.phoneNumber || '0901234567',
+    frontCardUrl: bk.cardImageUrl,
+    backCardUrl: bk.cardImageUrl,
+    status: (bk.status === 'APPROVED' ? 'approved' : bk.status === 'REJECTED' ? 'rejected' : 'pending') as KycStatus,
+    rejectionReason: bk.rejectedReason || undefined,
+    submittedAt: new Date(bk.createdAt).toLocaleString('vi-VN'),
+    reviewedAt: bk.reviewedAt ? new Date(bk.reviewedAt).toLocaleString('vi-VN') : undefined,
+    reviewedBy: bk.reviewedBy || undefined,
+    aiMatchScore: bk.aiMatchScore ?? ocr?.aiMatchScore ?? 98,
+    ocrData: ocr,
+  };
+};
+
+const INITIAL_APPLICATIONS: KycApplication[] = [];
 
 export const useKycStore = create<KycStoreState>()(
   persist(
     (set, get) => ({
-      applications: INITIAL_APPLICATIONS,
+      applications: [],
       activeTypeTab: 'student',
       isLoading: false,
 
@@ -149,7 +105,7 @@ export const useKycStore = create<KycStoreState>()(
         try {
           set({ isLoading: true });
           const res = await reportService.getKycVerifications({ limit: 50 });
-          if (res.verifications && res.verifications.length > 0) {
+          if (res.verifications) {
             set({ applications: res.verifications.map(mapBackendKyc) });
           }
         } catch {
@@ -219,7 +175,12 @@ export const useKycStore = create<KycStoreState>()(
         return true;
       },
 
-      requestReupload: (id, reason = 'Ảnh thẻ mờ hoặc bị lóa sáng, vui lòng chụp lại rõ nét cả 2 mặt') => {
+      requestReupload: async (id, reason = 'Ảnh thẻ mờ hoặc bị lóa sáng, vui lòng chụp lại rõ nét cả 2 mặt') => {
+        try {
+          await reportService.rejectKyc(id, reason);
+        } catch {
+          // offline fallback
+        }
         set((state) => ({
           applications: state.applications.map((app) =>
             app.id === id
@@ -233,10 +194,42 @@ export const useKycStore = create<KycStoreState>()(
           ),
         }));
       },
+
+      scanKycWithAi: async (id: string) => {
+        try {
+          const res = await reportService.scanKycWithAi(id);
+          if (res?.ocrData) {
+            const ocr = res.ocrData;
+            const score = res.aiMatchScore ?? ocr.aiMatchScore;
+            set((state) => ({
+              applications: state.applications.map((app) =>
+                app.id === id
+                  ? {
+                      ...app,
+                      ocrData: ocr,
+                      aiMatchScore: score,
+                    }
+                  : app
+              ),
+            }));
+            return true;
+          }
+        } catch (err) {
+          console.error('Failed to run AI scan on KYC:', err);
+        }
+        return false;
+      },
     }),
     {
       name: 'fu_kyc_store',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.applications = (state.applications || []).filter(
+            (app) => !app.id.startsWith('kyc-stu-') && !app.id.startsWith('kyc-sel-')
+          );
+        }
+      },
     }
   )
 );

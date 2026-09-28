@@ -146,7 +146,11 @@ type ProductImage {
 
 type UserKyc {
   studentId       String
-  cardImageUrl    String
+  cardImageUrl    String            // Ảnh thẻ SV mặt trước (legacy, giữ cho tương thích)
+  cardBackUrl     String?           // Ảnh thẻ SV mặt sau
+  cccdNumber      String?           // Số CCCD 12 chữ số (bắt buộc với Seller)
+  cccdFrontUrl    String?           // Ảnh CCCD mặt trước (Chip)
+  cccdBackUrl     String?           // Ảnh CCCD mặt sau (Vân tay)
   status          KycStatus @default(PENDING)
   type            String?   @default("STUDENT") // "STUDENT" (Buyer KYC) | "SELLER" (Seller Onboarding)
   rejectedReason  String?
@@ -498,6 +502,8 @@ model KycVerification {
   type           String?   @default("STUDENT") // "STUDENT" | "SELLER"
   studentId      String    // Mã số SV: SE123456
   cardImageUrl   String    // Link ảnh thẻ SV
+  ocrData        Json?     // Dữ liệu đối soát tự động từ Gemini Vision
+  aiMatchScore   Int?      // Điểm độ khớp (0-100%)
   status         KycStatus @default(PENDING)
   rejectedReason String?   // Lý do Admin từ chối
   reviewedBy     String?   @db.ObjectId // ID của Admin duyệt

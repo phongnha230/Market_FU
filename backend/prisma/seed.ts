@@ -111,8 +111,42 @@ async function main() {
     console.log('✅ Đã cập nhật tài khoản Buyer (Xác thực KYC sinh viên):', existingBuyer.email);
   }
 
-  // =========================================================================
-  // 2. TÀI KHOẢN NGƯỜI BÁN (SELLER) - ĐÃ XÁC THỰC KYC TÍCH XANH
+  // Tài khoản sinh viên namntk17@fe.edu.vn (Khớp với nút bấm demo nhanh)
+  const existingNam = await prisma.user.findUnique({
+    where: { email: 'namntk17@fe.edu.vn' },
+  });
+  if (!existingNam) {
+    await prisma.user.create({
+      data: {
+        email: 'namntk17@fe.edu.vn',
+        passwordHash: commonPasswordHash,
+        role: UserRole.BUYER,
+        isActive: true,
+        profile: {
+          create: {
+            fullName: 'Nguyễn Tuấn Nam (K17 SE)',
+            phoneNumber: '0981112233',
+            campus: CampusLocation.HOL,
+            campusCoins: 500,
+            reputationScore: 100,
+            kyc: {
+              studentId: 'SE172819',
+              cardImageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+              status: KycStatus.APPROVED,
+              type: 'STUDENT',
+              verifiedAt: new Date(),
+            },
+          },
+        },
+      },
+    });
+    console.log('✅ Đã tạo tài khoản demo Sinh viên:', 'namntk17@fe.edu.vn');
+  } else {
+    await prisma.user.update({
+      where: { email: 'namntk17@fe.edu.vn' },
+      data: { passwordHash: commonPasswordHash },
+    });
+  }
   // =========================================================================
   const existingSeller = await prisma.user.findUnique({
     where: { email: 'seller@fpt.edu.vn' },
@@ -421,7 +455,7 @@ async function main() {
         hashtags: ['giaotrinh', 'c', 'prf192', 'fpt'],
         images: [
           {
-            imageUrl: 'https://api.marketfu.com/uploads/sample-product.png',
+            imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
             isCover: true,
             displayOrder: 0,
           },
@@ -430,7 +464,19 @@ async function main() {
     });
     console.log('✅ Đã tạo sản phẩm mẫu có sẵn:', demoProduct.title, '(ID:', demoProduct.id, ')');
   } else {
-    console.log('✅ Sản phẩm của Seller đã tồn tại:', existingProduct.title, '(ID:', existingProduct.id, ')');
+    await prisma.product.update({
+      where: { id: existingProduct.id },
+      data: {
+        images: [
+          {
+            imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+            isCover: true,
+            displayOrder: 0,
+          },
+        ],
+      },
+    });
+    console.log('✅ Đã cập nhật ảnh sản phẩm của Seller hợp lệ:', existingProduct.title);
   }
 
   console.log('\n🎉 Hoàn tất quá trình Seed dữ liệu! Các tài khoản sẵn sàng:');
