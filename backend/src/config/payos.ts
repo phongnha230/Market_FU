@@ -8,9 +8,13 @@ export const isPayOsConfigured = (): boolean => {
     ENV.PAYOS_CLIENT_ID &&
     ENV.PAYOS_API_KEY &&
     ENV.PAYOS_CHECKSUM_KEY &&
-    ENV.PAYOS_CLIENT_ID !== '' &&
-    ENV.PAYOS_API_KEY !== '' &&
-    ENV.PAYOS_CHECKSUM_KEY !== ''
+    ENV.PAYOS_CLIENT_ID.trim() !== '' &&
+    ENV.PAYOS_API_KEY.trim() !== '' &&
+    ENV.PAYOS_CHECKSUM_KEY.trim() !== '' &&
+    ENV.PAYOS_CLIENT_ID !== 'your_client_id' &&
+    ENV.PAYOS_API_KEY !== 'your_api_key' &&
+    ENV.PAYOS_CHECKSUM_KEY !== 'your_checksum_key' &&
+    !ENV.PAYOS_CLIENT_ID.startsWith('sandbox_')
   );
 };
 

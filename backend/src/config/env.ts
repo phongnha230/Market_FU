@@ -10,7 +10,7 @@ dotenv.config();
  */
 const envSchema = z.object({
   // 1. Server & Môi trường
-  PORT: z.coerce.number().default(5000),
+  PORT: z.coerce.number().default(5001),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   CLIENT_URL: z.string().default('http://localhost:3000'),
   ALLOWED_ORIGINS: z

@@ -1,14 +1,30 @@
 import nodemailer from 'nodemailer';
 import { ENV } from './env';
 
-// Tạo transporter gửi email qua Gmail SMTP bằng Mật khẩu ứng dụng (App Password)
-export const mailTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: ENV.EMAIL_USER, // Địa chỉ Gmail của bạn
-    pass: ENV.EMAIL_APP_PASSWORD, // Mật khẩu ứng dụng 16 ký tự của Google
-  },
-});
+// Tạo transporter gửi email qua Gmail SMTP hoặc Custom SMTP (Resend / Brevo / SendGrid khi deploy VPS)
+const createMailTransporter = () => {
+  if (process.env.SMTP_HOST) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: ENV.EMAIL_USER,
+        pass: ENV.EMAIL_APP_PASSWORD,
+      },
+    });
+  }
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: ENV.EMAIL_USER,
+      pass: ENV.EMAIL_APP_PASSWORD,
+    },
+  });
+};
+
+export const mailTransporter = createMailTransporter();
 
 /**
  * Gửi email chứa mã OTP đăng ký tài khoản
@@ -36,8 +52,8 @@ export const sendOtpEmail = async (toEmail: string, otpCode: string, fullName = 
   try {
     return await mailTransporter.sendMail(mailOptions);
   } catch (error) {
-    console.warn(`⚠️ [MAIL WARNING] Không thể gửi email tới ${toEmail}:`, (error as Error).message);
-    return null;
+    console.error(`❌ [MAIL ERROR] Không thể gửi email tới ${toEmail}:`, (error as Error).message);
+    throw error;
   }
 };
 
@@ -73,8 +89,8 @@ export const sendPasswordResetOtpEmail = async (
   try {
     return await mailTransporter.sendMail(mailOptions);
   } catch (error) {
-    console.warn(`⚠️ [MAIL WARNING] Không thể gửi email tới ${toEmail}:`, (error as Error).message);
-    return null;
+    console.error(`❌ [MAIL ERROR] Không thể gửi email đặt lại mật khẩu tới ${toEmail}:`, (error as Error).message);
+    throw error;
   }
 };
 

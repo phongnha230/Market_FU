@@ -1,0 +1,43 @@
+name: fu_market_local
+
+# ==============================================================================
+# DOCKER DÀNH CHO LOCAL DEVELOPMENT (KHÔNG CẦN BUILD DOCKERFILE)
+# ==============================================================================
+# Chỉ chạy 2 service hạ tầng: Redis & Meilisearch
+# Code Backend: Chạy trực tiếp `npm run dev` (hot-reload tức thì với tsx watch)
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # REDIS 7 (Cache, Session & Distributed Lock)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: fu_market_local_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - local_redis_data:/data
+    command: redis-server --appendonly yes
+
+  # ----------------------------------------------------------------------------
+  # MEILISEARCH 1.12 (Full-Text Search Engine cho tìm kiếm sản phẩm)
+  # ----------------------------------------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    container_name: fu_market_local_meilisearch
+    restart: unless-stopped
+    environment:
+      - MEILI_ENV=development
+      - MEILI_NO_ANALYTICS=true
+    ports:
+      - "7700:7700"
+    volumes:
+      - local_meili_data:/meili_data
+
+volumes:
+  local_redis_data:
+    driver: local
+  local_meili_data:
+    driver: local
