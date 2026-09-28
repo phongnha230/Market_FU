@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import OrderTabs from '@/components/orders/OrderTabs';
 import OrderCard from '@/components/orders/OrderCard';
@@ -13,16 +13,20 @@ import OrderShipModal from '@/components/orders/OrderShipModal';
 import OrderAiBotModal from '@/components/orders/OrderAiBotModal';
 import OrderQrModal from '@/components/orders/OrderQrModal';
 import OrderSidebar from '@/components/orders/OrderSidebar';
+import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { useMarket } from '@/context/MarketContext';
+import { useUserStore } from '@/stores/userStore';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { orderService } from '@/services/orderService';
-import { ShieldCheck, MapPin, QrCode, Phone } from 'lucide-react';
+import { ShieldCheck, MapPin, QrCode, Phone, Lock, Store } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
 export default function OrdersPage() {
   const router = useRouter();
   const { orders, updateOrderStatus, products: allProducts, showToast } = useMarket();
+  const userData = useUserStore((state) => state.user);
+  const isSeller = userData.kycStatus === 'approved_seller';
 
   const [activeMainTab, setActiveMainTab] = useState<'buying' | 'selling' | 'listings' | 'handoff'>('buying');
   const [activeProgressFilter, setActiveProgressFilter] = useState<string>('shipping');
@@ -33,6 +37,7 @@ export default function OrdersPage() {
   const [isAiBotOpen, setIsAiBotOpen] = useState(false);
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<OrderItem | null>(null);
   const [selectedShipOrder, setSelectedShipOrder] = useState<OrderItem | null>(null);
+  const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
   useEffect(() => {
     const cleanupOrderSockets = useOrderStore.getState().initSocketListeners();
@@ -50,12 +55,22 @@ export default function OrdersPage() {
     return num.toLocaleString('vi-VN') + ' đ';
   };
 
-  const handleConfirmReceived = (orderCode: string) => {
-    updateOrderStatus(orderCode, 'delivered', 'Giao thành công tại sảnh KTX');
-    showToast(`Đã xác nhận nhận hàng an toàn đơn ${orderCode}! Chuyển sang biểu mẫu đánh giá...`, 'success');
-    setTimeout(() => {
-      router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
-    }, 1000);
+  const handleConfirmReceived = async (orderCode: string) => {
+    try {
+      await orderService.confirmDelivery(orderCode);
+      updateOrderStatus(orderCode, 'delivered', 'Giao thành công tại sảnh KTX');
+      showToast(`Đã xác nhận nhận hàng an toàn đơn ${orderCode} và giải ngân Escrow! Chuyển sang đánh giá...`, 'success');
+      setTimeout(() => {
+        router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
+      }, 1000);
+    } catch {
+      // Fallback update nếu offline hoặc mock
+      updateOrderStatus(orderCode, 'delivered', 'Giao thành công tại sảnh KTX');
+      showToast(`Đã xác nhận nhận hàng an toàn đơn ${orderCode}! Chuyển sang đánh giá...`, 'success');
+      setTimeout(() => {
+        router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
+      }, 1000);
+    }
   };
 
   const handleCancelOrder = async (orderId: string, orderCode: string) => {
@@ -73,10 +88,17 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans py-4 sm:py-6">
+      <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-4">
+        {/* Compact in-container Header with Back button */}
+        <CompactHeader
+          showBackButton={true}
+          backHref="/"
+          breadcrumbs={[
+            { label: 'Quản lý đơn hàng' },
+          ]}
+        />
 
-      <main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
         {/* 1. TOP HEADER BANNER */}
         <Card className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 sm:px-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -118,6 +140,7 @@ export default function OrdersPage() {
               activeProgressFilter={activeProgressFilter}
               onProgressFilterChange={setActiveProgressFilter}
               ordersCount={orders.length}
+              isSeller={isSeller}
             />
 
             {/* URGENT SAFE-HANDOFF APPOINTMENT BANNER */}
@@ -187,79 +210,200 @@ export default function OrdersPage() {
               </div>
             )}
 
-            {/* TAB 2: SELLING ORDERS NEED SHIPPING */}
+            {/* TAB 2: SELLING ORDERS NEED SHIPPING (SELLER ONLY) */}
             {activeMainTab === 'selling' && (
-              <div className="space-y-4">
-                {orders.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
-                    Bạn chưa có đơn bán nào cần đóng gói hoặc gửi hàng.
+              !isSeller ? (
+                <Card className="rounded-2xl border border-amber-200/80 bg-white p-8 sm:p-10 shadow-xs text-center space-y-5">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-xs">
+                    <Store className="h-7 w-7 text-fpt-orange" />
                   </div>
-                ) : (
-                  orders.map((order) => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
-                      onConfirmReceived={handleConfirmReceived}
-                      onOpenTracking={(ord) => setSelectedTrackingOrder(ord)}
-                      onOpenAiBot={() => setIsAiBotOpen(true)}
-                      onOpenQrModal={(ord) => {
-                        setSelectedQrOrder(ord);
-                        setIsQrModalOpen(true);
-                      }}
-                      onCancelOrder={handleCancelOrder}
-                      onShipOrder={(ord) => setSelectedShipOrder(ord)}
-                    />
-                  ))
-                )}
-              </div>
-            )}
 
-            {/* TAB 3: LISTINGS / SELLING */}
-            {activeMainTab === 'listings' && (
-              <div className="space-y-4">
-                <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Tin đăng bán của bạn</h3>
-                      <p className="text-xs text-slate-500">Các món đồ đang hiển thị trên kênh sinh viên FPT 5Campus</p>
+                  <div className="max-w-md mx-auto space-y-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-800">
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Tính năng dành riêng cho Người bán (Verified Seller)</span>
                     </div>
+                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                      Đơn bán cần gửi & Quản lý đóng gói
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                      Bạn đang ở vai trò Sinh viên (Người mua). Vui lòng đăng ký xác thực Thẻ SV / Seller để tiếp nhận đơn đặt mua đồ, quản lý quy trình đóng gói và gửi hàng an toàn.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto text-left pt-1">
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">📦</div>
+                      <div className="text-xs font-bold text-slate-800">Đóng gói chuẩn FPT</div>
+                      <div className="text-[11px] text-slate-500">Mã vận đơn liên campus</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">🤝</div>
+                      <div className="text-xs font-bold text-slate-800">Handoff trực tiếp</div>
+                      <div className="text-[11px] text-slate-500">Quét QR tại sảnh giảng đường</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">🛡️</div>
+                      <div className="text-xs font-bold text-slate-800">Bảo chứng Escrow 48h</div>
+                      <div className="text-[11px] text-slate-500">Tiền về ví an toàn tuyệt đối</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
                     <Button
-                      asChild
-                      className="h-auto rounded-xl bg-fpt-orange px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition"
+                      type="button"
+                      onClick={() => setIsKycModalOpen(true)}
+                      className="w-full sm:w-auto h-auto rounded-xl bg-fpt-orange px-6 py-2.5 text-xs font-bold text-white hover:bg-fpt-orange-hover shadow-xs active:scale-95 transition cursor-pointer"
                     >
-                      <Link href="/create-post">
-                        + Đăng bán món mới
-                      </Link>
+                      <Store className="h-4 w-4 mr-1.5" />
+                      <span>Đăng ký mở Seller ngay</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setActiveMainTab('buying')}
+                      className="w-full sm:w-auto h-auto rounded-xl border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      <span>← Quay lại Đơn mua của tôi</span>
                     </Button>
                   </div>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {orders.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
+                      Bạn chưa có đơn bán nào cần đóng gói hoặc gửi hàng.
+                    </div>
+                  ) : (
+                    orders.map((order) => (
+                      <OrderCard
+                        key={order.id}
+                        order={order}
+                        onConfirmReceived={handleConfirmReceived}
+                        onOpenTracking={(ord) => setSelectedTrackingOrder(ord)}
+                        onOpenAiBot={() => setIsAiBotOpen(true)}
+                        onOpenQrModal={(ord) => {
+                          setSelectedQrOrder(ord);
+                          setIsQrModalOpen(true);
+                        }}
+                        onCancelOrder={handleCancelOrder}
+                        onShipOrder={(ord) => setSelectedShipOrder(ord)}
+                      />
+                    ))
+                  )}
+                </div>
+              )
+            )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {allProducts
-                      .filter((p) => p.seller.name.includes('Quân') || p.id.startsWith('fpt-post-'))
-                      .map((prod) => (
-                        <Card key={prod.id} className="flex flex-row items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition shadow-none">
-                          <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-slate-200 shrink-0">
-                            <Image src={prod.imageUrl} alt={prod.title} fill className="object-cover" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{prod.title}</h4>
-                            <p className="text-xs font-extrabold text-fpt-orange mt-0.5">{formatVND(prod.price)}</p>
-                            <span className="text-[10px] text-slate-500">{prod.location}</span>
-                          </div>
-                          <Button
-                            asChild
-                            variant="outline"
-                            className="h-auto rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 transition"
-                          >
-                            <Link href={`/posts/${prod.id}`}>
-                              Xem
-                            </Link>
-                          </Button>
-                        </Card>
-                      ))}
+            {/* TAB 3: LISTINGS / SELLING (SELLER ONLY) */}
+            {activeMainTab === 'listings' && (
+              !isSeller ? (
+                <Card className="rounded-2xl border border-amber-200/80 bg-white p-8 sm:p-10 shadow-xs text-center space-y-5">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-xs">
+                    <Store className="h-7 w-7 text-fpt-orange" />
+                  </div>
+
+                  <div className="max-w-md mx-auto space-y-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-800">
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Tính năng dành riêng cho Người bán (Verified Seller)</span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                      Quản lý Tin đăng rao bán đồ cũ
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                      Bạn đang ở vai trò Sinh viên (Người mua). Vui lòng đăng ký xác thực Thẻ SV / Seller để mở quyền đăng bài không giới hạn và tiếp cận 20.000+ sinh viên FPT 5Campus.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto text-left pt-1">
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">📑</div>
+                      <div className="text-xs font-bold text-slate-800">Đăng tin không giới hạn</div>
+                      <div className="text-[11px] text-slate-500">Giáo trình, IT, phòng KTX</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">⚡</div>
+                      <div className="text-xs font-bold text-slate-800">Đẩy tin ưu tiên</div>
+                      <div className="text-[11px] text-slate-500">Tiếp cận nhanh chóng qua Coin</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 space-y-1">
+                      <div className="text-base">⭐</div>
+                      <div className="text-xs font-bold text-slate-800">Huy hiệu Seller Uy Tín</div>
+                      <div className="text-[11px] text-slate-500">Xây dựng uy tín cộng đồng SV</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+                    <Button
+                      type="button"
+                      onClick={() => setIsKycModalOpen(true)}
+                      className="w-full sm:w-auto h-auto rounded-xl bg-fpt-orange px-6 py-2.5 text-xs font-bold text-white hover:bg-fpt-orange-hover shadow-xs active:scale-95 transition cursor-pointer"
+                    >
+                      <Store className="h-4 w-4 mr-1.5" />
+                      <span>Đăng ký mở Seller ngay</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setActiveMainTab('buying')}
+                      className="w-full sm:w-auto h-auto rounded-xl border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      <span>← Quay lại Đơn mua của tôi</span>
+                    </Button>
                   </div>
                 </Card>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Tin đăng bán của bạn</h3>
+                        <p className="text-xs text-slate-500">Các món đồ đang hiển thị trên kênh sinh viên FPT 5Campus</p>
+                      </div>
+                      <Button
+                        asChild
+                        className="h-auto rounded-xl bg-fpt-orange px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition"
+                      >
+                        <Link href="/create-post">
+                          + Đăng bán món mới
+                        </Link>
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {allProducts
+                        .filter((p) => p.seller.name.includes('Quân') || p.id.startsWith('fpt-post-'))
+                        .map((prod) => (
+                          <Card key={prod.id} className="flex flex-row items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition shadow-none">
+                            <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-slate-200 shrink-0">
+                              <Image
+                                src={typeof prod.imageUrl === 'string' && prod.imageUrl ? prod.imageUrl : ((prod.imageUrl as any)?.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80')}
+                                alt={prod.title}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{prod.title}</h4>
+                              <p className="text-xs font-extrabold text-fpt-orange mt-0.5">{formatVND(prod.price)}</p>
+                              <span className="text-[10px] text-slate-500">{prod.location}</span>
+                            </div>
+                            <Button
+                              asChild
+                              variant="outline"
+                              className="h-auto rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 transition"
+                            >
+                              <Link href={`/posts/${prod.id}`}>
+                                Xem
+                              </Link>
+                            </Button>
+                          </Card>
+                        ))}
+                    </div>
+                  </Card>
+                </div>
+              )
             )}
 
             {/* SAFE-POINTS DIRECTORY FOOTER BAR */}
@@ -290,7 +434,11 @@ export default function OrdersPage() {
           </div>
 
           {/* SIDEBAR: ASSISTANT & PROTECTION (3 COLS) */}
-          <OrderSidebar onOpenAiBot={() => setIsAiBotOpen(true)} />
+          <OrderSidebar
+            onOpenAiBot={() => setIsAiBotOpen(true)}
+            isSeller={isSeller}
+            onOpenKyc={() => setIsKycModalOpen(true)}
+          />
         </div>
       </main>
 
@@ -322,6 +470,12 @@ export default function OrdersPage() {
           showToast(`📦 Đã cập nhật mã vận đơn "${trackingCode}" thành công! Đơn hàng chuyển sang Đang vận chuyển.`, 'success');
           useOrderStore.getState().fetchOrders();
         }}
+      />
+      <KycRegistrationModal
+        isOpen={isKycModalOpen}
+        onClose={() => setIsKycModalOpen(false)}
+        defaultRole="seller"
+        onShowToast={(msg) => showToast(msg, 'success')}
       />
 
       <Footer />

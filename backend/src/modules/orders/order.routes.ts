@@ -19,4 +19,7 @@ router.post('/:id/cancel', orderController.cancelOrder);
 // (Ủy quyền cho ReportService của BE-4 xử lý nghiệp vụ dispute)
 router.post('/:id/dispute', orderController.createDisputeForOrder);
 
+// Người mua xác nhận đã nhận hàng an toàn và giải phóng tiền Escrow
+router.post('/:id/confirm-delivery', orderController.confirmDelivery);
+
 export default router;

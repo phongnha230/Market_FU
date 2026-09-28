@@ -135,7 +135,15 @@ export const orderService = {
     return response.data.data;
   },
 
-  // 6. Hủy đơn hàng
+  // 6. Xác nhận nhận hàng & giải ngân Escrow
+  async confirmDelivery(orderId: string): Promise<BackendOrder> {
+    const response = await apiClient.post<ApiResponse<BackendOrder>>(
+      `/orders/${orderId}/confirm-delivery`
+    );
+    return response.data.data;
+  },
+
+  // 7. Hủy đơn hàng
   async cancelOrder(orderId: string, reason?: string): Promise<BackendOrder> {
     const response = await apiClient.post<ApiResponse<BackendOrder>>(
       `/orders/${orderId}/cancel`,

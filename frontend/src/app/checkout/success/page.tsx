@@ -17,6 +17,8 @@ import {
 import { useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
+import { orderService, BackendOrder } from '@/services/orderService';
+import { socketClient } from '@/services/socketClient';
 import {
   CheckCircle2,
   Clock,
@@ -51,8 +53,15 @@ function OrderSuccessContent() {
   const paymentMethod = paymentMethodParam.toLowerCase();
   const isOnlinePayment = paymentMethod === 'vietqr' || paymentMethod === 'payos';
 
+  const [backendOrder, setBackendOrder] = useState<BackendOrder | null>(null);
+  const [isPaid, setIsPaid] = useState<boolean>(() => {
+    return searchParams.get('status') === 'PAID' || paymentMethodParam.toLowerCase() === 'cod';
+  });
+
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedVoucher, setCopiedVoucher] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
+  const [copiedBankAcc, setCopiedBankAcc] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentUser = useUserStore((state) => state.user);
@@ -91,6 +100,81 @@ function OrderSuccessContent() {
     showToast('Đã sao chép mã voucher giảm 20.000đ!');
     setTimeout(() => setCopiedVoucher(false), 2000);
   };
+
+  const handleCopyAmount = () => {
+    navigator.clipboard.writeText(productData.price.toString());
+    setCopiedAmount(true);
+    showToast(`Đã sao chép số tiền ${productData.price.toLocaleString('vi-VN')} đ`);
+    setTimeout(() => setCopiedAmount(false), 2000);
+  };
+
+  const handleCopyBankAcc = () => {
+    navigator.clipboard.writeText('0348888999');
+    setCopiedBankAcc(true);
+    showToast('Đã sao chép số tài khoản MB Bank: 0348888999');
+    setTimeout(() => setCopiedBankAcc(false), 2000);
+  };
+
+  // 1. Fetch real backend order details
+  useEffect(() => {
+    let isMounted = true;
+    if (orderCode) {
+      orderService.getOrderDetail(orderCode).then((ord) => {
+        if (!isMounted || !ord) return;
+        setBackendOrder(ord);
+        if (ord.payment?.isPaid || ord.status === 'PAID' || ord.status === 'COMPLETED') {
+          setIsPaid(true);
+        }
+      }).catch((err) => {
+        console.warn('Could not fetch backend order detail:', err);
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [orderCode]);
+
+  // 2. Poll payment status if VietQR and unpaid
+  useEffect(() => {
+    if (isPaid || paymentMethod !== 'vietqr') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await orderService.checkPaymentStatus(orderCode);
+        if (res?.isPaid || res?.status === 'PAID' || res?.status === 'COMPLETED') {
+          setIsPaid(true);
+          showToast('🎉 Nhận được thanh toán chuyển khoản! Tiền đã vào ví Escrow.');
+          clearInterval(interval);
+        }
+      } catch {
+        // ignore polling failures
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [orderCode, isPaid, paymentMethod]);
+
+  // 3. Socket.io real-time listener for order_paid
+  useEffect(() => {
+    const socket = socketClient.getSocket();
+    if (!socket) return;
+
+    const handleOrderPaid = (data: any) => {
+      if (data?.orderCode === orderCode || data?.orderId === backendOrder?.id) {
+        setIsPaid(true);
+        showToast('🎉 Xác nhận thanh toán Escrow thành công qua VietQR!');
+      }
+    };
+
+    socket.on('order_paid', handleOrderPaid);
+    return () => {
+      socket.off('order_paid', handleOrderPaid);
+    };
+  }, [orderCode, backendOrder?.id]);
+
+  const realVietqrUrl =
+    backendOrder?.payment?.vietqrUrl ||
+    `https://img.vietqr.io/image/MB-0348888999-compact2.png?amount=${productData.price}&addInfo=${orderCode}&accountName=SAN%20FPT%205CAMPUS`;
 
   // Fetch product data if provided
   useEffect(() => {
@@ -144,11 +228,13 @@ function OrderSuccessContent() {
           </span>
         </div>
 
-        {/* 1. TOP CELEBRATION STATUS BANNER */}
+        {/* 1. TOP CELEBRATION / PAYMENT STATUS BANNER */}
         <Card
           className={`mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs ${
-            isOnlinePayment
+            isPaid
               ? 'border-emerald-200/80 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 text-white'
+              : paymentMethod === 'vietqr'
+              ? 'border-amber-200/80 bg-gradient-to-br from-amber-500 via-orange-600 to-slate-900 text-white'
               : 'border-orange-200/80 bg-gradient-to-br from-fpt-orange via-amber-600 to-slate-900 text-white'
           }`}
         >
@@ -156,12 +242,18 @@ function OrderSuccessContent() {
             <div className="flex items-start sm:items-center gap-4">
               <div
                 className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md ${
-                  isOnlinePayment
+                  isPaid
                     ? 'bg-white text-emerald-600'
+                    : paymentMethod === 'vietqr'
+                    ? 'bg-white text-amber-600'
                     : 'bg-white text-fpt-orange'
                 }`}
               >
-                <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />
+                {isPaid ? (
+                  <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />
+                ) : (
+                  <Clock className="h-8 w-8 stroke-[2.5]" />
+                )}
               </div>
 
               <div>
@@ -170,10 +262,16 @@ function OrderSuccessContent() {
                     variant="outline"
                     className="border-white/30 bg-white/15 text-white font-bold text-[10px] tracking-wider uppercase px-2.5 py-0.5"
                   >
-                    {isOnlinePayment
+                    {isPaid
                       ? paymentMethod === 'payos'
-                        ? 'CỔNG THANH TOÁN PAYOS WEB'
-                        : 'VIETQR NAPAS247 • ESCROW TỰ ĐỘNG'
+                        ? 'CỔNG THANH TOÁN PAYOS WEB • ĐÃ THANH TOÁN'
+                        : paymentMethod === 'vietqr'
+                        ? 'VIETQR NAPAS247 • ĐÃ NHẬN TIỀN ESCROW'
+                        : 'THANH TOÁN KHI NHẬN HÀNG (COD)'
+                      : paymentMethod === 'vietqr'
+                      ? 'VIETQR NAPAS247 • CHỜ THANH TOÁN'
+                      : paymentMethod === 'payos'
+                      ? 'PAYOS WEB • ĐANG XỬ LÝ'
                       : 'THANH TOÁN KHI NHẬN HÀNG (COD)'}
                   </Badge>
                   <span className="text-xs text-white/80 font-medium">
@@ -182,14 +280,18 @@ function OrderSuccessContent() {
                 </div>
 
                 <h1 className="mt-1.5 text-xl sm:text-2xl font-black tracking-tight text-white">
-                  {isOnlinePayment
+                  {isPaid
                     ? 'Thanh toán & Đặt hàng thành công!'
+                    : paymentMethod === 'vietqr'
+                    ? 'Đơn hàng đã tạo • Vui lòng quét mã VietQR để thanh toán'
                     : 'Đặt đơn hàng COD thành công!'}
                 </h1>
 
                 <p className="mt-1 text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
-                  {isOnlinePayment
+                  {isPaid
                     ? 'Khoản thanh toán của bạn đã được đóng băng an toàn trong Ví Escrow của Sàn ĐH FPT. Người bán sẽ chỉ nhận được tiền sau 48h kiểm tra hàng.'
+                    : paymentMethod === 'vietqr'
+                    ? `Đơn hàng #${orderCode} đang chờ bạn chuyển khoản ${productData.price.toLocaleString('vi-VN')} đ. Tiền sẽ được sàn bảo hộ an toàn trong ví Escrow ngay khi nhận được giao dịch.`
                     : 'Đơn hàng đã được ghi nhận vào hệ thống điều phối bưu tá KTX. Bạn sẽ kiểm tra hàng thực tế trước khi thanh toán tiền mặt/chuyển khoản.'}
                 </p>
               </div>
@@ -246,9 +348,10 @@ function OrderSuccessContent() {
               <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
                 <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                   <Image
-                    src={productData.imageUrl}
+                    src={productData.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80'}
                     alt={productData.title}
                     fill
+                    sizes="(max-width: 640px) 96px, 112px"
                     className="object-cover"
                   />
                   <div className="absolute top-1.5 left-1.5 rounded bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -338,66 +441,184 @@ function OrderSuccessContent() {
               </div>
             </Card>
 
-            {/* CARD 2: MÃ QR NHẬN HÀNG SAFE-HANDOFF PASS */}
-            <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5 text-fpt-orange" />
-                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                    Phiếu nhận hàng điện tử (Safe-Handoff QR Pass)
-                  </h2>
-                </div>
-                <Badge variant="outline" className="text-slate-500 text-[10px]">
-                  XÁC THỰC DANH TÍNH
-                </Badge>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-                {/* QR Canvas Demo */}
-                <div className="md:col-span-4 flex flex-col items-center justify-center p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                  <div className="relative h-32 w-32 bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center">
-                    <Image
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${orderCode}&color=0f172a`}
-                      alt="Safe-Handoff QR Pass"
-                      width={120}
-                      height={120}
-                      unoptimized
-                      className="object-contain"
-                    />
+            {/* CARD 2A: MÃ VIETQR CHUYỂN KHOẢN ESCROW (KHI CHƯA THANH TOÁN) */}
+            {paymentMethod === 'vietqr' && !isPaid ? (
+              <Card className="rounded-2xl border-2 border-orange-300 bg-white p-5 sm:p-6 shadow-md">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="h-5 w-5 text-fpt-orange" />
+                    <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Chuyển tiền vào Ví Escrow (VietQR Napas 24/7)
+                    </h2>
                   </div>
-                  <span className="mt-2 font-mono text-xs font-extrabold text-slate-800">
-                    PIN: 8829
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Mã xác thực 1 lần
-                  </span>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    <span>CHỜ THANH TOÁN</span>
+                  </div>
                 </div>
 
-                {/* Instructions */}
-                <div className="md:col-span-8 space-y-2.5 text-xs text-slate-600">
-                  <h4 className="font-bold text-slate-800 text-sm">
-                    Cách thức nhận hàng an toàn tại Campus:
-                  </h4>
-                  <ul className="space-y-2 pl-4 list-disc text-slate-600 leading-relaxed">
-                    <li>
-                      Khi bưu phẩm tới KTX, bạn sẽ nhận được thông báo đẩy trên App / Telegram bot 5Campus.
-                    </li>
-                    <li>
-                      Xuất trình mã QR này hoặc cung cấp mã PIN <strong>8829</strong> cho bưu tá / lễ tân Dom B.
-                    </li>
-                    {isOnlinePayment ? (
-                      <li>
-                        <strong>Đã thanh toán Escrow:</strong> Bạn không cần trả thêm bất kỳ khoản tiền nào. Nhận đồ về phòng, cắm thử 48h rồi bấm xác nhận giải ngân.
-                      </li>
-                    ) : (
-                      <li>
-                        <strong>Đơn COD:</strong> Bạn có quyền mở hộp kiểm tra thiết bị hoạt động tốt trước khi thanh toán số tiền <strong>{productData.price.toLocaleString('vi-VN')} đ</strong> cho người giao.
-                      </li>
-                    )}
-                  </ul>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                  {/* Real VietQR Canvas Box */}
+                  <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-orange-50/40 border border-orange-200 text-center">
+                    <div className="text-[10px] font-extrabold text-slate-600 mb-1 tracking-wider uppercase">
+                      VIETQR • NAPAS 24/7
+                    </div>
+                    <div className="relative h-48 w-48 bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
+                      <Image
+                        src={realVietqrUrl}
+                        alt="VietQR Napas 24/7 Sàn FPT"
+                        fill
+                        unoptimized
+                        className="object-contain"
+                      />
+                    </div>
+                    <span className="mt-2 text-[11px] font-bold text-slate-700">
+                      Mở App Ngân hàng bất kỳ để quét
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Tự động xác nhận sau 3-5 giây
+                    </span>
+                  </div>
+
+                  {/* Bank Transfer Details with Copy Buttons */}
+                  <div className="md:col-span-7 space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                      <span className="text-slate-500">Ngân hàng thụ hưởng:</span>
+                      <span className="font-extrabold text-slate-900">MB Bank (Quân Đội)</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                      <span className="text-slate-500">Chủ tài khoản:</span>
+                      <span className="font-extrabold text-slate-900">SAN FPT 5CAMPUS MARKETPLACE</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                      <span className="text-slate-500">Số tài khoản:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          0348888999
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyBankAcc}
+                          className="rounded p-1 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                          title="Sao chép số tài khoản"
+                        >
+                          {copiedBankAcc ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                      <span className="text-slate-500">Số tiền chính xác:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-fpt-orange text-sm sm:text-base">
+                          {productData.price.toLocaleString('vi-VN')} đ
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyAmount}
+                          className="rounded p-1 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                          title="Sao chép số tiền"
+                        >
+                          {copiedAmount ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 bg-amber-50/70 p-2 rounded-lg border border-amber-200">
+                      <span className="text-amber-900 font-bold">Nội dung chuyển khoản:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-fpt-orange bg-white px-2 py-0.5 rounded border border-orange-200">
+                          {orderCode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyOrderCode}
+                          className="inline-flex items-center gap-1 rounded bg-fpt-orange text-white px-2 py-0.5 text-[10px] font-bold hover:bg-fpt-orange-hover transition cursor-pointer"
+                        >
+                          {copiedCode ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          <span>Sao chép</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-600 space-y-1">
+                      <p className="font-bold text-slate-800">
+                        ⚡ Lưu ý quan trọng:
+                      </p>
+                      <p>
+                        Vui lòng giữ nguyên nội dung chuyển khoản là <strong className="font-mono text-fpt-orange">{orderCode}</strong> để hệ thống đối soát tự động kích hoạt bảo chứng Escrow ngay tức thì.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            ) : (
+              /* CARD 2B: MÃ QR NHẬN HÀNG SAFE-HANDOFF PASS */
+              <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="h-5 w-5 text-fpt-orange" />
+                    <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Phiếu nhận hàng điện tử (Safe-Handoff QR Pass)
+                    </h2>
+                  </div>
+                  <Badge variant="outline" className="text-slate-500 text-[10px]">
+                    XÁC THỰC DANH TÍNH
+                  </Badge>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                  {/* QR Canvas */}
+                  <div className="md:col-span-4 flex flex-col items-center justify-center p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                    <div className="relative h-32 w-32 bg-white p-2 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center">
+                      <Image
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${orderCode}&color=0f172a`}
+                        alt="Safe-Handoff QR Pass"
+                        width={120}
+                        height={120}
+                        unoptimized
+                        className="object-contain"
+                      />
+                    </div>
+                    <span className="mt-2 font-mono text-xs font-extrabold text-slate-800">
+                      PIN: {backendOrder?.handshake?.handshakeOtp || '8829'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Mã xác thực 1 lần
+                    </span>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="md:col-span-8 space-y-2.5 text-xs text-slate-600">
+                    <h4 className="font-bold text-slate-800 text-sm">
+                      Cách thức nhận hàng an toàn tại Campus:
+                    </h4>
+                    <ul className="space-y-2 pl-4 list-disc text-slate-600 leading-relaxed">
+                      <li>
+                        Khi bưu phẩm tới KTX, bạn sẽ nhận được thông báo đẩy trên App / Telegram bot 5Campus.
+                      </li>
+                      <li>
+                        Xuất trình mã QR này hoặc cung cấp mã PIN <strong>{backendOrder?.handshake?.handshakeOtp || '8829'}</strong> cho bưu tá / lễ tân Dom B.
+                      </li>
+                      {isPaid ? (
+                        <li>
+                          <strong>Đã thanh toán Escrow:</strong> Bạn không cần trả thêm bất kỳ khoản tiền nào. Nhận đồ về phòng, cắm thử 48h rồi bấm xác nhận giải ngân.
+                        </li>
+                      ) : (
+                        <li>
+                          <strong>Đơn COD:</strong> Bạn có quyền mở hộp kiểm tra thiết bị hoạt động tốt trước khi thanh toán số tiền <strong>{productData.price.toLocaleString('vi-VN')} đ</strong> cho người giao.
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* CARD 3: TIẾN TRÌNH ĐƠN HÀNG TIẾP THEO */}
             <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">

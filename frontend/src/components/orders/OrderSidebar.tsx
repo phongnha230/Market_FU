@@ -7,9 +7,11 @@ import { Card, Badge, Button } from '@/components/ui';
 
 interface OrderSidebarProps {
   onOpenAiBot: () => void;
+  isSeller?: boolean;
+  onOpenKyc?: () => void;
 }
 
-export default function OrderSidebar({ onOpenAiBot }: OrderSidebarProps) {
+export default function OrderSidebar({ onOpenAiBot, isSeller = false, onOpenKyc }: OrderSidebarProps) {
   return (
     <div className="lg:col-span-3 space-y-4">
       {/* AI ASSISTANT CARD */}
@@ -61,13 +63,24 @@ export default function OrderSidebar({ onOpenAiBot }: OrderSidebarProps) {
           <span>Hồ sơ sinh viên</span>
           <ChevronRight className="h-4 w-4 text-slate-400" />
         </Link>
-        <Link
-          href="/create-post"
-          className="flex items-center justify-between p-2 rounded-xl hover:bg-white transition text-fpt-orange"
-        >
-          <span>+ Đăng bán đồ cũ</span>
-          <ChevronRight className="h-4 w-4" />
-        </Link>
+        {isSeller ? (
+          <Link
+            href="/create-post"
+            className="flex items-center justify-between p-2 rounded-xl hover:bg-white transition text-fpt-orange"
+          >
+            <span>+ Đăng bán đồ cũ</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenKyc}
+            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-white transition text-fpt-orange cursor-pointer font-semibold text-xs"
+          >
+            <span>🛍️ Đăng ký mở Seller</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
       </Card>
     </div>
   );

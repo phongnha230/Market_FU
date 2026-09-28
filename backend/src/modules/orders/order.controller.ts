@@ -134,6 +134,19 @@ export class OrderController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/orders/:id/confirm-delivery
+   * Người mua xác nhận đã nhận hàng an toàn & giải phóng Escrow
+   */
+  async confirmDelivery(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const order = await orderService.confirmDelivery(req.user!.userId, req.params.id as string);
+      return sendSuccess(res, order);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const orderController = new OrderController();

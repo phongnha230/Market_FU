@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Button, Badge, Card } from '@/components/ui';
+import { Lock } from 'lucide-react';
 
 interface OrderTabsProps {
   activeMainTab: 'buying' | 'selling' | 'listings' | 'handoff';
@@ -12,6 +13,7 @@ interface OrderTabsProps {
   sellingCount?: number;
   listingsCount?: number;
   handoffCount?: number;
+  isSeller?: boolean;
 }
 
 export default function OrderTabs({
@@ -23,6 +25,7 @@ export default function OrderTabs({
   sellingCount = 1,
   listingsCount = 3,
   handoffCount = 1,
+  isSeller = false,
 }: OrderTabsProps) {
   const progressFilters = [
     { id: 'all', label: 'Tất cả (2)' },
@@ -67,9 +70,18 @@ export default function OrderTabs({
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
           }`}
         >
+          {!isSeller && <Lock className="h-3 w-3 text-amber-500" />}
           <span>Đơn bán cần gửi</span>
-          <Badge className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[11px] text-slate-700 border-none font-normal hover:bg-slate-100">
-            {sellingCount}
+          <Badge
+            className={`rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal ${
+              !isSeller
+                ? 'bg-amber-100 text-amber-800'
+                : activeMainTab === 'selling'
+                ? 'bg-white/20 text-white hover:bg-white/20'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {!isSeller ? 'Seller' : sellingCount}
           </Badge>
         </Button>
 
@@ -82,9 +94,18 @@ export default function OrderTabs({
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
           }`}
         >
+          {!isSeller && <Lock className="h-3 w-3 text-amber-500" />}
           <span>Tin đăng rao bán</span>
-          <Badge className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[11px] text-slate-700 border-none font-normal hover:bg-slate-100">
-            {listingsCount}
+          <Badge
+            className={`rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal ${
+              !isSeller
+                ? 'bg-amber-100 text-amber-800'
+                : activeMainTab === 'listings'
+                ? 'bg-white/20 text-white hover:bg-white/20'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {!isSeller ? 'Seller' : listingsCount}
           </Badge>
         </Button>
 

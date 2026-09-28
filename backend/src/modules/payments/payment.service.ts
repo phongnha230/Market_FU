@@ -85,12 +85,16 @@ export class PaymentService {
       };
     }
 
-    // Tìm đơn hàng theo mã
+    // Tìm đơn hàng theo mã string orderCode (ORD-...) hoặc theo payosOrderCode (số nguyên)
+    const numericCode = Number(extractedCode);
+    const isNumeric = !isNaN(numericCode) && numericCode > 0;
+
     const order = await prisma.order.findFirst({
       where: {
         OR: [
           { orderCode: extractedCode },
           { orderCode: { contains: extractedCode, mode: 'insensitive' } },
+          ...(isNumeric ? [{ payment: { is: { payosOrderCode: numericCode } } }] : []),
         ],
       },
       include: {

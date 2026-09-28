@@ -18,6 +18,14 @@ export interface OrderItem {
   statusText: string;
   statusColor: string;
   reviewed?: boolean;
+  buyerId?: string;
+  sellerId?: string;
+  handshake?: {
+    handshakeToken?: string;
+    handshakeOtp?: string;
+    isVerified?: boolean;
+    verifiedAt?: string;
+  };
   product: {
     title: string;
     subtitle: string;
@@ -46,7 +54,10 @@ export interface OrderItem {
 }
 
 interface OrderState {
+  ordersByUser: Record<string, OrderItem[]>;
+  activeUserId: string | null;
   orders: OrderItem[];
+  setActiveUser: (userId: string | null) => void;
   fetchOrders: () => Promise<void>;
   verifyHandshake: (orderId: string, handshakeToken?: string, handshakeOtp?: string) => Promise<boolean>;
   initSocketListeners: () => () => void;
@@ -138,12 +149,24 @@ const dummyStorage = {
 export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
-      orders: INITIAL_ORDERS,
+      ordersByUser: {},
+      activeUserId: null,
+      orders: [],
+
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim() : null;
+        const state = get();
+        const userOrders = uId && state.ordersByUser[uId] ? state.ordersByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          orders: userOrders,
+        });
+      },
 
       fetchOrders: async () => {
         try {
           const res = await orderService.getOrders();
-          if (res.orders && res.orders.length > 0) {
+          if (res.orders) {
             const mapped: OrderItem[] = res.orders.map((bo) => {
               const statusMap: Record<string, OrderItem['status']> = {
                 PENDING: 'processing',
@@ -174,6 +197,9 @@ export const useOrderStore = create<OrderState>()(
                 statusText: bo.status === 'COMPLETED' ? 'Giao dịch thành công' : bo.status === 'PAID' ? 'Đã nạp Escrow bảo hộ' : bo.status === 'SHIPPING' ? 'Đang vận chuyển' : bo.status === 'DELIVERED' ? 'Đã giao tới nơi' : 'Chờ xử lý',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
                 reviewed: bo.reviews && bo.reviews.length > 0,
+                buyerId: bo.buyerId,
+                sellerId: bo.sellerId,
+                handshake: bo.handshake,
                 product: {
                   title: bo.product?.title || 'Sản phẩm FPT Market',
                   subtitle: bo.product?.meetupLocation || 'Bàn giao trực tiếp campus',
@@ -204,10 +230,13 @@ export const useOrderStore = create<OrderState>()(
               };
             });
 
-            set((state) => {
-              const nonColliding = state.orders.filter((o) => !mapped.some((m) => m.id === o.id || m.code === o.code));
-              return { orders: [...mapped, ...nonColliding] };
-            });
+            const activeUid = get().activeUserId;
+            set((state) => ({
+              orders: mapped,
+              ordersByUser: activeUid
+                ? { ...state.ordersByUser, [activeUid]: mapped }
+                : state.ordersByUser,
+            }));
           }
         } catch {
           // offline fallback
@@ -292,16 +321,24 @@ export const useOrderStore = create<OrderState>()(
               : undefined,
         };
 
+        const activeUid = get().activeUserId;
+        const currentList = get().orders;
+        const updatedOrders = [newOrder, ...currentList];
+
         set((state) => ({
-          orders: [newOrder, ...state.orders],
+          orders: updatedOrders,
+          ordersByUser: activeUid
+            ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+            : state.ordersByUser,
         }));
 
         return newOrder;
       },
 
       updateOrderStatus: (idOrCode, status, statusText) => {
-        set((state) => ({
-          orders: state.orders.map((o) => {
+        const activeUid = get().activeUserId;
+        set((state) => {
+          const updatedOrders = state.orders.map((o) => {
             if (o.id === idOrCode || o.code === idOrCode) {
               let color = 'text-fpt-orange';
               if (status === 'delivered' || status === 'completed') color = 'text-emerald-600';
@@ -314,36 +351,63 @@ export const useOrderStore = create<OrderState>()(
               };
             }
             return o;
-          }),
-        }));
+          });
+
+          return {
+            orders: updatedOrders,
+            ordersByUser: activeUid
+              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+              : state.ordersByUser,
+          };
+        });
       },
 
       markOrderReviewed: (idOrCode) => {
-        set((state) => ({
-          orders: state.orders.map((o) => {
+        const activeUid = get().activeUserId;
+        set((state) => {
+          const updatedOrders = state.orders.map((o) => {
             if (o.id === idOrCode || o.code === idOrCode) {
               return {
                 ...o,
                 reviewed: true,
-                status: 'completed',
+                status: 'completed' as const,
                 statusText: 'Đã đánh giá 5 sao • Đã nhận +50 Coins',
                 statusColor: 'text-emerald-600',
               };
             }
             return o;
-          }),
-        }));
+          });
+
+          return {
+            orders: updatedOrders,
+            ordersByUser: activeUid
+              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+              : state.ordersByUser,
+          };
+        });
       },
 
       getOrder: (idOrCode) => {
         return get().orders.find((o) => o.id === idOrCode || o.code === idOrCode);
       },
 
-      resetOrders: () => set({ orders: INITIAL_ORDERS }),
+      resetOrders: () => set({ orders: [], activeUserId: null }),
     }),
     {
       name: 'fu_market_orders_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (!state.activeUserId) {
+            state.orders = [];
+          } else {
+            state.orders = state.ordersByUser?.[state.activeUserId] || [];
+          }
+          if (state.orders?.some((o) => o.id === 'ord-1' || o.id === 'ord-2')) {
+            state.orders = state.orders.filter((o) => o.id !== 'ord-1' && o.id !== 'ord-2');
+          }
+        }
+      },
     }
   )
 );

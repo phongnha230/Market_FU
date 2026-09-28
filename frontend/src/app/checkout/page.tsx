@@ -106,8 +106,6 @@ function CheckoutContent() {
 
   // Payment method state: vietqr | payos | cod
   const [paymentMethod, setPaymentMethod] = useState<'vietqr' | 'payos' | 'cod'>('vietqr');
-  const [copiedAmount, setCopiedAmount] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -118,17 +116,15 @@ function CheckoutContent() {
   // User and KYC state
   const currentUser = useUserStore((state) => state.user);
   const addCoins = useUserStore((state) => state.addCoins);
-  const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
+  const isEduEmail = Boolean(
+    currentUser.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    currentUser.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isKycVerified = isEduEmail || currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [useCoinDiscount, setUseCoinDiscount] = useState(false);
 
   const createOrder = useOrderStore((state) => state.createOrder);
-
-  // Unique client-side preview order code
-  const [previewOrderCode] = useState(() => {
-    const rand = Math.floor(10000 + Math.random() * 90000);
-    return `ORD-${rand}-HL`;
-  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -163,9 +159,19 @@ function CheckoutContent() {
   // 2. Compute dynamic shipping fee via backend API / shipping matrix
   const originCode = parseCampusCode(productData.campus);
   const destinationCode = parseCampusCode(currentUser.campus || 'HOL');
+  const typeParam = searchParams.get('type');
+  const isSameCampus = originCode === destinationCode;
+  const isMeetup = typeParam === 'meetup' || isSameCampus;
 
   useEffect(() => {
     let isMounted = true;
+    if (isMeetup) {
+      setShippingFee(0);
+      setEstimatedDays('Hẹn gặp trực tiếp trong ngày');
+      setTransitHub(`Safe-Point ${CAMPUS_NAMES[originCode] || originCode}`);
+      return;
+    }
+
     orderService
       .estimateShipping({
         fromCampus: originCode,
@@ -187,34 +193,17 @@ function CheckoutContent() {
     return () => {
       isMounted = false;
     };
-  }, [originCode, destinationCode]);
+  }, [originCode, destinationCode, isMeetup]);
 
-  // Voucher discount
-  const voucherDiscount = 15000;
-  const effectiveShippingFee = Math.max(0, shippingFee - voucherDiscount);
+  // Voucher discount (only applies to inter-campus shipping)
+  const voucherDiscount = isMeetup ? 0 : 15000;
+  const effectiveShippingFee = isMeetup ? 0 : Math.max(0, shippingFee - voucherDiscount);
 
   // Coins discount: 1 Xu = 1.000 VNĐ. Task 3.3 / B3-10: Capped at 10% of product price
   const maxCoinsAllowed = Math.min(50, currentUser.coins, Math.floor((productData.price * 0.1) / 1000));
   const coinDiscountAmount = useCoinDiscount && maxCoinsAllowed > 0 ? maxCoinsAllowed * 1000 : 0;
 
   const totalAmount = Math.max(0, productData.price + effectiveShippingFee - coinDiscountAmount);
-
-  // VietQR Dynamic URL with actual bank details
-  const vietqrUrl = `https://img.vietqr.io/image/MB-0348888999-compact2.png?amount=${totalAmount}&addInfo=${previewOrderCode}&accountName=SAN%20FPT%205CAMPUS`;
-
-  const handleCopyAmount = () => {
-    navigator.clipboard.writeText(totalAmount.toString());
-    setCopiedAmount(true);
-    showToast(`Đã sao chép số tiền ${totalAmount.toLocaleString('vi-VN')} đ`);
-    setTimeout(() => setCopiedAmount(false), 2000);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(previewOrderCode);
-    setCopiedCode(true);
-    showToast(`Đã sao chép nội dung chuyển khoản ${previewOrderCode}`);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
 
   const handleConfirmOrder = async () => {
     if (!isKycVerified) {
@@ -229,17 +218,19 @@ function CheckoutContent() {
       try {
         createdBackendOrder = await orderService.createOrder({
           productId: productData.id,
-          orderType: 'SHIP_COD',
+          orderType: isMeetup ? 'MEETUP' : 'SHIP_COD',
           coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
           deliveryNote,
           paymentMethod: paymentMethod === 'vietqr' ? 'VIETQR' : paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
-          shipping: {
-            receiverName: currentUser.name || 'Sinh viên FPT',
-            receiverPhone: currentUser.phone || '0987654321',
-            shippingAddress: `Phòng 402, Dom B, KTX FPT ${CAMPUS_NAMES[destinationCode] || destinationCode}`,
-            destinationCampus: destinationCode,
-            shippingPartner: 'FPT CampusShip',
-          },
+          shipping: isMeetup
+            ? undefined
+            : {
+                receiverName: currentUser.name || 'Sinh viên FPT',
+                receiverPhone: currentUser.phone || '0987654321',
+                shippingAddress: `Phòng 402, Dom B, KTX FPT ${CAMPUS_NAMES[destinationCode] || destinationCode}`,
+                destinationCampus: destinationCode,
+                shippingPartner: 'FPT CampusShip',
+              },
         });
       } catch (err: any) {
         console.warn('Backend createOrder failed or offline, using resilient fallback:', err);
@@ -253,20 +244,20 @@ function CheckoutContent() {
       const localOrder = createOrder({
         product: {
           title: productData.title,
-          subtitle: productData.description || 'Bàn giao chuẩn KTX',
+          subtitle: isMeetup ? 'Bàn giao trực tiếp tại Safe-Point Campus' : (productData.description || 'Bàn giao chuẩn KTX'),
           price: productData.price,
-          escrowBadge: 'Đã cọc Escrow bảo hộ',
+          escrowBadge: isMeetup ? 'Xác thực QR Handshake' : 'Đã cọc Escrow bảo hộ',
           conditionBadge: productData.conditionBadge,
           imageUrl: productData.imageUrl,
           seller: {
             name: productData.sellerName,
             cohortCampus: `${productData.sellerCohort} - ${CAMPUS_NAMES[originCode] || originCode}`,
-            verifiedText: 'Miễn phí ký gửi liên cơ sở',
+            verifiedText: isMeetup ? 'Bàn giao tại điểm hẹn an toàn' : 'Miễn phí ký gửi liên cơ sở',
           },
         },
-        type: 'inter-campus',
+        type: isMeetup ? 'safe-handoff' : 'inter-campus',
         deliveryNote,
-        paymentMethod: paymentMethod === 'payos' ? 'PayOS Web' : paymentMethod === 'vietqr' ? 'VietQR Napas247' : 'COD KTX',
+        paymentMethod: paymentMethod === 'payos' ? 'PayOS Web' : paymentMethod === 'vietqr' ? 'VietQR Napas247' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
       });
 
       const finalCode = createdBackendOrder?.orderCode || localOrder.code;
@@ -307,15 +298,17 @@ function CheckoutContent() {
               Sản phẩm sinh viên
             </Link>
             <span className="text-slate-400">›</span>
-            <span className="text-slate-800 font-semibold">Đặt hàng & Thanh toán Liên Campus</span>
+            <span className="text-slate-800 font-semibold">
+              {isMeetup ? 'Đặt hẹn & Bàn giao Safe-Handoff' : 'Đặt hàng & Thanh toán Liên Campus'}
+            </span>
             <span className="rounded bg-orange-100/80 px-2 py-0.5 text-[11px] font-bold text-fpt-orange border border-orange-200">
-              #{previewOrderCode}
+              {isMeetup ? 'Xác thực QR Handshake' : 'Bảo chứng Escrow 48h'}
             </span>
           </nav>
 
           <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full self-start sm:self-auto">
             <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>Giao dịch bảo hộ Escrow KTX ĐH FPT</span>
+            <span>{isMeetup ? 'Bảo chứng Safe-Point ĐH FPT' : 'Giao dịch bảo hộ Escrow KTX ĐH FPT'}</span>
           </div>
         </div>
 
@@ -347,24 +340,26 @@ function CheckoutContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: SECTIONS (8 COLS) */}
           <div className="lg:col-span-8 space-y-6">
-            {/* SECTION 1: VẬN CHUYỂN LIÊN CAMPUS FPT CAMPUSSHIP */}
-            <div className="rounded-2xl border border-orange-100 bg-white p-5 sm:p-6 shadow-xs">
+            {/* SECTION 1: VẬN CHUYỂN / SAFE-HANDOFF */}
+            <div className={`rounded-2xl border bg-white p-5 sm:p-6 shadow-xs ${isMeetup ? 'border-emerald-200' : 'border-orange-100'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0 shadow-xs">
-                    <Truck className="h-5 w-5" />
+                  <div className={`rounded-xl p-2 text-white shrink-0 shadow-xs ${isMeetup ? 'bg-emerald-600' : 'bg-fpt-orange'}`}>
+                    {isMeetup ? <ShieldCheck className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
                   </div>
                   <div>
                     <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Vận chuyển Liên Campus FPT CampusShip
+                      {isMeetup ? 'Giao dịch Safe-Handoff Nội bộ Campus' : 'Vận chuyển Liên Campus FPT CampusShip'}
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Tuyến giao vận chuyên trách giữa 5 cơ sở FPT Edu (Hà Nội • Đà Nẵng • Quy Nhơn • TP.HCM • Cần Thơ)
+                      {isMeetup
+                        ? 'Gặp mặt và kiểm tra hàng trực tiếp tại các điểm hẹn an toàn (Safe-Points) trong khuôn viên trường'
+                        : 'Tuyến giao vận chuyên trách giữa 5 cơ sở FPT Edu (Hà Nội • Đà Nẵng • Quy Nhơn • TP.HCM • Cần Thơ)'}
                     </p>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700 border border-slate-200 self-start sm:self-auto">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border self-start sm:self-auto ${isMeetup ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                  <span className={`h-2 w-2 rounded-full ${isMeetup ? 'bg-emerald-600' : 'bg-emerald-500'}`}></span>
                   {transitHub}
                 </span>
               </div>
@@ -375,59 +370,71 @@ function CheckoutContent() {
                   {/* Origin */}
                   <div className="text-left">
                     <span className="rounded bg-slate-200/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 uppercase">
-                      NƠI GỬI
+                      {isMeetup ? 'ĐIỂM HẸN SAFE-POINT' : 'NƠI GỬI'}
                     </span>
                     <div className="mt-1 font-extrabold text-slate-900 text-sm">
                       {CAMPUS_NAMES[originCode] || originCode}
                     </div>
-                    <div className="text-xs text-slate-500">Bưu cục Safe-Handoff Point</div>
+                    <div className="text-xs text-slate-500">
+                      {isMeetup ? 'Sảnh Tòa Alpha / Thư viện' : 'Bưu cục Safe-Handoff Point'}
+                    </div>
                   </div>
 
                   {/* Route line & info */}
                   <div className="flex-1 flex flex-col items-center px-2">
                     <div className="flex items-center justify-between w-full text-[11px] text-slate-500 font-medium mb-1">
-                      <span>{originCode === destinationCode ? 'Nội bộ Campus' : 'Tuyến xe liên tỉnh FPT'}</span>
+                      <span>{isMeetup ? 'Bàn giao trực tiếp tại Campus' : (originCode === destinationCode ? 'Nội bộ Campus' : 'Tuyến xe liên tỉnh FPT')}</span>
                       <span className="text-fpt-orange font-bold">{estimatedDays}</span>
                     </div>
                     <div className="relative w-full h-2 bg-slate-200 rounded-full flex items-center justify-center">
                       <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-fpt-orange to-emerald-500 rounded-full"></div>
                       <div className="absolute -top-1 bg-white border border-fpt-orange rounded-full p-0.5 shadow-xs">
-                        <Truck className="h-3.5 w-3.5 text-fpt-orange" />
+                        {isMeetup ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <Truck className="h-3.5 w-3.5 text-fpt-orange" />}
                       </div>
                     </div>
                     <span className="mt-1.5 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                      ĐƯỢC ĐÓNG THÙNG CHỐNG SỐC KTX
+                      {isMeetup ? 'MIỄN PHÍ VẬN CHUYỂN • TEST TRỰC TIẾP' : 'ĐƯỢC ĐÓNG THÙNG CHỐNG SỐC KTX'}
                     </span>
                   </div>
 
                   {/* Destination */}
                   <div className="text-left md:text-right">
                     <span className="rounded bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-fpt-orange uppercase">
-                      NƠI NHẬN
+                      {isMeetup ? 'HÌNH THỨC NHẬN' : 'NƠI NHẬN'}
                     </span>
                     <div className="mt-1 font-extrabold text-slate-900 text-sm">
-                      {CAMPUS_NAMES[destinationCode] || destinationCode}
+                      {isMeetup ? 'Quét QR Handshake' : (CAMPUS_NAMES[destinationCode] || destinationCode)}
                     </div>
-                    <div className="text-xs text-slate-500">Sảnh KTX / Lễ tân KTX Dom B</div>
+                    <div className="text-xs text-slate-500">
+                      {isMeetup ? 'Mã OTP 4 số bảo mật' : 'Sảnh KTX / Lễ tân KTX Dom B'}
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-200/70 text-xs text-slate-600 flex items-start gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Bảo hộ Escrow 48 giờ.</strong> Tiền được giữ trên tài khoản bảo chứng của ĐH FPT, chỉ giải ngân cho người bán sau 48h từ lúc bạn nhận và kiểm tra thiết bị hoạt động tốt.
+                    {isMeetup ? (
+                      <>
+                        <strong>Xác thực Handshake 2 chiều.</strong> Bạn kiểm tra kỹ món đồ tại Safe Point rồi mới đọc mã OTP hoặc đưa mã QR cho người bán quét để hoàn tất giao dịch và kích hoạt bảo hành 24h.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Bảo hộ Escrow 48 giờ.</strong> Tiền được giữ trên tài khoản bảo chứng của ĐH FPT, chỉ giải ngân cho người bán sau 48h từ lúc bạn nhận và kiểm tra thiết bị hoạt động tốt.
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* SECTION 2: ĐỊA CHỈ & ĐIỂM BÀN GIAO KTX */}
+            {/* SECTION 2: ĐỊA CHỈ & ĐIỂM BÀN GIAO */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-fpt-orange" />
                   <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                    Địa chỉ & Điểm Bàn giao KTX
+                    {isMeetup ? 'Địa điểm Hẹn gặp & Bàn giao Safe-Handoff' : 'Địa chỉ & Điểm Bàn giao KTX'}
                   </h2>
                 </div>
                 <span className="rounded bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
@@ -450,11 +457,11 @@ function CheckoutContent() {
                   <div className="text-xs text-slate-500 mt-0.5">{productData.sellerCohort}</div>
                   <div className="mt-2 text-xs text-slate-600 flex items-start gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>Safe-Handoff Point Thư viện {CAMPUS_NAMES[originCode] || originCode}</span>
+                    <span>{isMeetup ? 'Bàn giao trực tiếp tại Safe-Point Campus' : `Safe-Handoff Point Thư viện ${CAMPUS_NAMES[originCode] || originCode}`}</span>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span>Đã nộp đồ tại Safe-Handoff Point</span>
+                    <span>{isMeetup ? 'Sẵn sàng hẹn gặp tại sảnh / thư viện' : 'Đã nộp đồ tại Safe-Handoff Point'}</span>
                   </div>
                 </div>
 
@@ -476,7 +483,7 @@ function CheckoutContent() {
                   <div className="text-xs text-slate-500 mt-0.5">MSSV: {currentUser.studentId} • {currentUser.phone}</div>
                   <div className="mt-2 text-xs text-slate-600 flex items-start gap-1.5">
                     <MapPin className="h-3.5 w-3.5 text-fpt-orange shrink-0 mt-0.5" />
-                    <span>Phòng 402, Dom B, KTX {CAMPUS_NAMES[destinationCode] || destinationCode}</span>
+                    <span>{isMeetup ? `Safe-Point KTX / Khuôn viên ${CAMPUS_NAMES[destinationCode] || destinationCode}` : `Phòng 402, Dom B, KTX ${CAMPUS_NAMES[destinationCode] || destinationCode}`}</span>
                   </div>
                   <div className="mt-2.5 pt-2 border-t border-orange-200/60 text-[11px] text-slate-700">
                     {isEditingNote ? (
@@ -559,19 +566,21 @@ function CheckoutContent() {
               </div>
             </div>
 
-            {/* SECTION 4: PHƯƠNG THỨC THANH TOÁN LIÊN CAMPUS */}
+            {/* SECTION 4: PHƯƠNG THỨC THANH TOÁN */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                    Phương thức Thanh toán Liên Campus
+                    {isMeetup ? 'Phương thức Thanh toán Safe-Handoff' : 'Phương thức Thanh toán Liên Campus'}
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Áp dụng chế độ ký quỹ đảm bảo quyền lợi khi vận chuyển khác thành phố
+                    {isMeetup
+                      ? 'Chọn cách thức thanh toán khi gặp mặt và bàn giao trực tiếp tại khuôn viên trường'
+                      : 'Áp dụng chế độ ký quỹ đảm bảo quyền lợi khi vận chuyển khác thành phố'}
                   </p>
                 </div>
                 <span className="rounded bg-orange-50 px-2.5 py-0.5 text-[10px] font-bold text-fpt-orange border border-orange-200">
-                  BẢO VỆ 2 CHIỀU
+                  {isMeetup ? 'QR HANDSHAKE 24H' : 'BẢO VỆ 2 CHIỀU'}
                 </span>
               </div>
 
@@ -611,84 +620,31 @@ function CheckoutContent() {
                   </div>
 
                   <p className="mt-2 text-xs text-slate-600 pl-7 leading-relaxed">
-                    Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho bạn bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm &quot;Đã kiểm tra OK&quot;.
+                    {isMeetup
+                      ? 'Tiền chuyển vào tài khoản Escrow trung gian của Sàn FPT. Người bán chỉ được giải ngân sau khi xác thực mã QR Handshake hoặc OTP tại điểm hẹn.'
+                      : 'Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho bạn bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm "Đã kiểm tra OK".'}
                   </p>
 
-                  {/* QR CODE CARD */}
+                  {/* VIETQR INFO CARD */}
                   {paymentMethod === 'vietqr' && (
-                    <div className="mt-4 ml-7 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-                        {/* QR Canvas Box */}
-                        <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 border border-slate-200">
-                          <div className="text-[10px] font-extrabold text-slate-600 mb-1 tracking-wider uppercase">
-                            VIETQR | NAPAS247
-                          </div>
-                          <div className="relative h-36 w-36 bg-white p-1 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden">
-                            <Image
-                              src={vietqrUrl}
-                              alt="VietQR Napas 24/7"
-                              fill
-                              unoptimized
-                              className="object-contain"
-                            />
-                          </div>
-                          <span className="mt-2 text-[10px] font-bold text-slate-500">
-                            Quét qua App Ngân hàng bất kỳ
-                          </span>
+                    <div className="mt-3 ml-7 rounded-xl border border-orange-200/80 bg-orange-50/60 p-3.5 sm:p-4 text-xs">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
+                          <QrCode className="h-5 w-5" />
                         </div>
-
-                        {/* Bank Details */}
-                        <div className="md:col-span-8 space-y-2.5 text-xs">
-                          <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                            <span className="text-slate-500">Tên tài khoản:</span>
-                            <span className="font-extrabold text-slate-900">SAN FPT 5CAMPUS MARKETPLACE</span>
-                          </div>
-
-                          <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                            <span className="text-slate-500">Ngân hàng thụ hưởng:</span>
-                            <span className="font-bold text-slate-900">MB Bank (Quân Đội)</span>
-                          </div>
-
-                          <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                            <span className="text-slate-500">Số tiền chuyển khoản:</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-fpt-orange text-sm sm:text-base">
-                                {totalAmount.toLocaleString('vi-VN')} đ
-                              </span>
-                              <button
-                                type="button"
-                                onClick={handleCopyAmount}
-                                className="rounded p-1 text-slate-500 hover:bg-slate-100 transition cursor-pointer"
-                                title="Sao chép số tiền"
-                              >
-                                {copiedAmount ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                            <span className="text-slate-500">Nội dung chuyển khoản:</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {previewOrderCode}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={handleCopyCode}
-                                className="inline-flex items-center gap-1 rounded-lg bg-orange-600 text-white px-2.5 py-1 text-[11px] font-bold hover:bg-orange-700 transition cursor-pointer"
-                              >
-                                {copiedCode ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                                <span>Sao chép mã</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 pt-1">
+                        <div className="space-y-1 flex-1">
+                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                            Thanh toán VietQR Napas247 chính xác tuyệt đối:
+                          </h4>
+                          <p className="text-slate-600 text-xs leading-relaxed">
+                            Khi bạn bấm <span className="font-bold text-fpt-orange">&quot;Xác nhận đặt đơn&quot;</span>, hệ thống sẽ lưu đơn hàng vào Database và xuất mã QR Napas247 chính thức khớp 100% với mã đơn hàng của bạn.
+                          </p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold pt-1">
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
-                            <span>Hệ thống tự động đối soát giao dịch thời gian thực (Webhook HMAC-SHA256)</span>
+                            <span>Tài khoản MB Bank Sàn FPT • Đối soát tự động thời gian thực (Webhook HMAC-SHA256)</span>
                           </div>
                         </div>
                       </div>
@@ -735,7 +691,7 @@ function CheckoutContent() {
                   </p>
                 </div>
 
-                {/* OPTION 3: COD */}
+                {/* OPTION 3: COD / CASH */}
                 <div
                   onClick={() => setPaymentMethod('cod')}
                   className={`rounded-xl border p-4 transition-all cursor-pointer ${
@@ -754,13 +710,17 @@ function CheckoutContent() {
                         className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange"
                       />
                       <span className="text-xs sm:text-sm font-bold text-slate-900">
-                        Thanh toán khi nhận hàng (COD Liên Campus)
+                        {isMeetup ? 'Thanh toán tiền mặt khi gặp mặt (Cash Handshake)' : 'Thanh toán khi nhận hàng (COD Liên Campus)'}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">Trả tại sảnh KTX</span>
+                    <span className="text-xs text-slate-400">
+                      {isMeetup ? 'Tại Safe-Point' : 'Trả tại sảnh KTX'}
+                    </span>
                   </div>
                   <p className="mt-1.5 text-xs text-slate-500 pl-7 leading-relaxed">
-                    Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho nhân viên giao vận FPT Express / Ban quản lý KTX sau khi bóc hộp, cắm thử thiết bị.
+                    {isMeetup
+                      ? 'Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho người bán tại điểm hẹn sau khi trực tiếp kiểm tra ưng ý món đồ.'
+                      : 'Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho nhân viên giao vận FPT Express / Ban quản lý KTX sau khi bóc hộp, cắm thử thiết bị.'}
                   </p>
                 </div>
               </div>
@@ -788,25 +748,29 @@ function CheckoutContent() {
 
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="flex items-center gap-1">
-                    Phí ship liên campus ({originCode} ➔ {destinationCode})
+                    {isMeetup ? 'Phí bàn giao Safe-Handoff' : `Phí ship liên campus (${originCode} ➔ ${destinationCode})`}
                     <HelpCircle className="h-3 w-3 text-slate-400" />
                   </span>
-                  <span className="font-medium text-slate-800">
-                    {shippingFee.toLocaleString('vi-VN')} đ
+                  <span className={`font-bold ${isMeetup ? 'text-emerald-600' : 'text-slate-800'}`}>
+                    {isMeetup ? '0 đ' : `${shippingFee.toLocaleString('vi-VN')} đ`}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-emerald-700 font-semibold">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="h-3.5 w-3.5" /> Voucher Freeship 5Campus
-                  </span>
-                  <span>-{voucherDiscount.toLocaleString('vi-VN')} đ</span>
-                </div>
+                {!isMeetup && (
+                  <>
+                    <div className="flex items-center justify-between text-emerald-700 font-semibold">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="h-3.5 w-3.5" /> Voucher Freeship 5Campus
+                      </span>
+                      <span>-{voucherDiscount.toLocaleString('vi-VN')} đ</span>
+                    </div>
 
-                <div className="flex items-center justify-between text-slate-500 text-[11px] pl-3">
-                  <span>• Phí vận chuyển thực tế:</span>
-                  <span>{effectiveShippingFee.toLocaleString('vi-VN')} đ</span>
-                </div>
+                    <div className="flex items-center justify-between text-slate-500 text-[11px] pl-3">
+                      <span>• Phí vận chuyển thực tế:</span>
+                      <span>{effectiveShippingFee.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-100">
                   <span className="flex items-center gap-1 text-[11px]">

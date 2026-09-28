@@ -75,7 +75,7 @@ export default function OrderCard({
       <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
         <div className="relative h-24 w-24 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
           <Image
-            src={order.product.imageUrl}
+            src={typeof order.product.imageUrl === 'string' && order.product.imageUrl ? order.product.imageUrl : ((order.product.imageUrl as any)?.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80')}
             alt={order.product.title}
             fill
             className="object-cover"

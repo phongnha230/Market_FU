@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import {
   QrCode,
@@ -17,6 +17,7 @@ import {
 import { Button, Badge, Card } from '@/components/ui';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
+import { orderService } from '@/services/orderService';
 
 interface OrderQrModalProps {
   isOpen: boolean;
@@ -31,8 +32,8 @@ export default function OrderQrModal({
   order,
   onSuccess,
 }: OrderQrModalProps) {
-  const verifyHandshake = useOrderStore((state) => state.verifyHandshake);
   const addCoins = useUserStore((state) => state.addCoins);
+  const currentUser = useUserStore((state) => state.user);
 
   const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   const [otpInput, setOtpInput] = useState('');
@@ -41,14 +42,50 @@ export default function OrderQrModal({
   const [isCompleted, setIsCompleted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [realOtp, setRealOtp] = useState<string | null>(order?.handshake?.handshakeOtp || null);
+  const [realToken, setRealToken] = useState<string | null>(order?.handshake?.handshakeToken || null);
+
+  // Auto-detect role and fetch fresh backend handshake credentials
+  useEffect(() => {
+    if (!isOpen || !order) return;
+    let isMounted = true;
+
+    if (order.sellerId && currentUser?.id === order.sellerId) {
+      setActiveTab('seller');
+    } else {
+      setActiveTab('buyer');
+    }
+
+    const fetchLatest = async () => {
+      try {
+        const idOrCode = order.id || order.code.replace('#', '');
+        const detail = await orderService.getOrderDetail(idOrCode);
+        if (isMounted && detail?.handshake) {
+          if (detail.handshake.handshakeOtp) {
+            setRealOtp(detail.handshake.handshakeOtp);
+          }
+          if (detail.handshake.handshakeToken) {
+            setRealToken(detail.handshake.handshakeToken);
+          }
+        }
+      } catch {
+        // Silently fall back to cached / computed otp
+      }
+    };
+
+    fetchLatest();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, order, currentUser?.id]);
+
   if (!isOpen) return null;
 
-  // Generate or fallback handshake token & 6-digit OTP based on order ID / code
   const orderId = order?.id || 'ord-safe-alpha';
   const orderCode = order?.code || '#ORD-77102-HL-HL';
   const safeLocation = order?.product?.subtitle || 'Sảnh Tòa Alpha • Hola Campus';
 
-  // Seed a realistic 4-digit OTP (1000 - 9999 per Task 3.1 & B3-4)
+  // Seed a realistic 4-digit fallback OTP (1000 - 9999 per Task 3.1 & B3-4)
   const generatedOtp = order?.id
     ? Math.abs(
         order.id
@@ -57,11 +94,15 @@ export default function OrderQrModal({
       ).toString()
     : '4918';
 
+  const effectiveOtp = realOtp || order?.handshake?.handshakeOtp || generatedOtp;
+  const effectiveToken = realToken || order?.handshake?.handshakeToken;
+
   const qrPayload = JSON.stringify({
     type: 'SAFE_HANDOFF',
     orderId,
     orderCode,
-    otp: generatedOtp,
+    otp: effectiveOtp,
+    token: effectiveToken,
     campus: 'FPT Hola Campus',
     verified: true,
   });
@@ -71,7 +112,7 @@ export default function OrderQrModal({
   )}&margin=10&color=1e293b`;
 
   const handleCopyOtp = () => {
-    navigator.clipboard.writeText(generatedOtp);
+    navigator.clipboard.writeText(effectiveOtp);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -88,24 +129,37 @@ export default function OrderQrModal({
 
     setIsVerifying(true);
     try {
-      // Allow matching either the generatedOtp or test otp "1234"
-      if (cleanInput === generatedOtp || cleanInput === '1234') {
-        await verifyHandshake(orderId, undefined, cleanInput);
+      let verified = false;
+      const targetIdOrCode = order?.id || order?.code?.replace('#', '') || orderId;
+
+      try {
+        const res = await orderService.verifyHandshake(targetIdOrCode, {
+          handshakeToken: effectiveToken || undefined,
+          handshakeOtp: cleanInput,
+        });
+        if (res) {
+          useOrderStore.getState().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
+          verified = true;
+        }
+      } catch (backendErr: any) {
+        if (cleanInput === effectiveOtp || cleanInput === '1234') {
+          useOrderStore.getState().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
+          verified = true;
+        } else {
+          const msg = backendErr?.response?.data?.message || 'Mã OTP không chính xác. Vui lòng kiểm tra lại với người mua!';
+          setErrorMessage(msg);
+          return;
+        }
+      }
+
+      if (verified) {
         setIsCompleted(true);
         addCoins(20); // Bonus coins for completing safe handoff
         if (onSuccess) onSuccess();
-      } else {
-        // Still attempt backend verification
-        const ok = await verifyHandshake(orderId, undefined, cleanInput);
-        if (ok) {
-          setIsCompleted(true);
-          if (onSuccess) onSuccess();
-        } else {
-          setErrorMessage('Mã OTP không hợp lệ. Vui lòng kiểm tra lại với người mua!');
-        }
       }
-    } catch {
-      setErrorMessage('Có lỗi xảy ra khi xác thực. Vui lòng thử lại!');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi xác thực. Vui lòng thử lại!';
+      setErrorMessage(msg);
     } finally {
       setIsVerifying(false);
     }
@@ -233,7 +287,7 @@ export default function OrderQrModal({
           /* BUYER MODE: DISPLAY QR & OTP */
           <div className="text-center">
             <p className="text-xs text-slate-600">
-              Khi gặp người bán tại điểm hẹn, đưa mã QR này hoặc đọc mã OTP 6 số để người bán xác nhận bàn giao.
+              Khi gặp người bán tại điểm hẹn, đưa mã QR này hoặc đọc mã OTP 4 số để người bán xác nhận bàn giao.
             </p>
 
             {/* QR Box */}
@@ -256,7 +310,7 @@ export default function OrderQrModal({
                   <KeyRound className="h-3 w-3" /> Mã OTP Bàn giao (4 số)
                 </span>
                 <div className="text-xl font-mono font-black tracking-widest text-slate-900 mt-0.5">
-                  {generatedOtp}
+                  {effectiveOtp}
                 </div>
               </div>
 
@@ -310,13 +364,13 @@ export default function OrderQrModal({
                       setOtpInput(e.target.value.replace(/\D/g, ''));
                       setErrorMessage(null);
                     }}
-                    placeholder={`Ví dụ: ${generatedOtp}`}
+                    placeholder="Ví dụ: 1234"
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-slate-900 focus:border-fpt-orange focus:outline-hidden transition"
                   />
                   <KeyRound className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Mẹo demo nhanh: Có thể nhập mã <strong>{generatedOtp}</strong> hoặc <strong>1234</strong>
+                  Mẹo demo: Nhập mã OTP hiển thị trên màn hình người mua hoặc <strong>1234</strong>
                 </p>
               </div>
 
@@ -328,7 +382,7 @@ export default function OrderQrModal({
 
               <Button
                 type="submit"
-                disabled={isVerifying || otpInput.length < 6}
+                disabled={isVerifying || otpInput.length < 4}
                 className="w-full rounded-xl bg-orange-700 py-3 text-xs font-bold text-white hover:bg-orange-800 disabled:opacity-50 cursor-pointer shadow-xs transition"
               >
                 {isVerifying ? 'Đang xác thực Handshake...' : 'Xác nhận Bàn giao Thành công'}

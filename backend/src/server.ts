@@ -3,7 +3,11 @@ import app from './app';
 import { ENV } from './config/env';
 import { connectDatabase } from './config/database';
 import { initSocketServer } from './utils/socket';
-import { startExpireProductsCron, startBlindReviewRevealCron } from './cron';
+import {
+  startExpireProductsCron,
+  startBlindReviewRevealCron,
+  startEscrowAutoReleaseCron,
+} from './cron';
 
 const server = http.createServer(app);
 
@@ -15,6 +19,8 @@ const startServer = async () => {
 
   // Khởi tạo tác vụ ngầm Cron Jobs (BE-DEV 4)
   startExpireProductsCron();
+  startBlindReviewRevealCron();
+  startEscrowAutoReleaseCron();
 
   server.listen(ENV.PORT, () => {
     console.log(`🚀 Server running on port ${ENV.PORT}`);
