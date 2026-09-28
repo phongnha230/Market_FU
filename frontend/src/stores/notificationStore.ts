@@ -10,12 +10,18 @@ export interface NotificationItem {
   body: string;
   type: NotificationType;
   targetUrl?: string;
+  actionText?: string;
+  actionUrl?: string;
+  adminFeedback?: string;
+  senderName?: string;
+  senderAvatar?: string;
   isRead: boolean;
   createdAt: string;
 }
 
 import { notificationService, BackendNotification } from '@/services/notificationService';
 import { socketClient } from '@/services/socketClient';
+import { showDesktopNotification } from '@/utils/webPush';
 
 interface NotificationState {
   notifications: NotificationItem[];
@@ -35,44 +41,50 @@ interface NotificationState {
 
 export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
-    id: 'notif-1',
-    userId: 'user-default',
-    title: 'Đơn hàng đang trên đường giao',
-    body: 'Đơn hàng #ORD-88392-HCM-HL đã rời Hub Đà Nẵng và đang trung chuyển về Dom B Hòa Lạc.',
-    type: 'ORDER',
-    targetUrl: '/orders',
-    isRead: false,
-    createdAt: '15 phút trước',
-  },
-  {
-    id: 'notif-2',
-    userId: 'user-default',
-    title: 'Tin nhắn mới từ Người bán',
-    body: 'Trần Văn Minh đã gửi đề xuất điểm hẹn: "Bàn chờ Thư viện Beta - Hola Campus".',
+    id: 'demo-notif-1',
+    userId: 'current-user',
+    title: 'Khách mua nhắn tin: Trần Văn Đạt',
+    body: 'Em chào anh, giáo trình CSD201 anh đăng pass ở Dom E còn không ạ? Tối nay em qua sảnh Alpha lấy được không?',
     type: 'CHAT',
     targetUrl: '/chat',
+    actionText: 'Mở cuộc trò chuyện',
+    senderName: 'Trần Văn Đạt',
+    isRead: false,
+    createdAt: '10 phút trước',
+  },
+  {
+    id: 'demo-notif-2',
+    userId: 'current-user',
+    title: 'Hồ sơ xác thực Sinh viên / Seller bị từ chối',
+    body: 'Admin phản hồi: Ảnh chụp thẻ sinh viên bị chói sáng ở mã số SV (MSSV). Vui lòng chụp lại rõ nét cả 2 mặt và nộp lại.',
+    type: 'KYC',
+    targetUrl: '/profile?openKyc=true&role=student',
+    actionText: 'Chỉnh đơn & Nộp lại',
+    adminFeedback: 'Ảnh chụp mặt trước bị lóa đèn flash, không thấy rõ MSSV và niên khóa. Vui lòng chụp lại rõ ràng trên mặt phẳng đủ ánh sáng.',
     isRead: false,
     createdAt: '45 phút trước',
   },
   {
-    id: 'notif-3',
-    userId: 'user-default',
-    title: 'Hồ sơ thẻ sinh viên đã được phê duyệt',
-    body: 'Chúc mừng! Thẻ sinh viên HE172819 của bạn đã được Admin BQT phê duyệt thành công. Bạn nhận được +100 FPT Coin!',
-    type: 'KYC',
-    targetUrl: '/profile',
-    isRead: true,
-    createdAt: 'Hôm qua, 14:30',
+    id: 'demo-notif-3',
+    userId: 'current-user',
+    title: 'Mua hàng thành công: Giáo trình PRF192',
+    body: 'Đơn hàng #ORD-8921 đã thanh toán thành công qua Safe-Handoff. Điểm hẹn bàn giao đồ: Sảnh tòa Alpha Hola.',
+    type: 'ORDER',
+    targetUrl: '/orders',
+    actionText: 'Xem chi tiết đơn',
+    isRead: false,
+    createdAt: '2 giờ trước',
   },
   {
-    id: 'notif-4',
-    userId: 'user-default',
-    title: 'Thông báo quy chế giao dịch an toàn',
-    body: 'BQT nhắc nhở: Hãy luôn chọn giao dịch tại các điểm Safe Handoff trong campus để tránh bị lừa đảo đặt cọc.',
+    id: 'demo-notif-4',
+    userId: 'current-user',
+    title: 'Chào mừng bạn đến với FPT 5Campus Marketplace',
+    body: 'Khám phá cộng đồng trao đổi đồ dùng sinh viên FPT an toàn, tiện lợi. Điểm danh mỗi ngày để nhận ngay FPT Coin!',
     type: 'SYSTEM',
-    targetUrl: '/safety',
+    targetUrl: '/profile',
+    actionText: 'Xem hồ sơ',
     isRead: true,
-    createdAt: '2 ngày trước',
+    createdAt: '1 ngày trước',
   },
 ];
 
@@ -104,7 +116,7 @@ export const useNotificationStore = create<NotificationState>()(
             set({ notifications: mapped });
           }
         } catch {
-          // fallback
+          // fallback to current local state
         }
       },
 
@@ -124,6 +136,12 @@ export const useNotificationStore = create<NotificationState>()(
           set((state) => ({
             notifications: [newNotif, ...state.notifications],
           }));
+
+          showDesktopNotification({
+            title: newNotif.title,
+            body: newNotif.body,
+            targetUrl: newNotif.targetUrl,
+          });
         });
         return cleanup;
       },
@@ -139,6 +157,12 @@ export const useNotificationStore = create<NotificationState>()(
         set((state) => ({
           notifications: [newNotif, ...state.notifications],
         }));
+
+        showDesktopNotification({
+          title: newNotif.title,
+          body: newNotif.body,
+          targetUrl: newNotif.targetUrl,
+        });
 
         return newNotif;
       },
@@ -182,6 +206,11 @@ export const useNotificationStore = create<NotificationState>()(
     {
       name: 'fu_market_notifications_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state && (!state.notifications || state.notifications.length === 0)) {
+          state.notifications = INITIAL_NOTIFICATIONS;
+        }
+      },
     }
   )
 );
