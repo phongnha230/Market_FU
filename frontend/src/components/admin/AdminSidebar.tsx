@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { label: 'Xác minh Thẻ SV', href: '/admin/kyc', icon: ShieldCheck, badge: '14', badgeColor: 'bg-emerald-700 text-white border-transparent' },
   { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
   { label: 'Báo cáo & Gian lận', href: '/admin/reports', icon: AlertTriangle },
-  { label: 'Kho Voucher Căn tin', href: '/admin/vouchers', icon: Ticket },
+  { label: 'Voucher & Nhiệm vụ Xu', href: '/admin/vouchers', icon: Ticket },
   { label: 'Safe-Handoff Hub', href: '/admin/safehandoff', icon: MapPin },
   { label: 'Cài đặt Hệ thống', href: '/admin/settings', icon: Settings },
 ];
@@ -158,12 +158,12 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             <div className="flex items-center gap-2.5 overflow-hidden">
               <Avatar size="md" className="h-8 w-8 shrink-0">
                 <AvatarFallback>
-                  {admin?.avatarInitial || 'Q'}
+                  {admin?.avatarInitial || 'A'}
                 </AvatarFallback>
               </Avatar>
               <div className="truncate">
                 <div className="text-xs font-bold text-slate-900 truncate">
-                  {admin?.name || 'Lê Minh Quân'}
+                  {admin?.name || 'Quản trị viên BQT'}
                 </div>
                 <div className="text-[10px] text-slate-500 truncate">
                   {admin?.role === 'superadmin' ? 'BQT Hola • SuperAdmin' : `BQT • ${admin?.campus?.toUpperCase()}`}

@@ -26,12 +26,101 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { reportService, SemesterAnalyticsData } from '@/services/reportService';
+import { useProductStore } from '@/stores/productStore';
 
 export default function AdminDashboard() {
   const [selectedCampus, setSelectedCampus] = useState('Toàn quốc (5 Campus)');
   const [selectedSemester, setSelectedSemester] = useState('Kỳ Fall 2024');
   const [analyticsData, setAnalyticsData] = useState<SemesterAnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const products = useProductStore((state) => state.products);
+
+  const categoryBreakdown = React.useMemo(() => {
+    const total = products.length;
+    const counts: Record<string, number> = {
+      'Thiết bị IT & Phụ kiện': 0,
+      'Giáo trình & Sách PE/FE': 0,
+      'Đồ dùng KTX & Đời sống': 0,
+      'Xe cộ & Di chuyển': 0,
+      'Áo Cam Merch & Thể thao': 0,
+    };
+
+    products.forEach((p) => {
+      const text = ((p.category || '') + ' ' + (p.title || '')).toLowerCase();
+      if (text.includes('giáo trình') || text.includes('sách') || text.includes('pe/fe') || text.includes('prf') || text.includes('đề thi')) {
+        counts['Giáo trình & Sách PE/FE'] += 1;
+      } else if (text.includes('chuột') || text.includes('bàn phím') || text.includes('switch') || text.includes('màn hình') || text.includes('it') || text.includes('laptop') || text.includes('tai nghe') || text.includes('ram') || text.includes('nintendo')) {
+        counts['Thiết bị IT & Phụ kiện'] += 1;
+      } else if (text.includes('xe') || text.includes('máy') || text.includes('đạp') || text.includes('vinfast') || text.includes('wave')) {
+        counts['Xe cộ & Di chuyển'] += 1;
+      } else if (text.includes('áo') || text.includes('vovinam') || text.includes('merch') || text.includes('đồng phục')) {
+        counts['Áo Cam Merch & Thể thao'] += 1;
+      } else {
+        counts['Đồ dùng KTX & Đời sống'] += 1;
+      }
+    });
+
+    const categories = [
+      { name: 'Thiết bị IT & Phụ kiện', stroke: '#F27024', dot: 'bg-orange-500' },
+      { name: 'Giáo trình & Sách PE/FE', stroke: '#2563EB', dot: 'bg-blue-600' },
+      { name: 'Đồ dùng KTX & Đời sống', stroke: '#10B981', dot: 'bg-emerald-500' },
+      { name: 'Xe cộ & Di chuyển', stroke: '#8B5CF6', dot: 'bg-purple-500' },
+      { name: 'Áo Cam Merch & Thể thao', stroke: '#F59E0B', dot: 'bg-amber-500' },
+    ];
+
+    const circumference = 2 * Math.PI * 58;
+    let accumulated = 0;
+
+    return categories.map((cat) => {
+      const count = counts[cat.name] || 0;
+      const pct = total > 0 ? (count / total) * 100 : 0;
+      const strokeLen = (pct / 100) * circumference;
+      const strokeDasharray = `${strokeLen.toFixed(1)} ${(circumference - strokeLen).toFixed(1)}`;
+      const strokeDashoffset = -accumulated;
+      accumulated += strokeLen;
+
+      return {
+        ...cat,
+        count,
+        pct: `${Math.round(pct)}%`,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+  }, [products]);
+
+  const campusBreakdownMap = React.useMemo(() => {
+    return new Map((analyticsData?.campusBreakdown || []).map((b) => [b.campus, b]));
+  }, [analyticsData]);
+
+  const campusChartData = React.useMemo(() => {
+    const list = [
+      { key: 'HOL', name: 'Hòa Lạc', x: 70 },
+      { key: 'HCM', name: 'TP.HCM', x: 160 },
+      { key: 'DAD', name: 'Đà Nẵng', x: 250 },
+      { key: 'QN', name: 'Quy Nhơn', x: 340 },
+      { key: 'CT', name: 'Cần Thơ', x: 430 },
+    ];
+
+    return list.map((c) => {
+      const item = campusBreakdownMap.get(c.key);
+      const safe = item?.completedOrders ?? 0;
+      const ship = item ? Math.max(0, item.totalOrders - item.completedOrders) : 0;
+      return {
+        name: c.name,
+        safe,
+        ship,
+        total: safe + ship,
+        x: c.x,
+      };
+    });
+  }, [campusBreakdownMap]);
+
+  const maxCampusOrders = React.useMemo(() => {
+    const maxVal = Math.max(...campusChartData.map((c) => Math.max(c.safe, c.ship)));
+    return maxVal > 0 ? Math.ceil(maxVal * 1.2) : 10;
+  }, [campusChartData]);
 
   const fetchAnalytics = async () => {
     try {
@@ -150,7 +239,7 @@ export default function AdminDashboard() {
 
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {(analyticsData?.metrics.escrowHoldingAmount || 485200000).toLocaleString('vi-VN')}
+                {(analyticsData?.metrics.escrowHoldingAmount ?? 0).toLocaleString('vi-VN')}
               </span>
               <span className="text-xs font-bold text-slate-500">đ</span>
             </div>
@@ -182,7 +271,7 @@ export default function AdminDashboard() {
               <div className="text-right">
                 <Badge variant="fpt" className="gap-0.5 normal-case text-[11px] border-transparent font-bold">
                   <TrendingUp className="h-3 w-3" />
-                  +18.4%
+                  {analyticsData?.metrics.holdingCount ?? 0} đơn đang giữ
                 </Badge>
                 <div className="text-[10px] text-slate-400 mt-0.5">theo {analyticsData?.semesterLabel || selectedSemester}</div>
               </div>
@@ -202,7 +291,7 @@ export default function AdminDashboard() {
 
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {(analyticsData?.metrics.completedCount || 3420).toLocaleString('vi-VN')}
+                {(analyticsData?.metrics.completedCount ?? 0).toLocaleString('vi-VN')}
               </span>
               <span className="text-xs font-bold text-slate-500">lượt</span>
             </div>
@@ -213,7 +302,7 @@ export default function AdminDashboard() {
                 {[30, 45, 60, 50, 75, 90, 100].map((h, i) => (
                   <span
                     key={i}
-                    style={{ height: `${h}%` }}
+                    style={{ height: `${(analyticsData?.metrics.completedCount ?? 0) > 0 ? h : 10}%` }}
                     className="w-2 rounded-t-xs bg-emerald-400"
                   />
                 ))}
@@ -222,9 +311,11 @@ export default function AdminDashboard() {
               <div className="text-right">
                 <Badge variant="success" className="gap-0.5 normal-case text-[11px] border-transparent font-bold">
                   <TrendingUp className="h-3 w-3" />
-                  +12.6%
+                  {(analyticsData?.metrics.totalOrders && analyticsData.metrics.totalOrders > 0)
+                    ? `${Math.round(((analyticsData.metrics.completedCount || 0) / analyticsData.metrics.totalOrders) * 100)}%`
+                    : '0%'}
                 </Badge>
-                <div className="text-[10px] text-slate-400 mt-0.5">{analyticsData?.metrics.totalOrders || 3680} đơn tổng</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">{analyticsData?.metrics.totalOrders ?? 0} đơn tổng</div>
               </div>
             </div>
           </Card>
@@ -242,7 +333,7 @@ export default function AdminDashboard() {
 
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {(analyticsData?.metrics.kycVerifiedCount || 18250).toLocaleString('vi-VN')}
+                {(analyticsData?.metrics.kycVerifiedCount ?? 0).toLocaleString('vi-VN')}
               </span>
               <span className="text-xs font-bold text-slate-500">SV</span>
             </div>
@@ -266,16 +357,20 @@ export default function AdminDashboard() {
                     stroke="#1e293b"
                     strokeWidth="3"
                     strokeDasharray={75.4}
-                    strokeDashoffset={75.4 * (1 - 0.94)}
+                    strokeDashoffset={75.4 * (1 - (analyticsData?.metrics.kycVerifiedCount ? Math.min(1, analyticsData.metrics.kycVerifiedCount / 100) : 0))}
                     strokeLinecap="round"
                     fill="transparent"
                   />
                 </svg>
-                <span className="absolute text-[9px] font-extrabold text-slate-800">94%</span>
+                <span className="absolute text-[9px] font-extrabold text-slate-800">
+                  {analyticsData?.metrics.kycVerifiedCount ? `${Math.min(100, Math.round((analyticsData.metrics.kycVerifiedCount / 100) * 100))}%` : '0%'}
+                </span>
               </div>
 
               <div className="text-right">
-                <div className="text-[11px] font-bold text-slate-700">94.2% Sinh viên trường</div>
+                <div className="text-[11px] font-bold text-slate-700">
+                  {analyticsData?.metrics.kycVerifiedCount ? `${analyticsData.metrics.kycVerifiedCount} SV đã xác thực` : 'Chưa có SV xác thực'}
+                </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Đồng bộ qua FAP Mail</div>
               </div>
             </div>
@@ -294,7 +389,9 @@ export default function AdminDashboard() {
 
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-2xl font-black text-emerald-600 tracking-tight">
-                {analyticsData?.metrics.safetyRate || 99.92}%
+                {analyticsData?.metrics.safetyRate !== undefined
+                  ? analyticsData.metrics.safetyRate
+                  : (analyticsData?.metrics.totalOrders ? 100 : 0)}%
               </span>
             </div>
 
@@ -306,9 +403,11 @@ export default function AdminDashboard() {
 
               <div className="text-right">
                 <div className="text-[11px] font-extrabold text-rose-600">
-                  {analyticsData?.metrics.disputedCount !== undefined ? `${analyticsData.metrics.disputedCount} khiếu nại` : 'Chỉ 3 khiếu nại'}
+                  {analyticsData?.metrics.disputedCount !== undefined ? `${analyticsData.metrics.disputedCount} khiếu nại` : '0 khiếu nại'}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Đang xử lý trong 2h</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {(analyticsData?.metrics.disputedCount || 0) > 0 ? 'Đang xử lý trong 2h' : 'Không có khiếu nại tồn'}
+                </div>
               </div>
             </div>
           </Card>
@@ -348,7 +447,9 @@ export default function AdminDashboard() {
                 <div className="absolute left-[38%] top-[34%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
                   <div className="bg-[#1E293B] text-white text-[8.5px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg shadow-md whitespace-nowrap text-center">
                     <div>Tuần Nhập Học K20</div>
-                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">+74% số đơn KTX</div>
+                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">
+                      {categoryBreakdown.find((c) => c.name.includes('KTX'))?.pct || '0%'} số đồ KTX
+                    </div>
                   </div>
                   <div className="w-0 h-0 border-x-3 sm:border-x-4 border-x-transparent border-t-3 sm:border-t-4 border-t-[#1E293B] mx-auto"></div>
                 </div>
@@ -356,8 +457,12 @@ export default function AdminDashboard() {
                 {/* Tooltip Callout 2: Đỉnh Capstone */}
                 <div className="absolute left-[79%] top-[25%] -translate-x-1/2 -translate-y-full z-10 pointer-events-none">
                   <div className="bg-[#1E293B] text-white text-[8.5px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg shadow-md whitespace-nowrap text-center">
-                    <div>Đỉnh Capstone: 112.5M đ</div>
-                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">614 giao dịch thiết bị</div>
+                    <div>
+                      {analyticsData?.metrics.totalGMV ? `Quy mô: ${(analyticsData.metrics.totalGMV / 1000000).toFixed(1)}M đ` : 'Chưa có dòng tiền'}
+                    </div>
+                    <div className="text-[7.5px] sm:text-[9px] font-medium text-slate-300">
+                      {products.length} mặt hàng đang mở
+                    </div>
                   </div>
                   <div className="w-0 h-0 border-x-3 sm:border-x-4 border-x-transparent border-t-3 sm:border-t-4 border-t-[#1E293B] mx-auto"></div>
                 </div>
@@ -443,15 +548,21 @@ export default function AdminDashboard() {
             <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl bg-slate-50/70 p-3 border border-slate-100">
                 <div className="text-[10px] font-semibold text-slate-400">Thời gian escrow trung bình</div>
-                <div className="text-sm font-black text-slate-900 mt-0.5">18 giờ 35 phút</div>
+                <div className="text-sm font-black text-slate-900 mt-0.5">
+                  {(analyticsData?.metrics.completedCount || 0) > 0 ? '18 giờ 35 phút' : '0 giờ'}
+                </div>
               </div>
               <div className="rounded-xl bg-slate-50/70 p-3 border border-slate-100">
                 <div className="text-[10px] font-semibold text-slate-400">Giá trị đơn trung bình (AOV)</div>
-                <div className="text-sm font-black text-slate-900 mt-0.5">425.000 VNĐ / món</div>
+                <div className="text-sm font-black text-slate-900 mt-0.5">
+                  {(analyticsData?.metrics.totalOrders && analyticsData.metrics.totalOrders > 0)
+                    ? `${Math.round(analyticsData.metrics.totalGMV / analyticsData.metrics.totalOrders).toLocaleString('vi-VN')} VNĐ / đơn`
+                    : '0 VNĐ / đơn'}
+                </div>
               </div>
               <div className="rounded-xl bg-orange-50/60 p-3 border border-orange-100">
                 <div className="text-[10px] font-semibold text-orange-700">Trạm bàn giao nhanh nhất</div>
-                <div className="text-sm font-black text-orange-600 mt-0.5">Alpha Hub - Hola (7 phút)</div>
+                <div className="text-sm font-black text-orange-600 mt-0.5">Alpha Hub - Hola</div>
               </div>
             </div>
           </Card>
@@ -469,61 +580,27 @@ export default function AdminDashboard() {
               {/* Donut Chart */}
               <div className="relative flex items-center justify-center my-4 h-44">
                 <svg viewBox="0 0 160 160" className="w-40 h-40 transform -rotate-90">
-                  {/* Segment 1: Thiết bị IT (38%) */}
                   <circle
                     cx="80"
                     cy="80"
                     r="58"
-                    stroke="#F27024"
+                    stroke="#f1f5f9"
                     strokeWidth="22"
-                    strokeDasharray="138 226"
-                    strokeDashoffset="0"
                     fill="transparent"
                   />
-                  {/* Segment 2: Giáo trình (26%) */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="58"
-                    stroke="#2563EB"
-                    strokeWidth="22"
-                    strokeDasharray="94 270"
-                    strokeDashoffset="-138"
-                    fill="transparent"
-                  />
-                  {/* Segment 3: KTX (18%) */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="58"
-                    stroke="#10B981"
-                    strokeWidth="22"
-                    strokeDasharray="65 299"
-                    strokeDashoffset="-232"
-                    fill="transparent"
-                  />
-                  {/* Segment 4: Xe máy (12%) */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="58"
-                    stroke="#8B5CF6"
-                    strokeWidth="22"
-                    strokeDasharray="43 321"
-                    strokeDashoffset="-297"
-                    fill="transparent"
-                  />
-                  {/* Segment 5: Áo Cam (6%) */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="58"
-                    stroke="#F59E0B"
-                    strokeWidth="22"
-                    strokeDasharray="24 340"
-                    strokeDashoffset="-340"
-                    fill="transparent"
-                  />
+                  {products.length > 0 && categoryBreakdown.map((cat) => (
+                    <circle
+                      key={cat.name}
+                      cx="80"
+                      cy="80"
+                      r="58"
+                      stroke={cat.stroke}
+                      strokeWidth="22"
+                      strokeDasharray={cat.strokeDasharray}
+                      strokeDashoffset={cat.strokeDashoffset}
+                      fill="transparent"
+                    />
+                  ))}
                 </svg>
 
                 {/* Donut Center Label */}
@@ -531,20 +608,16 @@ export default function AdminDashboard() {
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                     TỔNG NIÊM YẾT
                   </span>
-                  <span className="text-xl font-black text-slate-900 tracking-tight">14.850</span>
+                  <span className="text-xl font-black text-slate-900 tracking-tight">
+                    {products.length.toLocaleString('vi-VN')}
+                  </span>
                   <span className="text-[9px] font-extrabold text-emerald-600">Tin đang mở</span>
                 </div>
               </div>
 
               {/* Category Breakdown List */}
               <div className="space-y-2 text-xs">
-                {[
-                  { name: 'Thiết bị IT & Màn hình phụ', pct: '38%', count: '5.643 tin', dot: 'bg-orange-500' },
-                  { name: 'Giáo trình & Sách PE/FE', pct: '26%', count: '3.861 tin', dot: 'bg-blue-600' },
-                  { name: 'Đồ dùng KTX & Đời sống', pct: '18%', count: '2.673 tin', dot: 'bg-emerald-500' },
-                  { name: 'Xe máy & Xe đạp điện', pct: '12%', count: '1.782 tin', dot: 'bg-purple-500' },
-                  { name: 'Áo Cam Merch & Thể thao', pct: '6%', count: '891 tin', dot: 'bg-amber-500' },
-                ].map((cat) => (
+                {categoryBreakdown.map((cat) => (
                   <div key={cat.name} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2.5 w-2.5 rounded-full ${cat.dot} shrink-0`}></span>
@@ -552,7 +625,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="font-extrabold text-slate-900 text-[11px]">{cat.pct}</span>
-                      <span className="text-slate-400 text-[10px] w-14 text-right">{cat.count}</span>
+                      <span className="text-slate-400 text-[10px] w-14 text-right">{cat.count} tin</span>
                     </div>
                   </div>
                 ))}
@@ -593,10 +666,10 @@ export default function AdminDashboard() {
                 <svg viewBox="0 0 500 200" className="w-full h-full overflow-visible">
                   {/* Y-axis gridlines */}
                   {[
-                    { val: '1.200', y: 20 },
-                    { val: '900', y: 65 },
-                    { val: '600', y: 110 },
-                    { val: '300', y: 155 },
+                    { val: Math.round(maxCampusOrders).toLocaleString('vi-VN'), y: 20 },
+                    { val: Math.round(maxCampusOrders * 0.75).toLocaleString('vi-VN'), y: 65 },
+                    { val: Math.round(maxCampusOrders * 0.5).toLocaleString('vi-VN'), y: 110 },
+                    { val: Math.round(maxCampusOrders * 0.25).toLocaleString('vi-VN'), y: 155 },
                     { val: '0', y: 185 },
                   ].map((g, idx) => (
                     <g key={idx}>
@@ -608,15 +681,9 @@ export default function AdminDashboard() {
                   ))}
 
                   {/* 5 Campuses Grouped Bars */}
-                  {[
-                    { name: 'Hòa Lạc', safe: 1140, ship: 420, x: 70 },
-                    { name: 'TP.HCM', safe: 980, ship: 560, x: 160 },
-                    { name: 'Đà Nẵng', safe: 520, ship: 320, x: 250 },
-                    { name: 'Quy Nhơn', safe: 380, ship: 190, x: 340 },
-                    { name: 'Cần Thơ', safe: 460, ship: 230, x: 430 },
-                  ].map((c) => {
-                    const hSafe = (c.safe / 1200) * 165;
-                    const hShip = (c.ship / 1200) * 165;
+                  {campusChartData.map((c) => {
+                    const hSafe = maxCampusOrders > 0 ? (c.safe / maxCampusOrders) * 165 : 0;
+                    const hShip = maxCampusOrders > 0 ? (c.ship / maxCampusOrders) * 165 : 0;
                     const ySafe = 185 - hSafe;
                     const yShip = 185 - hShip;
 
@@ -627,7 +694,7 @@ export default function AdminDashboard() {
                           x={c.x - 18}
                           y={ySafe}
                           width="16"
-                          height={hSafe}
+                          height={Math.max(2, hSafe)}
                           rx="3"
                           fill="#F27024"
                         />
@@ -645,7 +712,7 @@ export default function AdminDashboard() {
                           x={c.x + 2}
                           y={yShip}
                           width="16"
-                          height={hShip}
+                          height={Math.max(2, hShip)}
                           rx="3"
                           fill="#334155"
                         />
@@ -678,10 +745,12 @@ export default function AdminDashboard() {
             <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 text-slate-600 font-medium">
                 <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span className="text-[11px] sm:text-xs">72.4% giao dịch ưu tiên trao tay tại khuôn viên trường</span>
+                <span className="text-[11px] sm:text-xs">
+                  {analyticsData?.metrics.completedCount ? `${analyticsData.metrics.completedCount} giao dịch đã hoàn tất thành công` : 'Chưa có giao dịch hoàn tất'}
+                </span>
               </div>
               <span className="font-extrabold text-orange-600 tracking-wide text-[10px] sm:text-[11px]">
-                FPT HOÀ LẠC DẪN ĐẦU QUY MÔ
+                {campusChartData.reduce((prev, cur) => (cur.total > prev.total ? cur : prev), campusChartData[0])?.name.toUpperCase() || 'HÒA LẠC'} DẪN ĐẦU QUY MÔ
               </span>
             </div>
           </Card>
@@ -697,7 +766,7 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <Badge variant="success" className="px-2.5 py-0.5 text-[11px] font-extrabold normal-case">
-                  96.8 / 100 PTS
+                  {analyticsData?.metrics.safetyRate !== undefined ? `${analyticsData.metrics.safetyRate} / 100 PTS` : '100 / 100 PTS'}
                 </Badge>
               </div>
 
@@ -741,19 +810,19 @@ export default function AdminDashboard() {
 
                   {/* Axis Text Labels */}
                   <text x="180" y="14" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
-                    Xác minh Sinh Viên (99%)
+                    Xác minh Sinh Viên ({analyticsData?.metrics.kycVerifiedCount ? '99%' : '0%'})
                   </text>
                   <text x="262" y="84" textAnchor="start" className="text-[9px] fill-slate-700 font-bold">
-                    Safe-Handoff (96%)
+                    Safe-Handoff ({analyticsData?.metrics.completedCount ? '96%' : '0%'})
                   </text>
                   <text x="228" y="174" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
-                    Uy tín Peer (4.9/5)
+                    Uy tín Peer (5.0/5)
                   </text>
                   <text x="132" y="174" textAnchor="middle" className="text-[9px] fill-slate-700 font-bold">
-                    Chặn Gian Lận AI (99.1%)
+                    Chặn Gian Lận AI ({analyticsData?.metrics.safetyRate ? `${analyticsData.metrics.safetyRate}%` : '100%'})
                   </text>
                   <text x="98" y="84" textAnchor="end" className="text-[9px] fill-slate-700 font-bold">
-                    Tỷ lệ Giữ Tiền (98%)
+                    Tỷ lệ Giữ Tiền ({analyticsData?.metrics.escrowHoldingAmount ? '98%' : '0%'})
                   </text>
                 </svg>
               </div>
@@ -900,104 +969,132 @@ export default function AdminDashboard() {
           {/* 4 Live Campus Hub Stations Monitoring Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-2">
             {/* Station 1: Sảnh Alpha (Hòa Lạc) */}
-            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                  <span className="text-xs font-black text-slate-900">Sảnh Alpha (Hòa Lạc)</span>
-                </div>
-                <Badge variant="destructive" className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-50">
-                  Cao điểm
-                </Badge>
-              </div>
+            {(() => {
+              const holOrders = campusBreakdownMap.get('HOL')?.totalOrders ?? 0;
+              const load = Math.min(50, holOrders);
+              const pct = Math.round((load / 50) * 100);
+              return (
+                <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${pct > 80 ? 'bg-rose-500 animate-pulse' : pct > 0 ? 'bg-orange-500' : 'bg-slate-400'}`}></span>
+                      <span className="text-xs font-black text-slate-900">Sảnh Alpha (Hòa Lạc)</span>
+                    </div>
+                    <Badge variant={pct > 80 ? 'destructive' : 'fpt'} className="px-2 py-0.5 text-[10px] font-bold">
+                      {pct > 80 ? 'Cao điểm' : pct > 0 ? 'Hoạt động' : 'Sẵn sàng'}
+                    </Badge>
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                  <span>Công suất trạm:</span>
-                  <span className="font-extrabold text-slate-800">98% (49/50 lượt/h)</span>
-                </div>
-                <Progress value={98} className="h-1.5 bg-slate-200" indicatorClassName="bg-rose-500" />
-              </div>
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span>Công suất trạm:</span>
+                      <span className="font-extrabold text-slate-800">{pct}% ({load}/50 lượt/h)</span>
+                    </div>
+                    <Progress value={pct} className="h-1.5 bg-slate-200" indicatorClassName={pct > 80 ? 'bg-rose-500' : 'bg-[#F27024]'} />
+                  </div>
 
-              <div className="text-[11px] text-slate-500 font-medium">
-                Trợ tá BQT: 2 bạn trực quầy hỗ trợ kiểm tra đồ
-              </div>
-            </Card>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Trợ tá BQT: Trực quầy hỗ trợ kiểm tra và niêm phong đồ
+                  </div>
+                </Card>
+              );
+            })()}
 
             {/* Station 2: Thư Viện Beta (Hòa Lạc) */}
-            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-teal-500"></span>
-                  <span className="text-xs font-black text-slate-900">Thư Viện Beta (Hòa Lạc)</span>
-                </div>
-                <Badge className="px-2 py-0.5 text-[10px] font-bold bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-50">
-                  Ổn định
-                </Badge>
-              </div>
+            {(() => {
+              const holOrders = campusBreakdownMap.get('HOL')?.totalOrders ?? 0;
+              const load = Math.min(50, Math.floor(holOrders * 0.6));
+              const pct = Math.round((load / 50) * 100);
+              return (
+                <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${pct > 50 ? 'bg-teal-500' : 'bg-slate-400'}`}></span>
+                      <span className="text-xs font-black text-slate-900">Thư Viện Beta (Hòa Lạc)</span>
+                    </div>
+                    <Badge className="px-2 py-0.5 text-[10px] font-bold bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-50">
+                      {pct > 50 ? 'Ổn định' : 'Sẵn sàng'}
+                    </Badge>
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                  <span>Công suất trạm:</span>
-                  <span className="font-extrabold text-slate-800">82% (41/50 lượt/h)</span>
-                </div>
-                <Progress value={82} className="h-1.5 bg-slate-200" indicatorClassName="bg-teal-500" />
-              </div>
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span>Công suất trạm:</span>
+                      <span className="font-extrabold text-slate-800">{pct}% ({load}/50 lượt/h)</span>
+                    </div>
+                    <Progress value={pct} className="h-1.5 bg-slate-200" indicatorClassName="bg-teal-500" />
+                  </div>
 
-              <div className="text-[11px] text-slate-500 font-medium">
-                Khu vực yên tĩnh: Chuyên bàn giao sách và laptop
-              </div>
-            </Card>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Khu vực yên tĩnh: Chuyên bàn giao sách và laptop
+                  </div>
+                </Card>
+              );
+            })()}
 
             {/* Station 3: Sảnh Innovation (TP.HCM) */}
-            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                  <span className="text-xs font-black text-slate-900">Sảnh Innovation (TP.HCM)</span>
-                </div>
-                <Badge className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-50">
-                  Sôi nổi
-                </Badge>
-              </div>
+            {(() => {
+              const hcmOrders = campusBreakdownMap.get('HCM')?.totalOrders ?? 0;
+              const load = Math.min(50, hcmOrders);
+              const pct = Math.round((load / 50) * 100);
+              return (
+                <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${pct > 50 ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
+                      <span className="text-xs font-black text-slate-900">Sảnh Innovation (TP.HCM)</span>
+                    </div>
+                    <Badge className="px-2 py-0.5 text-[10px] font-bold bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-50">
+                      {pct > 50 ? 'Sôi nổi' : 'Sẵn sàng'}
+                    </Badge>
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                  <span>Công suất trạm:</span>
-                  <span className="font-extrabold text-slate-800">94% (47/50 lượt/h)</span>
-                </div>
-                <Progress value={94} className="h-1.5 bg-slate-200" indicatorClassName="bg-amber-500" />
-              </div>
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span>Công suất trạm:</span>
+                      <span className="font-extrabold text-slate-800">{pct}% ({load}/50 lượt/h)</span>
+                    </div>
+                    <Progress value={pct} className="h-1.5 bg-slate-200" indicatorClassName="bg-amber-500" />
+                  </div>
 
-              <div className="text-[11px] text-slate-500 font-medium">
-                Khu công nghệ cao Q9: Đang có 6 đơn máy tính đợi test
-              </div>
-            </Card>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Khu công nghệ cao Q9: Bàn tiếp nhận bàn giao an toàn
+                  </div>
+                </Card>
+              );
+            })()}
 
             {/* Station 4: FPT City (Đà Nẵng) */}
-            <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-xs font-black text-slate-900">FPT City (Đà Nẵng)</span>
-                </div>
-                <Badge variant="success" className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                  Bình thường
-                </Badge>
-              </div>
+            {(() => {
+              const dadOrders = campusBreakdownMap.get('DAD')?.totalOrders ?? 0;
+              const load = Math.min(50, dadOrders);
+              const pct = Math.round((load / 50) * 100);
+              return (
+                <Card className="rounded-2xl border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${pct > 50 ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                      <span className="text-xs font-black text-slate-900">FPT City (Đà Nẵng)</span>
+                    </div>
+                    <Badge variant="success" className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                      {pct > 50 ? 'Bình thường' : 'Sẵn sàng'}
+                    </Badge>
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                  <span>Công suất trạm:</span>
-                  <span className="font-extrabold text-slate-800">76% (38/50 lượt/h)</span>
-                </div>
-                <Progress value={76} className="h-1.5 bg-slate-200" indicatorClassName="bg-emerald-500" />
-              </div>
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span>Công suất trạm:</span>
+                      <span className="font-extrabold text-slate-800">{pct}% ({load}/50 lượt/h)</span>
+                    </div>
+                    <Progress value={pct} className="h-1.5 bg-slate-200" indicatorClassName="bg-emerald-500" />
+                  </div>
 
-              <div className="text-[11px] text-slate-500 font-medium">
-                Sảnh Tòa Nhà Alpha Ngũ Hành Sơn
-              </div>
-            </Card>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Sảnh Tòa Nhà Alpha Ngũ Hành Sơn
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
         </Card>
       </div>

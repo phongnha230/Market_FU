@@ -26,11 +26,11 @@ interface AdminState {
 const ADMIN_ACCOUNTS: (AdminProfile & { password: string })[] = [
   {
     email: 'admin@fpt.edu.vn',
-    password: 'Admin@2025',
-    name: 'Lê Minh Quân',
+    password: 'AdminPassword123@',
+    name: 'SuperAdmin BQT',
     role: 'superadmin',
     campus: 'all',
-    avatarInitial: 'Q',
+    avatarInitial: 'A',
     permissions: [
       'posts.approve',
       'posts.reject',

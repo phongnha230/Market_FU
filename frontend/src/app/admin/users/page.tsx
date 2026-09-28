@@ -22,11 +22,11 @@ import {
 
 const STUDENTS = [
   {
-    name: 'Lê Minh Quân',
-    mssv: 'SE172819',
+    name: 'Nguyễn Tuấn Anh',
+    mssv: 'HE172839',
     campus: 'HLA',
     major: 'Kỹ thuật Phần mềm K17',
-    email: 'quanmse172819@fpt.edu.vn',
+    email: 'tuananh17383@fpt.edu.vn',
     kyc: 'verified',
     sso: 'ok',
     posts: 24,
@@ -133,7 +133,42 @@ function getTrustBarColor(score: number) {
 }
 
 export default function AdminUsersPage() {
+  const [students, setStudents] = useState(STUDENTS);
   const [search, setSearch] = useState('');
+
+  const filteredStudents = React.useMemo(() => {
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.mssv.toLowerCase().includes(search.toLowerCase()) ||
+        s.email.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [students, search]);
+
+  const totalStudents = students.length;
+  const kycVerifiedCount = students.filter((s) => s.kyc === 'verified').length;
+  const warningCount = students.filter((s) => s.violations > 0).length;
+  const avgTrustScore =
+    totalStudents > 0
+      ? Math.round(students.reduce((sum, s) => sum + s.trust, 0) / totalStudents)
+      : 0;
+
+  const handleToggleLock = (mssv: string) => {
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.mssv === mssv) {
+          const isLocked = s.violations > 0;
+          return {
+            ...s,
+            violations: isLocked ? 0 : 1,
+            violationNote: isLocked ? 'Đã gỡ khóa' : 'Bị khóa bởi BQT',
+            violationColor: isLocked ? 'text-slate-500' : 'text-red-600',
+          };
+        }
+        return s;
+      })
+    );
+  };
 
   return (
     <AdminLayoutShell>
@@ -171,10 +206,10 @@ export default function AdminUsersPage() {
           {/* Stats */}
           <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: <Users className="h-5 w-5 text-fpt-orange" />, label: 'Sinh viên tham gia sàn', value: '5.620', sub: '', color: 'bg-orange-50 border-orange-100' },
-              { icon: <ShieldCheck className="h-5 w-5 text-blue-500" />, label: 'Đã KYC Thẻ & SSO FPT', value: '4.150', sub: '', color: 'bg-blue-50 border-blue-100' },
-              { icon: <AlertTriangle className="h-5 w-5 text-red-500" />, label: 'Tài khoản cảnh báo / khóa', value: '18', sub: '', color: 'bg-red-50 border-red-100' },
-              { icon: <Star className="h-5 w-5 text-purple-500" />, label: 'Trust Score trung bình', value: '94/100', sub: 'Điểm', color: 'bg-purple-50 border-purple-100' },
+              { icon: <Users className="h-5 w-5 text-fpt-orange" />, label: 'Sinh viên tham gia sàn', value: totalStudents.toLocaleString('vi-VN'), sub: '', color: 'bg-orange-50 border-orange-100' },
+              { icon: <ShieldCheck className="h-5 w-5 text-blue-500" />, label: 'Đã KYC Thẻ & SSO FPT', value: kycVerifiedCount.toLocaleString('vi-VN'), sub: '', color: 'bg-blue-50 border-blue-100' },
+              { icon: <AlertTriangle className="h-5 w-5 text-red-500" />, label: 'Tài khoản cảnh báo / khóa', value: warningCount.toLocaleString('vi-VN'), sub: '', color: 'bg-red-50 border-red-100' },
+              { icon: <Star className="h-5 w-5 text-purple-500" />, label: 'Trust Score trung bình', value: `${avgTrustScore}/100`, sub: 'Điểm', color: 'bg-purple-50 border-purple-100' },
             ].map((s) => (
               <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
                 {s.icon}
@@ -220,7 +255,7 @@ export default function AdminUsersPage() {
               {f.label}
             </button>
           ))}
-          <div className="ml-auto text-xs text-slate-400">Đang hiển thị 5 / 5.620 sinh viên</div>
+          <div className="ml-auto text-xs text-slate-400">Đang hiển thị {filteredStudents.length} / {totalStudents} sinh viên</div>
         </div>
 
         {/* User Table */}
@@ -236,7 +271,7 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="divide-y divide-slate-100">
-            {STUDENTS.map((sv) => (
+            {filteredStudents.map((sv) => (
               <div
                 key={sv.mssv}
                 className={`grid grid-cols-12 gap-2 items-start px-4 py-3.5 hover:bg-slate-50/50 transition ${sv.violations > 0 ? 'bg-red-50/20' : ''}`}
@@ -307,7 +342,11 @@ export default function AdminUsersPage() {
                   <button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer" title="Xem chi tiết">
                     <BarChart3 className="h-4 w-4" />
                   </button>
-                  <button className={`rounded-lg p-1.5 cursor-pointer hover:bg-slate-100 ${sv.violations > 0 ? 'text-red-400 hover:text-red-600' : 'text-slate-400 hover:text-slate-700'}`} title="Khoá tài khoản">
+                  <button
+                    onClick={() => handleToggleLock(sv.mssv)}
+                    className={`rounded-lg p-1.5 cursor-pointer hover:bg-slate-100 ${sv.violations > 0 ? 'text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-slate-700'}`}
+                    title={sv.violations > 0 ? 'Gỡ khóa tài khoản' : 'Khóa tài khoản cảnh báo'}
+                  >
                     <Lock className="h-4 w-4" />
                   </button>
                 </div>
@@ -317,9 +356,9 @@ export default function AdminUsersPage() {
 
           {/* Pagination */}
           <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <span className="text-xs text-slate-500">Hiển thị 5 trên 5.620 kết quả sinh viên FPT</span>
+            <span className="text-xs text-slate-500">Hiển thị {filteredStudents.length} trên {totalStudents} kết quả sinh viên FPT</span>
             <div className="flex items-center gap-1">
-              {[1, 2, 3, '...', 112].map((p, i) => (
+              {[1].map((p, i) => (
                 <button key={i} className={`w-8 h-8 rounded-lg text-xs font-bold cursor-pointer ${p === 1 ? 'bg-fpt-orange text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                   {p}
                 </button>

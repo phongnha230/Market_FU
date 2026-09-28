@@ -103,12 +103,12 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
         <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2">
           <Avatar size="sm" className="h-8 w-8">
             <AvatarFallback>
-              {admin?.avatarInitial || 'Q'}
+              {admin?.avatarInitial || 'A'}
             </AvatarFallback>
           </Avatar>
           <div className="hidden sm:block text-left">
             <div className="text-xs font-bold text-slate-900 leading-tight">
-              {admin?.name || 'Lê Minh Quân'}
+              {admin?.name || 'Quản trị viên BQT'}
             </div>
             <div className="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase leading-tight mt-0.5">
               ADMIN TOÀN QUỐC

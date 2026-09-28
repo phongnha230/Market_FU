@@ -99,16 +99,45 @@ const RISK_BADGE_COLORS: Record<string, string> = {
 };
 
 export default function AdminPostsPage() {
+  const [posts, setPosts] = useState(POSTS);
+  const [processedCount, setProcessedCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDetail, setSelectedDetail] = useState<(typeof POSTS)[0] | null>(POSTS[0]);
 
+  const handleApprove = (id: string) => {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, riskLevel: 'clean', isCritical: false, riskBadge: '✅ Đã duyệt' } : p))
+    );
+    setProcessedCount((c) => c + 1);
+  };
+
+  const handleReject = (id: string) => {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, riskLevel: 'rejected', riskBadge: '🚫 Đã từ chối' } : p))
+    );
+    setProcessedCount((c) => c + 1);
+  };
+
+  const handleApproveAllClean = () => {
+    const toApprove = posts.filter((p) => !p.isCritical && p.riskLevel !== 'clean' && p.riskLevel !== 'rejected');
+    setPosts((prev) =>
+      prev.map((p) => (!p.isCritical && p.riskLevel !== 'clean' && p.riskLevel !== 'rejected' ? { ...p, riskLevel: 'clean', riskBadge: '✅ Đã duyệt' } : p))
+    );
+    setProcessedCount((c) => c + toApprove.length);
+  };
+
+  const pendingCount = posts.filter((p) => p.riskLevel !== 'clean' && p.riskLevel !== 'rejected').length;
+  const riskCount = posts.filter((p) => p.riskLevel === 'high' || p.riskLevel === 'pccc').length;
+  const liveCount = posts.filter((p) => p.riskLevel === 'clean').length;
+  const rejectedCount = posts.filter((p) => p.riskLevel === 'rejected').length;
+
   const TABS: { key: TabType; label: string; count: number }[] = [
-    { key: 'all', label: 'Tất cả', count: 23 },
-    { key: 'pending', label: 'Chờ duyệt', count: 18 },
-    { key: 'risk', label: 'Nguy cơ vi phạm', count: 4 },
-    { key: 'live', label: 'Đang kiếm', count: 1 },
-    { key: 'rejected', label: 'Bị khóa từ chối', count: 0 },
+    { key: 'all', label: 'Tất cả', count: posts.length },
+    { key: 'pending', label: 'Chờ duyệt', count: pendingCount },
+    { key: 'risk', label: 'Nguy cơ vi phạm', count: riskCount },
+    { key: 'live', label: 'Đang hiển thị', count: liveCount },
+    { key: 'rejected', label: 'Bị từ chối', count: rejectedCount },
   ];
 
   return (
@@ -135,9 +164,12 @@ export default function AdminPostsPage() {
                 <SlidersHorizontal className="h-4 w-4" />
                 Bộ lọc nâng cao
               </button>
-              <button className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs">
+              <button
+                onClick={handleApproveAllClean}
+                className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs"
+              >
                 <Zap className="h-4 w-4" />
-                Duyệt ngay All Pa.Pass (14 tin)
+                Duyệt nhanh tin ({pendingCount} tin)
               </button>
             </div>
           </div>
@@ -145,10 +177,10 @@ export default function AdminPostsPage() {
           {/* 4 Stat Cards */}
           <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { icon: <FileText className="h-5 w-5 text-amber-500" />, label: 'Chờ duyệt tổng', value: '18', sub: 'Thời gian xử lý Tế: 14 phút', bg: 'bg-amber-50 border-amber-100' },
-              { icon: <AlertTriangle className="h-5 w-5 text-red-500" />, label: 'Nghị vấn rủi ro cao', value: '04', sub: '• 2 tin cao: MetMo & khoá người bán', bg: 'bg-red-50 border-red-100' },
-              { icon: <CheckCircle className="h-5 w-5 text-emerald-500" />, label: 'Đã xử lý hôm nay', value: '86', sub: '+18.4% so hôm qua', bg: 'bg-emerald-50 border-emerald-100' },
-              { icon: <Activity className="h-5 w-5 text-blue-500" />, label: 'Đang online toàn hệ thống', value: '3.842', sub: 'Giao dịch thành công', bg: 'bg-blue-50 border-blue-100' },
+              { icon: <FileText className="h-5 w-5 text-amber-500" />, label: 'Chờ duyệt tổng', value: String(pendingCount), sub: 'Đang chờ xử lý', bg: 'bg-amber-50 border-amber-100' },
+              { icon: <AlertTriangle className="h-5 w-5 text-red-500" />, label: 'Nghi vấn rủi ro cao', value: String(riskCount), sub: 'Cần kiểm tra kỹ', bg: 'bg-red-50 border-red-100' },
+              { icon: <CheckCircle className="h-5 w-5 text-emerald-500" />, label: 'Đã xử lý phiên này', value: String(processedCount), sub: 'Thao tác BQT', bg: 'bg-emerald-50 border-emerald-100' },
+              { icon: <Activity className="h-5 w-5 text-blue-500" />, label: 'Tin đang hiển thị', value: String(liveCount), sub: 'Hoạt động an toàn', bg: 'bg-blue-50 border-blue-100' },
             ].map((s) => (
               <div key={s.label} className={`rounded-xl border p-4 ${s.bg}`}>
                 <div className="flex items-center gap-2 mb-2">{s.icon}</div>
@@ -210,11 +242,11 @@ export default function AdminPostsPage() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {POSTS.map((post) => (
+              {posts.map((post) => (
                 <div
                   key={post.id}
                   onClick={() => setSelectedDetail(post)}
-                  className={`p-4 cursor-pointer hover:bg-slate-50 transition ${RISK_COLORS[post.riskLevel]} ${selectedDetail?.id === post.id ? 'bg-blue-50/30 ring-2 ring-inset ring-blue-200' : ''}`}
+                  className={`p-4 cursor-pointer hover:bg-slate-50 transition ${RISK_COLORS[post.riskLevel] || ''} ${selectedDetail?.id === post.id ? 'bg-blue-50/30 ring-2 ring-inset ring-blue-200' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -222,7 +254,7 @@ export default function AdminPostsPage() {
                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{post.id}</span>
                         <span className="text-[10px] text-slate-500">{post.campus}</span>
                         <span className="text-[10px] text-slate-500">{post.category}</span>
-                        <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${RISK_BADGE_COLORS[post.riskLevel]}`}>
+                        <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${RISK_BADGE_COLORS[post.riskLevel] || ''}`}>
                           {post.riskBadge}
                         </span>
                       </div>
@@ -237,14 +269,23 @@ export default function AdminPostsPage() {
 
                       {post.isCritical && (
                         <div className="mt-1.5 flex gap-2">
-                          <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50">
-                            Khoá tín & Cảnh cao User
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                            className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
+                          >
+                            Khoá tin & Cảnh cáo User
                           </button>
-                          <button className="rounded-lg bg-amber-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-amber-600">
-                            Chuyển BQT xét
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
+                            className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-emerald-600"
+                          >
+                            ✓ Duyệt ngoại lệ
                           </button>
-                          <button className="rounded-lg bg-red-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-red-600">
-                            🚫 Khoá tín ngay
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                            className="rounded-lg bg-red-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-red-600"
+                          >
+                            🚫 Khoá tin ngay
                           </button>
                         </div>
                       )}
@@ -253,12 +294,18 @@ export default function AdminPostsPage() {
                     <div className="text-right shrink-0">
                       <div className="text-sm font-black text-fpt-orange">{post.price}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">{post.time}</div>
-                      {!post.isCritical && (
+                      {!post.isCritical && post.riskLevel !== 'rejected' && (
                         <div className="flex gap-1 mt-2">
-                          <button className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 cursor-pointer">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                            className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
+                          >
                             Từ chối
                           </button>
-                          <button className="rounded-lg bg-fpt-orange px-2 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-fpt-orange-hover">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
+                            className="rounded-lg bg-fpt-orange px-2 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-fpt-orange-hover"
+                          >
                             ✓ Phê duyệt
                           </button>
                         </div>
@@ -269,12 +316,8 @@ export default function AdminPostsPage() {
               ))}
             </div>
 
-            <div className="border-t border-slate-100 flex items-center justify-center gap-2 py-3">
-              {[1, 2, 3].map((p) => (
-                <button key={p} className={`w-8 h-8 rounded-lg text-sm font-bold cursor-pointer ${p === 1 ? 'bg-fpt-orange text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{p}</button>
-              ))}
-              <span className="text-slate-400 text-sm">...</span>
-              <span className="text-xs text-slate-500">Hiện thị 1 – 5 trên 22 tin đăng lọc</span>
+            <div className="border-t border-slate-100 flex items-center justify-between px-4 py-3">
+              <span className="text-xs text-slate-500">Hiển thị {posts.length} trên {posts.length} tin đăng lọc</span>
             </div>
           </div>
 
