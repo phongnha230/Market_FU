@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import LoginForm from '@/components/auth/LoginForm';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
+import LoginForm, { GoogleIcon } from '@/components/auth/LoginForm';
 import RegisterForm, { RegisterData } from '@/components/auth/RegisterForm';
 import OtpVerificationStep from '@/components/auth/OtpVerificationStep';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import { useMarket } from '@/context/MarketContext';
 import { useAdminStore } from '@/stores/adminStore';
+import { useUserStore } from '@/stores/userStore';
 import { authService } from '@/services/authService';
 import {
   ArrowLeft,
@@ -20,6 +22,8 @@ import {
   LogIn,
   UserPlus,
   KeyRound,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,17 +31,25 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect') || '/';
+  const modeParam = searchParams.get('mode');
+
   const { login, updateProfile, showToast } = useMarket();
   const adminLogin = useAdminStore((s) => s.login);
 
   // Primary mode: 'login' | 'register' | 'forgot-password'
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password'>(
+    modeParam === 'register' ? 'register' : 'login'
+  );
 
   // Register sub-step: 'form' | 'otp'
   const [registerStep, setRegisterStep] = useState<'form' | 'otp'>('form');
   const [pendingRegisterData, setPendingRegisterData] = useState<RegisterData | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
 
   // Demo switcher for login: 'normal' | 'error' | 'loading'
   const [demoState, setDemoState] = useState<'normal' | 'error' | 'loading'>('normal');
@@ -82,7 +94,7 @@ export default function LoginPage() {
       // Nếu tài khoản có vai trò ADMIN từ Backend
       if (res?.user?.role === 'ADMIN') {
         const adminProfile = {
-          name: res.user.profile?.fullName || 'Lê Minh Quân',
+          name: res.user.profile?.fullName || res.user.email?.split('@')[0] || 'Quản trị viên',
           email: res.user.email,
           role: 'superadmin' as const,
           campus: 'all' as const,
@@ -111,7 +123,7 @@ export default function LoginPage() {
 
       showToast('🎉 Đăng nhập thành công! Chào mừng bạn trở lại FPT 5Campus.', 'success');
       setTimeout(() => {
-        router.push('/');
+        router.push(redirectParam);
       }, 800);
     } catch (err: any) {
       setDemoState('error');
@@ -119,61 +131,168 @@ export default function LoginPage() {
     }
   };
 
-  const handleFptMailSso = async () => {
+  // Google Auth state
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Thực hiện gọi Backend POST /api/auth/google với ID Token
+  const executeGoogleLogin = async (idToken: string) => {
+    setIsGoogleLoading(true);
     setDemoState('loading');
     try {
-      // Trong môi trường dev có thể fallback nếu chưa mở Google popup
-      login('quanlmse172819@fe.edu.vn');
-      showToast('🔑 Xác thực Google SSO thành công!', 'success');
+      const res = await authService.loginWithGoogle(idToken);
+
+      // Nếu tài khoản có vai trò ADMIN từ Backend
+      if (res?.user?.role === 'ADMIN') {
+        const adminProfile = {
+          name: res.user.profile?.fullName || res.user.email?.split('@')[0] || 'Quản trị viên',
+          email: res.user.email,
+          role: 'superadmin' as const,
+          campus: 'all' as const,
+          avatarInitial: (res.user.profile?.fullName || 'A')[0].toUpperCase(),
+          permissions: [
+            'posts.approve',
+            'posts.reject',
+            'posts.delete',
+            'kyc.approve',
+            'kyc.reject',
+            'users.manage',
+            'users.trust_score',
+            'reports.handle',
+            'safehandoff.manage',
+            'settings.system',
+          ],
+        };
+        useAdminStore.setState({ admin: adminProfile, isLoggedIn: true });
+        document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
+        showToast('🛡️ Đăng nhập Google quyền Quản trị viên BQT thành công! Đang vào dashboard...', 'success');
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 800);
+        return;
+      }
+
+      showToast('🎉 Đăng nhập Google thành công! Chào mừng bạn trở lại FPT 5Campus.', 'success');
       setTimeout(() => {
-        router.push('/');
-      }, 1000);
+        router.push(redirectParam);
+      }, 800);
     } catch (err: any) {
-      showToast(err?.message || 'Xác thực Google không thành công.', 'error');
-      setDemoState('normal');
+      setDemoState('error');
+      showToast(err?.message || 'Đăng nhập Google thất bại. Vui lòng kiểm tra lại.', 'error');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
-  const handleProceedToOtp = (data: RegisterData) => {
-    setPendingRegisterData(data);
-    setRegisterStep('otp');
+  // Khởi tạo Google Identity Services (GIS)
+  const initGoogleAuth = () => {
+    const clientId =
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+      '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
+    const google = typeof window !== 'undefined' ? (window as any).google : undefined;
+    if (google?.accounts?.id) {
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: any) => {
+            if (response?.credential) {
+              executeGoogleLogin(response.credential);
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      } catch (err) {
+        console.warn('Lỗi khởi tạo Google Auth:', err);
+      }
+    }
+  };
+
+  const handleProceedToOtp = async (data: RegisterData) => {
+    setRegisterError(null);
+    setIsRegisterLoading(true);
+    try {
+      showToast('Đang kiểm tra thông tin & gửi mã OTP...', 'info');
+      const campusMap: Record<string, string> = {
+        'Hòa Lạc': 'HOL',
+        'Hồ Chí Minh': 'HCM',
+        'Đà Nẵng': 'DAD',
+        'Quy Nhơn': 'QN',
+        'Cần Thơ': 'CT',
+      };
+      await authService.sendRegisterOtp({
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+        studentId: data.studentId,
+        campus: campusMap[data.campus] || 'HOL',
+      });
+      setPendingRegisterData(data);
+      setRegisterStep('otp');
+      showToast('✉️ Mã OTP 6 số đã được gửi tới email của bạn (hiệu lực trong 5 phút)', 'success');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi mã OTP xác thực';
+      setRegisterError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setIsRegisterLoading(false);
+    }
+  };
+
+  const handleResendRegisterOtp = async () => {
+    if (!pendingRegisterData?.email) return;
+    try {
+      showToast('Đang gửi lại mã OTP mới...', 'info');
+      await authService.resendRegisterOtp(pendingRegisterData.email);
+      showToast(`✉️ Đã gửi lại mã OTP mới tới ${pendingRegisterData.email}`, 'success');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi lại mã OTP';
+      showToast(msg, 'error');
+      throw err;
+    }
   };
 
   const handleRegisterOtpSuccess = async (otp: string) => {
     if (pendingRegisterData) {
       try {
-        const campusMap: Record<string, string> = {
-          'Hòa Lạc': 'HOL',
-          'Hồ Chí Minh': 'HCM',
-          'Đà Nẵng': 'DAD',
-          'Quy Nhơn': 'QN',
-          'Cần Thơ': 'CT',
-        };
-        await authService.register({
-          fullName: pendingRegisterData.fullName,
+        await authService.verifyRegisterOtp({
           email: pendingRegisterData.email,
-          password: pendingRegisterData.password,
-          studentId: pendingRegisterData.studentId,
-          campus: campusMap[pendingRegisterData.campus] || 'HOL',
+          otp,
         });
+
+        // Đảm bảo thông tin sinh viên đăng ký được lưu đầy đủ vào User Store
+        const sId = pendingRegisterData.studentId?.trim().toUpperCase() || '';
+        const cMatch = sId.match(/\d{2}/)?.[0];
+        const derivedCohort = cMatch ? `K${cMatch}` : 'K18';
+        const isSE = sId.includes('SE') || sId.includes('HE');
+        const derivedMajor = isSE ? 'Kỹ thuật Phần mềm (SE)' : 'Công nghệ thông tin';
+
+        useUserStore.getState().updateProfile({
+          name: pendingRegisterData.fullName.trim(),
+          studentId: sId,
+          campus: pendingRegisterData.campus,
+          cohort: derivedCohort,
+          major: derivedMajor,
+        });
+
         showToast('🎉 Đăng ký tài khoản FPT thành công! Bạn đã được tự động đăng nhập.', 'success');
         setTimeout(() => {
           router.push('/');
         }, 1200);
-        return;
       } catch (err: any) {
-        // Fallback lưu local store nếu backend chưa phản hồi
-        updateProfile({
-          name: pendingRegisterData.fullName,
-          email: pendingRegisterData.email,
-          studentId: pendingRegisterData.studentId,
-          campus: pendingRegisterData.campus,
-        });
-        login(pendingRegisterData.email);
-        showToast(err?.message || '🎉 Đăng ký tài khoản thành công! Tự động đăng nhập.', 'success');
-        setTimeout(() => {
-          router.push('/');
-        }, 1200);
+        const msg =
+          err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          'Mã OTP không chính xác!';
+        showToast(msg, 'error');
       }
     }
   };
@@ -297,7 +416,7 @@ export default function LoginPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">Lê Minh Quân</h4>
+                    <h4 className="text-xs font-bold text-slate-900">Sinh viên FPT</h4>
                     <p className="text-[11px] text-slate-500">K17 SE • Hola Campus</p>
                   </div>
                 </div>
@@ -384,7 +503,8 @@ export default function LoginPage() {
                     setRegisterStep('form');
                   }}
                   onLoginSuccess={handleLoginSuccess}
-                  onFptMailSso={handleFptMailSso}
+                  onGoogleSuccess={executeGoogleLogin}
+                  isGoogleLoading={isGoogleLoading}
                   demoState={demoState}
                   setDemoState={setDemoState}
                   onShowToast={showToast}
@@ -399,6 +519,9 @@ export default function LoginPage() {
                       onProceedToOtp={handleProceedToOtp}
                       onSwitchToLogin={() => setAuthMode('login')}
                       onShowToast={showToast}
+                      serverError={registerError}
+                      isLoading={isRegisterLoading}
+                      onClearServerError={() => setRegisterError(null)}
                     />
                   ) : (
                     <OtpVerificationStep
@@ -412,6 +535,7 @@ export default function LoginPage() {
                       }
                       onVerifySuccess={handleRegisterOtpSuccess}
                       onBack={() => setRegisterStep('form')}
+                      onResendOtp={handleResendRegisterOtp}
                       onShowToast={showToast}
                     />
                   )}
@@ -437,10 +561,31 @@ export default function LoginPage() {
         </div>
       </main>
 
+      {/* Google Identity Services Script */}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={initGoogleAuth}
+      />
+
       {/* 3. BOTTOM FOOTER */}
       <footer className="w-full bg-white border-t border-slate-100 py-4 text-center text-xs text-slate-400">
-        © 2024 FPT Education Campus Network. Đăng nhập bằng email @fpt.edu.vn
+        © 2024 FPT Education Campus Network. Đăng nhập bằng email @fpt.edu.vn hoặc tài khoản Google
       </footer>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm">
+          Đang tải trang đăng nhập...
+        </div>
+      }
+    >
+      <LoginFormContent />
+    </Suspense>
   );
 }

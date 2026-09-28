@@ -14,11 +14,10 @@ export const verifyRecaptcha = async (recaptchaToken?: string): Promise<boolean>
     return true;
   }
 
-  if (!secretKey) {
-    if (ENV.NODE_ENV === 'production') {
-      throw new AppError('Máy chủ Production bắt buộc phải cấu hình RECAPTCHA_SECRET_KEY', 500, 'RECAPTCHA_CONFIG_ERROR');
+  if (!secretKey || ENV.NODE_ENV !== 'production') {
+    if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
+      return true;
     }
-    return true;
   }
 
   if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {

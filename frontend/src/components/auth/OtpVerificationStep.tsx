@@ -10,7 +10,7 @@ interface OtpVerificationStepProps {
   subtitle?: React.ReactNode;
   onVerifySuccess: (otp: string) => void;
   onBack: () => void;
-  onResendOtp?: () => void;
+  onResendOtp?: () => Promise<void> | void;
   onShowToast: (msg: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
@@ -26,9 +26,13 @@ export default function OtpVerificationStep({
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // 60-second countdown for OTP resend
-  const [countdownInitial, setCountdownInitial] = useState(60);
-  const { formattedSeconds, isExpired } = useCountdown(countdownInitial);
+  // 60-second countdown for OTP resend with anti-spam
+  const MAX_RESENDS = 5;
+  const [resendCount, setResendCount] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  const { formattedSeconds, isExpired, reset: resetCountdown } = useCountdown(60);
 
   useEffect(() => {
     // Auto focus first input on mount
@@ -69,12 +73,30 @@ export default function OtpVerificationStep({
     inputRefs.current[nextIndex]?.focus();
   };
 
-  const handleResend = () => {
-    setDigits(['', '', '', '', '', '']);
-    setCountdownInitial(60);
-    onShowToast(`Đã gửi lại mã OTP 6 số mới tới ${targetEmail}!`, 'info');
-    onResendOtp?.();
-    inputRefs.current[0]?.focus();
+  const handleResend = async () => {
+    if (isResending || !isExpired || resendCount >= MAX_RESENDS) return;
+
+    setIsResending(true);
+    setResendError(null);
+
+    try {
+      if (onResendOtp) {
+        await onResendOtp();
+      }
+      setDigits(['', '', '', '', '', '']);
+      setResendCount((prev) => prev + 1);
+      resetCountdown(60);
+      inputRefs.current[0]?.focus();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi lại mã OTP. Vui lòng chờ giây lát.';
+      setResendError(msg);
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,13 +139,21 @@ export default function OtpVerificationStep({
         </p>
       </div>
 
-      {/* Demo helper callout */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 flex items-start gap-2">
-        <Mail className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+      {/* Email Info Callout */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+        <Mail className="h-4 w-4 text-fpt-orange shrink-0 mt-0.5" />
         <div className="text-[11px] leading-relaxed">
-          <strong>Gợi ý thử nghiệm:</strong> Bạn có thể nhập bất kỳ 6 chữ số nào (ví dụ: <code className="font-bold bg-white px-1.5 py-0.5 rounded border border-blue-200">123456</code> hoặc mã gửi đến) để xác thực.
+          Mã xác thực 6 số đã được gửi qua email. Vui lòng kiểm tra kỹ cả <strong>Hộp thư đến</strong> và thư mục <strong>Spam / Thư rác</strong> trong Gmail FPT của bạn.
         </div>
       </div>
+
+      {/* Resend Error Alert */}
+      {resendError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex items-start gap-2">
+          <span className="font-bold shrink-0">⚠️ Lỗi:</span>
+          <span className="text-[11px]">{resendError}</span>
+        </div>
+      )}
 
       {/* 6 Digit Input Boxes */}
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -153,21 +183,37 @@ export default function OtpVerificationStep({
           </div>
         </div>
 
-        {/* Resend Countdown */}
+        {/* Resend Countdown & Anti-Spam Control */}
         <div className="text-center text-xs text-slate-500">
-          {!isExpired ? (
-            <span>
-              Gửi lại mã mới sau: <strong className="text-fpt-orange font-mono font-bold">{formattedSeconds}s</strong>
-            </span>
+          {resendCount >= MAX_RESENDS ? (
+            <div className="rounded-xl border border-red-200 bg-red-50/80 p-2.5 text-[11px] font-semibold text-red-600">
+              ⚠️ Bạn đã sử dụng hết số lần gửi lại mã OTP ({MAX_RESENDS}/{MAX_RESENDS} lần). Vui lòng quay lại nhập lại thông tin hoặc thử lại sau.
+            </div>
+          ) : !isExpired ? (
+            <div className="space-y-1">
+              <div>
+                Gửi lại mã mới sau:{' '}
+                <strong className="text-fpt-orange font-mono font-bold">{formattedSeconds}s</strong>
+              </div>
+              <div className="text-[10px] text-slate-400">
+                (Còn {MAX_RESENDS - resendCount}/{MAX_RESENDS} lần gửi lại)
+              </div>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleResend}
-              className="inline-flex items-center gap-1 font-bold text-fpt-orange hover:underline cursor-pointer"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Gửi lại mã OTP qua email</span>
-            </button>
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isResending}
+                className="inline-flex items-center gap-1.5 font-bold text-fpt-orange hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                <span>{isResending ? 'Đang gửi lại mã...' : 'Gửi lại mã OTP qua email'}</span>
+              </button>
+              <div className="text-[10px] text-slate-400">
+                (Còn {MAX_RESENDS - resendCount}/{MAX_RESENDS} lần gửi lại)
+              </div>
+            </div>
           )}
         </div>
 

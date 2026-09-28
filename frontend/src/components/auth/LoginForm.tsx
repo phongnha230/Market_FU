@@ -15,11 +15,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
+// Official Google 4-Color Icon SVG
+export function GoogleIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
 interface LoginFormProps {
   onSwitchMode: (mode: 'register' | 'forgot-password') => void;
   /** email + password để parent kiểm tra admin hay student */
   onLoginSuccess: (email: string, password: string) => void;
-  onFptMailSso: () => void;
+  onGoogleSuccess?: (idToken: string) => void;
+  isGoogleLoading?: boolean;
   demoState: 'normal' | 'error' | 'loading';
   setDemoState: (st: 'normal' | 'error' | 'loading') => void;
   onShowToast: (msg: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -28,7 +53,8 @@ interface LoginFormProps {
 export default function LoginForm({
   onSwitchMode,
   onLoginSuccess,
-  onFptMailSso,
+  onGoogleSuccess,
+  isGoogleLoading = false,
   demoState,
   setDemoState,
   onShowToast,
@@ -37,8 +63,55 @@ export default function LoginForm({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [isGsiRendered, setIsGsiRendered] = useState(false);
+  const googleBtnRef = React.useRef<HTMLDivElement>(null);
 
-  const isFptEmail = email.trim().toLowerCase().endsWith('@fpt.edu.vn');
+  React.useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
+
+    const renderGsiButton = () => {
+      const google = typeof window !== 'undefined' ? (window as any).google : undefined;
+      if (google?.accounts?.id && googleBtnRef.current) {
+        try {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response: any) => {
+              if (response?.credential) {
+                onGoogleSuccess?.(response.credential);
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          googleBtnRef.current.innerHTML = '';
+          google.accounts.id.renderButton(googleBtnRef.current, {
+            type: 'standard',
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+            width: googleBtnRef.current.offsetWidth || 380,
+            locale: 'vi',
+          });
+          setIsGsiRendered(true);
+        } catch (err) {
+          console.error('Lỗi hiển thị nút Google:', err);
+        }
+      }
+    };
+
+    renderGsiButton();
+    const interval = setInterval(() => {
+      const google = typeof window !== 'undefined' ? (window as any).google : undefined;
+      if (google?.accounts?.id && googleBtnRef.current && !isGsiRendered) {
+        renderGsiButton();
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [onGoogleSuccess, isGsiRendered]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,25 +140,48 @@ export default function LoginForm({
         </p>
       </div>
 
-      {/* Big Google SSO Button */}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onFptMailSso}
-        className="w-full h-auto flex items-center justify-between rounded-xl border-slate-200 bg-white p-3 hover:bg-slate-50 hover:border-slate-300 transition shadow-2xs cursor-pointer group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="h-6 w-6 rounded-full flex items-center justify-center font-black text-blue-600 text-sm">
-            G
-          </div>
-          <span className="font-bold text-xs sm:text-sm text-slate-800 group-hover:text-slate-900">
-            Đăng nhập nhanh bằng Google SSO
-          </span>
-        </div>
-        <span className="rounded bg-slate-100 text-slate-600 text-[11px] font-mono font-bold px-2 py-0.5">
-          Google Workspace
-        </span>
-      </Button>
+      {/* Official Google Sign-In Button */}
+      <div className="w-full flex flex-col items-center min-h-[44px]">
+        <div
+          ref={googleBtnRef}
+          className={`w-full flex justify-center [&>div]:w-full [&_iframe]:w-full! [&_iframe]:max-w-[420px] ${
+            isGsiRendered ? 'block' : 'hidden'
+          }`}
+        />
+
+        {!isGsiRendered && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const google = typeof window !== 'undefined' ? (window as any).google : undefined;
+              if (google?.accounts?.id) {
+                google.accounts.id.prompt();
+              } else {
+                onShowToast('Đang kết nối máy chủ Google...', 'info');
+              }
+            }}
+            disabled={isGoogleLoading}
+            className="w-full h-auto flex items-center justify-between rounded-xl border-slate-200 bg-white p-3 hover:bg-slate-50 transition shadow-2xs cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-6 flex items-center justify-center shrink-0">
+                {isGoogleLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                ) : (
+                  <GoogleIcon className="h-5 w-5" />
+                )}
+              </div>
+              <span className="font-bold text-xs sm:text-sm text-slate-800 group-hover:text-slate-900">
+                {isGoogleLoading ? 'Đang xác thực Google...' : 'Đăng nhập bằng Google'}
+              </span>
+            </div>
+            <span className="rounded bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5">
+              Google
+            </span>
+          </Button>
+        )}
+      </div>
 
       {/* Divider */}
       <div className="relative flex items-center justify-center">
@@ -166,7 +262,7 @@ export default function LoginForm({
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex items-start gap-2 text-xs text-rose-800 animate-in fade-in duration-150">
             <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
             <span>
-              Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại địa chỉ email sinh viên FPT.
+              Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại địa chỉ email hoặc mật khẩu.
             </span>
           </div>
         )}
@@ -215,39 +311,59 @@ export default function LoginForm({
         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
           <span>Chọn tài khoản mẫu để thử nghiệm nhanh:</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* 1. Sinh viên (Buyer) */}
           <Button
             type="button"
             variant="outline"
             onClick={() => {
               setEmail('namntk17@fe.edu.vn');
-              setPassword('FptStudent@2024');
+              setPassword('Password123@');
               if (demoState === 'error') setDemoState('normal');
             }}
-            className="rounded-lg border-slate-200 bg-white p-2.5 h-auto text-left flex-col items-start justify-start hover:border-emerald-500 hover:bg-emerald-50/30 transition cursor-pointer group shadow-2xs"
+            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-emerald-500 hover:bg-emerald-50/30 transition cursor-pointer group shadow-2xs"
           >
             <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-emerald-700">
-              🎓 Sinh viên FPT
+              🎓 Sinh viên
             </div>
-            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">namntk17@fe.edu.vn</div>
-            <div className="text-[9px] text-emerald-600 font-bold mt-1">→ Vào Sàn chợ đồ cũ</div>
+            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">namntk17@fe...</div>
+            <div className="text-[9px] text-emerald-600 font-bold mt-1">→ Mua đồ</div>
           </Button>
 
+          {/* 2. Người bán (Seller) */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setEmail('seller@fpt.edu.vn');
+              setPassword('Password123@');
+              if (demoState === 'error') setDemoState('normal');
+            }}
+            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-blue-500 hover:bg-blue-50/30 transition cursor-pointer group shadow-2xs"
+          >
+            <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-blue-700">
+              🛒 Người bán
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">seller@fpt...</div>
+            <div className="text-[9px] text-blue-600 font-bold mt-1">→ Đăng bán</div>
+          </Button>
+
+          {/* 3. Quản trị viên (Admin) */}
           <Button
             type="button"
             variant="outline"
             onClick={() => {
               setEmail('admin@fpt.edu.vn');
-              setPassword('Admin@2025');
+              setPassword('AdminPassword123@');
               if (demoState === 'error') setDemoState('normal');
             }}
-            className="rounded-lg border-slate-200 bg-white p-2.5 h-auto text-left flex-col items-start justify-start hover:border-fpt-orange hover:bg-orange-50/40 transition cursor-pointer group shadow-2xs"
+            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-fpt-orange hover:bg-orange-50/40 transition cursor-pointer group shadow-2xs"
           >
             <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-fpt-orange">
-              🛡️ Quản trị viên (BQT)
+              🛡️ Quản trị
             </div>
-            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">admin@fpt.edu.vn</div>
-            <div className="text-[9px] text-fpt-orange font-bold mt-1">→ Vào Admin Panel</div>
+            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">admin@fpt...</div>
+            <div className="text-[9px] text-fpt-orange font-bold mt-1">→ BQT Panel</div>
           </Button>
         </div>
       </div>

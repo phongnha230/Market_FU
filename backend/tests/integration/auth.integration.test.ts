@@ -263,7 +263,7 @@ describe('Integration Test: Auth Module (/api/auth)', () => {
     }
   });
 
-  it('POST /api/auth/forgot-password với email không tồn tại phải trả về 404 EMAIL_NOT_FOUND', async () => {
+  it('POST /api/auth/forgot-password với email không tồn tại phải trả về 200 (chống user enumeration)', async () => {
     const server = app.listen(0);
     const address = server.address();
     if (!address || typeof address === 'string') {
@@ -280,10 +280,9 @@ describe('Integration Test: Auth Module (/api/auth)', () => {
         }),
       });
 
-      assert.strictEqual(response.status, 404);
+      assert.strictEqual(response.status, 200);
       const data = (await response.json()) as any;
-      assert.strictEqual(data.success, false);
-      assert.strictEqual(data.error.code, 'EMAIL_NOT_FOUND');
+      assert.strictEqual(data.success, true);
     } finally {
       server.close();
     }

@@ -25,8 +25,34 @@ export interface AuthResult {
 }
 
 export const authService = {
-  // 1. Đăng ký tài khoản
-  async register(payload: RegisterPayload): Promise<AuthResult> {
+  // 1a. Gửi mã OTP đăng ký tài khoản (Chưa lưu DB)
+  async sendRegisterOtp(payload: RegisterPayload): Promise<{ message: string; email: string }> {
+    const response = await apiClient.post<ApiResponse<{ message: string; email: string }>>('/auth/send-register-otp', payload);
+    return response.data.data;
+  },
+
+  // 1b. Xác thực OTP đăng ký (Lúc này DB mới chính thức lưu tài khoản)
+  async verifyRegisterOtp(payload: { email: string; otp: string }): Promise<AuthResult> {
+    const response = await apiClient.post<ApiResponse<AuthResult>>('/auth/verify-register-otp', payload);
+    const data = response.data.data;
+
+    if (data.tokens?.accessToken) {
+      useUserStore.getState().setAccessToken(data.tokens.accessToken);
+      if (data.user) {
+        useUserStore.getState().setUser(adaptBackendUser(data.user));
+      }
+    }
+    return data;
+  },
+
+  // 1c. Gửi lại mã OTP đăng ký
+  async resendRegisterOtp(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/resend-register-otp', { email });
+    return response.data.data;
+  },
+
+  // 1d. Đăng ký tài khoản (hỗ trợ cả gửi kèm otp)
+  async register(payload: RegisterPayload & { otp?: string }): Promise<AuthResult> {
     const response = await apiClient.post<ApiResponse<AuthResult>>('/auth/register', payload);
     const data = response.data.data;
 
@@ -54,8 +80,8 @@ export const authService = {
   },
 
   // 3. Đăng nhập qua Google OAuth
-  async loginWithGoogle(idToken: string): Promise<AuthResult> {
-    const response = await apiClient.post<ApiResponse<AuthResult>>('/auth/google', { idToken });
+  async loginWithGoogle(idToken: string, campus: string = 'HOL'): Promise<AuthResult> {
+    const response = await apiClient.post<ApiResponse<AuthResult>>('/auth/google', { idToken, campus });
     const data = response.data.data;
 
     if (data.tokens?.accessToken) {

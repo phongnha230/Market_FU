@@ -9,6 +9,9 @@ const router = Router();
 // 1. ĐĂNG KÝ & ĐĂNG NHẬP (Áp dụng Rate Limiter chống Brute-force)
 // ============================================================================
 router.post('/register', authRateLimiter, authController.register);
+router.post('/send-register-otp', authRateLimiter, authController.sendRegisterOtp);
+router.post('/verify-register-otp', authRateLimiter, authController.verifyRegisterOtp);
+router.post('/resend-register-otp', authRateLimiter, authController.resendRegisterOtp);
 router.post('/login', authRateLimiter, authController.login);
 router.post('/google', authRateLimiter, authController.googleAuth);
 router.post('/phone', authRateLimiter, authController.phoneAuth);

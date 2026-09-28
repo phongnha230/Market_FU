@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ArrowRight,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 export interface RegisterData {
@@ -27,12 +28,18 @@ interface RegisterFormProps {
   onProceedToOtp: (data: RegisterData) => void;
   onSwitchToLogin: () => void;
   onShowToast: (msg: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  serverError?: string | null;
+  isLoading?: boolean;
+  onClearServerError?: () => void;
 }
 
 export default function RegisterForm({
   onProceedToOtp,
   onSwitchToLogin,
   onShowToast,
+  serverError,
+  isLoading = false,
+  onClearServerError,
 }: RegisterFormProps) {
   const [fullName, setFullName] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -65,6 +72,12 @@ export default function RegisterForm({
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+  const hasMinLen = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const isStrongPassword = hasMinLen && hasUpper && hasNumber && hasSpecial;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -73,8 +86,8 @@ export default function RegisterForm({
       return;
     }
 
-    if (password.length < 6) {
-      onShowToast('Mật khẩu cần tối thiểu 6 ký tự để bảo vệ tài khoản!', 'warning');
+    if (!isStrongPassword) {
+      onShowToast('Mật khẩu chưa đạt chuẩn an toàn. Vui lòng hoàn thành các tiêu chí màu đỏ bên dưới!', 'error');
       return;
     }
 
@@ -100,6 +113,16 @@ export default function RegisterForm({
     });
   };
 
+  const isEmailError = Boolean(
+    serverError && (serverError.toLowerCase().includes('email') || serverError.toLowerCase().includes('thư'))
+  );
+  const isStudentIdError = Boolean(
+    serverError &&
+      (serverError.toLowerCase().includes('mssv') ||
+        serverError.toLowerCase().includes('mã số sinh viên') ||
+        serverError.toLowerCase().includes('sinh viên'))
+  );
+
   return (
     <div className="space-y-4">
       <div>
@@ -111,6 +134,17 @@ export default function RegisterForm({
           Dành riêng cho sinh viên & cán bộ thuộc 5 campus Đại học FPT
         </p>
       </div>
+
+      {/* ⚠️ Hộp cảnh báo lỗi trực quan trên web khi bị trùng MSSV hoặc trùng Email */}
+      {serverError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/95 p-3.5 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xs">
+          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-extrabold text-rose-900">Không thể tiếp tục đăng ký:</p>
+            <p className="mt-0.5 text-rose-700 font-medium leading-relaxed">{serverError}</p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* Full Name & MSSV */}
@@ -133,21 +167,45 @@ export default function RegisterForm({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Mã số SV (MSSV)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Mã số SV (MSSV)
+              </label>
+              {isStudentIdError && (
+                <span className="text-[11px] font-bold text-rose-600 flex items-center gap-0.5">
+                  <AlertCircle className="h-3 w-3" /> Đã tồn tại!
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
                 type="text"
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setStudentId(e.target.value.toUpperCase());
+                  onClearServerError?.();
+                }}
                 placeholder="HE172819"
                 required
                 maxLength={10}
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 pl-9 text-xs sm:text-sm font-mono font-bold text-slate-800 uppercase outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+                className={`w-full rounded-xl border bg-white p-2.5 pl-9 text-xs sm:text-sm font-mono font-bold text-slate-800 uppercase outline-none transition ${
+                  isStudentIdError
+                    ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500 ring-2 ring-rose-200'
+                    : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
+                }`}
               />
-              <GraduationCap className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <GraduationCap className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isStudentIdError ? 'text-rose-500' : 'text-slate-400'}`} />
             </div>
+            {isStudentIdError ? (
+              <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                ⚠️ MSSV này đã được dùng cho tài khoản khác
+              </p>
+            ) : (
+              <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-slate-400" />
+                Mỗi sinh viên chỉ được tạo 1 tài khoản bằng MSSV này
+              </p>
+            )}
           </div>
         </div>
 
@@ -174,22 +232,46 @@ export default function RegisterForm({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Email cá nhân / FE Mail
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Email cá nhân / FE Mail
+              </label>
+              {isEmailError && (
+                <span className="text-[11px] font-bold text-rose-600 flex items-center gap-0.5">
+                  <AlertCircle className="h-3 w-3" /> Đã tồn tại!
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  onClearServerError?.();
+                }}
                 placeholder="anv.se17@fe.edu.vn hoặc gmail..."
                 required
-                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 pr-8 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+                className={`w-full rounded-xl border bg-white p-2.5 pr-8 text-xs sm:text-sm text-slate-800 outline-none transition ${
+                  isEmailError
+                    ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500 ring-2 ring-rose-200'
+                    : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
+                }`}
               />
-              {isValidEmail && (
+              {isValidEmail && !isEmailError && (
                 <CheckCircle2 className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
               )}
             </div>
+            {isEmailError ? (
+              <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                ⚠️ Email này đã được đăng ký tài khoản
+              </p>
+            ) : (
+              <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-slate-400" />
+                Dùng để nhận mã OTP kích hoạt tài khoản
+              </p>
+            )}
           </div>
         </div>
 
@@ -204,7 +286,7 @@ export default function RegisterForm({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Tối thiểu 8 ký tự"
                 required
                 className="w-full rounded-xl border border-slate-200 bg-white p-2.5 pr-9 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
               />
@@ -231,6 +313,120 @@ export default function RegisterForm({
               className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
             />
           </div>
+        </div>
+
+        {/* Password Security Checklist with real-time visual warning cues */}
+        <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-bold">
+            <span className="text-slate-700 flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-slate-500" />
+              Tiêu chuẩn mật khẩu an toàn:
+            </span>
+            {password.length > 0 && (
+              <span
+                className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
+                  isStrongPassword
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                    : 'bg-rose-100 text-rose-700 border border-rose-300'
+                }`}
+              >
+                {isStrongPassword ? '✓ Đạt chuẩn' : '⚠ Chưa đủ điều kiện'}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+            <div
+              className={`flex items-center gap-1.5 ${
+                hasMinLen
+                  ? 'text-emerald-700 font-semibold'
+                  : password.length > 0
+                  ? 'text-rose-600 font-medium'
+                  : 'text-slate-500'
+              }`}
+            >
+              {hasMinLen ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              ) : (
+                <AlertCircle
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    password.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                  }`}
+                />
+              )}
+              <span>Tối thiểu 8 ký tự</span>
+            </div>
+
+            <div
+              className={`flex items-center gap-1.5 ${
+                hasUpper
+                  ? 'text-emerald-700 font-semibold'
+                  : password.length > 0
+                  ? 'text-rose-600 font-medium'
+                  : 'text-slate-500'
+              }`}
+            >
+              {hasUpper ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              ) : (
+                <AlertCircle
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    password.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                  }`}
+                />
+              )}
+              <span>Ít nhất 1 chữ in hoa (A-Z)</span>
+            </div>
+
+            <div
+              className={`flex items-center gap-1.5 ${
+                hasNumber
+                  ? 'text-emerald-700 font-semibold'
+                  : password.length > 0
+                  ? 'text-rose-600 font-medium'
+                  : 'text-slate-500'
+              }`}
+            >
+              {hasNumber ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              ) : (
+                <AlertCircle
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    password.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                  }`}
+                />
+              )}
+              <span>Ít nhất 1 chữ số (0-9)</span>
+            </div>
+
+            <div
+              className={`flex items-center gap-1.5 ${
+                hasSpecial
+                  ? 'text-emerald-700 font-semibold'
+                  : password.length > 0
+                  ? 'text-rose-600 font-medium'
+                  : 'text-slate-500'
+              }`}
+            >
+              {hasSpecial ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              ) : (
+                <AlertCircle
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    password.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                  }`}
+                />
+              )}
+              <span>1 ký tự đặc biệt (!@#$%^...)</span>
+            </div>
+          </div>
+
+          {confirmPassword.length > 0 && password !== confirmPassword && (
+            <p className="text-[11px] text-rose-600 font-medium pt-1.5 border-t border-rose-200/60 flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+              <span>Mật khẩu xác nhận không khớp, vui lòng kiểm tra lại!</span>
+            </p>
+          )}
         </div>
 
         {/* CAPTCHA ANTI-BOT BOX */}
@@ -295,10 +491,20 @@ export default function RegisterForm({
         {/* Submit to OTP */}
         <button
           type="submit"
-          className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+          disabled={isLoading}
+          className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
         >
-          <span>Tiếp tục xác thực OTP Email</span>
-          <ArrowRight className="h-4 w-4" />
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Đang kiểm tra & gửi mã OTP...</span>
+            </>
+          ) : (
+            <>
+              <span>Tiếp tục xác thực OTP Email</span>
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </form>
 

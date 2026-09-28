@@ -20,8 +20,29 @@ export const registerSchema = z.object({
   password: strongPasswordSchema,
   fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
   phoneNumber: z.string().optional(),
+  studentId: z.string().optional(),
   campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).default('HOL'),
+  otp: z.string().length(6, 'Mã OTP phải gồm đúng 6 chữ số').optional(),
   recaptchaToken: z.string().optional(), // Token reCAPTCHA từ client gửi lên chống bot spam
+});
+
+export const sendRegisterOtpSchema = z.object({
+  email: emailSchema,
+  password: strongPasswordSchema,
+  fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
+  phoneNumber: z.string().optional(),
+  studentId: z.string().optional(),
+  campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).default('HOL'),
+  recaptchaToken: z.string().optional(),
+});
+
+export const verifyRegisterOtpSchema = z.object({
+  email: emailSchema,
+  otp: z.string().length(6, 'Mã OTP phải gồm đúng 6 chữ số'),
+});
+
+export const resendRegisterOtpSchema = z.object({
+  email: emailSchema,
 });
 
 export const loginSchema = z.object({
@@ -77,6 +98,9 @@ export const resetPasswordSchema = z
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type SendRegisterOtpInput = z.infer<typeof sendRegisterOtpSchema>;
+export type VerifyRegisterOtpInput = z.infer<typeof verifyRegisterOtpSchema>;
+export type ResendRegisterOtpInput = z.infer<typeof resendRegisterOtpSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;
 export type PhoneAuthInput = z.infer<typeof phoneAuthSchema>;

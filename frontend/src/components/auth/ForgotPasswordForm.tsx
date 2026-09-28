@@ -11,6 +11,7 @@ import {
   KeyRound,
   ShieldCheck,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import OtpVerificationStep from './OtpVerificationStep';
 
@@ -35,6 +36,12 @@ export default function ForgotPasswordForm({
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+  const hasMinLen = newPassword.length >= 8;
+  const hasUpper = /[A-Z]/.test(newPassword);
+  const hasNumber = /[0-9]/.test(newPassword);
+  const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
+  const isStrongPassword = hasMinLen && hasUpper && hasNumber && hasSpecial;
+
   // Step 1: Submit Email
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +62,8 @@ export default function ForgotPasswordForm({
   // Step 3: Set New Password
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      onShowToast('Mật khẩu mới phải có tối thiểu 6 ký tự!', 'warning');
+    if (!isStrongPassword) {
+      onShowToast('Mật khẩu chưa đạt chuẩn an toàn. Vui lòng hoàn thành các tiêu chí màu đỏ bên dưới!', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -112,7 +119,7 @@ export default function ForgotPasswordForm({
                 type={showPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Tối thiểu 8 ký tự"
                 required
                 className="w-full rounded-xl border border-slate-200 p-3 pr-10 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
               />
@@ -138,6 +145,120 @@ export default function ForgotPasswordForm({
               required
               className="w-full rounded-xl border border-slate-200 p-3 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
             />
+          </div>
+
+          {/* Password Security Checklist */}
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="text-slate-700 flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-slate-500" />
+                Tiêu chuẩn mật khẩu an toàn:
+              </span>
+              {newPassword.length > 0 && (
+                <span
+                  className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
+                    isStrongPassword
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                      : 'bg-rose-100 text-rose-700 border border-rose-300'
+                  }`}
+                >
+                  {isStrongPassword ? '✓ Đạt chuẩn' : '⚠ Chưa đủ điều kiện'}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+              <div
+                className={`flex items-center gap-1.5 ${
+                  hasMinLen
+                    ? 'text-emerald-700 font-semibold'
+                    : newPassword.length > 0
+                    ? 'text-rose-600 font-medium'
+                    : 'text-slate-500'
+                }`}
+              >
+                {hasMinLen ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                ) : (
+                  <AlertCircle
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  />
+                )}
+                <span>Tối thiểu 8 ký tự</span>
+              </div>
+
+              <div
+                className={`flex items-center gap-1.5 ${
+                  hasUpper
+                    ? 'text-emerald-700 font-semibold'
+                    : newPassword.length > 0
+                    ? 'text-rose-600 font-medium'
+                    : 'text-slate-500'
+                }`}
+              >
+                {hasUpper ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                ) : (
+                  <AlertCircle
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  />
+                )}
+                <span>Ít nhất 1 chữ in hoa (A-Z)</span>
+              </div>
+
+              <div
+                className={`flex items-center gap-1.5 ${
+                  hasNumber
+                    ? 'text-emerald-700 font-semibold'
+                    : newPassword.length > 0
+                    ? 'text-rose-600 font-medium'
+                    : 'text-slate-500'
+                }`}
+              >
+                {hasNumber ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                ) : (
+                  <AlertCircle
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  />
+                )}
+                <span>Ít nhất 1 chữ số (0-9)</span>
+              </div>
+
+              <div
+                className={`flex items-center gap-1.5 ${
+                  hasSpecial
+                    ? 'text-emerald-700 font-semibold'
+                    : newPassword.length > 0
+                    ? 'text-rose-600 font-medium'
+                    : 'text-slate-500'
+                }`}
+              >
+                {hasSpecial ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                ) : (
+                  <AlertCircle
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  />
+                )}
+                <span>1 ký tự đặc biệt (!@#$%^...)</span>
+              </div>
+            </div>
+
+            {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+              <p className="text-[11px] text-rose-600 font-medium pt-1.5 border-t border-rose-200/60 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                <span>Mật khẩu xác nhận không khớp, vui lòng kiểm tra lại!</span>
+              </p>
+            )}
           </div>
 
           <button

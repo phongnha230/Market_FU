@@ -4,6 +4,9 @@ import { AppError } from '../../middlewares/error.middleware';
 import { authService } from './auth.service';
 import {
   registerSchema,
+  sendRegisterOtpSchema,
+  verifyRegisterOtpSchema,
+  resendRegisterOtpSchema,
   loginSchema,
   googleAuthSchema,
   phoneAuthSchema,
@@ -18,15 +21,65 @@ import { verifyRefreshToken, verifyAccessToken } from '../../utils/token';
 import { verifyRecaptcha } from '../../middlewares/recaptcha.middleware';
 
 export class AuthController {
-  // Đăng ký (Có xác thực Google reCAPTCHA)
+  // Gửi mã OTP đăng ký (Chưa lưu vào DB)
+  sendRegisterOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validatedData = sendRegisterOtpSchema.parse(req.body);
+      await verifyRecaptcha(validatedData.recaptchaToken);
+      const result = await authService.sendRegisterOtp(validatedData);
+      sendSuccess(res, result, undefined, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Xác thực mã OTP đăng ký (Chỉ lưu vào DB khi mã đúng)
+  verifyRegisterOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validatedData = verifyRegisterOtpSchema.parse(req.body);
+      const result = await authService.verifyRegisterOtp(validatedData);
+
+      res.cookie('refreshToken', result.tokens.refreshToken, {
+        httpOnly: true,
+        secure: ENV.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      sendSuccess(res, result, undefined, 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Gửi lại mã OTP đăng ký
+  resendRegisterOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validatedData = resendRegisterOtpSchema.parse(req.body);
+      const result = await authService.resendRegisterOtp(validatedData);
+      sendSuccess(res, result, undefined, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Đăng ký (Hỗ trợ cả 2 bước: Nếu có otp thì xác thực & lưu DB, chưa có otp thì gửi OTP)
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedData = registerSchema.parse(req.body);
 
-      // Xác thực reCAPTCHA chống Bot spam tạo nick ảo
-      await verifyRecaptcha(validatedData.recaptchaToken);
+      // Bước 1: Chưa có mã OTP -> Chỉ gửi OTP, KHÔNG lưu DB
+      if (!validatedData.otp) {
+        await verifyRecaptcha(validatedData.recaptchaToken);
+        const result = await authService.sendRegisterOtp(validatedData);
+        return sendSuccess(res, result, undefined, 200);
+      }
 
-      const result = await authService.register(validatedData);
+      // Bước 2: Đã có mã OTP -> Xác thực và lưu DB
+      const result = await authService.verifyRegisterOtp({
+        email: validatedData.email,
+        otp: validatedData.otp,
+      });
 
       res.cookie('refreshToken', result.tokens.refreshToken, {
         httpOnly: true,

@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useUserStore } from '@/stores/userStore';
+import { useAuthAlertStore } from '@/stores/authAlertStore';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -19,7 +20,7 @@ export interface ApiError {
   details?: any;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -75,9 +76,11 @@ apiClient.interceptors.response.use(
     const isAuthEndpoint =
       originalRequest?.url?.includes('/auth/login') ||
       originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/google') ||
       originalRequest?.url?.includes('/auth/refresh-token');
 
-    if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+    const currentToken = useUserStore.getState().accessToken;
+    if (status === 401 && !originalRequest._retry && !isAuthEndpoint && currentToken) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -110,10 +113,24 @@ apiClient.interceptors.response.use(
       } catch (refreshErr) {
         processQueue(refreshErr);
         useUserStore.getState().logout();
+        useAuthAlertStore
+          .getState()
+          .triggerSessionExpired(
+            'Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống.'
+          );
         return Promise.reject(extractApiError(error));
       } finally {
         isRefreshing = false;
       }
+    }
+
+    if (status === 401 && !isAuthEndpoint && originalRequest?._retry && currentToken) {
+      useUserStore.getState().logout();
+      useAuthAlertStore
+        .getState()
+        .triggerSessionExpired(
+          'Phiên làm việc của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
+        );
     }
 
     return Promise.reject(extractApiError(error));
