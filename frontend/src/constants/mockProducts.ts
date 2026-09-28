@@ -276,16 +276,16 @@ export const DETAIL_PRODUCT_AKKO: ProductDetail = {
   location: 'FPT Hòa Lạc (KTX Dom A)',
   timeAgo: 'Đăng 3 giờ trước',
   condition: 'Mới 99% (Dùng 2 tháng)',
-  viewCount: 428,
+  viewCount: 0,
   seller: {
     name: 'Lê Minh Quân',
     cohort: 'K17 SE',
     initial: 'Q',
     verified: true,
-    rating: 4.9,
-    reviewCount: 28,
-    dealCount: 14,
-    responseRate: '98%',
+    rating: 0,
+    reviewCount: 0,
+    dealCount: 0,
+    responseRate: '0%',
   },
   galleryImages: [
     {

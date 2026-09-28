@@ -15,6 +15,9 @@ router.get('/favorites/me', authenticate, productController.getMyFavorites);
 router.get('/trending/searches', productController.getTrendingSearches);
 router.get('/trending/items', productController.getTrendingItems);
 
+// Meilisearch autocomplete suggest (đặt trước :id)
+router.get('/suggest', productController.suggestProducts);
+
 router.get('/:id', productController.getProductById);
 
 // Protected routes (Đăng bán, cập nhật, đổi trạng thái, xóa món đồ)

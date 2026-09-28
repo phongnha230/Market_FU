@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
 import { aiService } from '@/services/aiService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
+import { checkPostModeration, ContentViolation } from '@/utils/contentModeration';
 import {
   UploadCloud,
   Camera,
@@ -34,6 +35,10 @@ import {
   Store,
   Lock,
   GraduationCap,
+  AlertTriangle,
+  ShieldAlert,
+  Loader2,
+  Info,
 } from 'lucide-react';
 
 const SAMPLE_LOCAL_PHOTOS = [
@@ -96,19 +101,25 @@ export default function CreatePostPage() {
   const [description, setDescription] = useState(
     'Sách PRF192 mình học kỳ trước xong, pass lại cho các bạn K18-K19 học lập trình C. Sách giữ rất kỹ, không rách gáy, không viết bút dạ quang lem nhem.\nĐặc biệt tặng kèm tập tài liệu tóm tắt con trỏ (Pointer) và bài tập luyện code PE 10 điểm.\nNhận sách tại sảnh Alpha hoặc KTX Dom E bất kỳ buổi chiều nào trong tuần.'
   );
-  const [phone, setPhone] = useState('0982 345 678');
-  const [userEmail] = useState('quanmhct171234@fpt.edu.vn');
+  const [hashtags, setHashtags] = useState<string[]>(['sách', 'lập trình', 'K17', 'giá rẻ']);
+  const [hashtagInput, setHashtagInput] = useState('');
+  const currentUser = useUserStore((state) => state.user);
+  const addProduct = useProductStore((state) => state.addProduct);
+  const setKycStatus = useUserStore((state) => state.setKycStatus);
+  const [phone, setPhone] = useState(currentUser.phone || '0982 345 678');
+  const [userEmail] = useState(currentUser.email || 'sinhvien@fpt.edu.vn');
 
   // 2. Modals & Notifications
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [createdPostId, setCreatedPostId] = useState<string>('');
-
-  const addProduct = useProductStore((state) => state.addProduct);
-  const currentUser = useUserStore((state) => state.user);
-  const setKycStatus = useUserStore((state) => state.setKycStatus);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const isSeller = currentUser.kycStatus === 'approved_seller';
+  const isEduEmail = Boolean(
+    currentUser.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    currentUser.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isVerifiedStudent = isEduEmail || currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -137,13 +148,29 @@ export default function CreatePostPage() {
   };
 
   const [isScanningAi, setIsScanningAi] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [aiDraftNotice, setAiDraftNotice] = useState<string | null>(null);
+
+  // Content moderation real-time calculation
+  const moderation = useMemo(() => {
+    return checkPostModeration(title, description, hashtags);
+  }, [title, description, hashtags]);
 
   // Handle Gemini AI vision scanning
-  const handleAiScanImage = async (file: File) => {
+  const handleAiScanImage = async (imageInput: File | string) => {
     setIsScanningAi(true);
+    setAiDraftNotice(null);
     showToast('🤖 Gemini 1.5 Flash đang phân tích ảnh sản phẩm...');
     try {
-      const res = await aiService.visionScanPost(file);
+      let fileToScan: File | Blob;
+      if (typeof imageInput === 'string') {
+        const resp = await fetch(imageInput);
+        fileToScan = await resp.blob();
+      } else {
+        fileToScan = imageInput;
+      }
+
+      const res = await aiService.visionScanPost(fileToScan);
       if (res.title) setTitle(res.title);
       if (res.suggestedPrice) setPrice(res.suggestedPrice.toString());
       if (res.description) setDescription(res.description);
@@ -156,11 +183,30 @@ export default function CreatePostPage() {
             : 'Đã qua sử dụng (Tốt)'
         );
       }
-      showToast('✨ Gemini AI đã nhận diện món đồ và tự động điền form trong 3s!');
+      setAiDraftNotice(
+        '✨ Gemini AI đã nhận diện món đồ và điền sẵn thông tin bản nháp! Bạn vui lòng rà soát lại tiêu đề, mô tả và giá tiền bên dưới trước khi đăng.'
+      );
+      showToast('✨ AI đã điền sẵn form trong 3s! Bạn hãy kiểm tra trước khi bấm đăng.');
     } catch (err: any) {
-      showToast(err?.message || 'Không thể quét ảnh bằng AI, vui lòng tự điền thông tin.');
+      if (err?.code === 'AI_PROHIBITED_ITEM_DETECTED' || err?.message?.includes('quy chế an toàn')) {
+        showToast(`🚫 AI Từ chối: ${err?.message || 'Món đồ vi phạm quy chế ĐH FPT'}`);
+      } else {
+        showToast(err?.message || 'Không thể quét ảnh bằng AI, vui lòng tự điền thông tin.');
+      }
     } finally {
       setIsScanningAi(false);
+    }
+  };
+
+  const handleTriggerAiScan = () => {
+    if (images.length === 0) {
+      showToast('Vui lòng thêm ít nhất 1 ảnh để AI phân tích!');
+      return;
+    }
+    if (uploadedFiles.length > 0) {
+      handleAiScanImage(uploadedFiles[0]);
+    } else {
+      handleAiScanImage(images[0]);
     }
   };
 
@@ -168,6 +214,7 @@ export default function CreatePostPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files);
+      setUploadedFiles((prev) => [...prev, ...filesArray].slice(0, 6));
       const newUrls: string[] = [];
       filesArray.forEach((file) => {
         if (images.length + newUrls.length < 6) {
@@ -241,6 +288,12 @@ export default function CreatePostPage() {
       return;
     }
 
+    // Kiểm duyệt nội dung trước khi gửi bài đăng lên server
+    if (!moderation.isClean) {
+      showToast(`🚫 Không thể đăng bài: ${moderation.summaryMessage}`);
+      return;
+    }
+
     try {
       const campusMap: Record<string, string> = {
         hola: 'HOL',
@@ -270,6 +323,10 @@ export default function CreatePostPage() {
         formData.append('imageUrls', img);
       });
 
+      hashtags.forEach((tag) => {
+        formData.append('hashtags', tag.replace(/^#/, '').trim());
+      });
+
       const created = await ProductService.createProduct(formData);
       setCreatedPostId(created.id);
       setIsSuccessModalOpen(true);
@@ -278,6 +335,15 @@ export default function CreatePostPage() {
       if (err?.code === 'KYC_REQUIRED_TO_SELL' || err?.message?.includes('KYC')) {
         showToast('⚠️ Bạn cần xác thực Thẻ Sinh Viên để có quyền đăng bán đồ.');
         setIsKycModalOpen(true);
+        return;
+      }
+
+      if (
+        err?.code === 'PROHIBITED_CONTENT' ||
+        err?.code === 'AI_PROHIBITED_ITEM_DETECTED' ||
+        err?.message?.includes('kiểm duyệt nội dung')
+      ) {
+        showToast(`🚫 Bài đăng bị từ chối: ${err?.message || 'Nội dung chứa hàng cấm học đường'}`);
         return;
       }
 
@@ -378,18 +444,18 @@ export default function CreatePostPage() {
               
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {currentUser.kycStatus === 'pending'
-                  ? 'Hồ sơ Đăng ký Seller của bạn đang được xét duyệt'
-                  : currentUser.kycStatus === 'approved_student'
+                  ? 'Hồ sơ Đăng ký của bạn đang được xét duyệt'
+                  : isVerifiedStudent
                   ? 'Mở khóa Quyền Người Bán (Seller) để Đăng bài'
-                  : 'Bạn chưa có Quyền Đăng bán trên FPT 5Campus Market'}
+                  : 'Yêu cầu Xác thực Thẻ Sinh viên FPT trước khi Đăng bán'}
               </h1>
 
               <p className="text-sm text-slate-600 leading-relaxed">
                 {currentUser.kycStatus === 'pending'
-                  ? 'Hồ sơ đăng ký Gian hàng sinh viên của bạn đã được chuyển đến Ban Quản Trị Admin. Quá trình kiểm tra thẻ sinh viên và thông tin đối soát thường diễn ra trong vòng 5 - 15 phút. Bạn sẽ nhận được thông báo ngay khi được phê duyệt.'
-                  : currentUser.kycStatus === 'approved_student'
-                  ? 'Tài khoản của bạn đã được xác thực Thẻ Sinh Viên (Người mua). Để đăng bán giáo trình, đồ công nghệ hay đồ KTX, bạn chỉ cần bổ sung thông tin gian hàng và tài khoản nhận tiền.'
-                  : 'Theo quy chế giao dịch học đường FPT nhằm triệt tiêu hoàn toàn rủi ro lừa đảo và hàng giả, mọi thành viên đăng bán đồ đều phải định danh bằng Thẻ Sinh Viên FPT Edu chính chủ.'}
+                  ? 'Hồ sơ đăng ký của bạn đã được chuyển đến Ban Quản Trị Admin. Quá trình kiểm tra thẻ sinh viên và thông tin đối soát thường diễn ra trong vòng 5 - 15 phút. Bạn sẽ nhận được thông báo ngay khi được phê duyệt.'
+                  : isVerifiedStudent
+                  ? 'Tài khoản của bạn đã được xác thực Thẻ Sinh Viên. Để đăng bán giáo trình, đồ công nghệ hay đồ KTX, bạn chỉ cần bổ sung thông tin gian hàng và tài khoản nhận tiền.'
+                  : `Bạn đang đăng nhập bằng email cá nhân (${currentUser.email || 'Gmail'}). Quy chế FPT Market bắt buộc bạn phải xác thực Thẻ Sinh Viên chính quy trước khi có thể đăng ký mở Gian hàng Người bán (Seller).`}
               </p>
             </div>
 
@@ -452,12 +518,17 @@ export default function CreatePostPage() {
                   onClick={() => setIsKycModalOpen(true)}
                   className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-fpt-orange px-6 py-3.5 text-xs sm:text-sm font-black text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover transition cursor-pointer active:scale-95"
                 >
-                  <Store className="h-4 w-4" />
-                  <span>
-                    {currentUser.kycStatus === 'approved_student'
-                      ? 'Kích hoạt Gian hàng Seller ngay'
-                      : 'Xác thực Thẻ SV & Mở Gian hàng'}
-                  </span>
+                  {isVerifiedStudent ? (
+                    <>
+                      <Store className="h-4 w-4" />
+                      <span>Kích hoạt Gian hàng Seller ngay</span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Xác thực Thẻ Sinh viên trước</span>
+                    </>
+                  )}
                 </button>
               )}
 
@@ -477,7 +548,7 @@ export default function CreatePostPage() {
         <KycRegistrationModal
           isOpen={isKycModalOpen}
           onClose={() => setIsKycModalOpen(false)}
-          defaultRole="seller"
+          defaultRole={isVerifiedStudent ? 'seller' : 'student'}
           onShowToast={showToast}
         />
       </div>
@@ -653,7 +724,105 @@ export default function CreatePostPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* AI Assistant Scan Action Card */}
+                <div className="rounded-xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50/50 to-white p-4 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-xs shrink-0">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-900">
+                            AI Gemini 1.5 Flash Vision
+                          </h4>
+                          <span className="rounded-full bg-orange-100 border border-orange-200 px-2 py-0.5 text-[10px] font-bold text-fpt-orange">
+                            Tạo nháp 3 giây
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Tự động nhận diện đồ từ ảnh bìa, điền sẵn Tiêu đề, Giá đề xuất & Mô tả chuẩn sinh viên FPT.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTriggerAiScan}
+                      disabled={isScanningAi || images.length === 0}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:from-orange-600 hover:to-amber-600 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer active:scale-95"
+                    >
+                      {isScanningAi ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Đang thẩm định ảnh...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          <span>Quét ảnh điền nháp ngay</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Human-in-the-loop control badge */}
+                  <div className="flex items-start sm:items-center gap-2 rounded-lg bg-white/90 border border-orange-200/80 px-3 py-2 text-[11px] text-slate-600">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <span>
+                      <strong>Quyền kiểm soát thông tin:</strong> AI chỉ hỗ trợ tạo bản nháp gợi ý. Bạn toàn quyền kiểm tra, sửa giá, bổ sung mô tả trước khi bấm "Đăng bán ngay".
+                    </span>
+                  </div>
+                </div>
+
+                {/* AI Draft Notice Message */}
+                {aiDraftNotice && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>{aiDraftNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAiDraftNotice(null)}
+                      className="text-emerald-600 hover:text-emerald-800 text-xs font-bold p-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* CONTENT MODERATION WARNING BANNER (Chặn & Cảnh báo từ cấm, hàng cấm học đường) */}
+              {!moderation.isClean && (
+                <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/95 p-4 sm:p-5 shadow-xs space-y-3 animate-in fade-in">
+                  <div className="flex items-center gap-2.5 text-rose-800">
+                    <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0" />
+                    <h4 className="text-sm font-extrabold uppercase tracking-wide">
+                      CẢNH BÁO VI PHẠM NỘI DUNG & DANH MỤC CẤM GIAO DỊCH
+                    </h4>
+                  </div>
+                  <p className="text-xs text-rose-700 leading-relaxed">
+                    Hệ thống kiểm duyệt an toàn phát hiện bài đăng của bạn chứa từ khóa hoặc mặt hàng không được phép giao dịch tại ĐH FPT:
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    {moderation.violations.map((v, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-100 border border-rose-300 px-2.5 py-1 text-xs font-bold text-rose-900"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Từ cấm: "{v.word}"</span>
+                        <span className="text-[11px] font-normal text-rose-700">({v.label})</span>
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-rose-600 italic">
+                    👉 Vui lòng chỉnh sửa hoặc xóa các từ ngữ trên khỏi Tiêu đề, Mô tả hoặc Hashtag để mở khóa quyền đăng bài.
+                  </p>
+                </div>
+              )}
 
               {/* SECTION 2: THÔNG TIN CƠ BẢN */}
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs space-y-5">
@@ -683,8 +852,18 @@ export default function CreatePostPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="VD: Giáo trình PRF192 bản đẹp + Kèm tóm tắt lý thuyết thi PE..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition ${
+                      moderation.violations.some((v) => title.toLowerCase().includes(v.word.toLowerCase()))
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
+                        : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
+                    }`}
                   />
+                  {moderation.violations.some((v) => title.toLowerCase().includes(v.word.toLowerCase())) && (
+                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+                      Tiêu đề chứa từ khóa cấm hoặc mặt hàng hạn chế giao dịch.
+                    </p>
+                  )}
                 </div>
 
                 {/* Row: Danh mục & Campus */}
@@ -851,8 +1030,18 @@ export default function CreatePostPage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Mô tả cụ thể về món đồ (thời gian đã sử dụng, lý do pass, quà tặng kèm nếu có)..."
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition resize-none leading-relaxed"
+                    className={`w-full rounded-xl border bg-white p-3.5 text-sm text-slate-900 outline-none transition resize-none leading-relaxed ${
+                      moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase()))
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
+                        : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
+                    }`}
                   />
+                  {moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase())) && (
+                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                      Mô tả chứa từ khóa cấm hoặc vi phạm quy chế giao dịch học đường.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-400">
@@ -861,11 +1050,112 @@ export default function CreatePostPage() {
                 </div>
               </div>
 
-              {/* SECTION 5: THÔNG TIN LIÊN HỆ NGƯỜI BÁN */}
+              {/* SECTION 5: HASHTAG */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fpt-orange text-xs font-bold text-white shadow-xs">
+                      5
+                    </span>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Hashtag tìm kiếm
+                    </h2>
+                  </div>
+                  <span className="text-xs text-slate-400">{hashtags.length}/10 thẻ</span>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Thêm hashtag giúp người mua tìm thấy sản phẩm dễ hơn. Nhấn{' '}
+                  <kbd className="rounded border border-slate-200 bg-slate-100 px-1 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}
+                  hoặc dấu phẩy để thêm.
+                </p>
+
+                {/* Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={hashtagInput}
+                    onChange={(e) => setHashtagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ',' || e.key === ' ') && hashtagInput.trim()) {
+                        e.preventDefault();
+                        const newTag = hashtagInput.replace(/^#/, '').replace(/[,\s]/g, '').trim().toLowerCase();
+                        if (newTag && !hashtags.includes(newTag) && hashtags.length < 10) {
+                          setHashtags([...hashtags, newTag]);
+                        }
+                        setHashtagInput('');
+                      } else if (e.key === 'Backspace' && !hashtagInput && hashtags.length > 0) {
+                        setHashtags(hashtags.slice(0, -1));
+                      }
+                    }}
+                    placeholder={hashtags.length >= 10 ? 'Đã đạt tối đa 10 hashtag' : '#thêm hashtag...'}
+                    disabled={hashtags.length >= 10}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTag = hashtagInput.replace(/^#/, '').replace(/[,\s]/g, '').trim().toLowerCase();
+                      if (newTag && !hashtags.includes(newTag) && hashtags.length < 10) {
+                        setHashtags([...hashtags, newTag]);
+                        setHashtagInput('');
+                      }
+                    }}
+                    disabled={!hashtagInput.trim() || hashtags.length >= 10}
+                    className="rounded-xl bg-fpt-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-fpt-orange-hover transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                {/* Tag chips */}
+                {hashtags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {hashtags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs font-semibold text-fpt-orange"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => setHashtags(hashtags.filter((t) => t !== tag))}
+                          className="ml-0.5 rounded-full text-orange-400 hover:text-red-500 hover:bg-red-50 transition p-0.5"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick suggest */}
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 mb-2">Gợi ý nhanh:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['giá rẻ', 'mới 99%', 'K17', 'K18', 'K19', 'hòa lạc', 'HCM', 'fix nhẹ', 'negotiable', 'freeship'].filter(s => !hashtags.includes(s)).map((suggest) => (
+                      <button
+                        key={suggest}
+                        type="button"
+                        onClick={() => {
+                          if (!hashtags.includes(suggest) && hashtags.length < 10) {
+                            setHashtags([...hashtags, suggest]);
+                          }
+                        }}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 hover:border-fpt-orange hover:bg-orange-50 hover:text-fpt-orange transition"
+                      >
+                        +{suggest}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 6: THÔNG TIN LIÊN HỆ NGƯỜI BÁN */}
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs space-y-4">
                 <div className="flex items-center gap-2.5">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fpt-orange text-xs font-bold text-white shadow-xs">
-                    5
+                    6
                   </span>
                   <h2 className="text-base font-bold text-slate-900">
                     Thông tin liên hệ người bán
@@ -934,10 +1224,24 @@ export default function CreatePostPage() {
 
                   <button
                     type="submit"
-                    className="flex items-center gap-2 rounded-xl bg-fpt-orange px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-fpt-orange-hover hover:shadow transition-all cursor-pointer active:scale-98"
+                    disabled={!moderation.isClean}
+                    className={`flex items-center gap-2 rounded-xl px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition-all active:scale-98 ${
+                      !moderation.isClean
+                        ? 'bg-rose-400 cursor-not-allowed opacity-80'
+                        : 'bg-fpt-orange hover:bg-fpt-orange-hover hover:shadow cursor-pointer'
+                    }`}
                   >
-                    <Send className="h-4 w-4" />
-                    <span>Đăng bán ngay</span>
+                    {!moderation.isClean ? (
+                      <>
+                        <ShieldAlert className="h-4 w-4" />
+                        <span>Vi phạm từ cấm</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        <span>Đăng bán ngay</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1028,10 +1332,10 @@ export default function CreatePostPage() {
                     <div className="border-t border-slate-100 pt-2.5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white shadow-2xs">
-                          MQ
+                          {(currentUser.name || 'FU')[0].toUpperCase()}
                         </div>
                         <span className="font-semibold text-slate-800">
-                          Lê Minh Quân
+                          {currentUser.name || 'Người bán'}
                         </span>
                       </div>
                       <span className="text-slate-400 text-[11px]">Vừa xong</span>

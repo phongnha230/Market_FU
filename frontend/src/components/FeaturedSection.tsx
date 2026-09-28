@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProductCard from './ProductCard';
 import { Flame } from 'lucide-react';
 import { FEATURED_PRODUCTS } from '@/constants/mockProducts';
+import { ProductService } from '@/services/productService';
+import { ProductItem } from '@/types/product';
 
 const tabs = [
   { id: 'all', label: 'Tất cả' },
@@ -14,6 +16,15 @@ const tabs = [
 
 export default function FeaturedSection() {
   const [activeTab, setActiveTab] = useState('all');
+  const [products, setProducts] = useState<ProductItem[]>(FEATURED_PRODUCTS);
+
+  useEffect(() => {
+    ProductService.getFeaturedProducts().then((res) => {
+      if (res && res.length > 0) {
+        setProducts(res);
+      }
+    });
+  }, []);
 
   return (
     <section className="py-8">
@@ -54,7 +65,7 @@ export default function FeaturedSection() {
 
         {/* 4 Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {FEATURED_PRODUCTS.map((product) => (
+          {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

@@ -207,6 +207,24 @@ export class ProductController {
       next(error);
     }
   }
+
+  // Gợi ý tìm kiếm thông minh qua Meilisearch (GET /api/products/suggest?q=sach&campus=HOL&limit=6)
+  async suggestProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const q = (req.query.q as string || '').trim();
+      const campus = req.query.campus as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string || '6', 10), 10);
+
+      if (!q || q.length < 1) {
+        return sendSuccess(res, []);
+      }
+
+      const suggestions = await productService.getSuggestions(q, { campus, limit });
+      return sendSuccess(res, suggestions);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const productController = new ProductController();

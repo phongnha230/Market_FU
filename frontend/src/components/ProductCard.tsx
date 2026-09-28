@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { ProductItem } from '@/types/product';
 import { useFavoriteStore } from '@/stores/favoriteStore';
+import { useUserStore } from '@/stores/userStore';
+import { useMarket } from '@/context/MarketContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,8 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const isLiked = useFavoriteStore((state) => state.isFavorite(product.id));
   const toggleFavorite = useFavoriteStore((state) => state.toggleFavorite);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const { showToast } = useMarket();
 
   // Format currency: 180000 -> 180.000 đ
   const formatVND = (amount: number) => {
@@ -50,14 +54,24 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
+  const rawImage = product.imageUrl as any;
+  const imageSrc =
+    typeof rawImage === 'string' && rawImage.trim().length > 0
+      ? rawImage.trim()
+      : typeof rawImage === 'object' && rawImage?.imageUrl
+      ? String(rawImage.imageUrl).trim()
+      : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
+  const safeBadges = Array.isArray(product.badges) ? product.badges : [];
+
   return (
     <Card className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden">
       {/* 1. TOP IMAGE CONTAINER */}
       <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
         <Link href={`/posts/${product.id}`} className="relative block h-full w-full">
           <Image
-            src={product.imageUrl}
-            alt={product.title}
+            src={imageSrc}
+            alt={product.title || 'Sản phẩm'}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -75,7 +89,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Status Badges Overlay at bottom of image */}
         <div className={`absolute ${product.campusTag ? 'bottom-2 left-2.5' : 'top-2.5 left-2.5'} right-10 flex flex-wrap gap-1 z-10`}>
-          {product.badges.map((badge, idx) => (
+          {safeBadges.map((badge, idx) => (
             <Badge
               key={idx}
               className={`rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase shadow-xs ${getBadgeStyle(
@@ -94,7 +108,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            toggleFavorite(product);
+            if (!isLoggedIn) {
+              showToast('🔒 Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích!', 'warning');
+              return;
+            }
+            const res = toggleFavorite(product);
+            if (res) {
+              showToast('❤️ Đã thêm vào danh sách yêu thích!', 'success');
+            } else {
+              showToast('Đã xóa khỏi danh sách yêu thích.', 'info');
+            }
           }}
           title={isLiked ? 'Bỏ lưu tin yêu thích' : 'Lưu tin yêu thích'}
           className="absolute top-2.5 right-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-slate-500 shadow-sm hover:text-rose-500 hover:bg-white transition-all active:scale-90 p-0"

@@ -1,12 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ProductCard from './ProductCard';
 import { Zap, Clock, ArrowRight, MapPin } from 'lucide-react';
 import { LATEST_PRODUCTS } from '@/constants/mockProducts';
+import { ProductService } from '@/services/productService';
+import { useProductStore } from '@/stores/productStore';
+import { ProductItem } from '@/types/product';
 
 export default function LatestPostsSection() {
+  const [products, setProducts] = useState<ProductItem[]>(LATEST_PRODUCTS);
+  const totalPostsCount = useProductStore((state) => state.products.length);
+
+  useEffect(() => {
+    ProductService.getLatestProducts().then((res) => {
+      if (res && res.length > 0) {
+        setProducts(res);
+      }
+    });
+  }, []);
+
   return (
     <section className="py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -33,7 +47,7 @@ export default function LatestPostsSection() {
 
         {/* 4 Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {LATEST_PRODUCTS.map((product) => (
+          {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
@@ -44,7 +58,7 @@ export default function LatestPostsSection() {
             href="/posts"
             className="group inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-800 shadow-xs hover:border-fpt-orange hover:text-fpt-orange hover:shadow-sm transition-all"
           >
-            <span>Xem tất cả tin đăng (1.420+)</span>
+            <span>Xem tất cả tin đăng ({totalPostsCount})</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

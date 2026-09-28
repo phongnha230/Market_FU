@@ -5,6 +5,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { getCache, setCache } from '../../config/redis';
 import { CreateProductInput, UpdateProductInput, QueryProductInput } from './product.dto';
 import { trendingService } from '../analytics/trending.service';
+import { validateProductContent } from '../../utils/profanityFilter';
 
 /**
  * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
@@ -130,6 +131,9 @@ export class ProductService {
         'KYC_REQUIRED_TO_SELL'
       );
     }
+
+    // Kiểm duyệt nội dung & Chặn từ cấm, hàng cấm học đường trước khi đăng bài
+    validateProductContent(input.title, input.description, input.hashtags);
 
     // Upload song song các ảnh và video lên Media Storage (Local + Cloudflare ready)
     const imageUploadPromises = imageFiles.map((file) => saveImageToStorage(file.buffer, 'products'));
@@ -673,6 +677,15 @@ export class ProductService {
       throw new AppError('Không thể chỉnh sửa sản phẩm đã được bán', 400, 'PRODUCT_ALREADY_SOLD');
     }
 
+    // Kiểm duyệt nội dung khi cập nhật thông tin bài viết
+    if (input.title || input.description || input.hashtags) {
+      validateProductContent(
+        input.title || product.title,
+        input.description || product.description,
+        input.hashtags || (product.hashtags as string[])
+      );
+    }
+
     let updatedImages = product.images;
     if (newImages && newImages.length > 0) {
       if (newImages.length > 5) {
@@ -860,6 +873,70 @@ export class ProductService {
     }
 
     return { message: `Đã đồng bộ thành công ${count} sản phẩm sang Meilisearch`, count };
+  }
+
+  /**
+   * Gợi ý tìm kiếm nhanh (autocomplete) qua Meilisearch — fallback MongoDB nếu offline
+   */
+  async getSuggestions(q: string, opts: { campus?: string; limit?: number } = {}) {
+    const { campus, limit = 6 } = opts;
+    const campusMap: Record<string, string> = { hola: 'HOL', hcm: 'HCM', dn: 'DAD', qn: 'QN', ct: 'CT' };
+    const campusCode = campus ? (campusMap[campus] || campus) : undefined;
+
+    // ── Thử Meilisearch trước ───────────────────────────────────────────────
+    const meiliResult = await searchProductsMeili(q, {
+      campus: campusCode,
+      status: 'AVAILABLE',
+      limit,
+    });
+
+    if (meiliResult) {
+      return meiliResult.hits.map((h) => ({
+        id: h.id,
+        title: h.title,
+        price: h.price,
+        imageUrl: h.imageUrl,
+        categoryName: h.categoryName || '',
+        campus: h.campus,
+        hashtags: h.hashtags?.slice(0, 3) ?? [],
+      }));
+    }
+
+    // ── Fallback: MongoDB regex ──────────────────────────────────────────────
+    const filter: any = {
+      status: 'AVAILABLE',
+      OR: [
+        { title: { contains: q, mode: 'insensitive' } },
+        { hashtags: { has: q.toLowerCase() } },
+      ],
+    };
+    if (campusCode) filter.campus = campusCode;
+
+    const products = await prisma.product.findMany({
+      where: filter,
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        price: true,
+        images: { select: { imageUrl: true } },
+        campus: true,
+        hashtags: true,
+        categoryId: true,
+        categoryType: true,
+      },
+      orderBy: { viewsCount: 'desc' },
+    });
+
+    return products.map((p) => ({
+      id: p.id,
+      title: p.title,
+      price: p.price,
+      imageUrl: p.images[0]?.imageUrl || '',
+      categoryName: p.categoryType || '',
+      campus: p.campus,
+      hashtags: p.hashtags?.slice(0, 3) ?? [],
+    }));
   }
 }
 

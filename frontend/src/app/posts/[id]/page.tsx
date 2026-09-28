@@ -15,6 +15,9 @@ import { ProductService } from '@/services/productService';
 import { chatService } from '@/services/chatService';
 import { DETAIL_PRODUCT_AKKO, SIMILAR_PRODUCTS } from '@/constants/mockProducts';
 import { useMarket } from '@/context/MarketContext';
+import { useUserStore } from '@/stores/userStore';
+import { useFavoriteStore } from '@/stores/favoriteStore';
+import AuthPromptModal, { AuthActionType } from '@/components/modals/AuthPromptModal';
 import {
   ChevronRight,
   Home,
@@ -30,15 +33,25 @@ export default function ProductDetailPage() {
   const id = (params?.id as string) || 'akko-3087-v2';
 
   const { showToast } = useMarket();
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const isFavorite = useFavoriteStore((state) => state.isFavorite(id));
+  const toggleFavoriteStore = useFavoriteStore((state) => state.toggleFavorite);
 
   const [product, setProduct] = useState<ProductDetail>(DETAIL_PRODUCT_AKKO);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Modals
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [authModal, setAuthModal] = useState<{ isOpen: boolean; actionType: AuthActionType }>({
+    isOpen: false,
+    actionType: 'general',
+  });
+
+  const handleRequireAuth = (actionType: AuthActionType) => {
+    setAuthModal({ isOpen: true, actionType });
+  };
 
   useEffect(() => {
     if (id) {
@@ -65,8 +78,12 @@ export default function ProductDetailPage() {
   };
 
   const handleToggleFavorite = async () => {
-    const nextState = !isFavorite;
-    setIsFavorite(nextState);
+    if (!isLoggedIn) {
+      handleRequireAuth('favorite');
+      showToast('🔒 Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích!', 'warning');
+      return;
+    }
+    const nextState = toggleFavoriteStore(product as any);
     try {
       await ProductService.toggleFavorite(product.id);
     } catch {
@@ -76,11 +93,26 @@ export default function ProductDetailPage() {
       nextState
         ? '❤️ Đã lưu tin vào danh sách quan tâm của bạn!'
         : 'Đã bỏ lưu tin yêu thích.',
-      'info'
+      nextState ? 'success' : 'info'
     );
   };
 
+  const user = useUserStore((s) => s.user);
+  const isEduEmail = Boolean(
+    user.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    user.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isVerifiedStudent = isEduEmail || user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
+
   const handleSendChat = async (msg: string) => {
+    if (!isLoggedIn) {
+      handleRequireAuth('chat');
+      return;
+    }
+    if (!isVerifiedStudent) {
+      handleRequireAuth('chat');
+      return;
+    }
     setIsChatModalOpen(false);
     showToast(`✅ Đang mở cuộc trò chuyện với ${product.seller.name}...`, 'success');
     try {
@@ -98,6 +130,14 @@ export default function ProductDetailPage() {
   };
 
   const handleSendOffer = async (price: string, note: string) => {
+    if (!isLoggedIn) {
+      handleRequireAuth('offer');
+      return;
+    }
+    if (!isVerifiedStudent) {
+      handleRequireAuth('offer');
+      return;
+    }
     const num = Number(price.replace(/\D/g, ''));
     setIsOfferModalOpen(false);
     showToast(
@@ -210,7 +250,7 @@ export default function ProductDetailPage() {
               </div>
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white p-2.5 text-slate-500">
                 <Eye className="h-4 w-4 text-slate-400 shrink-0" />
-                <span>{product.viewCount || 342} lượt xem</span>
+                <span>{product.viewCount ?? 0} lượt xem</span>
               </div>
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white p-2.5 text-slate-500">
                 <Clock className="h-4 w-4 text-slate-400 shrink-0" />
@@ -246,7 +286,11 @@ export default function ProductDetailPage() {
             </div>
 
             {/* SELLER TRUST PROFILE CARD */}
-            <SellerTrustCard seller={product.seller} postId={product.id} />
+            <SellerTrustCard
+              seller={product.seller}
+              postId={product.id}
+              onRequireAuth={handleRequireAuth}
+            />
 
             {/* ACTION BUTTONS & WARNING */}
             <ProductActionBox
@@ -254,6 +298,7 @@ export default function ProductDetailPage() {
               isFavorite={isFavorite}
               onToggleFavorite={handleToggleFavorite}
               onOpenOfferModal={() => setIsOfferModalOpen(true)}
+              onRequireAuth={handleRequireAuth}
               onShowToast={(msg) => showToast(msg, 'info')}
             />
           </div>
@@ -275,6 +320,14 @@ export default function ProductDetailPage() {
         onCloseOffer={() => setIsOfferModalOpen(false)}
         onSendOffer={handleSendOffer}
         product={product}
+      />
+
+      {/* AUTH REQUIRED MODAL TO PREVENT UNAUTHENTICATED SPAM */}
+      <AuthPromptModal
+        isOpen={authModal.isOpen}
+        onClose={() => setAuthModal((prev) => ({ ...prev, isOpen: false }))}
+        actionType={authModal.actionType}
+        redirectUrl={`/posts/${encodeURIComponent(product.id)}`}
       />
     </div>
   );

@@ -52,7 +52,7 @@ export default function SimilarProductsSection({
             <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
               <Link href={`/posts/${prod.id}`} className="block h-full w-full">
                 <Image
-                  src={prod.imageUrl}
+                  src={typeof prod.imageUrl === 'string' && prod.imageUrl ? prod.imageUrl : ((prod.imageUrl as any)?.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80')}
                   alt={prod.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 25vw"

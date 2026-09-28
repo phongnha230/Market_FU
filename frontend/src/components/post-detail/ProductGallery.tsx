@@ -27,13 +27,19 @@ export default function ProductGallery({
   onShare,
   copiedLink,
 }: ProductGalleryProps) {
+  const activeImg = galleryImages[activeImageIndex];
+  const safeMainSrc =
+    typeof activeImg?.src === 'string' && activeImg.src.trim().length > 0
+      ? activeImg.src.trim()
+      : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
   return (
     <div className="lg:col-span-7 space-y-6">
       {/* Main Image Container */}
       <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-xs">
         <Image
-          src={galleryImages[activeImageIndex]?.src || '/products/keyboard-detail.jpg'}
-          alt={galleryImages[activeImageIndex]?.alt || 'Hình ảnh sản phẩm'}
+          src={safeMainSrc}
+          alt={activeImg?.alt || 'Hình ảnh sản phẩm'}
           fill
           priority
           sizes="(max-width: 1024px) 100vw, 55vw"
@@ -84,6 +90,10 @@ export default function ProductGallery({
       <div className="grid grid-cols-4 gap-3">
         {galleryImages.map((img, idx) => {
           const isActive = activeImageIndex === idx;
+          const thumbSrc =
+            typeof img?.src === 'string' && img.src.trim().length > 0
+              ? img.src.trim()
+              : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
           return (
             <button
               key={idx}
@@ -96,8 +106,8 @@ export default function ProductGallery({
               }`}
             >
               <Image
-                src={img.src}
-                alt={img.alt}
+                src={thumbSrc}
+                alt={img.alt || 'Ảnh sản phẩm'}
                 fill
                 sizes="15vw"
                 className="object-cover"

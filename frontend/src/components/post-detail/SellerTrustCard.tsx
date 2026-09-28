@@ -2,18 +2,36 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { ProductDetail } from '@/types/product';
+import { useUserStore } from '@/stores/userStore';
 
 interface SellerTrustCardProps {
   seller: ProductDetail['seller'];
   postId: string;
+  onRequireAuth?: (action: 'chat') => void;
 }
 
 export default function SellerTrustCard({
   seller,
   postId,
+  onRequireAuth,
 }: SellerTrustCardProps) {
+  const router = useRouter();
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+
+  const handleChatClick = (e: React.MouseEvent) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      if (onRequireAuth) {
+        onRequireAuth('chat');
+      } else {
+        router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      }
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3.5">
       <div className="flex items-center justify-between">
@@ -35,35 +53,36 @@ export default function SellerTrustCard({
           </div>
         </div>
 
-        <Link
-          href={`/chat?seller=${encodeURIComponent(seller.name)}&postId=${encodeURIComponent(postId)}`}
+        <button
+          type="button"
+          onClick={handleChatClick}
           className="text-xs font-bold text-fpt-orange hover:underline cursor-pointer"
         >
           Nhắn tin &gt;
-        </Link>
+        </button>
       </div>
 
       {/* 3-Col Stats */}
       <div className="grid grid-cols-3 divide-x divide-slate-100 rounded-xl bg-slate-50 py-2 text-center text-xs">
         <div>
           <div className="font-black text-slate-900">
-            {seller.rating || 4.9} ⭐
+            {seller.rating ? `${seller.rating} ⭐` : '0 ⭐'}
           </div>
           <div className="text-[10px] text-slate-400">
-            {seller.reviewCount || 28} đánh giá
+            {seller.reviewCount || 0} đánh giá
           </div>
         </div>
         <div>
           <div className="font-black text-slate-900">
-            {seller.dealCount || 14}
+            {seller.dealCount || 0}
           </div>
           <div className="text-[10px] text-slate-400">Đã giao dịch</div>
         </div>
         <div>
           <div className="font-black text-slate-900">
-            {seller.responseRate || '98%'}
+            {seller.responseRate || '0%'}
           </div>
-          <div className="text-[10px] text-slate-400">Phản hồi (~5p)</div>
+          <div className="text-[10px] text-slate-400">Phản hồi (~0p)</div>
         </div>
       </div>
     </div>
