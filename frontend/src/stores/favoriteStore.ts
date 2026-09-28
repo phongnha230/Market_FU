@@ -38,10 +38,14 @@ export interface PriceAlert {
 }
 
 interface FavoriteState {
+  favoritesByUser: Record<string, FavoriteItem[]>;
+  priceAlertsByUser: Record<string, PriceAlert[]>;
+  activeUserId: string | null;
   favorites: FavoriteItem[];
   priceAlerts: PriceAlert[];
+  setActiveUser: (userId: string | null) => void;
   isFavorite: (id: string) => boolean;
-  toggleFavorite: (product: ProductItem | FavoriteItem) => boolean; // returns true if now favorite, false if removed
+  toggleFavorite: (product: ProductItem | FavoriteItem) => boolean;
   removeFavorite: (id: string) => void;
   clearSoldFavorites: () => number;
   addPriceAlert: (keyword: string, maxPrice: number, campus?: string) => void;
@@ -49,126 +53,7 @@ interface FavoriteState {
   resetFavorites: () => void;
 }
 
-export const INITIAL_FAVORITES: FavoriteItem[] = [
-  {
-    id: 'fav-1',
-    title: 'Màn hình Dell SE2422H 24" FHD IPS 75Hz Full Box',
-    category: 'electronics',
-    price: 1450000,
-    originalPrice: 1600000,
-    badgeOrange: 'Giảm 150.000 đ',
-    badgeGreen: 'Like New 99% Fullbox',
-    imageOverlayBadge: '4 người đang hỏi mua',
-    status: 'available',
-    inquiryCount: 4,
-    location: 'Hòa Lạc (Hola) · KTX Dom A',
-    seller: {
-      name: 'Hoàng Minh Trí',
-      cohort: 'K16 AI',
-      studentIdMasked: 'HE16****',
-      avatarColor: 'bg-blue-600',
-      initials: 'HT',
-    },
-    imageUrl: '/products/monitor-dell-24.jpg',
-    savedAt: '2026-09-17T10:00:00Z',
-  },
-  {
-    id: 'fav-2',
-    title: 'Combo Giáo trình CSL201 + MAS291 FPTU Kèm tóm tắt PE',
-    category: 'books',
-    price: 120000,
-    tag: '#CSL201 #MAS291',
-    badgeDark: 'Kèm tóm tắt PE 100% Pass',
-    imageOverlayBadge: 'Sẵn sàng giao tại Thư viện Gamma',
-    status: 'available',
-    location: 'Hòa Lạc · Tòa Alpha & Thư viện',
-    seller: {
-      name: 'Trần Thu Thảo',
-      cohort: 'K18 IA',
-      studentIdMasked: 'HE18****',
-      avatarColor: 'bg-pink-600',
-      initials: 'TT',
-    },
-    imageUrl: '/products/books-mas291.jpg',
-    savedAt: '2026-09-16T15:30:00Z',
-  },
-  {
-    id: 'fav-3',
-    title: 'Nồi lẩu điện mini Lock&Lock 1.5L chống dính có khay hấp',
-    category: 'dorm',
-    price: 250000,
-    originalPrice: 380000,
-    badgeBlue: 'Chuẩn quy định KTX FPT',
-    status: 'available',
-    location: 'Hòa Lạc · Căng-tin Dom F',
-    seller: {
-      name: 'Quốc Bảo',
-      cohort: 'K17 GD',
-      studentIdMasked: 'HE17****',
-      avatarColor: 'bg-emerald-600',
-      initials: 'QB',
-    },
-    imageUrl: '/products/mini-pot-locklock.jpg',
-    savedAt: '2026-09-15T09:15:00Z',
-  },
-  {
-    id: 'fav-4',
-    title: 'Bàn phím cơ DareU EK87 Brown Switch gõ êm KTX',
-    category: 'electronics',
-    price: 420000,
-    badgeGreen: 'Switch êm không ồn bạn cùng phòng',
-    status: 'available',
-    location: 'Hòa Lạc · KTX Dom B phòng 312',
-    seller: {
-      name: 'Nguyễn Tuấn Anh',
-      cohort: 'K17 SE',
-      studentIdMasked: 'HE17****',
-      avatarColor: 'bg-indigo-600',
-      initials: 'TA',
-    },
-    imageUrl: '/products/keyboard-akko.jpg',
-    savedAt: '2026-09-14T18:20:00Z',
-  },
-  {
-    id: 'fav-5',
-    title: 'Võ phục Vovinam FPT size L kèm đai xanh lam',
-    category: 'sports',
-    price: 140000,
-    originalPrice: 200000,
-    badgeDark: 'Đã bao gồm 1 VPTU',
-    imageOverlayBadge: 'Size L (1m65 - 1m75)',
-    status: 'available',
-    location: 'Hòa Lạc · Sân tập võ Võ đường',
-    seller: {
-      name: 'Lê Hoàng Long',
-      cohort: 'K18 HL',
-      studentIdMasked: 'HE18****',
-      avatarColor: 'bg-purple-600',
-      initials: 'HL',
-    },
-    imageUrl: '/products/vovinam-uniform.jpg',
-    savedAt: '2026-09-13T12:00:00Z',
-  },
-  {
-    id: 'fav-6',
-    title: 'Tai nghe Bluetooth Sony WH-CH520 màu kem, pin trâu',
-    category: 'electronics',
-    price: 750000,
-    originalPrice: 950000,
-    status: 'reserved',
-    reservedText: 'Người bán hẹn giao dịch tại sảnh Gamma lúc 17h chiều nay',
-    location: 'Hòa Lạc · Hẹn tại Thư viện Gamma',
-    seller: {
-      name: 'Trịnh Minh Đức',
-      cohort: 'K17 SE',
-      studentIdMasked: 'HE17****',
-      avatarColor: 'bg-teal-600',
-      initials: 'MĐ',
-    },
-    imageUrl: '/products/headphones-sony.jpg',
-    savedAt: '2026-09-12T08:45:00Z',
-  },
-];
+export const INITIAL_FAVORITES: FavoriteItem[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -179,30 +64,45 @@ const dummyStorage = {
 export const useFavoriteStore = create<FavoriteState>()(
   persist(
     (set, get) => ({
-      favorites: INITIAL_FAVORITES,
-      priceAlerts: [
-        {
-          id: 'alert-1',
-          keyword: 'Bàn phím cơ Aula F75',
-          maxPrice: 600000,
-          campus: 'hola',
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      favoritesByUser: {},
+      priceAlertsByUser: {},
+      activeUserId: null,
+      favorites: [],
+      priceAlerts: [],
+
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim() : null;
+        const state = get();
+        const userFavs = uId && state.favoritesByUser[uId] ? state.favoritesByUser[uId] : [];
+        const userAlerts = uId && state.priceAlertsByUser[uId] ? state.priceAlertsByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          favorites: userFavs,
+          priceAlerts: userAlerts,
+        });
+      },
 
       isFavorite: (id) => {
         return get().favorites.some((item) => item.id === id);
       },
 
       toggleFavorite: (product) => {
-        const currentFavs = get().favorites;
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) {
+          return false;
+        }
+
+        const currentFavs = state.favoritesByUser[userId] || [];
         const exists = currentFavs.some((item) => item.id === product.id);
 
+        let updatedFavs: FavoriteItem[];
+        let result: boolean;
+
         if (exists) {
-          set({ favorites: currentFavs.filter((item) => item.id !== product.id) });
-          return false;
+          updatedFavs = currentFavs.filter((item) => item.id !== product.id);
+          result = false;
         } else {
-          // Convert ProductItem to FavoriteItem if needed
           let newFav: FavoriteItem;
           if ('seller' in product && 'studentIdMasked' in product.seller) {
             newFav = product as FavoriteItem;
@@ -229,27 +129,64 @@ export const useFavoriteStore = create<FavoriteState>()(
               },
             };
           }
-
-          set({ favorites: [newFav, ...currentFavs] });
-          return true;
+          updatedFavs = [newFav, ...currentFavs];
+          result = true;
         }
+
+        set({
+          favoritesByUser: {
+            ...state.favoritesByUser,
+            [userId]: updatedFavs,
+          },
+          favorites: updatedFavs,
+        });
+
+        return result;
       },
 
       removeFavorite: (id) => {
-        set((state) => ({
-          favorites: state.favorites.filter((item) => item.id !== id),
-        }));
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) return;
+
+        const currentFavs = state.favoritesByUser[userId] || [];
+        const updatedFavs = currentFavs.filter((item) => item.id !== id);
+
+        set({
+          favoritesByUser: {
+            ...state.favoritesByUser,
+            [userId]: updatedFavs,
+          },
+          favorites: updatedFavs,
+        });
       },
 
       clearSoldFavorites: () => {
-        const current = get().favorites;
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) return 0;
+
+        const current = state.favoritesByUser[userId] || [];
         const remaining = current.filter((item) => item.status !== 'sold');
         const removedCount = current.length - remaining.length;
-        set({ favorites: remaining });
+
+        set({
+          favoritesByUser: {
+            ...state.favoritesByUser,
+            [userId]: remaining,
+          },
+          favorites: remaining,
+        });
+
         return removedCount;
       },
 
       addPriceAlert: (keyword, maxPrice, campus = 'hola') => {
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) return;
+
+        const currentAlerts = state.priceAlertsByUser[userId] || [];
         const newAlert: PriceAlert = {
           id: `alt-${Date.now()}`,
           keyword,
@@ -257,20 +194,73 @@ export const useFavoriteStore = create<FavoriteState>()(
           campus,
           createdAt: new Date().toISOString(),
         };
-        set((state) => ({ priceAlerts: [newAlert, ...state.priceAlerts] }));
+
+        const updated = [newAlert, ...currentAlerts];
+        set({
+          priceAlertsByUser: {
+            ...state.priceAlertsByUser,
+            [userId]: updated,
+          },
+          priceAlerts: updated,
+        });
       },
 
       removePriceAlert: (id) => {
-        set((state) => ({
-          priceAlerts: state.priceAlerts.filter((a) => a.id !== id),
-        }));
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) return;
+
+        const currentAlerts = state.priceAlertsByUser[userId] || [];
+        const updated = currentAlerts.filter((a) => a.id !== id);
+
+        set({
+          priceAlertsByUser: {
+            ...state.priceAlertsByUser,
+            [userId]: updated,
+          },
+          priceAlerts: updated,
+        });
       },
 
-      resetFavorites: () => set({ favorites: INITIAL_FAVORITES }),
+      resetFavorites: () => {
+        const state = get();
+        const userId = state.activeUserId;
+        if (!userId) {
+          set({ favorites: [], priceAlerts: [] });
+          return;
+        }
+
+        set({
+          favoritesByUser: {
+            ...state.favoritesByUser,
+            [userId]: [],
+          },
+          priceAlertsByUser: {
+            ...state.priceAlertsByUser,
+            [userId]: [],
+          },
+          favorites: [],
+          priceAlerts: [],
+        });
+      },
     }),
     {
       name: 'fu_market_favorites_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Clean legacy mock favorites
+        Object.keys(state.favoritesByUser || {}).forEach((uid) => {
+          if (Array.isArray(state.favoritesByUser[uid])) {
+            state.favoritesByUser[uid] = state.favoritesByUser[uid].filter((f) => !f.id?.startsWith('fav-'));
+          }
+        });
+        if (state.activeUserId && state.favoritesByUser[state.activeUserId]) {
+          state.favorites = state.favoritesByUser[state.activeUserId];
+        } else {
+          state.favorites = [];
+        }
+      },
     }
   )
 );

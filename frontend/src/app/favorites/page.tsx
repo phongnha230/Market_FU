@@ -2,13 +2,14 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import Navbar from '@/components/Navbar';
+import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import FavoriteFilterBar from '@/components/favorites/FavoriteFilterBar';
 import FavoriteCard from '@/components/favorites/FavoriteCard';
 import FavoriteSidebar from '@/components/favorites/FavoriteSidebar';
 import FavoriteModals from '@/components/favorites/FavoriteModals';
 import { useFavoriteStore, FavoriteItem } from '@/stores/favoriteStore';
+import { useUserStore } from '@/stores/userStore';
 import { useMarket } from '@/context/MarketContext';
 import {
   Heart,
@@ -22,6 +23,7 @@ import {
 import { Card, Badge, Button } from '@/components/ui';
 
 export default function FavoritesPage() {
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const items = useFavoriteStore((state) => state.favorites);
   const removeFavorite = useFavoriteStore((state) => state.removeFavorite);
   const clearSoldFavorites = useFavoriteStore((state) => state.clearSoldFavorites);
@@ -114,22 +116,17 @@ export default function FavoritesPage() {
   }, [items, searchQuery, selectedCategory, statusFilter, sortBy]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between">
-      <Navbar />
-
-      <main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
-        {/* 1. BREADCRUMBS */}
-        <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-slate-500">
-          <Link href="/" className="hover:text-fpt-orange transition-colors">
-            Trang chủ
-          </Link>
-          <span className="text-slate-400">›</span>
-          <span className="text-slate-700 font-medium">Mục yêu thích & Đã lưu</span>
-          <span className="text-slate-300">/</span>
-          <Badge variant="outline" className="inline-flex items-center gap-1 rounded bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-fpt-orange border border-orange-200/60 uppercase tracking-wide hover:bg-orange-50">
-            HÒA LẠC CAMPUS
-          </Badge>
-        </nav>
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between py-4 sm:py-6">
+      <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-4">
+        {/* Compact in-container Header with Back button */}
+        <CompactHeader
+          showBackButton={true}
+          backHref="/"
+          breadcrumbs={[
+            { label: 'Mục yêu thích & Đã lưu' },
+          ]}
+          activeTab="favorites"
+        />
 
         {/* 2. PAGE HEADER ROW */}
         <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -217,7 +214,25 @@ export default function FavoritesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: PRODUCT CARDS (8 COLS) */}
           <div className="lg:col-span-8">
-            {filteredItems.length === 0 ? (
+            {!isLoggedIn ? (
+              <Card className="rounded-2xl border border-dashed border-orange-200 bg-orange-50/20 p-12 text-center shadow-none">
+                <div className="mx-auto w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center text-fpt-orange mb-3">
+                  <Heart className="h-7 w-7 fill-fpt-orange" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Bạn chưa đăng nhập tài khoản
+                </h3>
+                <p className="mt-1.5 text-xs text-slate-500 max-w-sm mx-auto">
+                  Đăng nhập để xem danh sách sản phẩm yêu thích được lưu riêng biệt theo tài khoản của bạn.
+                </p>
+                <Button
+                  asChild
+                  className="h-auto mt-4 inline-flex items-center gap-2 rounded-xl bg-fpt-orange px-5 py-2.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-sm cursor-pointer"
+                >
+                  <Link href="/login">Đăng nhập ngay</Link>
+                </Button>
+              </Card>
+            ) : filteredItems.length === 0 ? (
               <Card className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-none">
                 <div className="mx-auto w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-fpt-orange mb-3">
                   <Heart className="h-6 w-6" />

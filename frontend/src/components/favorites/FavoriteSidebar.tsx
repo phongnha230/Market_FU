@@ -13,6 +13,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Card, Button, Input, Label, Progress } from '@/components/ui';
+import { useFavoriteStore } from '@/stores/favoriteStore';
 
 interface FavoriteSidebarProps {
   onSubscribeAlert: (keyword: string, price: string) => void;
@@ -23,8 +24,24 @@ export default function FavoriteSidebar({
   onSubscribeAlert,
   onShowToast,
 }: FavoriteSidebarProps) {
+  const favorites = useFavoriteStore((state) => state.favorites);
   const [alertKeyword, setAlertKeyword] = useState('');
   const [alertPrice, setAlertPrice] = useState('500.000');
+
+  const { totalSavings, savingsPercentage } = React.useMemo(() => {
+    if (!favorites || favorites.length === 0) {
+      return { totalSavings: 0, savingsPercentage: 0 };
+    }
+    const savings = favorites.reduce((sum, item) => {
+      if (item.originalPrice && item.originalPrice > item.price) {
+        return sum + (item.originalPrice - item.price);
+      }
+      return sum + Math.round(item.price * 0.25);
+    }, 0);
+    const target = 2500000;
+    const pct = Math.min(100, Math.round((savings / target) * 100));
+    return { totalSavings: savings, savingsPercentage: pct };
+  }, [favorites]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,22 +67,22 @@ export default function FavoriteSidebar({
         <div className="mt-3">
           <span className="text-xs text-slate-500 font-medium">Tiết kiệm ước tính</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            ~1.850.000đ
+            ~{totalSavings.toLocaleString('vi-VN')}đ
           </div>
           <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-            Ở giá trên 12 món bạn đã lưu so với giá thị trường & niêm yết tại các đại lý bán lẻ mới.
+            Ở giá trên {favorites.length} món bạn đã lưu so với giá thị trường & niêm yết tại các đại lý bán lẻ mới.
           </p>
         </div>
 
         {/* Progress bar */}
         <div className="mt-4">
           <Progress
-            value={46}
+            value={savingsPercentage}
             className="h-2 w-full bg-slate-100"
             indicatorClassName="bg-gradient-to-r from-fpt-orange to-emerald-500 duration-500"
           />
           <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="font-bold text-slate-700">Tiết kiệm 46% chi phí kỳ học</span>
+            <span className="font-bold text-slate-700">Tiết kiệm {savingsPercentage}% chi phí kỳ học</span>
             <span className="text-slate-400">Mục tiêu: 2.500.000đ</span>
           </div>
         </div>

@@ -45,7 +45,7 @@ export default function FavoriteCard({
       {/* Product Image Box */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
         <Image
-          src={item.imageUrl}
+          src={typeof item.imageUrl === 'string' && item.imageUrl ? item.imageUrl : ((item.imageUrl as any)?.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80')}
           alt={item.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
