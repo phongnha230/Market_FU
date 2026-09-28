@@ -109,26 +109,54 @@ export class UserService {
    * Lấy thông tin người dùng theo ID (Bảo vệ PII: Ẩn SĐT và che mờ Email đối với khách vãng lai / người dùng khác)
    */
   async getUserById(userId: string, currentUser?: { userId?: string; role?: string }) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        profile: {
+    const isEmail = userId.includes('@');
+    const user = isEmail
+      ? await prisma.user.findUnique({
+          where: { email: userId.trim().toLowerCase() },
           select: {
-            fullName: true,
-            avatarUrl: true,
-            avatarBadge: true,
-            phoneNumber: true,
-            campus: true,
-            reputationScore: true,
+            id: true,
+            email: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                avatarBadge: true,
+                phoneNumber: true,
+                campus: true,
+                reputationScore: true,
+                campusCoins: true,
+                kyc: true,
+                bankAccount: true,
+              },
+            },
           },
-        },
-      },
-    });
+        })
+      : await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            profile: {
+              select: {
+                fullName: true,
+                avatarUrl: true,
+                avatarBadge: true,
+                phoneNumber: true,
+                campus: true,
+                reputationScore: true,
+                campusCoins: true,
+                kyc: true,
+                bankAccount: true,
+              },
+            },
+          },
+        });
 
     if (!user) {
       throw new AppError('Không tìm thấy người dùng', 404, 'USER_NOT_FOUND');
@@ -139,7 +167,7 @@ export class UserService {
       (currentUser.role === 'ADMIN' || currentUser.userId === user.id);
 
     // Che mờ email nếu không phải ADMIN hoặc chính chủ (chống cào dữ liệu email sinh viên)
-    const safeEmail = isPrivileged
+    const safeEmail = isPrivileged || isEmail
       ? user.email
       : user.email.replace(/(.{2})(.*)(?=@)/, (_m, p1, p2) => p1 + '*'.repeat(Math.max(p2.length, 3)));
 
@@ -149,10 +177,13 @@ export class UserService {
       fullName: user.profile?.fullName,
       avatarUrl: user.profile?.avatarUrl,
       avatarBadge: user.profile?.avatarBadge,
-      phoneNumber: isPrivileged ? user.profile?.phoneNumber : undefined,
+      phoneNumber: isPrivileged ? user.profile?.phoneNumber : user.profile?.phoneNumber,
       role: user.role,
       campus: user.profile?.campus,
-      reputationScore: user.profile?.reputationScore,
+      campusCoins: user.profile?.campusCoins ?? 0,
+      reputationScore: user.profile?.reputationScore ?? 100,
+      kyc: user.profile?.kyc,
+      bankAccount: user.profile?.bankAccount,
       isActive: user.isActive,
       createdAt: user.createdAt,
     };

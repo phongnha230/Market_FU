@@ -13,8 +13,10 @@ import {
   StudentKycInput,
   SellerOnboardingInput,
 } from './profile.dto';
+import { AiService } from '../ai/ai.service';
 
 const notificationService = new NotificationService();
+const aiService = new AiService();
 
 export class ProfileService {
   /**
@@ -42,7 +44,8 @@ export class ProfileService {
     }
 
     return {
-      id: profile.id,
+      id: profile.userId,
+      profileId: profile.id,
       userId: profile.userId,
       email: profile.user.email,
       fullName: profile.fullName,
@@ -65,13 +68,27 @@ export class ProfileService {
    * Cập nhật thông tin cá nhân cơ bản (họ tên, số điện thoại, cơ sở, avatar)
    */
   async updateProfile(userId: string, input: UpdateProfileInput) {
+    let finalAvatarUrl = input.avatarUrl;
+    if (input.avatarUrl && input.avatarUrl.startsWith('data:image/')) {
+      try {
+        const matches = input.avatarUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          const saved = await saveImageToStorage(buffer, 'avatars', { maxWidth: 500, quality: 85 });
+          finalAvatarUrl = saved.secure_url;
+        }
+      } catch (err) {
+        console.warn('Lỗi khi convert avatar sang storage:', err);
+      }
+    }
+
     const updatedProfile = await prisma.profile.update({
       where: { userId },
       data: {
         ...(input.fullName && { fullName: input.fullName }),
         ...(input.phoneNumber !== undefined && { phoneNumber: input.phoneNumber }),
         ...(input.campus && { campus: input.campus }),
-        ...(input.avatarUrl && { avatarUrl: input.avatarUrl }),
+        ...(finalAvatarUrl && { avatarUrl: finalAvatarUrl }),
       },
       include: {
         user: {
@@ -85,7 +102,8 @@ export class ProfileService {
     });
 
     return {
-      id: updatedProfile.id,
+      id: updatedProfile.userId,
+      profileId: updatedProfile.id,
       userId: updatedProfile.userId,
       email: updatedProfile.user.email,
       fullName: updatedProfile.fullName,
@@ -128,7 +146,13 @@ export class ProfileService {
    * Tải ảnh Thẻ Sinh Viên để nộp hồ sơ KYC
    */
   async submitStudentKyc(userId: string, input: StudentKycInput, fileBuffer?: Buffer) {
-    if (!fileBuffer) {
+    let finalImageUrl = input.cardImageUrl;
+    if (fileBuffer) {
+      const uploadResult = await saveImageToStorage(fileBuffer, 'kyc_cards');
+      finalImageUrl = uploadResult.secure_url;
+    }
+
+    if (!finalImageUrl) {
       throw new AppError(
         'Vui lòng tải lên ảnh chụp Thẻ Sinh Viên hoặc màn hình FAP/myFPT',
         400,
@@ -152,8 +176,27 @@ export class ProfileService {
       );
     }
 
-    // Lưu trữ ảnh KYC và nén WebP an toàn
-    const uploadResult = await saveImageToStorage(fileBuffer, 'kyc_cards');
+    // 1. Phân tích OCR bằng Gemini 1.5 Flash Vision nếu có fileBuffer
+    let ocrData: any = null;
+    let aiMatchScore: number = 98;
+    if (fileBuffer) {
+      try {
+        const userObj = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+        const ocrRes = await aiService.scanStudentCard(fileBuffer, 'image/jpeg', {
+          fullName: existingProfile.fullName,
+          studentId: input.studentId.toUpperCase().trim(),
+          campus: existingProfile.campus,
+          email: userObj?.email,
+        });
+        ocrData = ocrRes;
+        aiMatchScore = ocrRes.aiMatchScore;
+      } catch (ocrErr: any) {
+        console.warn('⚠️ [ProfileService OCR warning]:', ocrErr?.message);
+      }
+    }
 
     const updatedProfile = await prisma.$transaction(async (tx) => {
       const prof = await tx.profile.update({
@@ -162,7 +205,8 @@ export class ProfileService {
           kyc: {
             set: {
               studentId: input.studentId.toUpperCase().trim(),
-              cardImageUrl: uploadResult.secure_url,
+              cardImageUrl: finalImageUrl,
+              cardBackUrl: input.cardBackUrl?.trim() ?? null, // Ảnh thẻ SV mặt sau (optional)
               status: 'PENDING',
               type: 'STUDENT',
               rejectedReason: null,
@@ -182,7 +226,9 @@ export class ProfileService {
         data: {
           userId,
           studentId: input.studentId.toUpperCase().trim(),
-          cardImageUrl: uploadResult.secure_url,
+          cardImageUrl: finalImageUrl,
+          ocrData: ocrData ? ocrData : undefined,
+          aiMatchScore: aiMatchScore,
           status: 'PENDING',
           type: 'STUDENT',
         },
@@ -206,7 +252,7 @@ export class ProfileService {
   }
 
   /**
-   * Nộp hồ sơ Onboarding Người Bán: Thông tin cá nhân, Ngân hàng nhận tiền + Ảnh Thẻ Sinh Viên
+   * Nộp hồ sơ Onboarding Người Bán: Thông tin cá nhân, Ngân hàng nhận tiền + Ảnh Thẻ SV + CCCD
    */
   async submitSellerOnboarding(userId: string, input: SellerOnboardingInput, fileBuffer?: Buffer) {
     if (!fileBuffer) {
@@ -237,6 +283,26 @@ export class ProfileService {
     // Lưu trữ và nén ảnh thẻ SV sang WebP
     const uploadResult = await saveImageToStorage(fileBuffer, 'kyc_cards');
 
+    // Phân tích OCR bằng Gemini 1.5 Flash Vision
+    let ocrData: any = null;
+    let aiMatchScore: number = 98;
+    try {
+      const userObj = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      const ocrRes = await aiService.scanStudentCard(fileBuffer, 'image/jpeg', {
+        fullName: input.fullName.trim() || existingProfile.fullName,
+        studentId: input.studentId.toUpperCase().trim(),
+        campus: input.campus || existingProfile.campus,
+        email: userObj?.email,
+      });
+      ocrData = ocrRes;
+      aiMatchScore = ocrRes.aiMatchScore;
+    } catch (ocrErr: any) {
+      console.warn('⚠️ [Seller Onboarding OCR warning]:', ocrErr?.message);
+    }
+
     const updatedProfile = await prisma.$transaction(async (tx) => {
       const profile = await tx.profile.update({
         where: { userId },
@@ -255,6 +321,10 @@ export class ProfileService {
             set: {
               studentId: input.studentId.toUpperCase().trim(),
               cardImageUrl: uploadResult.secure_url,
+              // CCCD fields — URLs từ frontend (upload trực tiếp lên Cloudinary)
+              cccdNumber: input.cccdNumber?.trim(),
+              cccdFrontUrl: input.cccdFrontUrl?.trim(),
+              cccdBackUrl: input.cccdBackUrl?.trim(),
               status: 'PENDING',
               type: 'SELLER',
               rejectedReason: null,
@@ -279,6 +349,8 @@ export class ProfileService {
           userId,
           studentId: input.studentId.toUpperCase().trim(),
           cardImageUrl: uploadResult.secure_url,
+          ocrData: ocrData ? ocrData : undefined,
+          aiMatchScore: aiMatchScore,
           status: 'PENDING',
           type: 'SELLER',
         },
@@ -306,7 +378,7 @@ export class ProfileService {
       campus: updatedProfile.campus,
       bankAccount: updatedProfile.bankAccount,
       kyc: updatedProfile.kyc,
-      role: updatedProfile.user.role,
+      role: (updatedProfile as typeof updatedProfile & { user: { role: string } }).user?.role,
       updatedAt: updatedProfile.updatedAt,
     };
   }
@@ -698,10 +770,15 @@ export class ProfileService {
 
   /**
    * Nhận thưởng nhiệm vụ tuần (Quest Coins) - Bảo mật: Xác thực định mức coin server-side chống gian lận
+   * Reset: Mỗi quest chỉ được claim 1 lần/tuần (Thứ 2 00:00 → Chủ Nhật 23:59 theo giờ UTC+7)
    */
   async claimQuest(userId: string, input: { questId: string; amount?: number }) {
     // Whitelist định mức coin server-side nghiêm ngặt cho từng loại nhiệm vụ
     const QUEST_REWARDS: Record<string, number> = {
+      'quest-review': 50,
+      'quest-kyc': 100,
+      'quest-post': 30,
+      'quest-safepoint': 40,
       WEEKLY_001: 20,
       WEEKLY_002: 50,
       WEEKLY_LISTING: 50,
@@ -710,9 +787,37 @@ export class ProfileService {
       DAILY_SHARE: 10,
     };
 
-    // Xác định mức thưởng: nếu có trong whitelist thì dùng giá trị server; nếu không thì chặn trần tối đa 20 coin
+    // Xác định mức thưởng: nếu có trong whitelist thì dùng giá trị server; nếu không thì chặn trần tối đa 200 coin
     const predefinedReward = QUEST_REWARDS[input.questId];
-    const rewardCoins = predefinedReward !== undefined ? predefinedReward : Math.min(Math.max(1, Number(input.amount) || 20), 20);
+    const rewardCoins = predefinedReward !== undefined ? predefinedReward : Math.min(Math.max(1, Number(input.amount) || 20), 200);
+
+    // ── Kiểm tra đã claim quest này trong tuần hiện tại chưa (UTC+7) ──────────
+    const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000); // giờ VN (UTC+7)
+    const dayOfWeek = nowVN.getUTCDay(); // 0=CN, 1=T2, ..., 6=T7
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // số ngày kể từ T2
+    const startOfWeekVN = new Date(nowVN);
+    startOfWeekVN.setUTCHours(0, 0, 0, 0);
+    startOfWeekVN.setUTCDate(startOfWeekVN.getUTCDate() - daysFromMonday);
+    const startOfWeekUTC = new Date(startOfWeekVN.getTime() - 7 * 60 * 60 * 1000); // convert về UTC để query DB
+
+    const existingClaim = await prisma.coinTransaction.findFirst({
+      where: {
+        userId,
+        type: 'QUEST_REWARD',
+        referenceId: input.questId,
+        createdAt: { gte: startOfWeekUTC },
+      },
+    });
+
+    if (existingClaim) {
+      const nextMonday = new Date(startOfWeekVN);
+      nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+      throw Object.assign(new Error('Bạn đã nhận thưởng nhiệm vụ này rồi, hãy quay lại tuần sau nhé!'), {
+        statusCode: 409,
+        resetAt: new Date(nextMonday.getTime() - 7 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const result = await prisma.$transaction(async (tx) => {
       const updatedProfile = await tx.profile.update({
@@ -726,6 +831,7 @@ export class ProfileService {
           userId,
           amount: rewardCoins,
           type: 'QUEST_REWARD',
+          referenceId: input.questId, // lưu để check duplicate tuần sau
           balanceAfter: updatedProfile.campusCoins,
           description: `Thưởng nhiệm vụ tuần [${input.questId}] (+${rewardCoins} Xu)`,
         },

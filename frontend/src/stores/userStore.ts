@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useFavoriteStore } from './favoriteStore';
+import { useVoucherStore } from './voucherStore';
+import { useOrderStore } from './orderStore';
 
 export interface UserProfile {
   id?: string;
@@ -17,10 +20,14 @@ export interface UserProfile {
   trustScore: number;
   savedVoucherIds: string[];
   claimedQuestIds: string[];
+  lastQuestWeekKey?: string; // "2024-W03" — tuần đã claim, dùng để reset hàng tuần
   dailyCheckedIn: boolean;
+  lastCheckInDate?: string; // "2024-01-15" — ngày check-in, dùng để reset hàng ngày
   kycStatus: 'unverified' | 'pending' | 'approved_student' | 'approved_seller' | 'rejected';
   kycRole?: 'student' | 'seller';
   kycApplicationId?: string;
+  kycRejectionReason?: string;
+  kycSubmittedData?: any;
   vouchers: {
     id: string;
     title: string;
@@ -38,6 +45,7 @@ export interface UserProfile {
 
 interface UserState {
   user: UserProfile;
+  usersById: Record<string, UserProfile>;
   isLoggedIn: boolean;
   accessToken: string | null;
   setAccessToken: (token: string | null) => void;
@@ -45,7 +53,7 @@ interface UserState {
   login: (email?: string) => void;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
-  setKycStatus: (status: UserProfile['kycStatus'], role?: 'student' | 'seller', appId?: string) => void;
+  setKycStatus: (status: UserProfile['kycStatus'], role?: 'student' | 'seller', appId?: string, rejectionReason?: string) => void;
   changePassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
   addCoins: (amount: number) => void;
   saveVoucher: (id: string, voucherData?: { id: string; title: string; code: string; discount: number; expiry: string }) => void;
@@ -55,41 +63,26 @@ interface UserState {
   resetUser: () => void;
 }
 
-const DEFAULT_USER: UserProfile = {
-  id: 'user-default',
-  name: 'Lê Minh Quân',
-  studentId: 'HE172819',
-  cohort: 'K17 SE',
-  major: 'Kỹ thuật phần mềm',
+export const EMPTY_USER: UserProfile = {
+  id: '',
+  name: '',
+  studentId: '',
+  cohort: '',
+  major: '',
   campus: 'Hòa Lạc',
-  dorm: 'KTX Dom E',
-  phone: '0982 345 892',
-  email: 'quanlmse17****@fpt.edu.vn',
-  bio: 'Sinh viên K17 Software Engineering tại Hola. Hay pass lại sách IT (PRF, PRO, CSL, MAS), linh kiện PC/Bàn phím cơ và đồ gia dụng KTX Dom A/E.',
-  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-  coins: 350,
-  trustScore: 98,
-  savedVoucherIds: ['vch-ship-100'],
-  claimedQuestIds: ['quest-kyc'],
+  dorm: '',
+  phone: '',
+  email: '',
+  bio: '',
+  avatarUrl: '',
+  coins: 0,
+  trustScore: 100,
+  savedVoucherIds: [],
+  claimedQuestIds: [],
   dailyCheckedIn: false,
-  kycStatus: 'approved_seller',
-  kycRole: 'seller',
-  vouchers: [
-    {
-      id: 'vch-ship-100',
-      title: 'Giảm 100% Phí Vận Chuyển CampusShip',
-      code: 'FREESHIP5CAMPUS',
-      discount: 40000,
-      expiry: '30/10/2025',
-    },
-    {
-      id: 'vch-20k',
-      title: 'Voucher giảm 20.000đ CampusShip Liên Campus',
-      code: 'HOLASHIP20K',
-      discount: 20000,
-      expiry: '31/12/2026',
-    },
-  ],
+  kycStatus: 'unverified',
+  kycRole: 'student',
+  vouchers: [],
   settings: {
     emailNotifications: true,
     smsNotifications: true,
@@ -106,128 +99,276 @@ const dummyStorage = {
 
 export const useUserStore = create<UserState>()(
   persist(
-    (set) => ({
-      user: DEFAULT_USER,
-      isLoggedIn: true,
-      accessToken: null,
-
-      setAccessToken: (token) => set({ accessToken: token }),
-      setUser: (user) => set({ user }),
-
-      login: (email) =>
+    (set, get) => {
+      const syncUserToCache = (updatedUser: UserProfile) => {
+        const emailKey = updatedUser.email ? updatedUser.email.trim().toLowerCase() : '';
+        const idKey = updatedUser.id ? updatedUser.id.trim().toLowerCase() : '';
+        const primaryKey = emailKey || idKey || 'user';
         set((state) => ({
-          isLoggedIn: true,
-          user: email ? { ...state.user, email } : state.user,
-        })),
+          user: updatedUser,
+          usersById: {
+            ...state.usersById,
+            [primaryKey]: updatedUser,
+            ...(emailKey ? { [emailKey]: updatedUser } : {}),
+            ...(idKey ? { [idKey]: updatedUser } : {}),
+          },
+        }));
+      };
 
-      logout: () =>
-        set(() => ({
-          isLoggedIn: false,
-          accessToken: null,
-        })),
 
-      updateProfile: (data) =>
-        set((state) => ({
-          user: { ...state.user, ...data },
-        })),
+      // ── Helpers để tính tuần/ngày hiện tại (UTC+7) ──────────────────────────
+      const getVNDate = () => new Date(Date.now() + 7 * 60 * 60 * 1000);
+      const getWeekKey = () => {
+        const d = getVNDate();
+        const dayOfWeek = d.getUTCDay();
+        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const monday = new Date(d);
+        monday.setUTCDate(d.getUTCDate() - daysFromMonday);
+        const year = monday.getUTCFullYear();
+        const startOfYear = new Date(Date.UTC(year, 0, 1));
+        const weekNo = Math.ceil(((monday.getTime() - startOfYear.getTime()) / 86400000 + 1) / 7);
+        return `${year}-W${String(weekNo).padStart(2, '0')}`;
+      };
+      const getTodayKey = () => {
+        const d = getVNDate();
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+      // ─────────────────────────────────────────────────────────────────────────
 
-      setKycStatus: (status, role, appId) =>
-        set((state) => ({
-          user: {
-            ...state.user,
+      return {
+        user: EMPTY_USER,
+        usersById: {},
+        isLoggedIn: false,
+        accessToken: null,
+
+        setAccessToken: (token) => set({ accessToken: token, isLoggedIn: !!token }),
+
+        setUser: (newUser) => {
+          const emailKey = newUser.email ? newUser.email.trim().toLowerCase() : '';
+          const idKey = newUser.id ? newUser.id.trim().toLowerCase() : '';
+          const primaryKey = emailKey || idKey || 'user';
+          const existing = (emailKey && get().usersById[emailKey]) || (idKey && get().usersById[idKey]) || get().usersById[primaryKey];
+          const currentWeek = getWeekKey();
+          const today = getTodayKey();
+
+          // Auto-reset claimedQuestIds nếu sang tuần mới
+          const resolvedClaimedQuestIds =
+            existing?.lastQuestWeekKey === currentWeek
+              ? existing.claimedQuestIds || []
+              : [];
+          // Auto-reset dailyCheckedIn nếu sang ngày mới
+          const resolvedDailyCheckedIn =
+            existing?.lastCheckInDate === today
+              ? (existing.dailyCheckedIn ?? false)
+              : false;
+
+          const mergedUser: UserProfile = existing
+            ? {
+                ...existing,
+                ...newUser,
+                name: newUser.name || existing.name || '',
+                studentId: newUser.studentId || existing.studentId || '',
+                cohort: newUser.cohort || existing.cohort || '',
+                major: newUser.major || existing.major || '',
+                dorm: newUser.dorm || existing.dorm || '',
+                phone: newUser.phone || existing.phone || '',
+                bio: newUser.bio || existing.bio || '',
+                campus: newUser.campus || existing.campus || 'Hòa Lạc',
+                email: newUser.email || existing.email || '',
+                avatarUrl: newUser.avatarUrl || existing.avatarUrl || '',
+                coins: existing.coins !== undefined ? existing.coins : newUser.coins,
+                savedVoucherIds: existing.savedVoucherIds || newUser.savedVoucherIds,
+                claimedQuestIds: resolvedClaimedQuestIds,
+                lastQuestWeekKey: existing?.lastQuestWeekKey === currentWeek ? existing.lastQuestWeekKey : currentWeek,
+                dailyCheckedIn: resolvedDailyCheckedIn,
+                lastCheckInDate: resolvedDailyCheckedIn ? today : existing.lastCheckInDate,
+                vouchers: existing.vouchers || newUser.vouchers,
+              }
+            : {
+                ...newUser,
+                claimedQuestIds: [],
+                lastQuestWeekKey: currentWeek,
+                dailyCheckedIn: false,
+                lastCheckInDate: today,
+              };
+
+          useFavoriteStore.getState().setActiveUser(primaryKey);
+          useVoucherStore.getState().setActiveUser(primaryKey);
+          useOrderStore.getState().setActiveUser(primaryKey);
+
+          set((state) => ({
+            user: mergedUser,
+            isLoggedIn: true,
+            usersById: {
+              ...state.usersById,
+              [primaryKey]: mergedUser,
+              ...(emailKey ? { [emailKey]: mergedUser } : {}),
+              ...(idKey ? { [idKey]: mergedUser } : {}),
+            },
+          }));
+        },
+
+        login: (email) => {
+          const uKey = (email || 'user').trim().toLowerCase();
+          const existing = get().usersById[uKey];
+          const baseUser: UserProfile = existing || {
+            ...EMPTY_USER,
+            id: uKey,
+            email: uKey,
+            name: uKey.split('@')[0],
+          };
+
+          useFavoriteStore.getState().setActiveUser(uKey);
+          useVoucherStore.getState().setActiveUser(uKey);
+          useOrderStore.getState().setActiveUser(uKey);
+
+          set((state) => ({
+            isLoggedIn: true,
+            user: baseUser,
+            usersById: {
+              ...state.usersById,
+              [uKey]: baseUser,
+            },
+          }));
+
+          // Tự động đồng bộ hồ sơ & ảnh avatar Cloudflare R2 từ DB cho phiên mới
+          if (email && email.includes('@')) {
+            import('@/services/apiClient').then(({ apiClient }) => {
+              apiClient.get(`/users/${encodeURIComponent(uKey)}`).then((res) => {
+                if (res.data?.data) {
+                  import('@/lib/adapters').then(({ adaptBackendUser }) => {
+                    const profile = adaptBackendUser(res.data.data);
+                    get().setUser(profile);
+                  });
+                }
+              }).catch(() => {});
+            }).catch(() => {});
+          }
+        },
+
+        logout: () => {
+          useFavoriteStore.getState().setActiveUser(null);
+          useVoucherStore.getState().setActiveUser(null);
+          useOrderStore.getState().setActiveUser(null);
+          set(() => ({
+            isLoggedIn: false,
+            accessToken: null,
+            user: EMPTY_USER,
+          }));
+        },
+
+        updateProfile: (data) => {
+          const updated = { ...get().user, ...data };
+          syncUserToCache(updated);
+        },
+
+        setKycStatus: (status, role, appId, rejectionReason) => {
+          const updated: UserProfile = {
+            ...get().user,
             kycStatus: status,
-            kycRole: role || state.user.kycRole,
-            kycApplicationId: appId || state.user.kycApplicationId,
-          },
-        })),
+            kycRole: role || get().user.kycRole,
+            kycApplicationId: appId || get().user.kycApplicationId,
+            kycRejectionReason: rejectionReason !== undefined ? rejectionReason : get().user.kycRejectionReason,
+          };
+          syncUserToCache(updated);
+        },
 
-      changePassword: (oldPass, newPass) => {
-        if (!oldPass || !newPass) {
-          return { success: false, message: 'Vui lòng nhập đầy đủ mật khẩu cũ và mới!' };
-        }
-        if (newPass.length < 6) {
-          return { success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự!' };
-        }
-        return { success: true, message: 'Đổi mật khẩu thành công! Hãy dùng mật khẩu mới trong lần đăng nhập tới.' };
-      },
+        changePassword: (oldPass, newPass) => {
+          if (!oldPass || !newPass) {
+            return { success: false, message: 'Vui lòng nhập đầy đủ mật khẩu cũ và mới!' };
+          }
+          if (newPass.length < 6) {
+            return { success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự!' };
+          }
+          return { success: true, message: 'Đổi mật khẩu thành công! Hãy dùng mật khẩu mới trong lần đăng nhập tới.' };
+        },
 
-      addCoins: (amount) =>
-        set((state) => ({
-          user: {
-            ...state.user,
-            coins: Math.max(0, state.user.coins + amount),
-          },
-        })),
+        addCoins: (amount) => {
+          const updated = {
+            ...get().user,
+            coins: Math.max(0, get().user.coins + amount),
+          };
+          syncUserToCache(updated);
+        },
 
-      saveVoucher: (id, voucherData) =>
-        set((state) => {
-          const currentSaved = state.user.savedVoucherIds || [];
-          if (currentSaved.includes(id)) return state;
+        saveVoucher: (id, voucherData) => {
+          const currentSaved = get().user.savedVoucherIds || [];
+          if (currentSaved.includes(id)) return;
           const updatedSaved = [...currentSaved, id];
           const updatedVouchers = voucherData
-            ? [...(state.user.vouchers || []), voucherData]
-            : state.user.vouchers;
-          return {
-            user: {
-              ...state.user,
-              savedVoucherIds: updatedSaved,
-              vouchers: updatedVouchers,
-            },
+            ? [...(get().user.vouchers || []), voucherData]
+            : get().user.vouchers;
+          const updated = {
+            ...get().user,
+            savedVoucherIds: updatedSaved,
+            vouchers: updatedVouchers,
           };
-        }),
+          syncUserToCache(updated);
+        },
 
-      checkInDaily: () => {
-        let result = { success: false, coinsAdded: 0 };
-        set((state) => {
-          if (state.user.dailyCheckedIn) {
-            result = { success: false, coinsAdded: 0 };
-            return state;
+        checkInDaily: () => {
+          const today = getTodayKey();
+          const user = get().user;
+          // Reset nếu sang ngày mới
+          if (user.dailyCheckedIn && user.lastCheckInDate === today) {
+            return { success: false, coinsAdded: 0 };
           }
-          result = { success: true, coinsAdded: 20 };
-          return {
-            user: {
-              ...state.user,
-              coins: state.user.coins + 20,
-              dailyCheckedIn: true,
-            },
+          const updated = {
+            ...user,
+            coins: user.coins + 20,
+            dailyCheckedIn: true,
+            lastCheckInDate: today,
           };
-        });
-        return result;
-      },
+          syncUserToCache(updated);
+          return { success: true, coinsAdded: 20 };
+        },
 
-      claimQuestCoins: (questId, amount) => {
-        let result = { success: false, amount: 0 };
-        set((state) => {
-          const claimed = state.user.claimedQuestIds || [];
-          if (claimed.includes(questId)) {
-            result = { success: false, amount: 0 };
-            return state;
+        claimQuestCoins: (questId, amount) => {
+          const currentWeek = getWeekKey();
+          const user = get().user;
+          // Reset nếu sang tuần mới
+          const claimedThisWeek =
+            user.lastQuestWeekKey === currentWeek ? user.claimedQuestIds || [] : [];
+          if (claimedThisWeek.includes(questId)) {
+            return { success: false, amount: 0 };
           }
-          result = { success: true, amount };
-          return {
-            user: {
-              ...state.user,
-              coins: state.user.coins + amount,
-              claimedQuestIds: [...claimed, questId],
-            },
+          const updated = {
+            ...user,
+            coins: user.coins + amount,
+            claimedQuestIds: [...claimedThisWeek, questId],
+            lastQuestWeekKey: currentWeek,
           };
-        });
-        return result;
-      },
+          syncUserToCache(updated);
+          return { success: true, amount };
+        },
 
-      updateSettings: (newSettings) =>
-        set((state) => ({
-          user: {
-            ...state.user,
-            settings: { ...state.user.settings, ...newSettings },
-          },
-        })),
+        updateSettings: (newSettings) => {
+          const updated = {
+            ...get().user,
+            settings: { ...get().user.settings, ...newSettings },
+          };
+          syncUserToCache(updated);
+        },
 
-      resetUser: () => set({ user: DEFAULT_USER }),
-    }),
+        resetUser: () => set({ user: EMPTY_USER, isLoggedIn: false, accessToken: null }),
+      };
+    },
     {
       name: 'fu_market_user_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (!state?.accessToken || !state?.isLoggedIn || state?.user?.email?.includes('quanlmse17****')) {
+          state?.logout();
+          useFavoriteStore.getState().setActiveUser(null);
+          useVoucherStore.getState().setActiveUser(null);
+          useOrderStore.getState().setActiveUser(null);
+        } else if (state?.user?.id || state?.user?.email) {
+          const uKey = (state.user.id || state.user.email).trim().toLowerCase();
+          useFavoriteStore.getState().setActiveUser(uKey);
+          useVoucherStore.getState().setActiveUser(uKey);
+          useOrderStore.getState().setActiveUser(uKey);
+        }
+      },
     }
   )
 );

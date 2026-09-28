@@ -15,13 +15,27 @@ export interface UpdateProfilePayload {
 
 export interface BankAccountPayload {
   bankName: string;
-  accountNumber: string;
-  accountHolder: string;
+  accountNo?: string;
+  accountNumber?: string;
+  accountName?: string;
+  accountHolder?: string;
 }
 
 export const profileService = {
   // 1. Lấy thông tin tài khoản hiện tại & đồng bộ vào Zustand
   async getProfile(): Promise<UserProfile> {
+    const token = useUserStore.getState().accessToken;
+    if (!token) {
+      const email = useUserStore.getState().user.email;
+      if (email && email.includes('@')) {
+        const response = await apiClient.get<ApiResponse<any>>(`/users/${encodeURIComponent(email.trim().toLowerCase())}`);
+        const userData = response.data.data;
+        const profile = adaptBackendUser(userData);
+        useUserStore.getState().setUser(profile);
+        return profile;
+      }
+      return useUserStore.getState().user;
+    }
     const response = await apiClient.get<ApiResponse<any>>('/profile/me');
     const userData = response.data.data;
     const profile = adaptBackendUser(userData);
@@ -40,7 +54,12 @@ export const profileService = {
 
   // 3. Cập nhật tài khoản ngân hàng nhận tiền
   async updateBankAccount(payload: BankAccountPayload): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>('/users/me/bank-account', payload);
+    const body = {
+      bankName: payload.bankName,
+      accountNo: payload.accountNo || payload.accountNumber,
+      accountName: payload.accountName || payload.accountHolder,
+    };
+    const response = await apiClient.patch<ApiResponse<any>>('/profile/bank-account', body);
     return response.data.data;
   },
 

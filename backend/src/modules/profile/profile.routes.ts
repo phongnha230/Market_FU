@@ -24,6 +24,7 @@ router.patch('/bank-account', profileController.updateBankAccount);
 
 // Tải ảnh Thẻ Sinh Viên nộp xác thực KYC
 router.post('/kyc', upload.single('cardImage'), profileController.submitKyc);
+router.post('/kyc/student-card', upload.single('cardImage'), profileController.submitKyc);
 
 // Phục vụ an toàn ảnh Thẻ Sinh Viên KYC (Private Media Streaming - B1-2 Fix)
 router.get('/kyc/card/:filename', profileController.streamKycCard);

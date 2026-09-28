@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useUserStore } from './userStore';
 
 export type CoinTransactionType =
   | 'REVIEW_REWARD'
@@ -63,54 +64,8 @@ interface WalletState {
   resetWallet: () => void;
 }
 
-const INITIAL_TRANSACTIONS: CoinTransaction[] = [
-  {
-    id: 'tx-1',
-    userId: 'user-default',
-    amount: 100,
-    balanceAfter: 350,
-    type: 'KYC_BONUS',
-    description: 'Thưởng xác thực thẻ sinh viên FPT thành công',
-    createdAt: 'Hôm qua, 14:30',
-  },
-  {
-    id: 'tx-2',
-    userId: 'user-default',
-    amount: 50,
-    balanceAfter: 250,
-    type: 'REVIEW_REWARD',
-    description: 'Thưởng đánh giá 5 sao đơn hàng sách MAS291',
-    referenceId: '#ORD-77102-HL-HL',
-    createdAt: 'Hôm nay, 10:15',
-  },
-  {
-    id: 'tx-3',
-    userId: 'user-default',
-    amount: -50,
-    balanceAfter: 200,
-    type: 'REDEEM_VOUCHER',
-    description: 'Đổi Voucher Passio Coffee giảm 15.000đ',
-    referenceId: 'VCH-PASSIO-15K',
-    createdAt: 'Hôm nay, 11:45',
-  },
-];
-
-const INITIAL_WITHDRAWALS: WithdrawalRequest[] = [
-  {
-    id: 'wdr-1',
-    userId: 'user-default',
-    amount: 200000,
-    bankAccount: {
-      bankName: 'TPBank',
-      accountNo: '03829102910',
-      accountName: 'LE MINH QUAN',
-    },
-    status: 'APPROVED',
-    adminNote: 'Đã chuyển khoản qua Napas 24/7 - Ref #TPB998231',
-    createdAt: '3 ngày trước',
-    processedAt: '3 ngày trước',
-  },
-];
+const INITIAL_TRANSACTIONS: CoinTransaction[] = [];
+const INITIAL_WITHDRAWALS: WithdrawalRequest[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -121,22 +76,18 @@ const dummyStorage = {
 export const useWalletStore = create<WalletState>()(
   persist(
     (set, get) => ({
-      campusCoins: 350,
+      campusCoins: 0,
       frozenCoins: 0,
-      bankAccount: {
-        bankName: 'TPBank',
-        accountNo: '03829102910',
-        accountName: 'LE MINH QUAN',
-      },
-      transactions: INITIAL_TRANSACTIONS,
-      withdrawalRequests: INITIAL_WITHDRAWALS,
+      bankAccount: null,
+      transactions: [],
+      withdrawalRequests: [],
 
       topUpCoins: (amount, paymentMethod = 'VietQR') => {
         set((state) => {
           const newBalance = state.campusCoins + amount;
           const newTx: CoinTransaction = {
             id: `tx-${Date.now()}`,
-            userId: 'user-default',
+            userId: useUserStore.getState().user.id || 'user-current',
             amount,
             balanceAfter: newBalance,
             type: 'BONUS',
@@ -155,7 +106,7 @@ export const useWalletStore = create<WalletState>()(
           const newBalance = state.campusCoins + amount;
           const newTx: CoinTransaction = {
             id: `tx-${Date.now()}`,
-            userId: 'user-default',
+            userId: useUserStore.getState().user.id || 'user-current',
             amount,
             balanceAfter: newBalance,
             type,
@@ -180,7 +131,7 @@ export const useWalletStore = create<WalletState>()(
           const newBalance = s.campusCoins - amount;
           const newTx: CoinTransaction = {
             id: `tx-${Date.now()}`,
-            userId: 'user-default',
+            userId: useUserStore.getState().user.id || 'user-current',
             amount: -amount,
             balanceAfter: newBalance,
             type,
@@ -243,7 +194,7 @@ export const useWalletStore = create<WalletState>()(
           const newBalance = s.campusCoins - coinsRequired;
           const newTx: CoinTransaction = {
             id: `tx-${Date.now()}`,
-            userId: 'user-default',
+            userId: useUserStore.getState().user.id || 'user-current',
             amount: -coinsRequired,
             balanceAfter: newBalance,
             type: 'WITHDRAWAL',
@@ -275,7 +226,7 @@ export const useWalletStore = create<WalletState>()(
           transactions: [
             {
               id: `tx-${Date.now()}`,
-              userId: 'user-default',
+              userId: useUserStore.getState().user.id || 'user-current',
               amount: coinsToRefund,
               balanceAfter: s.campusCoins + coinsToRefund,
               type: 'ADMIN_ADJUSTMENT',
@@ -314,15 +265,25 @@ export const useWalletStore = create<WalletState>()(
 
       resetWallet: () =>
         set({
-          campusCoins: 350,
+          campusCoins: 0,
           frozenCoins: 0,
-          transactions: INITIAL_TRANSACTIONS,
-          withdrawalRequests: INITIAL_WITHDRAWALS,
+          bankAccount: null,
+          transactions: [],
+          withdrawalRequests: [],
         }),
     }),
     {
       name: 'fu_market_wallet_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state?.transactions?.some((t) => t.id === 'tx-1' || t.id === 'tx-2')) {
+          state.transactions = [];
+          state.withdrawalRequests = [];
+          if (state.bankAccount?.accountName === 'LE MINH QUAN') {
+            state.bankAccount = null;
+          }
+        }
+      },
     }
   )
 );
