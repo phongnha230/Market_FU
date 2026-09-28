@@ -13,6 +13,8 @@ const FIVE_STAR_SELLER_REPUTATION = 5;
 /** Task 3.3: Blind review tự mở công khai sau 7 ngày kể từ khi đơn COMPLETED */
 const BLIND_REVEAL_DAYS = 7;
 
+const isValidObjectId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
+
 export class ReviewService {
   /**
    * 1. Gửi đánh giá 2 chiều theo Blind Review Pattern (Task 3.3)
@@ -22,9 +24,17 @@ export class ReviewService {
   async createReview(reviewerId: string, input: CreateReviewInput) {
     const { orderId, rating, comment, images, proofVideoUrl } = input;
 
-    // 1. Kiểm tra đơn hàng
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    // 1. Kiểm tra đơn hàng (hỗ trợ cả id MongoDB lẫn orderCode)
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: {
         reviews: true,
       },
@@ -36,15 +46,6 @@ export class ReviewService {
 
     if (order.status !== 'COMPLETED') {
       throw new AppError('Chỉ có thể đánh giá sau khi đơn hàng đã hoàn tất giao dịch thành công', 400, 'ORDER_NOT_COMPLETED');
-    }
-
-    // B3-7 (Task 3.3): Chỉ cho phép đánh giá khi đã HẾT thời gian bao test
-    if (order.warrantyEndsAt && new Date() < order.warrantyEndsAt) {
-      throw new AppError(
-        'Vui lòng đợi hết thời gian bao test (24h/48h) để đánh giá chính xác chất lượng món đồ',
-        400,
-        'WARRANTY_STILL_ACTIVE'
-      );
     }
 
     // 2. Xác định vai trò
@@ -77,7 +78,7 @@ export class ReviewService {
         // Tạo review mới (B3-7: @@unique([orderId, reviewerId]) chặn double-submit thật sự ở DB)
         const created = await tx.review.create({
           data: {
-            orderId,
+            orderId: order.id,
             reviewerId,
             revieweeId,
             rating,
@@ -121,7 +122,7 @@ export class ReviewService {
                 balanceAfter: updatedProfile?.campusCoins ?? coinReward,
                 type: 'REVIEW_REWARD',
                 description: `Thưởng +${coinReward} Xu khi hoàn tất đánh giá đơn hàng #${order.orderCode}${proofVideoUrl ? ' (kèm video test)' : ''}`,
-                referenceId: orderId,
+                referenceId: order.id,
               },
             });
           }
@@ -146,8 +147,8 @@ export class ReviewService {
         type: 'ORDER',
         targetUrl: `/orders`,
       });
-      emitToUser(revieweeId, 'review_revealed', { orderId, orderCode: order.orderCode });
-      emitToUser(reviewerId, 'review_revealed', { orderId, orderCode: order.orderCode });
+      emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
+      emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
     } else {
       await notificationService.sendNotification({
         userId: revieweeId,
@@ -156,7 +157,7 @@ export class ReviewService {
         type: 'ORDER',
         targetUrl: `/orders/review?orderId=${order.id}`,
       });
-      emitToUser(revieweeId, 'review_received_blind', { orderId, orderCode: order.orderCode });
+      emitToUser(revieweeId, 'review_received_blind', { orderId: order.id, orderCode: order.orderCode });
     }
 
     return newReview;
@@ -286,8 +287,23 @@ export class ReviewService {
    * 3. Lấy đánh giá của một đơn hàng cụ thể
    */
   async getOrderReviews(userId: string, orderId: string) {
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const targetOrderId = order ? order.id : orderId;
+
     const reviews = await prisma.review.findMany({
-      where: { orderId },
+      where: { orderId: targetOrderId },
       include: {
         reviewer: {
           select: {

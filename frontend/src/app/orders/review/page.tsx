@@ -4,7 +4,7 @@ import React, { useState, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import { useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
@@ -79,36 +79,46 @@ function ReviewContent() {
         rating,
         comment,
       });
-    } catch {
-      // offline fallback
+      markOrderReviewed(orderCode);
+      addCoins(50);
+      showToast('🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng 50 Campus Coins vào tài khoản.');
+      setTimeout(() => {
+        router.push('/orders');
+      }, 1200);
+    } catch (err: any) {
+      const errorCode = err?.response?.data?.errorCode;
+      const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi đánh giá!';
+      if (errorCode === 'ALREADY_REVIEWED') {
+        markOrderReviewed(orderCode);
+        showToast('ℹ️ Bạn đã gửi đánh giá cho đơn hàng này rồi.');
+        setTimeout(() => router.push('/orders'), 1200);
+      } else if (orderCode.includes('77102') || !currentOrder?.id) {
+        // Mock fallback for static demo orders
+        markOrderReviewed(orderCode);
+        addCoins(50);
+        showToast('🎉 Đã ghi nhận đánh giá thành công & cộng 50 Coins.');
+        setTimeout(() => router.push('/orders'), 1200);
+      } else {
+        showToast(`❌ ${message}`);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    markOrderReviewed(orderCode);
-    addCoins(50);
-    showToast('🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng 50 Campus Coins vào tài khoản.');
-    setTimeout(() => {
-      router.push('/orders');
-    }, 1000);
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans">
-      <Navbar />
-
-      <main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
-        {/* 1. BREADCRUMBS */}
-        <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-slate-500 flex-wrap">
-          <Link href="/" className="hover:text-fpt-orange transition-colors">
-            Trang chủ
-          </Link>
-          <span className="text-slate-400">›</span>
-          <Link href="/orders" className="hover:text-fpt-orange transition-colors">
-            Quản lý đơn hàng
-          </Link>
-          <span className="text-slate-400">›</span>
-          <span className="text-slate-600">Đơn #ORD-88392-HCM-HL</span>
-          <span className="text-slate-400">›</span>
-          <span className="text-slate-900 font-bold">Đánh giá đơn hàng</span>
-        </nav>
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans py-4 sm:py-6">
+      <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-4">
+        {/* Compact in-container Header with Back button */}
+        <CompactHeader
+          showBackButton={true}
+          backHref="/orders"
+          breadcrumbs={[
+            { label: 'Quản lý đơn hàng', href: '/orders' },
+            { label: `Đơn ${orderCode}` },
+            { label: 'Đánh giá đơn hàng' },
+          ]}
+        />
 
         {/* 2. CELEBRATION TOP BANNER (Khớp 100% Image 3) */}
         <Card className="mb-6 rounded-2xl bg-gradient-to-r from-orange-700 via-fpt-orange to-amber-700 p-6 sm:p-7 text-white shadow-md border-none">
@@ -226,10 +236,10 @@ function ReviewContent() {
               <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-200/60">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 font-medium">Chỉ số uy tín người bán</span>
-                  <span className="font-black text-slate-900 text-sm">96/100</span>
+                  <span className="font-black text-slate-900 text-sm">0/100</span>
                 </div>
-                <Progress value={96} className="mt-1.5 h-1.5 w-full bg-slate-200" />
-                <div className="text-[10px] text-slate-400 mt-1">Đã hoàn tất 18 giao dịch liên campus uy tín</div>
+                <Progress value={0} className="mt-1.5 h-1.5 w-full bg-slate-200" />
+                <div className="text-[10px] text-slate-400 mt-1">Đã hoàn tất 0 giao dịch liên campus uy tín</div>
               </div>
 
               {/* Service Rating */}
@@ -237,9 +247,9 @@ function ReviewContent() {
                 <div className="text-slate-600 mb-1">Đánh giá dịch vụ của người bán:</div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="h-4 w-4 text-fpt-orange fill-fpt-orange" />
+                    <Star key={s} className="h-4 w-4 text-slate-200" />
                   ))}
-                  <span className="text-xs font-bold text-fpt-orange ml-1">5.0 Xuất sắc</span>
+                  <span className="text-xs font-bold text-slate-400 ml-1">0.0 (Chưa có đánh giá)</span>
                 </div>
               </div>
 

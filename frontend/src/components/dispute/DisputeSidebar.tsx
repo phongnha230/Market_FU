@@ -16,13 +16,15 @@ interface DisputeSidebarProps {
   itemPrice?: number;
   shippingFee?: number;
   totalEscrow?: number;
+  aiConfidenceScore?: number;
   onShowToast: (msg: string) => void;
 }
 
 export default function DisputeSidebar({
-  itemPrice = 1200000,
-  shippingFee = 25000,
-  totalEscrow = 1225000,
+  itemPrice = 0,
+  shippingFee = 0,
+  totalEscrow = 0,
+  aiConfidenceScore = 0,
   onShowToast,
 }: DisputeSidebarProps) {
   return (
@@ -72,15 +74,17 @@ export default function DisputeSidebar({
 
         <div className="flex items-center gap-4 bg-orange-50/50 p-3.5 rounded-xl border border-orange-100">
           {/* Gauge Circle */}
-          <div className="relative h-14 w-14 rounded-full border-4 border-emerald-500 flex items-center justify-center font-black text-slate-900 text-sm shrink-0 bg-white">
-            94%
+          <div className={`relative h-14 w-14 rounded-full border-4 ${aiConfidenceScore > 70 ? 'border-emerald-500' : aiConfidenceScore > 0 ? 'border-amber-500' : 'border-slate-300'} flex items-center justify-center font-black text-slate-900 text-sm shrink-0 bg-white`}>
+            {aiConfidenceScore}%
           </div>
           <div>
             <div className="font-extrabold text-xs sm:text-sm text-slate-900">
-              Độ tin cậy khiếu nại rất cao
+              {aiConfidenceScore > 70 ? 'Độ tin cậy khiếu nại rất cao' : aiConfidenceScore > 0 ? 'Đang thẩm tra bằng AI' : 'Chưa có dữ liệu thẩm tra'}
             </div>
             <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
-              Video xác thực kiểm tra nguồn tại sảnh Alpha trùng khớp thời gian nhận bưu phẩm.
+              {aiConfidenceScore > 0
+                ? 'Video xác thực kiểm tra nguồn tại sảnh Alpha trùng khớp thời gian nhận bưu phẩm.'
+                : 'Vui lòng chọn đơn hàng và đính kèm video bằng chứng để kích hoạt AI thẩm tra.'}
             </p>
           </div>
         </div>

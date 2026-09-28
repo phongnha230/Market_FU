@@ -53,6 +53,8 @@ export interface BackendKycVerification {
   type?: string;
   studentId: string;
   cardImageUrl: string;
+  ocrData?: any;
+  aiMatchScore?: number;
   status: KycStatus;
   rejectedReason?: string | null;
   reviewedBy?: string | null;
@@ -204,6 +206,11 @@ export const reportService = {
     const response = await apiClient.patch<ApiResponse<any>>(`/reports/kyc/${id}/reject`, {
       reason,
     });
+    return response.data.data;
+  },
+
+  async scanKycWithAi(id: string): Promise<{ kycId: string; ocrData: any; aiMatchScore: number }> {
+    const response = await apiClient.post<ApiResponse<any>>(`/reports/kyc/${id}/ai-scan`);
     return response.data.data;
   },
 

@@ -37,6 +37,9 @@ router.patch('/disputes/:id/cancel', reportController.cancelDispute);
 // Admin xem danh sách hồ sơ xác thực KYC
 router.get('/kyc/verifications', authorize('ADMIN'), reportController.getKycVerifications);
 
+// Admin chạy quét AI Vision theo yêu cầu (On-Demand / Tiết kiệm chi phí)
+router.post('/kyc/:id/ai-scan', authorize('ADMIN'), reportController.scanKycWithAi);
+
 // Admin phê duyệt Thẻ SV (Tích Xanh + Thưởng Xu)
 router.patch('/kyc/:id/approve', authorize('ADMIN'), reportController.approveKyc);
 

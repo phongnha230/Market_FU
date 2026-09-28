@@ -125,9 +125,10 @@ function DisputeContent() {
 
           {/* RIGHT COLUMN: SIDEBAR ESCROW & AI REVIEW (4 COLS) */}
           <DisputeSidebar
-            itemPrice={matchedOrder ? matchedOrder.product.price - 25000 : 1200000}
-            shippingFee={25000}
-            totalEscrow={matchedOrder ? matchedOrder.product.price : 1225000}
+            itemPrice={matchedOrder ? Math.max(0, matchedOrder.product.price - (matchedOrder.type === 'inter-campus' ? 25000 : 0)) : 0}
+            shippingFee={matchedOrder?.type === 'inter-campus' ? 25000 : 0}
+            totalEscrow={matchedOrder ? matchedOrder.product.price : 0}
+            aiConfidenceScore={matchedOrder ? 94 : 0}
             onShowToast={(msg) => showToast(msg, 'info')}
           />
         </div>

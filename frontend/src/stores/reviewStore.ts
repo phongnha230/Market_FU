@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useWalletStore } from './walletStore';
 import { useOrderStore } from './orderStore';
+import { useUserStore } from './userStore';
 
 export interface ReviewItem {
   id: string;
@@ -36,36 +37,7 @@ interface ReviewState {
   resetReviews: () => void;
 }
 
-export const INITIAL_REVIEWS: ReviewItem[] = [
-  {
-    id: 'rev-1',
-    orderId: 'ord-2',
-    reviewerId: 'user-default',
-    reviewerName: 'Lê Minh Quân',
-    reviewerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-    revieweeId: 'user-seller-2',
-    revieweeName: 'Trần Thùy Trang',
-    rating: 5,
-    comment: 'Giáo trình MAS291 và CSL201 rất mới, bạn còn note lại các dạng bài PE quan trọng. Giao dịch nhanh tại thư viện!',
-    tags: ['Đúng mô tả', 'Sách giữ gìn', 'Giao nhanh KTX'],
-    isPublic: true,
-    createdAt: 'Hôm nay',
-  },
-  {
-    id: 'rev-2',
-    orderId: 'ord-prev-1',
-    reviewerId: 'user-stu-3',
-    reviewerName: 'Nguyễn Văn Hùng',
-    reviewerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-    revieweeId: 'user-default',
-    revieweeName: 'Lê Minh Quân',
-    rating: 5,
-    comment: 'Bàn phím cơ gõ rất đầm tay, đầy đủ keycap và cáp Type-C theo máy. Người bán nhiệt tình hỗ trợ test tại Dom E.',
-    tags: ['Nhiệt tình', 'Hàng chuẩn zin', 'Bọc hàng kỹ'],
-    isPublic: true,
-    createdAt: '3 ngày trước',
-  },
-];
+export const INITIAL_REVIEWS: ReviewItem[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -76,7 +48,7 @@ const dummyStorage = {
 export const useReviewStore = create<ReviewState>()(
   persist(
     (set, get) => ({
-      reviews: INITIAL_REVIEWS,
+      reviews: [],
 
       submitReview: ({ orderId, revieweeId, revieweeName, rating, comment, tags = [] }) => {
         // Kiểm tra xem đơn hàng đã từng đánh giá chưa
@@ -85,12 +57,13 @@ export const useReviewStore = create<ReviewState>()(
           return { success: false, message: 'Đơn hàng này đã được đánh giá trước đó!' };
         }
 
+        const user = useUserStore.getState().user;
         const newReview: ReviewItem = {
           id: `rev-${Date.now()}`,
           orderId,
-          reviewerId: 'user-default',
-          reviewerName: 'Lê Minh Quân',
-          reviewerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
+          reviewerId: user.id || 'user-anonymous',
+          reviewerName: user.name || 'Sinh viên FPT',
+          reviewerAvatar: user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
           revieweeId,
           revieweeName,
           rating,
@@ -140,11 +113,18 @@ export const useReviewStore = create<ReviewState>()(
         };
       },
 
-      resetReviews: () => set({ reviews: INITIAL_REVIEWS }),
+      resetReviews: () => set({ reviews: [] }),
     }),
     {
       name: 'fu_market_reviews_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.reviews = (state.reviews || []).filter(
+            (r) => r.id !== 'rev-1' && r.id !== 'rev-2' && r.reviewerName !== 'Lê Minh Quân'
+          );
+        }
+      },
     }
   )
 );

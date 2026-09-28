@@ -63,23 +63,7 @@ const mapBackendDispute = (bd: BackendDispute): DisputeItem => ({
   resolvedAt: bd.resolvedAt ? new Date(bd.resolvedAt).toLocaleString('vi-VN') : undefined,
 });
 
-export const INITIAL_DISPUTES: DisputeItem[] = [
-  {
-    id: 'dsp-1',
-    orderId: 'ord-dispute-test',
-    orderCode: '#ORD-99120-HL-HL',
-    claimantId: 'user-default',
-    claimantName: 'Lê Minh Quân',
-    claimantRole: 'BUYER',
-    reason: 'Sản phẩm nhận được không đúng như thỏa thuận (Màn hình bị sọc kẻ ngang)',
-    details: 'Màn hình lúc đăng bài người bán bảo không lỗi, nhưng lúc cắm nguồn lên thì có 2 vạch sọc đỏ giữa màn. Đã quay video unbox lúc nhận hàng.',
-    proofVideoUrl: 'https://youtube.com/watch?v=sample-unbox-proof',
-    status: 'INVESTIGATING',
-    adminNote: 'Admin đang yêu cầu Người bán phản hồi bằng chứng trước khi đóng băng/hoàn cọc Escrow',
-    refundAmount: 1225000,
-    createdAt: 'Hôm qua, 16:30',
-  },
-];
+export const INITIAL_DISPUTES: DisputeItem[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -90,7 +74,7 @@ const dummyStorage = {
 export const useDisputeStore = create<DisputeState>()(
   persist(
     (set, get) => ({
-      disputes: INITIAL_DISPUTES,
+      disputes: [],
       isLoading: false,
 
       // 1. Tải danh sách khiếu nại từ Backend
@@ -98,7 +82,7 @@ export const useDisputeStore = create<DisputeState>()(
         try {
           set({ isLoading: true });
           const res = await reportService.getDisputes({ limit: 50 });
-          if (res.disputes && res.disputes.length > 0) {
+          if (res.disputes) {
             set({ disputes: res.disputes.map(mapBackendDispute) });
           }
         } catch (error) {
@@ -193,11 +177,18 @@ export const useDisputeStore = create<DisputeState>()(
         return all.filter((d) => d.status === status);
       },
 
-      resetDisputes: () => set({ disputes: INITIAL_DISPUTES }),
+      resetDisputes: () => set({ disputes: [] }),
     }),
     {
       name: 'fu_market_disputes_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.disputes = (state.disputes || []).filter(
+            (d) => d.id !== 'dsp-1' && d.claimantName !== 'Lê Minh Quân'
+          );
+        }
+      },
     }
   )
 );

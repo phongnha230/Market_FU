@@ -195,6 +195,15 @@ export class ReportController {
     }
   };
 
+  scanKycWithAi = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await reportService.scanKycWithAi(req.params.id as string);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // ==========================================================================
   // 4. THỐNG KÊ DOANH SỐ HỌC KỲ (SEMESTER ANALYTICS)
   // ==========================================================================

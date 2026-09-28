@@ -63,28 +63,28 @@ export default function DisputeParcelCard({
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback className="bg-fpt-orange text-white font-bold text-[10px]">
-              LQ
+              NM
             </AvatarFallback>
           </Avatar>
           <div>
             <span className="text-[10px] text-slate-400 font-medium">NGƯỜI MUA (KHIẾU NẠI):</span>
-            <div className="font-bold text-slate-800">Lê Minh Quân</div>
-            <div className="text-[10px] text-slate-500">MSSV: HE172819 • Hola Dom B</div>
+            <div className="font-bold text-slate-800">Người mua</div>
+            <div className="text-[10px] text-slate-500">Sinh viên FPT</div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback className="bg-slate-800 text-white font-bold text-[10px]">
-              NA
+              {(order?.product?.seller?.name || 'NB')[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
             <span className="text-[10px] text-slate-400 font-medium">
-              NGƯỜI BÁN: <strong className="text-emerald-600">Uy tín 96/100</strong>
+              NGƯỜI BÁN:
             </span>
-            <div className="font-bold text-slate-800">Nguyễn Văn An</div>
-            <div className="text-[10px] text-slate-500">MSSV: HE160392 • K16 SE HCM</div>
+            <div className="font-bold text-slate-800">{order?.product?.seller?.name || 'Người bán'}</div>
+            <div className="text-[10px] text-slate-500">{order?.product?.seller?.cohortCampus || 'FPT Campus'}</div>
           </div>
         </div>
       </div>

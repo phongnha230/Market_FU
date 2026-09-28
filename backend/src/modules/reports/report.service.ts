@@ -17,6 +17,8 @@ import {
   RejectKycInput,
 } from './report.dto';
 
+const isValidObjectId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
+
 export class ReportService {
   // ==========================================================================
   // 1. NGHIỆP VỤ BÁO CÁO & TỐ CÁO VI PHẠM (REPORTS)
@@ -331,8 +333,16 @@ export class ReportService {
   async createDispute(buyerId: string, input: CreateDisputeInput) {
     const { orderId, reason, proofVideoUrl } = input;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: {
         product: { select: { title: true } },
         dispute: true,
@@ -372,7 +382,7 @@ export class ReportService {
     const dispute = await prisma.$transaction(async (tx) => {
       const newDispute = await tx.dispute.create({
         data: {
-          orderId,
+          orderId: order.id,
           claimantId: buyerId,
           reason: reason.trim(),
           proofVideoUrl: proofVideoUrl.trim(),
@@ -381,7 +391,7 @@ export class ReportService {
       });
 
       await tx.order.update({
-        where: { id: orderId },
+        where: { id: order.id },
         data: { status: 'DISPUTED' },
       });
 
@@ -394,7 +404,7 @@ export class ReportService {
       title: '⚠️ Đơn hàng có khiếu nại từ Người mua',
       body: `Đơn hàng #${order.orderCode} ("${order.product.title}") vừa nhận được khiếu nại. Ban Quản Trị đang tiến hành đối soát video bằng chứng.`,
       type: 'ORDER',
-      targetUrl: `/orders/${orderId}`,
+      targetUrl: `/orders/${order.id}`,
     });
 
     // Thông báo cho Người mua
@@ -403,7 +413,7 @@ export class ReportService {
       title: '📋 Khiếu nại đã được tiếp nhận',
       body: `Khiếu nại cho đơn hàng #${order.orderCode} đã được gửi lên BQT. Chúng tôi sẽ phân xử trong vòng 24 giờ.`,
       type: 'ORDER',
-      targetUrl: `/orders/${orderId}`,
+      targetUrl: `/orders/${order.id}`,
     });
 
     return dispute;
@@ -1018,6 +1028,72 @@ export class ReportService {
     return {
       message: `Đã từ chối yêu cầu KYC của sinh viên ${fullName}`,
       reason,
+    };
+  }
+
+  /**
+   * Admin bấm quét AI Vision cho 1 hồ sơ KYC theo yêu cầu (On-Demand / Tiến trình)
+   * Tiết kiệm 100% chi phí AI khi không cần quét tự động toàn bộ người dùng đăng ký
+   */
+  async scanKycWithAi(kycId: string) {
+    const kyc = await prisma.kycVerification.findUnique({
+      where: { id: kycId },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    if (!kyc) {
+      throw new AppError('Không tìm thấy hồ sơ KYC này', 404, 'KYC_NOT_FOUND');
+    }
+
+    if (!kyc.cardImageUrl) {
+      throw new AppError('Hồ sơ này chưa có ảnh thẻ để quét', 400, 'CARD_IMAGE_MISSING');
+    }
+
+    const { AiService } = await import('../ai/ai.service');
+    const aiService = new AiService();
+
+    let imageBuffer: Buffer | null = null;
+    let mimeType = 'image/jpeg';
+
+    if (kyc.cardImageUrl.startsWith('data:')) {
+      const parts = kyc.cardImageUrl.split(',');
+      const match = kyc.cardImageUrl.match(/data:(.*?);base64/);
+      if (match) mimeType = match[1];
+      imageBuffer = Buffer.from(parts[1], 'base64');
+    } else if (kyc.cardImageUrl.startsWith('http')) {
+      const axios = (await import('axios')).default;
+      const res = await axios.get(kyc.cardImageUrl, { responseType: 'arraybuffer' });
+      imageBuffer = Buffer.from(res.data);
+      mimeType = String(res.headers['content-type'] || 'image/jpeg');
+    }
+
+    if (!imageBuffer) {
+      throw new AppError('Không thể tải file ảnh thẻ để phân tích', 400, 'IMAGE_DOWNLOAD_FAILED');
+    }
+
+    const ocrResult = await aiService.scanStudentCard(imageBuffer, mimeType, {
+      fullName: kyc.user?.profile?.fullName || '',
+      studentId: kyc.studentId,
+      campus: kyc.user?.profile?.campus || '',
+      email: kyc.user?.email,
+    });
+
+    await prisma.kycVerification.update({
+      where: { id: kycId },
+      data: {
+        ocrData: ocrResult,
+        aiMatchScore: ocrResult.aiMatchScore,
+      },
+    });
+
+    return {
+      kycId,
+      ocrData: ocrResult,
+      aiMatchScore: ocrResult.aiMatchScore,
     };
   }
 }

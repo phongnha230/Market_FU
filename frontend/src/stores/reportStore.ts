@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+import { useUserStore } from './userStore';
+
 export type ReportTargetType = 'PRODUCT' | 'USER';
 export type ReportStatus = 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED';
 
@@ -42,33 +44,7 @@ interface ReportState {
   resetReports: () => void;
 }
 
-export const INITIAL_REPORTS: ReportItem[] = [
-  {
-    id: 'rep-1',
-    reporterId: 'user-default',
-    reporterName: 'Lê Minh Quân',
-    targetType: 'PRODUCT',
-    targetId: 'prod-fake-123',
-    targetTitle: 'Tai nghe AirPods Pro 2 Rep 1:1 nhưng rao là chính hãng FPT Synnex',
-    reason: 'Hàng giả / Đăng sai thông tin sản phẩm',
-    details: 'Người bán khẳng định là hàng chính hãng FPT Synnex nhưng khi hỏi số seri trên vỏ hộp thì là mã nhái.',
-    status: 'PENDING',
-    createdAt: '2 giờ trước',
-  },
-  {
-    id: 'rep-2',
-    reporterId: 'user-reporter-2',
-    reporterName: 'Trần Thảo Ly',
-    targetType: 'USER',
-    targetId: 'user-scammer-88',
-    targetTitle: 'Tài khoản: NguyenVanBao_SE15',
-    reason: 'Yêu cầu chuyển cọc trước qua Zalo cá nhân rồi chặn liên lạc',
-    details: 'Tài khoản này liên tục nhắn tin cho các sinh viên tìm mua laptop yêu cầu chuyển khoản cọc 200k qua số điện thoại lạ.',
-    status: 'INVESTIGATING',
-    adminNote: 'Admin đang rà soát IP đăng nhập và tạm khóa quyền đăng bài của tài khoản này.',
-    createdAt: 'Hôm qua',
-  },
-];
+export const INITIAL_REPORTS: ReportItem[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -79,13 +55,14 @@ const dummyStorage = {
 export const useReportStore = create<ReportState>()(
   persist(
     (set, get) => ({
-      reports: INITIAL_REPORTS,
+      reports: [],
 
       submitReport: ({ targetType, targetId, targetTitle, reason, details, proofImageUrl }) => {
+        const user = useUserStore.getState().user;
         const newReport: ReportItem = {
           id: `rep-${Date.now()}`,
-          reporterId: 'user-default',
-          reporterName: 'Lê Minh Quân',
+          reporterId: user.id || 'user-anonymous',
+          reporterName: user.name || 'Sinh viên FPT',
           targetType,
           targetId,
           targetTitle,
@@ -132,11 +109,18 @@ export const useReportStore = create<ReportState>()(
         return get().reports.filter((r) => r.targetId === targetId);
       },
 
-      resetReports: () => set({ reports: INITIAL_REPORTS }),
+      resetReports: () => set({ reports: [] }),
     }),
     {
       name: 'fu_market_reports_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.reports = (state.reports || []).filter(
+            (r) => r.id !== 'rep-1' && r.id !== 'rep-2' && r.reporterName !== 'Lê Minh Quân'
+          );
+        }
+      },
     }
   )
 );
