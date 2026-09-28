@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
 import ProductCard from '../../../components/common/ProductCard';
 import HomeSearchBar from '../components/HomeSearchBar';
@@ -19,6 +20,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onProductPress,
   onPostPress,
 }) => {
+  const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const {
     selectedCampus,
@@ -33,12 +35,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     products,
   } = useHomeFeed();
 
+  const handleOpenAiAssistant = () => {
+    if (navigation && navigation.navigate) {
+      navigation.navigate('AiAssistant');
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <HomeHeader userName={user?.name || 'Quân'} campusName={campuses[selectedCampus] || 'HÒA LẠC'} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <HomeSearchBar value={searchText} onChangeText={setSearchText} />
+        <HomeSearchBar
+          value={searchText}
+          onChangeText={setSearchText}
+          onScanPress={handleOpenAiAssistant}
+        />
         <CampusSelector campuses={campuses} selectedIndex={selectedCampus} onSelect={setSelectedCampus} />
         <CategoryGrid
           categories={categories}

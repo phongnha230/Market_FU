@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../features/home/screens/HomeScreen';
-import ExploreScreen from '../screens/ExploreScreen';
 import PostItemScreen from '../screens/PostItemScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ManageListingsScreen from '../screens/ManageListingsScreen';
 import { MainTabsParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -15,7 +15,9 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   return (
     <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
+        // Skip hidden routes if any
+        if (route.name === 'Explore') return null;
+
         const isFocused = state.index === index;
 
         const onPress = () => {
@@ -48,21 +50,21 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
           );
         }
 
-        let iconName: any = 'home-outline';
-        let label = 'Trang chủ';
+        let iconName: any = 'storefront-outline';
+        let label = 'Chợ Campus';
 
         if (route.name === 'Home') {
-          iconName = isFocused ? 'home' : 'home-outline';
-          label = 'Trang chủ';
-        } else if (route.name === 'Explore') {
-          iconName = isFocused ? 'compass' : 'compass-outline';
-          label = 'Khám phá';
+          iconName = isFocused ? 'storefront' : 'storefront-outline';
+          label = 'Chợ Campus';
         } else if (route.name === 'Chat') {
           iconName = isFocused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
           label = 'Tin nhắn';
+        } else if (route.name === 'MyListings') {
+          iconName = isFocused ? 'file-tray-full' : 'file-tray-full-outline';
+          label = 'Tin của tôi';
         } else if (route.name === 'Profile') {
           iconName = isFocused ? 'person' : 'person-outline';
-          label = 'Hồ sơ';
+          label = 'Tài khoản';
         }
 
         return (
@@ -73,7 +75,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
             onPress={onPress}
           >
             <View style={styles.iconContainer}>
-              <Ionicons name={iconName} size={22} color={isFocused ? '#F27024' : '#64748B'} />
+              <Ionicons name={iconName} size={22} color={isFocused ? '#EA580C' : '#64748B'} />
               {route.name === 'Chat' && (
                 <View style={styles.chatBadge}>
                   <Text style={styles.chatBadgeText}>2</Text>
@@ -97,9 +99,9 @@ export const BottomTabNavigator = () => {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen name="PostItem" component={PostItemScreen} />
       <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="PostItem" component={PostItemScreen} />
+      <Tab.Screen name="MyListings" component={ManageListingsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

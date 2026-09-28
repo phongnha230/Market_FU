@@ -2,6 +2,7 @@ import React from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import ProfileHeaderCard from '../components/ProfileHeaderCard';
 import CampusWalletCard from '../components/CampusWalletCard';
 import OrdersOverviewSection from '../components/OrdersOverviewSection';
@@ -14,6 +15,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onNavigateToVoucher,
 }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { user, currentCampus, settingItems, orderStats, handleLogout } = useProfile();
 
   const handleSettingPress = (id: string) => {
@@ -21,6 +23,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       onNavigateToDispute();
     } else if (id === 's2' && onNavigateToVoucher) {
       onNavigateToVoucher();
+    } else if (id === 's3' && navigation && navigation.navigate) {
+      navigation.navigate('SavedItems');
     } else {
       Alert.alert('Chức năng', 'Đang cập nhật thêm tính năng');
     }
