@@ -2,11 +2,34 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import OnboardingFeatureItem from '../components/OnboardingFeatureItem';
 import { Onboarding1ScreenProps } from '../types/onboarding.types';
 
-export const Onboarding1Screen: React.FC<Onboarding1ScreenProps> = ({ onNext, onSkip }) => {
+export const Onboarding1Screen: React.FC<Onboarding1ScreenProps & { navigation?: any }> = ({
+  onNext,
+  onSkip,
+  navigation: propNav,
+}) => {
   const insets = useSafeAreaInsets();
+  const hookNav = useNavigation<any>();
+  const navigation = propNav || hookNav;
+
+  const handleNext = () => {
+    if (onNext) {
+      onNext();
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('Onboarding2');
+    }
+  };
+
+  const handleSkip = () => {
+    if (onSkip) {
+      onSkip();
+    } else if (navigation && navigation.replace) {
+      navigation.replace('MainTabs');
+    }
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>
@@ -14,8 +37,9 @@ export const Onboarding1Screen: React.FC<Onboarding1ScreenProps> = ({ onNext, on
         <View style={styles.dotsRow}>
           <View style={[styles.dot, styles.dotActive]} />
           <View style={styles.dot} />
+          <View style={styles.dot} />
         </View>
-        <TouchableOpacity onPress={onSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.skipText}>Bỏ qua</Text>
         </TouchableOpacity>
       </View>
@@ -64,7 +88,7 @@ export const Onboarding1Screen: React.FC<Onboarding1ScreenProps> = ({ onNext, on
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.nextBtn} activeOpacity={0.88} onPress={onNext}>
+        <TouchableOpacity style={styles.nextBtn} activeOpacity={0.88} onPress={handleNext}>
           <Text style={styles.nextBtnText}>Tiếp tục khám phá ›</Text>
         </TouchableOpacity>
       </View>

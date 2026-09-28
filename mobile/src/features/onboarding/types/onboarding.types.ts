@@ -19,3 +19,10 @@ export interface Onboarding2ScreenProps {
   onBack: () => void;
   onSkip: () => void;
 }
+
+export interface Onboarding3ScreenProps {
+  onFinish?: () => void;
+  onBack?: () => void;
+  onSkip?: () => void;
+  navigation?: any;
+}

@@ -2,16 +2,20 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import CampusSelectionGrid from '../components/CampusSelectionGrid';
 import { Onboarding2ScreenProps } from '../types/onboarding.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
 
-export const Onboarding2Screen: React.FC<Onboarding2ScreenProps> = ({
+export const Onboarding2Screen: React.FC<Onboarding2ScreenProps & { navigation?: any }> = ({
   onNext,
   onBack,
   onSkip,
+  navigation: propNav,
 }) => {
   const insets = useSafeAreaInsets();
+  const hookNav = useNavigation<any>();
+  const navigation = propNav || hookNav;
   const [selectedCampusId, setSelectedCampusId] = useState('hn');
   const { setCampus } = useCampusStore();
 
@@ -20,20 +24,42 @@ export const Onboarding2Screen: React.FC<Onboarding2ScreenProps> = ({
     else if (selectedCampusId === 'hcm') setCampus('TP.HCM');
     else if (selectedCampusId === 'dn') setCampus('ĐÀ NẴNG');
     else if (selectedCampusId === 'ct') setCampus('CẦN THƠ');
-    onNext();
+
+    if (onNext) {
+      onNext();
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('Onboarding3');
+    }
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation && navigation.goBack) {
+      navigation.goBack();
+    }
+  };
+
+  const handleSkip = () => {
+    if (onSkip) {
+      onSkip();
+    } else if (navigation && navigation.replace) {
+      navigation.replace('MainTabs');
+    }
   };
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.dotsRow}>
           <View style={styles.dot} />
           <View style={[styles.dot, styles.dotActive]} />
+          <View style={styles.dot} />
         </View>
-        <TouchableOpacity onPress={onSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.skipText}>Bỏ qua</Text>
         </TouchableOpacity>
       </View>
@@ -65,7 +91,7 @@ export const Onboarding2Screen: React.FC<Onboarding2ScreenProps> = ({
 
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.finishBtn} activeOpacity={0.88} onPress={handleFinish}>
-          <Text style={styles.finishBtnText}>Bắt đầu trải nghiệm ngay ›</Text>
+          <Text style={styles.finishBtnText}>Tiếp tục: Quy chế Escrow an toàn  →</Text>
         </TouchableOpacity>
       </View>
     </View>
