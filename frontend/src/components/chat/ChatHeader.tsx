@@ -60,7 +60,7 @@ export default function ChatHeader({
           type="button"
           onClick={() =>
             onShowToast(
-              'ℹ️ Thông tin người bán: Sinh viên K18, 28 giao dịch thành công, tỷ lệ phản hồi 98%.'
+              'ℹ️ Thông tin người bán: Sinh viên K18, 0 giao dịch thành công, tỷ lệ phản hồi 0%.'
             )
           }
           className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"

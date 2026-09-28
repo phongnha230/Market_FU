@@ -9,11 +9,12 @@ import {
   CheckCheck,
   SlidersHorizontal,
   ShieldCheck,
+  MessageSquare,
 } from 'lucide-react';
 
 interface ChatSidebarProps {
   conversations: Conversation[];
-  selectedConvId: string;
+  selectedConvId?: string | null;
   onSelectConv: (id: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -21,6 +22,7 @@ interface ChatSidebarProps {
   onFilterChange: (tab: 'all' | 'buy' | 'sell' | 'unread') => void;
   onMarkAllRead: () => void;
   onShowToast: (msg: string) => void;
+  isSeller?: boolean;
 }
 
 export default function ChatSidebar({
@@ -33,7 +35,15 @@ export default function ChatSidebar({
   onFilterChange,
   onMarkAllRead,
   onShowToast,
+  isSeller = false,
 }: ChatSidebarProps) {
+  // Tính toán số lượng thực tế từ danh sách hội thoại
+  const totalUnread = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+  const buyConversations = conversations.filter((c) => c.role === 'seller'); // Mình đang hỏi mua từ người bán
+  const sellConversations = conversations.filter((c) => c.role === 'buyer'); // Người khác mua hàng của mình và nhắn cho mình
+  const unreadConversations = conversations.filter((c) => (c.unreadCount || 0) > 0);
+
+  // Lọc danh sách hội thoại
   const filteredConversations = conversations.filter((c) => {
     const matchSearch =
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,6 +58,36 @@ export default function ChatSidebar({
     return true;
   });
 
+  // Dynamic Tabs theo đúng quyền và dữ liệu thực tế:
+  // 1. Tab Tất cả luôn có
+  // 2. Tab Hỏi mua (Đang mua): Chỉ hiển thị khi có cuộc trò chuyện hỏi mua (buyConversations.length > 0)
+  // 3. Tab Khách mua (Bán hàng): CHỈ ĐƯỢC PHÉP HIỂN THỊ KHI:
+  //    - Người dùng đã là Seller (isSeller === true)
+  //    - VÀ có người khác mua hàng và nhắn tôi (sellConversations.length > 0)
+  // 4. Tab Chưa đọc: Chỉ hiển thị khi có tin nhắn chưa đọc
+  const tabs: { id: 'all' | 'buy' | 'sell' | 'unread'; label: string }[] = [
+    { id: 'all', label: 'Tất cả' },
+  ];
+
+  if (buyConversations.length > 0) {
+    tabs.push({ id: 'buy', label: `Hỏi mua (${buyConversations.length})` });
+  }
+
+  if (isSeller && sellConversations.length > 0) {
+    tabs.push({ id: 'sell', label: `Khách mua (${sellConversations.length})` });
+  }
+
+  if (unreadConversations.length > 0) {
+    tabs.push({ id: 'unread', label: `Chưa đọc (${unreadConversations.length})` });
+  }
+
+  // Tự động chuyển về tab 'all' nếu tab hiện tại không khả dụng trong tabs
+  React.useEffect(() => {
+    if (!tabs.some((t) => t.id === filterTab)) {
+      onFilterChange('all');
+    }
+  }, [tabs, filterTab, onFilterChange]);
+
   return (
     <div className="lg:col-span-4 border-r border-slate-200 flex flex-col h-full min-h-0 bg-white">
       {/* Header */}
@@ -55,9 +95,11 @@ export default function ChatSidebar({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-black text-slate-900">Tin nhắn</h2>
-            <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[11px] font-extrabold text-white">
-              2 mới
-            </span>
+            {totalUnread > 0 && (
+              <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[11px] font-extrabold text-white">
+                {totalUnread} mới
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 text-slate-400">
@@ -94,40 +136,45 @@ export default function ChatSidebar({
           />
         </div>
 
-        {/* 4 Filter Tabs */}
-        <div className="mt-3 flex items-center gap-1 overflow-x-auto scrollbar-none text-xs font-semibold">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'buy', label: 'Mua hàng (2)' },
-            { id: 'sell', label: 'Bán hàng (1)' },
-            { id: 'unread', label: 'Chưa đọc' },
-          ].map((tab) => {
-            const isActive = filterTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onFilterChange(tab.id as any)}
-                className={`rounded-lg px-2.5 py-1 transition cursor-pointer shrink-0 text-[11px] ${
-                  isActive
-                    ? 'bg-slate-900 text-white font-bold'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Dynamic Filter Tabs */}
+        {tabs.length > 1 && (
+          <div className="mt-3 flex items-center gap-1 overflow-x-auto scrollbar-none text-xs font-semibold">
+            {tabs.map((tab) => {
+              const isActive = filterTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => onFilterChange(tab.id)}
+                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer shrink-0 text-[11px] ${
+                    isActive
+                      ? 'bg-slate-900 text-white font-bold'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Conversations List */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {filteredConversations.map((conv) => {
-          const isSelected = conv.id === selectedConvId;
-          return (
-            <div
-              key={conv.id}
+        {filteredConversations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center h-full text-slate-400">
+            <MessageSquare className="h-8 w-8 text-slate-300 mb-2 stroke-[1.5]" />
+            <p className="text-xs font-medium text-slate-500">
+              {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào' : 'Chưa có tin nhắn'}
+            </p>
+          </div>
+        ) : (
+          filteredConversations.map((conv) => {
+            const isSelected = conv.id === selectedConvId;
+            return (
+              <div
+                key={conv.id}
               onClick={() => onSelectConv(conv.id)}
               className={`relative flex items-start gap-3 p-3.5 border-b border-slate-100 transition cursor-pointer hover:bg-slate-50 ${
                 isSelected ? 'bg-orange-50/60' : 'bg-white'
@@ -201,7 +248,8 @@ export default function ChatSidebar({
               )}
             </div>
           );
-        })}
+        })
+      )}
       </div>
 
       {/* Left Column Footer */}

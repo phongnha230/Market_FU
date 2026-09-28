@@ -1,7 +1,31 @@
 import { io, Socket } from 'socket.io-client';
 import { useUserStore } from '@/stores/userStore';
+import { useAuthAlertStore } from '@/stores/authAlertStore';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001';
+
+/**
+ * Kiểm tra nhanh xem Access Token JWT có bị quá hạn (exp) không
+ */
+function isJwtExpired(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const parsed = JSON.parse(jsonPayload);
+    if (!parsed.exp) return false;
+    return Date.now() >= parsed.exp * 1000;
+  } catch {
+    return false;
+  }
+}
 
 class SocketClient {
   private socket: Socket | null = null;
@@ -21,14 +45,34 @@ class SocketClient {
       return null;
     }
 
+    // Nếu token đã hết hạn theo exp JWT thì không kết nối socket và thông báo
+    if (isJwtExpired(token)) {
+      this.disconnect();
+      useUserStore.getState().logout();
+      useAuthAlertStore
+        .getState()
+        .triggerSessionExpired(
+          'Phiên làm việc của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng hệ thống.'
+        );
+      return null;
+    }
+
+    // Nếu socket đang tồn tại nhưng token thay đổi (ví dụ đăng nhập nick khác)
+    if (this.socket) {
+      const currentAuthToken = (this.socket.auth as any)?.token;
+      if (currentAuthToken !== token) {
+        this.disconnect();
+      }
+    }
+
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1500,
       });
 
       this.socket.on('connect', () => {
@@ -39,7 +83,27 @@ class SocketClient {
       });
 
       this.socket.on('connect_error', (err) => {
-        console.warn('⚠️ [Socket.io Client] Connection error:', err.message);
+        const errMsg = err.message || '';
+        console.warn('⚠️ [Socket.io Client] Connection error:', errMsg);
+
+        // Phát hiện lỗi token không hợp lệ hoặc đã hết hạn từ server
+        if (
+          errMsg.includes('AUTHENTICATION_ERROR') ||
+          errMsg.includes('Token không hợp lệ') ||
+          errMsg.includes('hết hạn') ||
+          errMsg.includes('jwt expired')
+        ) {
+          // 1. Dừng ngay socket để tránh spam loop reconnect gây tràn log
+          this.disconnect();
+          // 2. Thu hồi token hỏng / hết hạn
+          useUserStore.getState().logout();
+          // 3. Hiển thị Alert cảnh báo phiên hết hạn ra màn hình
+          useAuthAlertStore
+            .getState()
+            .triggerSessionExpired(
+              'Phiên làm việc của bạn đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại để tiếp tục sử dụng các tính năng an toàn.'
+            );
+        }
       });
 
       this.socket.on('disconnect', (reason) => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useUserStore } from './userStore';
 
 export type AiSenderRole = 'USER' | 'MODEL' | 'SYSTEM';
 
@@ -41,7 +42,7 @@ interface AiChatState {
 
 const INITIAL_SESSION: AiChatSessionItem = {
   id: 'ai-session-default',
-  userId: 'user-default',
+  userId: 'user-student',
   title: 'Hỏi đáp Cóc AI về Chợ FPT',
   totalTokens: 120,
   isActive: true,
@@ -72,9 +73,10 @@ export const useAiChatStore = create<AiChatState>()(
       activeSessionId: 'ai-session-default',
 
       createNewSession: (title = 'Tìm đồ phòng trọ mới') => {
+        const currentUserId = useUserStore.getState().user.id || 'user-student';
         const newSession: AiChatSessionItem = {
           id: `ai-ses-${Date.now()}`,
-          userId: 'user-default',
+          userId: currentUserId,
           title,
           totalTokens: 0,
           isActive: true,

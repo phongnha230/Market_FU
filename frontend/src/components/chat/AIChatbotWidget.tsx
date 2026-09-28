@@ -10,6 +10,8 @@ import {
   Sparkles,
   RotateCcw,
   ChevronRight,
+  Lock,
+  LogIn,
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import { aiService } from '@/services/aiService';
@@ -47,16 +49,106 @@ const SUGGESTION_CHIPS = [
 
 export default function AIChatbotWidget() {
   const pathname = usePathname();
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const user = useUserStore((s) => s.user);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasNewBadge, setHasNewBadge] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const userKey = isLoggedIn && user?.id ? user.id : 'guest';
+  const storageMessagesKey = `fu_market_aichat_messages_${userKey}`;
+  const storageSessionKey = `fu_market_aichat_session_${userKey}`;
+
+  // Helper lưu trữ tin nhắn và session id vào localStorage
+  const saveMessagesToStorage = (msgs: ChatMessage[], sId?: string | null) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(storageMessagesKey, JSON.stringify(msgs));
+        if (sId !== undefined) {
+          if (sId) {
+            localStorage.setItem(storageSessionKey, sId);
+          } else {
+            localStorage.removeItem(storageSessionKey);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to save AI chat messages to localStorage', e);
+    }
+  };
+
+  // Khôi phục tin nhắn khi mở trang hoặc khi đổi user
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedMsgsStr = localStorage.getItem(storageMessagesKey);
+      const savedSessionId = localStorage.getItem(storageSessionKey);
+
+      if (savedSessionId) {
+        setSessionId(savedSessionId);
+      }
+
+      if (savedMsgsStr) {
+        const parsed = JSON.parse(savedMsgsStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+          return;
+        }
+      }
+
+      // Nếu chưa có tin nhắn trong localStorage và user đã đăng nhập, thử load session mới nhất từ backend
+      if (isLoggedIn) {
+        aiService
+          .getUserSessions({ page: 1, limit: 1 })
+          .then(async (res: any) => {
+            const sessionsList = res?.sessions || res?.data || (Array.isArray(res) ? res : []);
+            const latestSession = sessionsList[0];
+            if (latestSession?.id) {
+              const detail = await aiService.getSessionDetail(latestSession.id);
+              if (detail?.messages && detail.messages.length > 0) {
+                const formatted: ChatMessage[] = detail.messages.map((m: any) => ({
+                  id: m.id,
+                  sender: m.senderRole === 'USER' ? 'user' : 'bot',
+                  text: m.content,
+                  timestamp: new Date(m.createdAt).toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                  suggestedProducts: [],
+                }));
+                const fullMsgs = [INITIAL_MESSAGES[0], ...formatted];
+                setMessages(fullMsgs);
+                setSessionId(latestSession.id);
+                saveMessagesToStorage(fullMsgs, latestSession.id);
+              }
+            }
+          })
+          .catch(() => {
+            // Không sao nếu backend chưa có session
+          });
+      }
+    } catch {
+      // LocalStorage parse error -> fallback
+    }
+  }, [userKey, isLoggedIn, storageMessagesKey, storageSessionKey]);
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const doScroll = () => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+    doScroll();
+    setTimeout(doScroll, 60);
   };
 
   useEffect(() => {
@@ -82,6 +174,8 @@ export default function AIChatbotWidget() {
 
   const handleReset = () => {
     setMessages(INITIAL_MESSAGES);
+    setSessionId(null);
+    saveMessagesToStorage(INITIAL_MESSAGES, null);
   };
 
   // Logic trí tuệ nhân tạo phản hồi tự động theo ngữ cảnh sinh viên FPT
@@ -190,33 +284,67 @@ export default function AIChatbotWidget() {
     const query = (textToSend || inputMessage).trim();
     if (!query || isTyping) return;
 
+    const timeString = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+    if (!isLoggedIn) {
+      const userMsg: ChatMessage = {
+        id: 'user-' + Date.now(),
+        sender: 'user',
+        text: query,
+        timestamp: timeString,
+      };
+      const lockMsg: ChatMessage = {
+        id: 'bot-' + Date.now(),
+        sender: 'bot',
+        text: '🔒 **Bạn cần đăng nhập tài khoản sinh viên FPT** để trò chuyện và tra cứu đồ cũ cùng Cóc AI.\n\nViệc này giúp bảo vệ tài nguyên máy chủ và ngăn chặn bot spam.',
+        timestamp: timeString,
+        quickLinks: [
+          { label: '👉 Đăng nhập ngay', url: `/login?redirect=${encodeURIComponent(pathname || '/')}` },
+          { label: '📝 Đăng ký tài khoản', url: `/login?mode=register&redirect=${encodeURIComponent(pathname || '/')}` },
+        ],
+      };
+      const nextMsgs = [...messages, userMsg, lockMsg];
+      setMessages(nextMsgs);
+      saveMessagesToStorage(nextMsgs, sessionId);
+      setInputMessage('');
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: 'user-' + Date.now(),
       sender: 'user',
       text: query,
-      timestamp: 'Vừa xong'
+      timestamp: timeString,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const nextMsgs = [...messages, userMsg];
+    setMessages(nextMsgs);
+    saveMessagesToStorage(nextMsgs, sessionId);
     setInputMessage('');
     setIsTyping(true);
 
     try {
       const userCampus = useUserStore.getState().user.campus || 'Hòa Lạc';
-      const aiRes = await aiService.assistantChat(query, userCampus);
+      const aiRes = await aiService.assistantChat(query, userCampus, sessionId || undefined);
       if (aiRes && aiRes.reply) {
+        const nextSessionId = aiRes.sessionId || sessionId;
+        if (nextSessionId) {
+          setSessionId(nextSessionId);
+        }
         const botMsg: ChatMessage = {
           id: 'bot-' + Date.now(),
           sender: 'bot',
           text: aiRes.reply,
-          timestamp: 'Vừa xong',
+          timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
           quickLinks: [
             { label: '🔍 Khám phá chợ đồ cũ', url: '/posts' },
             { label: '🛡️ Điểm hẹn an toàn campus', url: '/safety' },
           ],
           suggestedProducts: aiRes.suggestedProducts,
         };
-        setMessages((prev) => [...prev, botMsg]);
+        const updatedMsgs = [...nextMsgs, botMsg];
+        setMessages(updatedMsgs);
+        saveMessagesToStorage(updatedMsgs, nextSessionId);
         setIsTyping(false);
         return;
       }
@@ -230,10 +358,12 @@ export default function AIChatbotWidget() {
         id: 'bot-' + Date.now(),
         sender: 'bot',
         text: reply,
-        timestamp: 'Vừa xong',
-        quickLinks: links
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        quickLinks: links,
       };
-      setMessages((prev) => [...prev, botMsg]);
+      const updatedMsgs = [...nextMsgs, botMsg];
+      setMessages(updatedMsgs);
+      saveMessagesToStorage(updatedMsgs, sessionId);
       setIsTyping(false);
     }, 400);
   };
@@ -320,21 +450,23 @@ export default function AIChatbotWidget() {
           </div>
 
           {/* Quick chips (Gợi ý câu hỏi nhanh) */}
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 overflow-x-auto flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-orange-500 shrink-0 ml-1" />
-            {SUGGESTION_CHIPS.map((chip, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendMessage(chip)}
-                className="shrink-0 text-[11px] font-medium px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-full hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50/50 transition-all duration-150 shadow-xs"
-              >
-                {chip}
-              </button>
-            ))}
+          <div className="relative h-[42px] overflow-hidden border-b border-slate-100 bg-slate-50 px-3 py-1.5">
+            <div className="overflow-x-auto pb-6 -mb-6 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-orange-500 shrink-0 ml-1" />
+              {SUGGESTION_CHIPS.map((chip, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendMessage(chip)}
+                  className="shrink-0 text-[11px] font-medium px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-full hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50/50 transition-all duration-150 shadow-xs"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Lịch sử tin nhắn */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-gradient-to-b from-slate-50/50 to-white text-xs">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3.5 bg-gradient-to-b from-slate-50/50 to-white text-xs break-words">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -441,31 +573,60 @@ export default function AIChatbotWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Ô nhập tin nhắn (Input Bar) */}
-          <div className="p-3 bg-white border-t border-slate-200">
-            <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:bg-white focus-within:border-orange-400 border border-transparent transition-all">
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Hỏi Cóc AI về mua bán, campus..."
-                className="flex-1 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-              />
-              <button
-                onClick={() => handleSendMessage()}
-                disabled={!inputMessage.trim() || isTyping}
-                className="p-1.5 rounded-xl bg-orange-500 text-white disabled:opacity-40 disabled:hover:bg-orange-500 hover:bg-orange-600 active:scale-95 transition-all shadow-xs"
-                title="Gửi tin nhắn"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+          {/* Ô nhập tin nhắn (Input Bar) hoặc Thẻ yêu cầu Đăng nhập */}
+          {!isLoggedIn ? (
+            <div className="p-3.5 bg-gradient-to-r from-orange-50/90 via-amber-50/90 to-orange-50/90 border-t border-orange-200/80 text-center space-y-2">
+              <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-orange-900">
+                <Lock className="w-3.5 h-3.5 text-fpt-orange shrink-0" />
+                <span>Yêu cầu đăng nhập để nhắn với Cóc AI</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-tight">
+                Vui lòng đăng nhập tài khoản sinh viên FPT để hỏi đáp và tìm đồ cũ, tránh spam server.
+              </p>
+              <div className="flex gap-2 justify-center pt-0.5">
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}
+                  onClick={handleClose}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-fpt-orange-hover active:scale-95 transition cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Đăng nhập ngay</span>
+                </Link>
+                <Link
+                  href={`/login?mode=register&redirect=${encodeURIComponent(pathname || '/')}`}
+                  onClick={handleClose}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition cursor-pointer"
+                >
+                  <span>Đăng ký</span>
+                </Link>
+              </div>
             </div>
-            <p className="text-[10px] text-center text-slate-400 mt-2 font-light">
-              Cóc AI hỗ trợ 24/7 • Chúc Cóc-er mua bán an toàn!
-            </p>
-          </div>
+          ) : (
+            <div className="p-3 bg-white border-t border-slate-200">
+              <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:bg-white focus-within:border-orange-400 border border-transparent transition-all">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Hỏi Cóc AI về mua bán, campus..."
+                  className="flex-1 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
+                />
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={!inputMessage.trim() || isTyping}
+                  className="p-1.5 rounded-xl bg-orange-500 text-white disabled:opacity-40 disabled:hover:bg-orange-500 hover:bg-orange-600 active:scale-95 transition-all shadow-xs cursor-pointer"
+                  title="Gửi tin nhắn"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[10px] text-center text-slate-400 mt-2 font-light">
+                Cóc AI hỗ trợ 24/7 • Chúc Cóc-er mua bán an toàn!
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

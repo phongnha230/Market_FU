@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import ChatHeader from '@/components/chat/ChatHeader';
@@ -12,7 +13,7 @@ import ChatInputBar from '@/components/chat/ChatInputBar';
 import { useMarket } from '@/context/MarketContext';
 import { useUserStore } from '@/stores/userStore';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, MessageSquare } from 'lucide-react';
 import { Conversation, ChatMessage, INITIAL_CONVERSATIONS } from '@/types/chat';
 import { useChatStore } from '@/stores/chatStore';
 import { socketClient } from '@/services/socketClient';
@@ -23,12 +24,17 @@ function ChatContent() {
   const { showToast } = useMarket();
 
   const currentUser = useUserStore((state) => state.user);
-  const isKycVerified = currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
+  const isEduEmail = Boolean(
+    currentUser.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    currentUser.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isKycVerified = isEduEmail || currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
+  const isSeller = currentUser.kycStatus === 'approved_seller' || currentUser.kycRole === 'seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
   const chatStore = useChatStore();
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'unread'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
@@ -54,14 +60,23 @@ function ChatContent() {
 
   // Đồng bộ hóa danh sách hội thoại từ chatStore (MongoDB & Socket)
   useEffect(() => {
-    if (chatStore.conversations && chatStore.conversations.length > 0) {
+    if (chatStore.conversations) {
+      if (chatStore.conversations.length === 0) {
+        setConversations([]);
+        setSelectedConvId(null);
+        return;
+      }
+
       const mapped: Conversation[] = chatStore.conversations.map((c) => {
         const storeMsgs = chatStore.messagesByConversation[c.id] || [];
+        const isMeSeller = c.sellerId === (currentUser.id || currentUser.studentId);
+        const otherRole: 'buyer' | 'seller' = isMeSeller ? 'buyer' : 'seller';
+        const otherRoleLabel = isMeSeller ? 'Khách mua' : 'Người bán';
         return {
           id: c.id,
           name: c.otherUser?.name || 'Sinh viên FPT',
-          role: 'seller',
-          roleLabel: 'Người bán',
+          role: otherRole,
+          roleLabel: otherRoleLabel,
           cohortCampus: `${c.otherUser?.cohort || 'K18'} • ${c.otherUser?.campus || 'Hòa Lạc'}`,
           avatar: c.otherUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
           isOnline: c.otherUser?.isOnline ?? true,
@@ -90,10 +105,10 @@ function ChatContent() {
         };
       });
 
-      setConversations((prev) => {
-        const nonColliding = prev.filter((p) => !mapped.some((m) => m.id === p.id));
-        return [...mapped, ...nonColliding];
-      });
+      setConversations(mapped);
+      if (mapped.length > 0 && (!selectedConvId || !mapped.some((m) => m.id === selectedConvId))) {
+        setSelectedConvId(mapped[0].id);
+      }
     }
   }, [chatStore.conversations, chatStore.messagesByConversation, currentUser.id, currentUser.studentId]);
 
@@ -208,31 +223,19 @@ function ChatContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800">
-      <Navbar />
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 py-4 sm:py-6">
+      <div className="mx-auto w-full max-w-7xl px-3 sm:px-4 space-y-3 flex-1 flex flex-col">
+        {/* Compact in-container Header like Image 2 */}
+        <CompactHeader
+          breadcrumbs={[
+            { label: 'Tin nhắn & Trao đổi P2P' },
+            { label: 'Campus Hòa Lạc (HL)' },
+          ]}
+          activeTab="chat"
+        />
 
-      {/* TOP SUBHEADER TICKER */}
-      <div className="border-b border-slate-200 bg-white px-4 py-2 text-xs">
-        <div className="mx-auto flex max-w-7xl items-center justify-between text-slate-600">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-1 text-[11px]">
-              TRUNG TÂM TRAO ĐỔI & HANDOFF
-            </span>
-            <span className="text-slate-400">&gt;</span>
-            <span className="text-fpt-orange font-bold">Campus Hòa Lạc (HL)</span>
-          </div>
-
-          <div className="flex items-center gap-2 font-medium text-[11px]">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>
-              Mạng nội bộ P2P Sinh viên • <strong>1.280</strong> thành viên online
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN CHAT CONTAINER */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-4 py-4 sm:py-6">
+        {/* MAIN CHAT CONTAINER */}
+        <main className="flex-1 w-full flex flex-col">
         {/* Unverified KYC Warning Banner */}
         {!isKycVerified && (
           <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-amber-900 shadow-xs">
@@ -279,55 +282,77 @@ function ChatContent() {
               showToast('Đã đánh dấu tất cả cuộc trò chuyện là đã đọc.', 'success');
             }}
             onShowToast={(msg) => showToast(msg, 'info')}
+            isSeller={isSeller}
           />
 
           {/* RIGHT COLUMN: ACTIVE CHAT ROOM (8 COLS) */}
           <div className="lg:col-span-8 flex flex-col h-full min-h-0 bg-[#FAFAFC] overflow-hidden">
-            {/* Header User Bar */}
-            <ChatHeader
-              conversation={activeConv}
-              onShowToast={(msg) => showToast(msg, 'info')}
-            />
+            {activeConv ? (
+              <>
+                {/* Header User Bar */}
+                <ChatHeader
+                  conversation={activeConv}
+                  onShowToast={(msg) => showToast(msg, 'info')}
+                />
 
-            {/* Pinned Product Bar */}
-            <PinnedProductBar
-              product={activeConv.pinnedProduct}
-              partnerName={activeConv.name}
-              onOfferPrice={(offer) => {
-                const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
-                chatStore.sendOfferPrice(activeConv.id, numericPrice);
-                handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
-                showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
-              }}
-              onScheduleMeeting={() => {
-                const defaultLocation = 'Sảnh Alpha / Cổng KTX';
-                chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
-                handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
-                showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
-              }}
-            />
+                {/* Pinned Product Bar */}
+                <PinnedProductBar
+                  product={activeConv.pinnedProduct}
+                  partnerName={activeConv.name}
+                  onOfferPrice={(offer) => {
+                    const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
+                    chatStore.sendOfferPrice(activeConv.id, numericPrice);
+                    handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
+                    showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
+                  }}
+                  onScheduleMeeting={() => {
+                    const defaultLocation = 'Sảnh Alpha / Cổng KTX';
+                    chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
+                    handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
+                    showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
+                  }}
+                />
 
-            {/* Messages History */}
-            <MessageHistory
-              messages={activeConv.messages}
-              partnerName={activeConv.name}
-              partnerAvatar={activeConv.avatar}
-              isTyping={isTypingOther}
-              containerRef={chatMessagesContainerRef}
-            />
+                {/* Messages History */}
+                <MessageHistory
+                  messages={activeConv.messages}
+                  partnerName={activeConv.name}
+                  partnerAvatar={activeConv.avatar}
+                  isTyping={isTypingOther}
+                  containerRef={chatMessagesContainerRef}
+                />
 
-            {/* Chat Input Bar with Quick Chips */}
-            <ChatInputBar
-              inputText={inputText}
-              onInputChange={setInputText}
-              onSendMessage={handleSendMessage}
-              quickChips={quickChips}
-              partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
-              onShowToast={(msg) => showToast(msg, 'info')}
-            />
+                {/* Chat Input Bar with Quick Chips */}
+                <ChatInputBar
+                  inputText={inputText}
+                  onInputChange={setInputText}
+                  onSendMessage={handleSendMessage}
+                  quickChips={quickChips}
+                  partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
+                  onShowToast={(msg) => showToast(msg, 'info')}
+                />
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
+                <div className="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center text-fpt-orange mb-4">
+                  <MessageSquare className="h-8 w-8" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">Chưa có cuộc trò chuyện nào</h3>
+                <p className="text-sm max-w-sm text-slate-500 mb-6">
+                  Tìm kiếm món đồ bạn thích trên sàn và bấm &quot;Nhắn tin&quot; với Người bán để thương lượng hoặc hẹn điểm gặp tại campus.
+                </p>
+                <Link
+                  href="/posts"
+                  className="rounded-xl bg-fpt-orange px-5 py-2.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-xs"
+                >
+                  Khám phá tin đăng
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </main>
+      </div>
 
       {/* Modal KYC Registration */}
       <KycRegistrationModal

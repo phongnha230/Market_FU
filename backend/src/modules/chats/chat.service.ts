@@ -42,6 +42,30 @@ export class ChatService {
       );
     }
 
+    // Kiểm tra định danh sinh viên FPT của người gửi tin
+    const sender = await prisma.user.findUnique({
+      where: { id: buyerId },
+      include: { profile: true },
+    });
+
+    const isEduEmail = Boolean(
+      sender?.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+      sender?.email?.toLowerCase().endsWith('@fe.edu.vn')
+    );
+    const isVerifiedSender =
+      isEduEmail ||
+      sender?.profile?.kyc?.status === 'APPROVED' ||
+      sender?.role === 'SELLER' ||
+      sender?.role === 'ADMIN';
+
+    if (!isVerifiedSender) {
+      throw new AppError(
+        'Bạn cần xác thực Thẻ Sinh Viên FPT trước khi nhắn tin cho người khác nhằm phòng chống lừa đảo và spam.',
+        403,
+        'STUDENT_KYC_REQUIRED'
+      );
+    }
+
     // Tìm kiếm xem đã từng có cuộc trò chuyện giữa buyer và seller cho sản phẩm này chưa
     let conversation = await prisma.conversation.findFirst({
       where: {
@@ -335,6 +359,30 @@ export class ChatService {
 
     if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
       throw new AppError('Bạn không thuộc cuộc trò chuyện này', 403, 'FORBIDDEN');
+    }
+
+    // Kiểm tra định danh sinh viên FPT của người gửi tin nhắn
+    const sender = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+
+    const isEduEmail = Boolean(
+      sender?.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+      sender?.email?.toLowerCase().endsWith('@fe.edu.vn')
+    );
+    const isVerifiedSender =
+      isEduEmail ||
+      sender?.profile?.kyc?.status === 'APPROVED' ||
+      sender?.role === 'SELLER' ||
+      sender?.role === 'ADMIN';
+
+    if (!isVerifiedSender) {
+      throw new AppError(
+        'Bạn cần xác thực Thẻ Sinh Viên FPT để gửi tin nhắn trên sàn Market FU.',
+        403,
+        'STUDENT_KYC_REQUIRED'
+      );
     }
 
     let mediaUrl = input.mediaUrl || null;
