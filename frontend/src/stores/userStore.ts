@@ -24,6 +24,7 @@ export interface UserProfile {
   dailyCheckedIn: boolean;
   lastCheckInDate?: string; // "2024-01-15" — ngày check-in, dùng để reset hàng ngày
   kycStatus: 'unverified' | 'pending' | 'approved_student' | 'approved_seller' | 'rejected';
+  role?: 'UNVERIFIED' | 'BUYER' | 'SELLER' | 'ADMIN';
   kycRole?: 'student' | 'seller';
   kycApplicationId?: string;
   kycRejectionReason?: string;
@@ -80,6 +81,7 @@ export const EMPTY_USER: UserProfile = {
   savedVoucherIds: [],
   claimedQuestIds: [],
   dailyCheckedIn: false,
+  role: 'UNVERIFIED',
   kycStatus: 'unverified',
   kycRole: 'student',
   vouchers: [],
@@ -176,7 +178,7 @@ export const useUserStore = create<UserState>()(
                 campus: newUser.campus || existing.campus || 'Hòa Lạc',
                 email: newUser.email || existing.email || '',
                 avatarUrl: newUser.avatarUrl || existing.avatarUrl || '',
-                coins: existing.coins !== undefined ? existing.coins : newUser.coins,
+                coins: newUser.coins !== undefined ? newUser.coins : (existing.coins !== undefined ? existing.coins : 0),
                 savedVoucherIds: existing.savedVoucherIds || newUser.savedVoucherIds,
                 claimedQuestIds: resolvedClaimedQuestIds,
                 lastQuestWeekKey: existing?.lastQuestWeekKey === currentWeek ? existing.lastQuestWeekKey : currentWeek,
@@ -284,11 +286,15 @@ export const useUserStore = create<UserState>()(
         },
 
         addCoins: (amount) => {
+          const newBalance = Math.max(0, (get().user.coins || 0) + amount);
           const updated = {
             ...get().user,
-            coins: Math.max(0, get().user.coins + amount),
+            coins: newBalance,
           };
           syncUserToCache(updated);
+          import('@/stores/walletStore').then(({ useWalletStore }) => {
+            useWalletStore.setState({ campusCoins: newBalance });
+          }).catch(() => {});
         },
 
         saveVoucher: (id, voucherData) => {
@@ -367,6 +373,13 @@ export const useUserStore = create<UserState>()(
           useFavoriteStore.getState().setActiveUser(uKey);
           useVoucherStore.getState().setActiveUser(uKey);
           useOrderStore.getState().setActiveUser(uKey);
+
+          // Tự động đồng bộ số dư Xu và hồ sơ mới nhất từ Backend Database khi tải lại trang
+          if (typeof window !== 'undefined') {
+            import('@/services/profileService').then(({ profileService }) => {
+              profileService.getProfile().catch(() => {});
+            }).catch(() => {});
+          }
         }
       },
     }

@@ -8,6 +8,10 @@ export const updateProfileSchema = z.object({
     (val) => !val || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
     'Avatar URL không hợp lệ'
   ).optional(),
+  cohort: z.string().max(20).optional().nullable(),
+  major: z.string().max(100).optional().nullable(),
+  bio: z.string().max(500).optional().nullable(),
+  dorm: z.string().max(50).optional().nullable(),
 });
 
 export const updateBankAccountSchema = z.preprocess(
@@ -32,6 +36,12 @@ export const studentKycSchema = z.object({
   studentId: z.string().min(5, 'Mã số sinh viên (MSSV) không hợp lệ (VD: SE170000)'),
   cardImageUrl: z.string().optional(),
   cardBackUrl: z.string().optional(),
+  selfieCardUrl: z.string().optional(),
+  fullName: z.string().optional(),
+  campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).optional(),
+  cohort: z.string().optional(),
+  major: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 export const sellerOnboardingSchema = z.object({
@@ -45,10 +55,20 @@ export const sellerOnboardingSchema = z.object({
   bankName: z.string().min(2, 'Vui lòng chọn hoặc nhập tên ngân hàng'),
   accountNo: z.string().min(4, 'Vui lòng nhập số tài khoản ngân hàng'),
   accountName: z.string().min(2, 'Vui lòng nhập tên chủ tài khoản ngân hàng'),
+  // Thẻ SV (optional)
+  cardImageUrl: z.string().optional().nullable(),
+  cardBackUrl: z.string().optional().nullable(),
+  selfieCardUrl: z.string().optional().nullable(),
   // Xác thực CCCD
-  cccdNumber: z.string().length(12, 'Số CCCD phải đúng 12 chữ số').regex(/^\d{12}$/, 'Số CCCD chỉ gồm 12 chữ số'),
-  cccdFrontUrl: z.string().url('URL ảnh CCCD mặt trước không hợp lệ'),
-  cccdBackUrl: z.string().url('URL ảnh CCCD mặt sau không hợp lệ'),
+  cccdNumber: z.string().optional().nullable(),
+  cccdFrontUrl: z.string().refine(
+    (val) => !val || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
+    'URL ảnh CCCD mặt trước không hợp lệ'
+  ).optional().nullable(),
+  cccdBackUrl: z.string().refine(
+    (val) => !val || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
+    'URL ảnh CCCD mặt sau không hợp lệ'
+  ).optional().nullable(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

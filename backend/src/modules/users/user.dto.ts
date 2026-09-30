@@ -12,7 +12,7 @@ export {
 
 export const queryUserSchema = z.object({
   search: z.string().optional(),
-  role: z.enum(['BUYER', 'SELLER', 'ADMIN']).optional(),
+  role: z.enum(['UNVERIFIED', 'BUYER', 'SELLER', 'ADMIN']).optional(),
   campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(50).default(20),

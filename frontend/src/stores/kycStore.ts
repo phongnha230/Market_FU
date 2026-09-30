@@ -15,6 +15,7 @@ export interface KycApplication {
   major: string;
   cohort: string;
   phone: string;
+  avatarUrl?: string;
   frontCardUrl: string;
   backCardUrl: string;
   selfieCardUrl?: string;
@@ -55,10 +56,10 @@ const mapBackendKyc = (bk: BackendKycVerification): KycApplication => {
 
   // Quy chuẩn Đại học FPT: 2 chữ số ngay sau 2 chữ cái đầu là Khóa K (ví dụ: QE190161 -> "19" -> K19)
   const cohortDigits = studentId.slice(2, 4);
-  const deducedCohort = cohortDigits && !isNaN(Number(cohortDigits)) ? `K${cohortDigits}` : (ocr?.ocrCohort || 'K19');
+  const deducedCohort = bk.cohort || (cohortDigits && !isNaN(Number(cohortDigits)) ? `K${cohortDigits}` : (ocr?.ocrCohort || ''));
 
-  // Quy tắc Campus theo ký tự đầu tiên
-  const firstChar = studentId[0] || 'Q';
+  // Quy tắc Campus theo dữ liệu khai báo hoặc ký tự đầu tiên
+  const firstChar = studentId[0] || '';
   const campusPrefixMap: Record<string, string> = {
     Q: 'Quy Nhơn',
     H: 'Hòa Lạc',
@@ -66,27 +67,44 @@ const mapBackendKyc = (bk: BackendKycVerification): KycApplication => {
     D: 'Đà Nẵng',
     C: 'Cần Thơ',
   };
-  const deducedCampus = ocr?.ocrCampus || campusPrefixMap[firstChar] || bk.user?.profile?.campus || 'Quy Nhơn';
+  const campusCodeMap: Record<string, string> = {
+    HOL: 'Hòa Lạc',
+    HCM: 'TP. Hồ Chí Minh',
+    DAD: 'Đà Nẵng',
+    QN: 'Quy Nhơn',
+    CT: 'Cần Thơ',
+  };
+  const submittedCampus = bk.campus ? (campusCodeMap[bk.campus] || bk.campus) : undefined;
+  const deducedCampus = submittedCampus || ocr?.ocrCampus || campusPrefixMap[firstChar] || (bk.user?.profile?.campus ? (campusCodeMap[bk.user.profile.campus] || bk.user.profile.campus) : 'Chưa xác định');
 
   return {
     id: bk.id,
     type: (bk.type === 'SELLER' ? 'seller' : 'student') as KycType,
-    fullName: bk.user?.profile?.fullName || ocr?.ocrFullName || bk.user?.email || 'Sinh viên FPT',
+    fullName: bk.fullName || bk.user?.profile?.fullName || ocr?.ocrFullName || bk.user?.email || 'Sinh viên FPT',
     studentId,
     email: bk.user?.email || '',
-    campus: bk.user?.profile?.campus || deducedCampus,
-    major: 'Kỹ thuật phần mềm (SE)',
+    campus: deducedCampus,
+    major: bk.major || 'Kỹ thuật phần mềm (SE)',
     cohort: deducedCohort,
-    phone: bk.user?.profile?.phoneNumber || '0901234567',
-    frontCardUrl: bk.cardImageUrl,
-    backCardUrl: bk.cardImageUrl,
+    phone: bk.phoneNumber || bk.user?.profile?.phoneNumber || '',
+    avatarUrl: bk.user?.profile?.avatarUrl || undefined,
+    frontCardUrl: bk.type === 'SELLER' && (bk.user?.profile?.kyc as any)?.cccdFrontUrl ? (bk.user?.profile?.kyc as any)?.cccdFrontUrl : bk.cardImageUrl,
+    backCardUrl: bk.type === 'SELLER' && (bk.user?.profile?.kyc as any)?.cccdBackUrl ? (bk.user?.profile?.kyc as any)?.cccdBackUrl : (bk.cardBackUrl || bk.cardImageUrl),
+    selfieCardUrl: bk.selfieCardUrl || bk.user?.profile?.avatarUrl || undefined,
     status: (bk.status === 'APPROVED' ? 'approved' : bk.status === 'REJECTED' ? 'rejected' : 'pending') as KycStatus,
     rejectionReason: bk.rejectedReason || undefined,
     submittedAt: new Date(bk.createdAt).toLocaleString('vi-VN'),
     reviewedAt: bk.reviewedAt ? new Date(bk.reviewedAt).toLocaleString('vi-VN') : undefined,
     reviewedBy: bk.reviewedBy || undefined,
-    aiMatchScore: bk.aiMatchScore ?? ocr?.aiMatchScore ?? 98,
+    aiMatchScore: bk.aiMatchScore ?? ocr?.aiMatchScore ?? 0,
     ocrData: ocr,
+    storeName: (bk.user?.profile as any)?.storeName || (bk.user?.profile?.fullName ? `Góc Pass Đồ ${bk.user.profile.fullName}` : undefined),
+    bankName: bk.user?.profile?.bankAccount?.bankName,
+    bankAccount: bk.user?.profile?.bankAccount?.accountNo ? `${bk.user?.profile?.bankAccount?.bankName} - ${bk.user?.profile?.bankAccount?.accountNo} (${bk.user?.profile?.bankAccount?.accountName})` : undefined,
+    bankAccountName: bk.user?.profile?.bankAccount?.accountName,
+    citizenId: (bk.user?.profile?.kyc as any)?.cccdNumber || ocr?.ocrCccdNumber || (bk.type === 'SELLER' && bk.studentId && bk.studentId.length === 12 && /^\d+$/.test(bk.studentId) ? bk.studentId : undefined),
+    citizenFrontCardUrl: (bk.user?.profile?.kyc as any)?.cccdFrontUrl || (bk.type === 'SELLER' ? bk.cardImageUrl : undefined),
+    citizenBackCardUrl: (bk.user?.profile?.kyc as any)?.cccdBackUrl || (bk.type === 'SELLER' ? bk.cardBackUrl || bk.cardImageUrl : undefined),
   };
 };
 
@@ -104,12 +122,26 @@ export const useKycStore = create<KycStoreState>()(
       fetchApplications: async () => {
         try {
           set({ isLoading: true });
+          try {
+            const { useAdminStore } = await import('./adminStore');
+            await useAdminStore.getState().ensureAdminToken();
+          } catch {}
+
           const res = await reportService.getKycVerifications({ limit: 50 });
           if (res.verifications) {
-            set({ applications: res.verifications.map(mapBackendKyc) });
+            const backendApps = res.verifications.map(mapBackendKyc);
+            set((state) => {
+              const backendIds = new Set(backendApps.map((a) => a.id));
+              const backendEmails = new Set(backendApps.map((a) => a.email.toLowerCase()));
+              // Giữ lại các hồ sơ được gửi từ phía client / offline chưa kịp đẩy lên backend
+              const preservedLocal = state.applications.filter(
+                (local) => !backendIds.has(local.id) && !backendEmails.has(local.email.toLowerCase())
+              );
+              return { applications: [...backendApps, ...preservedLocal] };
+            });
           }
         } catch {
-          // offline fallback
+          // offline fallback: giữ nguyên applications hiện có
         } finally {
           set({ isLoading: false });
         }
@@ -121,12 +153,16 @@ export const useKycStore = create<KycStoreState>()(
           id: `kyc-${Date.now()}`,
           status: 'pending',
           submittedAt: 'Vừa xong',
-          aiMatchScore: Math.floor(Math.random() * 8) + 92, // 92-99%
+          aiMatchScore: 0, // Chưa quét AI → 0, chỉ có giá trị thực sau khi AI quét xong
         };
 
-        set((state) => ({
-          applications: [newApp, ...state.applications],
-        }));
+        set((state) => {
+          // Lọc bỏ hồ sơ cũ của cùng email nếu có để thay thế bằng hồ sơ mới nhất
+          const filtered = state.applications.filter(
+            (app) => app.email.toLowerCase() !== data.email.toLowerCase()
+          );
+          return { applications: [newApp, ...filtered] };
+        });
 
         return newApp;
       },
@@ -138,16 +174,37 @@ export const useKycStore = create<KycStoreState>()(
           // offline fallback
         }
 
+        const app = get().applications.find((a) => a.id === id);
+        if (app) {
+          try {
+            const { useUserStore } = await import('./userStore');
+            const currentUser = useUserStore.getState().user;
+            if (
+              currentUser.email?.toLowerCase() === app.email.toLowerCase() ||
+              currentUser.studentId?.toUpperCase() === app.studentId.toUpperCase()
+            ) {
+              useUserStore.getState().setKycStatus(
+                app.type === 'seller' ? 'approved_seller' : 'approved_student',
+                app.type,
+                app.id
+              );
+              useUserStore.getState().addCoins(200);
+              const { profileService } = await import('@/services/profileService');
+              await profileService.getProfile().catch(() => {});
+            }
+          } catch {}
+        }
+
         set((state) => ({
-          applications: state.applications.map((app) =>
-            app.id === id
+          applications: state.applications.map((a) =>
+            a.id === id
               ? {
-                  ...app,
+                  ...a,
                   status: 'approved',
                   reviewedAt: 'Vừa xong',
                   reviewedBy: reviewer,
                 }
-              : app
+              : a
           ),
         }));
         return true;
@@ -160,16 +217,30 @@ export const useKycStore = create<KycStoreState>()(
           // offline fallback
         }
 
+        const app = get().applications.find((a) => a.id === id);
+        if (app) {
+          try {
+            const { useUserStore } = await import('./userStore');
+            const currentUser = useUserStore.getState().user;
+            if (
+              currentUser.email?.toLowerCase() === app.email.toLowerCase() ||
+              currentUser.studentId?.toUpperCase() === app.studentId.toUpperCase()
+            ) {
+              useUserStore.getState().setKycStatus('rejected', app.type, app.id, reason);
+            }
+          } catch {}
+        }
+
         set((state) => ({
-          applications: state.applications.map((app) =>
-            app.id === id
+          applications: state.applications.map((a) =>
+            a.id === id
               ? {
-                  ...app,
+                  ...a,
                   status: 'rejected',
                   rejectionReason: reason,
                   reviewedAt: 'Vừa xong',
                 }
-              : app
+              : a
           ),
         }));
         return true;

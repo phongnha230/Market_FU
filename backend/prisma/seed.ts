@@ -147,6 +147,40 @@ async function main() {
       data: { passwordHash: commonPasswordHash },
     });
   }
+
+  // =========================================================================
+  // 1b. TÀI KHOẢN KHÁCH VÃNG LAI (UNVERIFIED) - CHƯA XÁC THỰC THẺ SINH VIÊN
+  // =========================================================================
+  const existingUnverified = await prisma.user.findUnique({
+    where: { email: 'guest@gmail.com' },
+  });
+  if (!existingUnverified) {
+    await prisma.user.create({
+      data: {
+        email: 'guest@gmail.com',
+        passwordHash: commonPasswordHash,
+        role: UserRole.UNVERIFIED,
+        isActive: true,
+        profile: {
+          create: {
+            fullName: 'Khách Vãng Lai (Chưa Xác Thực)',
+            phoneNumber: '0977889900',
+            campus: CampusLocation.HOL,
+            campusCoins: 0,
+            reputationScore: 100,
+            kyc: {
+              studentId: '',
+              cardImageUrl: '',
+              status: KycStatus.NONE,
+              type: 'STUDENT',
+            },
+          },
+        },
+      },
+    });
+    console.log('✅ Đã tạo tài khoản demo Khách chưa xác thực (UNVERIFIED):', 'guest@gmail.com');
+  }
+
   // =========================================================================
   const existingSeller = await prisma.user.findUnique({
     where: { email: 'seller@fpt.edu.vn' },

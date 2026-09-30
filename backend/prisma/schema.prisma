@@ -11,6 +11,7 @@ generator client {
 // 1. ENUMS
 // ------------------------------------------------------
 enum UserRole {
+  UNVERIFIED
   BUYER
   SELLER
   ADMIN
@@ -148,6 +149,7 @@ type UserKyc {
   studentId       String
   cardImageUrl    String            // Ảnh thẻ SV mặt trước (legacy, giữ cho tương thích)
   cardBackUrl     String?           // Ảnh thẻ SV mặt sau
+  selfieCardUrl   String?           // Ảnh chân dung SV
   cccdNumber      String?           // Số CCCD 12 chữ số (bắt buộc với Seller)
   cccdFrontUrl    String?           // Ảnh CCCD mặt trước (Chip)
   cccdBackUrl     String?           // Ảnh CCCD mặt sau (Vân tay)
@@ -201,7 +203,7 @@ model User {
   id              String         @id @default(auto()) @map("_id") @db.ObjectId
   email           String         @unique
   passwordHash    String?
-  role            UserRole       @default(BUYER)
+  role            UserRole       @default(UNVERIFIED)
   isActive        Boolean        @default(true)
   tokenVersion    Int            @default(0)
 
@@ -244,6 +246,10 @@ model Profile {
   campusCoins     Int            @default(0)
   reputationScore Int            @default(100)
   avatarBadge     String?        // Huy hiệu trang trí (TOP_SELLER, K18_VERIFIED, v.v.)
+  cohort          String?        // Khóa học do người dùng tự nhập (ví dụ: K17, K18)
+  major           String?        // Chuyên ngành do người dùng tự nhập (ví dụ: Kỹ thuật phần mềm)
+  bio             String?        // Giới thiệu bản thân
+  dorm            String?        // KTX (ví dụ: Dom E, Dom A)
 
   // Embedded KYC & Bank
   kyc             UserKyc?
@@ -501,9 +507,16 @@ model KycVerification {
   user           User      @relation("UserKycVerifications", fields: [userId], references: [id])
   type           String?   @default("STUDENT") // "STUDENT" | "SELLER"
   studentId      String    // Mã số SV: SE123456
-  cardImageUrl   String    // Link ảnh thẻ SV
+  cardImageUrl   String    // Link ảnh thẻ SV (mặt trước)
+  cardBackUrl    String?   // Link ảnh thẻ SV (mặt sau)
+  selfieCardUrl  String?   // Link ảnh chân dung sinh viên
   ocrData        Json?     // Dữ liệu đối soát tự động từ Gemini Vision
   aiMatchScore   Int?      // Điểm độ khớp (0-100%)
+  fullName       String?   // Họ tên SV khai báo trong đơn
+  campus         CampusLocation? // Cơ sở khai báo trong đơn
+  cohort         String?   // Khóa học khai báo trong đơn
+  major          String?   // Chuyên ngành khai báo trong đơn
+  phoneNumber    String?   // Số điện thoại khai báo trong đơn
   status         KycStatus @default(PENDING)
   rejectedReason String?   // Lý do Admin từ chối
   reviewedBy     String?   @db.ObjectId // ID của Admin duyệt

@@ -11,6 +11,7 @@ export interface UpdateProfilePayload {
   dorm?: string;
   major?: string;
   cohort?: string;
+  campus?: string;
 }
 
 export interface BankAccountPayload {
@@ -32,6 +33,9 @@ export const profileService = {
         const userData = response.data.data;
         const profile = adaptBackendUser(userData);
         useUserStore.getState().setUser(profile);
+        import('@/stores/walletStore').then(({ useWalletStore }) => {
+          useWalletStore.setState({ campusCoins: profile.coins });
+        }).catch(() => {});
         return profile;
       }
       return useUserStore.getState().user;
@@ -40,12 +44,31 @@ export const profileService = {
     const userData = response.data.data;
     const profile = adaptBackendUser(userData);
     useUserStore.getState().setUser(profile);
+    import('@/stores/walletStore').then(({ useWalletStore }) => {
+      useWalletStore.setState({ campusCoins: profile.coins });
+    }).catch(() => {});
     return profile;
   },
 
   // 2. Cập nhật thông tin cá nhân
   async updateProfile(payload: UpdateProfilePayload): Promise<UserProfile> {
-    const response = await apiClient.patch<ApiResponse<any>>('/profile/me', payload);
+    const campusCodeMap: Record<string, string> = {
+      'Hòa Lạc': 'HOL',
+      'Hồ Chí Minh': 'HCM',
+      'Đà Nẵng': 'DAD',
+      'Quy Nhơn': 'QN',
+      'Cần Thơ': 'CT',
+      hola: 'HOL',
+      hcm: 'HCM',
+      dn: 'DAD',
+      qn: 'QN',
+      ct: 'CT',
+    };
+    const body = {
+      ...payload,
+      ...(payload.campus ? { campus: campusCodeMap[payload.campus] || payload.campus } : {}),
+    };
+    const response = await apiClient.patch<ApiResponse<any>>('/profile/me', body);
     const userData = response.data.data;
     const profile = adaptBackendUser(userData);
     useUserStore.getState().setUser(profile);
@@ -63,15 +86,34 @@ export const profileService = {
     return response.data.data;
   },
 
-  // 4. Upload thẻ sinh viên xác thực KYC (Multipart/form-data)
-  async submitStudentKyc(formData: FormData): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/kyc/student-card', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  // 4. Upload thẻ sinh viên xác thực KYC (Hỗ trợ cả JSON payload hoặc FormData)
+  async submitStudentKyc(payload: {
+    studentId: string;
+    cardImageUrl?: string;
+    cardBackUrl?: string;
+    selfieCardUrl?: string;
+    fullName?: string;
+    campus?: string;
+    cohort?: string;
+    major?: string;
+    phoneNumber?: string;
+  } | FormData): Promise<any> {
+    const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+    const response = await apiClient.post<ApiResponse<any>>(
+      '/profile/kyc/student-card',
+      payload,
+      isFormData ? undefined : { headers: { 'Content-Type': 'application/json' } }
+    );
     const result = response.data.data;
-    useUserStore.getState().setKycStatus('pending');
+    useUserStore.getState().setKycStatus('pending', 'student');
+    return result;
+  },
+
+  // 4b. Nộp hồ sơ Onboarding Người Bán (Seller)
+  async submitSellerOnboarding(payload: any): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/profile/seller-onboarding', payload);
+    const result = response.data.data;
+    useUserStore.getState().setKycStatus('pending', 'seller');
     return result;
   },
 

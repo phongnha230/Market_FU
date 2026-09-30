@@ -294,11 +294,15 @@ export class AuthService {
     }
 
     // 🚀 ĐÃ XÁC THỰC OTP THÀNH CÔNG: LÚC NÀY MỚI CHÍNH THỨC TẠO TÀI KHOẢN VÀ LƯU VÀO DB
+    const emailLower = pendingData.email.toLowerCase().trim();
+    const isEduEmail = emailLower.endsWith('@fpt.edu.vn') || emailLower.endsWith('@fe.edu.vn');
+    const initialRole = isEduEmail ? 'BUYER' : 'UNVERIFIED';
+
     const user = await prisma.user.create({
       data: {
         email: pendingData.email,
         passwordHash: pendingData.passwordHash,
-        role: 'BUYER',
+        role: initialRole,
         profile: {
           create: {
             fullName: pendingData.fullName,
@@ -309,7 +313,7 @@ export class AuthService {
                   kyc: {
                     studentId: pendingData.studentId,
                     cardImageUrl: '',
-                    status: 'NONE',
+                    status: isEduEmail ? 'APPROVED' : 'NONE',
                   },
                 }
               : {}),
@@ -340,6 +344,10 @@ export class AuthService {
       fullName: user.profile?.fullName,
       role: user.role,
       campus: user.profile?.campus,
+      cohort: user.profile?.cohort || null,
+      major: user.profile?.major || null,
+      bio: user.profile?.bio || null,
+      dorm: user.profile?.dorm || null,
       campusCoins: user.profile?.campusCoins ?? 0,
       reputationScore: user.profile?.reputationScore ?? 100,
       phoneNumber: user.profile?.phoneNumber,
@@ -454,6 +462,10 @@ export class AuthService {
       avatarBadge: profile?.avatarBadge,
       phoneNumber: profile?.phoneNumber,
       campus: profile?.campus,
+      cohort: profile?.cohort || null,
+      major: profile?.major || null,
+      bio: profile?.bio || null,
+      dorm: profile?.dorm || null,
       campusCoins: profile?.campusCoins ?? 0,
       reputationScore: profile?.reputationScore ?? 100,
       kyc: profile?.kyc,
@@ -491,6 +503,9 @@ export class AuthService {
     }
 
     const email = payload.email;
+    const emailLower = email.toLowerCase().trim();
+    const isEduEmail = emailLower.endsWith('@fpt.edu.vn') || emailLower.endsWith('@fe.edu.vn');
+    const initialRole = isEduEmail ? 'BUYER' : 'UNVERIFIED';
     const fullName = payload.name || 'Sinh viên FPT';
     const avatarUrl = payload.picture || undefined;
 
@@ -503,12 +518,23 @@ export class AuthService {
       user = await prisma.user.create({
         data: {
           email,
-          role: 'BUYER',
+          role: initialRole,
           profile: {
             create: {
               fullName,
               avatarUrl,
               campus: input.campus,
+              ...(isEduEmail
+                ? {
+                    kyc: {
+                      studentId: email.split('@')[0].toUpperCase(),
+                      cardImageUrl: '',
+                      status: 'APPROVED',
+                      type: 'STUDENT',
+                      verifiedAt: new Date(),
+                    },
+                  }
+                : {}),
             },
           },
         },
@@ -558,6 +584,10 @@ export class AuthService {
       avatarBadge: profile?.avatarBadge,
       phoneNumber: profile?.phoneNumber,
       campus: profile?.campus,
+      cohort: profile?.cohort || null,
+      major: profile?.major || null,
+      bio: profile?.bio || null,
+      dorm: profile?.dorm || null,
       campusCoins: profile?.campusCoins ?? 0,
       reputationScore: profile?.reputationScore ?? 100,
       kyc: profile?.kyc,
@@ -592,7 +622,7 @@ export class AuthService {
       user = await prisma.user.create({
         data: {
           email: placeholderEmail,
-          role: 'BUYER',
+          role: 'UNVERIFIED',
           profile: {
             create: {
               phoneNumber,
@@ -628,6 +658,10 @@ export class AuthService {
       avatarBadge: userProfile?.avatarBadge,
       phoneNumber: userProfile?.phoneNumber,
       campus: userProfile?.campus,
+      cohort: userProfile?.cohort || null,
+      major: userProfile?.major || null,
+      bio: userProfile?.bio || null,
+      dorm: userProfile?.dorm || null,
       campusCoins: userProfile?.campusCoins ?? 0,
       reputationScore: userProfile?.reputationScore ?? 100,
       kyc: userProfile?.kyc,

@@ -54,6 +54,10 @@ export class ProfileService {
       phoneNumber: profile.phoneNumber,
       role: profile.user.role,
       campus: profile.campus,
+      cohort: profile.cohort,
+      major: profile.major,
+      bio: profile.bio,
+      dorm: profile.dorm,
       campusCoins: profile.campusCoins,
       reputationScore: profile.reputationScore,
       isActive: profile.user.isActive,
@@ -88,6 +92,10 @@ export class ProfileService {
         ...(input.fullName && { fullName: input.fullName }),
         ...(input.phoneNumber !== undefined && { phoneNumber: input.phoneNumber }),
         ...(input.campus && { campus: input.campus }),
+        ...(input.cohort !== undefined && { cohort: input.cohort }),
+        ...(input.major !== undefined && { major: input.major }),
+        ...(input.bio !== undefined && { bio: input.bio }),
+        ...(input.dorm !== undefined && { dorm: input.dorm }),
         ...(finalAvatarUrl && { avatarUrl: finalAvatarUrl }),
       },
       include: {
@@ -112,6 +120,10 @@ export class ProfileService {
       phoneNumber: updatedProfile.phoneNumber,
       role: updatedProfile.user.role,
       campus: updatedProfile.campus,
+      cohort: updatedProfile.cohort,
+      major: updatedProfile.major,
+      bio: updatedProfile.bio,
+      dorm: updatedProfile.dorm,
       campusCoins: updatedProfile.campusCoins,
       reputationScore: updatedProfile.reputationScore,
       updatedAt: updatedProfile.updatedAt,
@@ -186,9 +198,9 @@ export class ProfileService {
           select: { email: true },
         });
         const ocrRes = await aiService.scanStudentCard(fileBuffer, 'image/jpeg', {
-          fullName: existingProfile.fullName,
+          fullName: input.fullName?.trim() || existingProfile.fullName,
           studentId: input.studentId.toUpperCase().trim(),
-          campus: existingProfile.campus,
+          campus: input.campus || existingProfile.campus,
           email: userObj?.email,
         });
         ocrData = ocrRes;
@@ -207,11 +219,12 @@ export class ProfileService {
               studentId: input.studentId.toUpperCase().trim(),
               cardImageUrl: finalImageUrl,
               cardBackUrl: input.cardBackUrl?.trim() ?? null, // Ảnh thẻ SV mặt sau (optional)
+              selfieCardUrl: input.selfieCardUrl?.trim() ?? null, // Ảnh chân dung sinh viên (optional)
               status: 'PENDING',
               type: 'STUDENT',
               rejectedReason: null,
               verifiedAt: null,
-            },
+            } as any,
           },
         },
         select: {
@@ -227,6 +240,13 @@ export class ProfileService {
           userId,
           studentId: input.studentId.toUpperCase().trim(),
           cardImageUrl: finalImageUrl,
+          cardBackUrl: input.cardBackUrl?.trim() ?? null,
+          selfieCardUrl: input.selfieCardUrl?.trim() ?? null,
+          fullName: input.fullName?.trim() || null,
+          campus: input.campus || null,
+          cohort: input.cohort?.trim() || null,
+          major: input.major?.trim() || null,
+          phoneNumber: input.phoneNumber?.trim() || null,
           ocrData: ocrData ? ocrData : undefined,
           aiMatchScore: aiMatchScore,
           status: 'PENDING',
@@ -255,14 +275,6 @@ export class ProfileService {
    * Nộp hồ sơ Onboarding Người Bán: Thông tin cá nhân, Ngân hàng nhận tiền + Ảnh Thẻ SV + CCCD
    */
   async submitSellerOnboarding(userId: string, input: SellerOnboardingInput, fileBuffer?: Buffer) {
-    if (!fileBuffer) {
-      throw new AppError(
-        'Vui lòng tải lên ảnh chụp Thẻ Sinh Viên hoặc màn hình xác thực FAP/myFPT',
-        400,
-        'FILE_MISSING'
-      );
-    }
-
     const existingProfile = await prisma.profile.findUnique({
       where: { userId },
       include: { user: { select: { role: true } } },
@@ -272,7 +284,10 @@ export class ProfileService {
       throw new AppError('Không tìm thấy thông tin hồ sơ người dùng', 404, 'PROFILE_NOT_FOUND');
     }
 
-    if (existingProfile.kyc?.status === 'APPROVED') {
+    if (
+      existingProfile.user?.role === 'SELLER' ||
+      (existingProfile.kyc?.status === 'APPROVED' && existingProfile.kyc?.type === 'SELLER')
+    ) {
       throw new AppError(
         'Tài khoản của bạn đã được xác thực Người Bán (Tích Xanh) trước đó.',
         400,
@@ -280,28 +295,93 @@ export class ProfileService {
       );
     }
 
-    // Lưu trữ và nén ảnh thẻ SV sang WebP
-    const uploadResult = await saveImageToStorage(fileBuffer, 'kyc_cards');
-
-    // Phân tích OCR bằng Gemini 1.5 Flash Vision
-    let ocrData: any = null;
-    let aiMatchScore: number = 98;
-    try {
-      const userObj = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-      const ocrRes = await aiService.scanStudentCard(fileBuffer, 'image/jpeg', {
-        fullName: input.fullName.trim() || existingProfile.fullName,
-        studentId: input.studentId.toUpperCase().trim(),
-        campus: input.campus || existingProfile.campus,
-        email: userObj?.email,
-      });
-      ocrData = ocrRes;
-      aiMatchScore = ocrRes.aiMatchScore;
-    } catch (ocrErr: any) {
-      console.warn('⚠️ [Seller Onboarding OCR warning]:', ocrErr?.message);
+    // Xác định ảnh thẻ sinh viên hoặc ảnh nhận diện
+    let finalCardImageUrl = input.cardImageUrl || existingProfile.kyc?.cardImageUrl;
+    if (fileBuffer) {
+      const uploadResult = await saveImageToStorage(fileBuffer, 'kyc_cards');
+      finalCardImageUrl = uploadResult.secure_url;
+    } else if (finalCardImageUrl && finalCardImageUrl.startsWith('data:image/')) {
+      try {
+        const matches = finalCardImageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          const uploadResult = await saveImageToStorage(buffer, 'kyc_cards');
+          finalCardImageUrl = uploadResult.secure_url;
+        }
+      } catch (err) {
+        console.warn('Lỗi khi lưu cardImageUrl sang storage:', err);
+      }
     }
+
+    if (!finalCardImageUrl) {
+      finalCardImageUrl = input.cccdFrontUrl || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80';
+    }
+
+    // Xử lý ảnh CCCD nếu gửi dưới dạng base64 data:image
+    let finalCccdFrontUrl = input.cccdFrontUrl;
+    if (finalCccdFrontUrl && finalCccdFrontUrl.startsWith('data:image/')) {
+      try {
+        const matches = finalCccdFrontUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          const uploadResult = await saveImageToStorage(buffer, 'kyc_cards');
+          finalCccdFrontUrl = uploadResult.secure_url;
+        }
+      } catch (err) {
+        console.warn('Lỗi khi lưu cccdFrontUrl sang storage:', err);
+      }
+    }
+
+    let finalCccdBackUrl = input.cccdBackUrl;
+    if (finalCccdBackUrl && finalCccdBackUrl.startsWith('data:image/')) {
+      try {
+        const matches = finalCccdBackUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          const uploadResult = await saveImageToStorage(buffer, 'kyc_cards');
+          finalCccdBackUrl = uploadResult.secure_url;
+        }
+      } catch (err) {
+        console.warn('Lỗi khi lưu cccdBackUrl sang storage:', err);
+      }
+    }
+
+    // Phân tích OCR Căn Cước Công Dân (CCCD) bằng Gemini Vision
+    let ocrData: any = null;
+    let aiMatchScore: number = 95;
+    let ocrBuffer: Buffer | null = fileBuffer || null;
+    let ocrMime = 'image/jpeg';
+
+    if (!ocrBuffer && input.cccdFrontUrl) {
+      if (input.cccdFrontUrl.startsWith('data:')) {
+        const parts = input.cccdFrontUrl.split(',');
+        const match = input.cccdFrontUrl.match(/data:(.*?);base64/);
+        if (match) ocrMime = match[1];
+        try {
+          ocrBuffer = Buffer.from(parts[1], 'base64');
+        } catch (e) {
+          console.warn('Lỗi đọc base64 CCCD:', e);
+        }
+      }
+    }
+
+    if (ocrBuffer) {
+      try {
+        const ocrRes = await aiService.scanCitizenCard(ocrBuffer, ocrMime, {
+          fullName: input.fullName.trim() || existingProfile.fullName,
+          cccdNumber: input.cccdNumber?.trim(),
+          bankAccountName: input.accountName.toUpperCase().trim(),
+          bankName: input.bankName.trim(),
+        });
+        ocrData = ocrRes;
+        aiMatchScore = ocrRes.aiMatchScore;
+      } catch (ocrErr: any) {
+        console.warn('⚠️ [Seller Onboarding CCCD OCR warning]:', ocrErr?.message);
+      }
+    }
+
+    const sellerPrimaryCardFront = finalCccdFrontUrl || finalCardImageUrl;
+    const sellerPrimaryCardBack = finalCccdBackUrl || input.cardBackUrl || null;
 
     const updatedProfile = await prisma.$transaction(async (tx) => {
       const profile = await tx.profile.update({
@@ -320,11 +400,13 @@ export class ProfileService {
           kyc: {
             set: {
               studentId: input.studentId.toUpperCase().trim(),
-              cardImageUrl: uploadResult.secure_url,
-              // CCCD fields — URLs từ frontend (upload trực tiếp lên Cloudinary)
-              cccdNumber: input.cccdNumber?.trim(),
-              cccdFrontUrl: input.cccdFrontUrl?.trim(),
-              cccdBackUrl: input.cccdBackUrl?.trim(),
+              cardImageUrl: sellerPrimaryCardFront,
+              cardBackUrl: sellerPrimaryCardBack,
+              selfieCardUrl: input.selfieCardUrl || null,
+              // CCCD fields
+              cccdNumber: input.cccdNumber?.trim() || null,
+              cccdFrontUrl: finalCccdFrontUrl || null,
+              cccdBackUrl: finalCccdBackUrl || null,
               status: 'PENDING',
               type: 'SELLER',
               rejectedReason: null,
@@ -348,7 +430,12 @@ export class ProfileService {
         data: {
           userId,
           studentId: input.studentId.toUpperCase().trim(),
-          cardImageUrl: uploadResult.secure_url,
+          cardImageUrl: sellerPrimaryCardFront,
+          cardBackUrl: sellerPrimaryCardBack,
+          selfieCardUrl: input.selfieCardUrl || null,
+          fullName: input.fullName.trim(),
+          campus: input.campus,
+          phoneNumber: input.phoneNumber.trim(),
           ocrData: ocrData ? ocrData : undefined,
           aiMatchScore: aiMatchScore,
           status: 'PENDING',

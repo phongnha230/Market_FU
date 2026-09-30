@@ -55,6 +55,7 @@ const VIETNAMESE_BANKS = [
 const SAMPLE_STUDENT_CARDS = {
   front: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
   back: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+  selfie: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
 };
 
 const SAMPLE_CITIZEN_CARDS = {
@@ -80,14 +81,51 @@ export default function KycRegistrationModal({
   );
   const isStudentVerified = user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller' || isEduEmail;
 
-  // Role selection: default to 'seller' only if student is already verified, otherwise force 'student'
+  // Role selection: default to defaultRole (e.g. 'seller' when user clicked "Đăng ký mở Seller")
   const [selectedRole, setSelectedRole] = useState<KycType>(
-    isStudentVerified ? defaultRole : 'student'
+    defaultRole || (isStudentVerified ? 'seller' : 'student')
   );
 
   React.useEffect(() => {
     if (isOpen) {
-      // 1. Phục hồi toàn bộ hiện trạng hồ sơ đã gửi trước đó nếu có
+      const targetRole = (isPending && user.kycRole) ? user.kycRole : (defaultRole || 'seller');
+      setSelectedRole(targetRole);
+
+      if (isStudentVerified) {
+        // Tài khoản đã xác thực sinh viên -> Luôn đồng bộ từ thông tin sinh viên chính thức của tài khoản
+        const sId = user.studentId || '';
+        const cMatch = sId.match(/\d{2}/)?.[0];
+        const derivedCohort = user.cohort || (cMatch ? `K${cMatch}` : '');
+        const derivedMajor = user.major || '';
+
+        setFullName(user.name || '');
+        setStudentId(sId);
+        setEmail(user.email || '');
+        setCampus(user.campus || 'Hòa Lạc');
+        setPhone(user.phone || '');
+        setCohort(derivedCohort);
+        setMajor(derivedMajor);
+
+        // Phục hồi các trường thông tin Seller nếu có bản nháp seller
+        if (user.kycSubmittedData?.role === 'seller') {
+          const data = user.kycSubmittedData;
+          if (data.storeName) setStoreName(data.storeName);
+          if (data.primaryCategory) setPrimaryCategory(data.primaryCategory);
+          if (data.handoffSpot) setHandoffSpot(data.handoffSpot);
+          if (data.bankName) setBankName(data.bankName);
+          if (data.bankAccount) setBankAccount(data.bankAccount);
+          if (data.bankAccountName) setBankAccountName(data.bankAccountName);
+          if (data.citizenId) setCitizenId(data.citizenId);
+          if (data.citizenFrontCardUrl) setCitizenFrontCardUrl(data.citizenFrontCardUrl);
+          if (data.citizenBackCardUrl) setCitizenBackCardUrl(data.citizenBackCardUrl);
+        } else if (user.name) {
+          setStoreName(`Góc Pass Đồ ${user.name}`);
+          setBankAccountName(user.name.toUpperCase());
+        }
+        return;
+      }
+
+      // Tài khoản CHƯA xác thực sinh viên: Phục hồi hồ sơ đã gửi trước đó nếu có
       if (user.kycSubmittedData) {
         const data = user.kycSubmittedData;
         if (data.role) setSelectedRole(data.role);
@@ -100,6 +138,7 @@ export default function KycRegistrationModal({
         if (data.cohort) setCohort(data.cohort);
         if (data.studentFrontCardUrl) setStudentFrontCardUrl(data.studentFrontCardUrl);
         if (data.studentBackCardUrl) setStudentBackCardUrl(data.studentBackCardUrl);
+        if (data.studentSelfieUrl) setStudentSelfieUrl(data.studentSelfieUrl);
         if (data.storeName) setStoreName(data.storeName);
         if (data.primaryCategory) setPrimaryCategory(data.primaryCategory);
         if (data.handoffSpot) setHandoffSpot(data.handoffSpot);
@@ -112,13 +151,7 @@ export default function KycRegistrationModal({
         return;
       }
 
-      if (!isStudentVerified) {
-        setSelectedRole('student');
-      } else {
-        setSelectedRole(defaultRole);
-      }
-
-      // Tự động đồng bộ và điền sẵn thông tin người dùng đã đăng ký
+      // Tự động điền thông tin người dùng đã đăng ký
       if (user.name) setFullName(user.name);
       if (user.studentId) setStudentId(user.studentId);
       if (user.email) setEmail(user.email);
@@ -127,17 +160,11 @@ export default function KycRegistrationModal({
 
       const sId = user.studentId || '';
       const cMatch = sId.match(/\d{2}/)?.[0];
-      const derivedCohort = user.cohort || (cMatch ? `K${cMatch}` : 'K18');
-      const isSE = sId.toUpperCase().includes('SE') || sId.toUpperCase().includes('HE');
-      const derivedMajor = user.major || (isSE ? 'Kỹ thuật Phần mềm (SE)' : 'Công nghệ thông tin');
+      const derivedCohort = user.cohort || (cMatch ? `K${cMatch}` : '');
+      const derivedMajor = user.major || '';
 
       setCohort(derivedCohort);
       setMajor(derivedMajor);
-
-      if (user.name) {
-        setStoreName(`Góc Pass Đồ ${user.name}`);
-        setBankAccountName(user.name.toUpperCase());
-      }
     }
   }, [isOpen, defaultRole, isStudentVerified, user]);
 
@@ -150,9 +177,10 @@ export default function KycRegistrationModal({
   const [cohort, setCohort] = useState(user.cohort || 'K18');
   const [phone, setPhone] = useState(user.phone || '');
 
-  // Student card uploads (Front & Back)
+  // Student card uploads (Front, Back & Selfie)
   const [studentFrontCardUrl, setStudentFrontCardUrl] = useState<string>(SAMPLE_STUDENT_CARDS.front);
   const [studentBackCardUrl, setStudentBackCardUrl] = useState<string>(SAMPLE_STUDENT_CARDS.back);
+  const [studentSelfieUrl, setStudentSelfieUrl] = useState<string>(user.avatarUrl || SAMPLE_STUDENT_CARDS.selfie);
 
   // Seller specific - Store Info
   const [storeName, setStoreName] = useState(user.name ? `Góc Pass Đồ ${user.name}` : '');
@@ -201,12 +229,6 @@ export default function KycRegistrationModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedRole === 'seller' && !isStudentVerified) {
-      onShowToast('Tài khoản dùng email cá nhân cần hoàn thành Xác thực Thẻ Sinh Viên FPT trước khi đăng ký Seller.', 'error');
-      setSelectedRole('student');
-      return;
-    }
-
     if (selectedRole === 'student') {
       if (isStudentVerified) {
         onShowToast('Tài khoản của bạn đã được xác thực Thẻ Sinh Viên rồi.', 'info');
@@ -216,8 +238,8 @@ export default function KycRegistrationModal({
         onShowToast('Vui lòng điền đầy đủ họ tên, mã số sinh viên và email FE.', 'error');
         return;
       }
-      if (!studentFrontCardUrl || !studentBackCardUrl) {
-        onShowToast('Vui lòng tải lên cả 2 mặt trước và mặt sau thẻ sinh viên.', 'error');
+      if (!studentFrontCardUrl || !studentBackCardUrl || !studentSelfieUrl) {
+        onShowToast('Vui lòng tải lên đầy đủ 2 mặt thẻ sinh viên và ảnh chân dung.', 'error');
         return;
       }
     } else {
@@ -248,19 +270,47 @@ export default function KycRegistrationModal({
     setIsSubmitting(true);
 
     try {
+      const campusCode =
+        campus.includes('HCM') || campus.includes('Hồ Chí Minh') ? 'HCM' :
+        campus.includes('Đà Nẵng') ? 'DAD' :
+        campus.includes('Cần Thơ') ? 'CT' :
+        campus.includes('Quy Nhơn') ? 'QN' : 'HOL';
+
       if (selectedRole === 'student') {
-        const formData = new FormData();
-        formData.append('studentId', studentId.trim().toUpperCase());
-        if (studentFrontCardUrl) {
-          formData.append('cardImageUrl', studentFrontCardUrl);
-        }
-        if (studentBackCardUrl) {
-          formData.append('cardBackUrl', studentBackCardUrl);
-        }
-        await profileService.submitStudentKyc(formData);
+        await profileService.submitStudentKyc({
+          studentId: studentId.trim().toUpperCase(),
+          cardImageUrl: studentFrontCardUrl,
+          cardBackUrl: studentBackCardUrl,
+          selfieCardUrl: studentSelfieUrl,
+          fullName: fullName.trim(),
+          campus: campusCode,
+          cohort: cohort.trim(),
+          major: major.trim(),
+          phoneNumber: phone.trim(),
+        });
+      } else {
+        await profileService.submitSellerOnboarding({
+          fullName: fullName.trim(),
+          studentId: studentId.trim().toUpperCase(),
+          phoneNumber: phone.trim() || '0982345892',
+          campus: campusCode,
+          bankName,
+          accountNo: bankAccount.trim(),
+          accountName: bankAccountName.trim(),
+          cccdNumber: citizenId.trim(),
+          cccdFrontUrl: citizenFrontCardUrl,
+          cccdBackUrl: citizenBackCardUrl,
+          cardImageUrl: studentFrontCardUrl,
+          cardBackUrl: studentBackCardUrl,
+          selfieCardUrl: studentSelfieUrl,
+        });
       }
-    } catch {
-      // offline/fallback: proceed so user doesn't get blocked
+    } catch (err: any) {
+      console.error('Lỗi khi nộp hồ sơ KYC:', err);
+      const msg = err.response?.data?.message || err.message;
+      if (msg) {
+        onShowToast(`Lưu ý: ${msg}`, 'error');
+      }
     }
 
     // Submit application to store
@@ -273,8 +323,10 @@ export default function KycRegistrationModal({
       major,
       cohort,
       phone,
+      avatarUrl: user.avatarUrl || (selectedRole === 'student' ? studentSelfieUrl : undefined),
       frontCardUrl: selectedRole === 'seller' ? citizenFrontCardUrl : studentFrontCardUrl,
       backCardUrl: selectedRole === 'seller' ? citizenBackCardUrl : studentBackCardUrl,
+      selfieCardUrl: selectedRole === 'seller' ? undefined : studentSelfieUrl,
       storeName: selectedRole === 'seller' ? storeName : undefined,
       primaryCategory: selectedRole === 'seller' ? primaryCategory : undefined,
       bankName: selectedRole === 'seller' ? bankName : undefined,
@@ -297,6 +349,7 @@ export default function KycRegistrationModal({
       phone: phone.trim(),
       studentFrontCardUrl,
       studentBackCardUrl,
+      studentSelfieUrl,
       storeName,
       primaryCategory,
       handoffSpot,
@@ -477,16 +530,13 @@ export default function KycRegistrationModal({
               {/* Option 2: Người bán (Seller) */}
               <div
                 onClick={() => {
-                  if (!isStudentVerified) {
-                    onShowToast('Tài khoản dùng email cá nhân cần hoàn tất Xác thực Thẻ Sinh Viên FPT trước khi có thể đăng ký Người bán (Seller).', 'error');
-                    return;
-                  }
+                  if (isPending) return;
                   setSelectedRole('seller');
                 }}
-                className={`relative rounded-2xl border-2 p-4 transition cursor-pointer flex flex-col justify-between space-y-3 ${
-                  !isStudentVerified
-                    ? 'border-slate-200 bg-slate-50/80 opacity-80 hover:border-amber-300'
-                    : selectedRole === 'seller'
+                className={`relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3 ${
+                  isPending ? 'cursor-not-allowed' : 'cursor-pointer'
+                } ${
+                  selectedRole === 'seller'
                     ? 'border-fpt-orange bg-orange-50/40 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
@@ -494,18 +544,22 @@ export default function KycRegistrationModal({
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      !isStudentVerified ? 'bg-slate-200 text-slate-500' : 'bg-orange-100 text-fpt-orange'
+                      selectedRole === 'seller' ? 'bg-orange-100 text-fpt-orange' : 'bg-slate-100 text-slate-600'
                     }`}>
                       <Store className="h-5 w-5" />
                     </div>
                     <div>
                       <div className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
                         <span>Người Bán (Seller)</span>
-                        {!isStudentVerified && (
-                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                            🔒 Cần Thẻ SV trước
+                        {user.kycStatus === 'approved_seller' ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            ✓ Đã xác thực
                           </span>
-                        )}
+                        ) : isPending && user.kycRole === 'seller' ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            ⏳ Chờ duyệt
+                          </span>
+                        ) : null}
                       </div>
                       <div className="text-[11px] text-fpt-orange font-medium">Mở gian hàng sinh viên</div>
                     </div>
@@ -684,14 +738,14 @@ export default function KycRegistrationModal({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <span>Bước 3: Tải ảnh Thẻ Sinh Viên FPT (Mặt trước & Mặt sau)</span>
+                      <span>Bước 3: Tải ảnh Thẻ Sinh Viên FPT & Chân Dung Xác Minh</span>
                       <span className="text-fpt-orange">*</span>
                       {isPending && <span className="text-[10px] text-amber-700 font-bold normal-case">(Đang khóa)</span>}
                     </label>
                     <span className="text-[10px] text-slate-400">Hỗ trợ JPG, PNG (tối đa 10MB)</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Front Student Card Upload */}
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700">
@@ -701,7 +755,7 @@ export default function KycRegistrationModal({
                         </span>
                         {studentFrontCardUrl ? (
                           <span className={cn("text-[10px] font-semibold", isPending ? "text-amber-700" : "text-emerald-600")}>
-                            {isPending ? '🔒 Đã nộp BQT (Khóa)' : '● Đã chọn ảnh'}
+                            {isPending ? '🔒 Đã nộp BQT' : '● Đã chọn ảnh'}
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-400">Chưa có ảnh</span>
@@ -722,12 +776,12 @@ export default function KycRegistrationModal({
                       {isPending ? (
                         <div className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200 bg-slate-100 py-2 text-xs font-bold text-slate-500 cursor-not-allowed select-none">
                           <Lock className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Ảnh đã nộp • Khóa chỉnh sửa</span>
+                          <span>Ảnh đã nộp • Khóa</span>
                         </div>
                       ) : (
                         <label className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-slate-300 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-fpt-orange hover:text-fpt-orange transition cursor-pointer">
                           <Upload className="h-3.5 w-3.5" />
-                          <span>{studentFrontCardUrl ? 'Thay đổi ảnh mặt trước' : 'Tải ảnh mặt trước'}</span>
+                          <span>{studentFrontCardUrl ? 'Đổi ảnh trước' : 'Tải ảnh trước'}</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -742,12 +796,12 @@ export default function KycRegistrationModal({
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                         <span className="flex items-center gap-1">
-                          <span>2. Thẻ SV Mặt Sau (Mã vạch)</span>
+                          <span>2. Mặt Sau (Mã vạch)</span>
                           <span className="text-fpt-orange">*</span>
                         </span>
                         {studentBackCardUrl ? (
                           <span className={cn("text-[10px] font-semibold", isPending ? "text-amber-700" : "text-emerald-600")}>
-                            {isPending ? '🔒 Đã nộp BQT (Khóa)' : '● Đã chọn ảnh'}
+                            {isPending ? '🔒 Đã nộp BQT' : '● Đã chọn ảnh'}
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-400">Chưa có ảnh</span>
@@ -768,16 +822,62 @@ export default function KycRegistrationModal({
                       {isPending ? (
                         <div className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200 bg-slate-100 py-2 text-xs font-bold text-slate-500 cursor-not-allowed select-none">
                           <Lock className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Ảnh đã nộp • Khóa chỉnh sửa</span>
+                          <span>Ảnh đã nộp • Khóa</span>
                         </div>
                       ) : (
                         <label className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-slate-300 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-fpt-orange hover:text-fpt-orange transition cursor-pointer">
                           <Upload className="h-3.5 w-3.5" />
-                          <span>{studentBackCardUrl ? 'Thay đổi ảnh mặt sau' : 'Tải ảnh mặt sau'}</span>
+                          <span>{studentBackCardUrl ? 'Đổi ảnh sau' : 'Tải ảnh sau'}</span>
                           <input
                             type="file"
                             accept="image/*"
                             onChange={(e) => handleFileUpload(e, setStudentBackCardUrl, 'mặt sau Thẻ SV')}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Student Portrait / Selfie Upload */}
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <span>3. Chân Dung SV</span>
+                          <span className="text-fpt-orange">*</span>
+                        </span>
+                        {studentSelfieUrl ? (
+                          <span className={cn("text-[10px] font-semibold", isPending ? "text-amber-700" : "text-emerald-600")}>
+                            {isPending ? '🔒 Đã nộp BQT' : '● Đã chọn ảnh'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Chưa có ảnh</span>
+                        )}
+                      </div>
+
+                      <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 bg-white">
+                        {studentSelfieUrl ? (
+                          <Image src={studentSelfieUrl} alt="Chân dung sinh viên" fill className="object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-1">
+                            <Camera className="h-6 w-6 text-slate-300" />
+                            <span>Chưa chọn ảnh</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {isPending ? (
+                        <div className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200 bg-slate-100 py-2 text-xs font-bold text-slate-500 cursor-not-allowed select-none">
+                          <Lock className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Ảnh đã nộp • Khóa</span>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-dashed border-slate-300 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-fpt-orange hover:text-fpt-orange transition cursor-pointer">
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>{studentSelfieUrl ? 'Đổi ảnh chân dung' : 'Tải chân dung'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, setStudentSelfieUrl, 'chân dung sinh viên')}
                             className="hidden"
                           />
                         </label>

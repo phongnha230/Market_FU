@@ -24,12 +24,102 @@ import {
   BadgeCheck,
   Building,
   Check,
-  AlertTriangle,
   UserCheck,
   ExternalLink,
   Loader2,
   Sparkles,
 } from 'lucide-react';
+
+function AdminUserAvatar({
+  src,
+  name,
+  size = 'md',
+}: {
+  src?: string;
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setError(false);
+  }, [src]);
+
+  const initials = (name || 'SV')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || 'SV';
+
+  const sizeClasses = {
+    sm: 'h-9 w-9 text-xs',
+    md: 'h-10 w-10 text-xs',
+    lg: 'h-12 w-12 text-sm',
+  }[size];
+
+  if (!src || error) {
+    return (
+      <div
+        className={`relative ${sizeClasses} rounded-full flex items-center justify-center font-black bg-gradient-to-br from-orange-400 to-amber-500 text-white shrink-0 shadow-2xs select-none`}
+      >
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`relative ${sizeClasses} rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs`}
+    >
+      <img
+        src={src}
+        alt={name}
+        className="w-full h-full object-cover"
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+}
+
+function CardImagePreview({
+  src,
+  alt,
+  onClick,
+}: {
+  src?: string;
+  alt: string;
+  onClick?: (url: string) => void;
+}) {
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setError(false);
+  }, [src]);
+
+  return (
+    <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 bg-white">
+      {src && !error ? (
+        <img
+          src={src}
+          alt={alt}
+          className={`w-full h-full object-cover ${onClick ? 'cursor-zoom-in hover:opacity-90 transition' : ''}`}
+          onError={() => setError(true)}
+          onClick={() => onClick?.(src)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-1.5 p-2 text-center bg-slate-50/70">
+          <Camera className="h-6 w-6 text-slate-300" />
+          <span className="text-[11px] font-medium text-slate-400">
+            {error ? 'Không thể tải ảnh' : 'Chưa có ảnh'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminKycPage() {
   const {
@@ -47,7 +137,7 @@ export default function AdminKycPage() {
     fetchApplications();
   }, [fetchApplications]);
 
-  const { user, setKycStatus } = useUserStore();
+  const { user, setKycStatus, addCoins } = useUserStore();
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'reupload_required' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +146,7 @@ export default function AdminKycPage() {
   const [isAiScanning, setIsAiScanning] = useState(false);
   const [aiScanStep, setAiScanStep] = useState<string>('');
   const [aiScanProgress, setAiScanProgress] = useState<number>(0);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -70,7 +161,7 @@ export default function AdminKycPage() {
 
     const t1 = setTimeout(() => {
       setAiScanProgress(55);
-      setAiScanStep('2/4: Gửi dữ liệu tới Gemini 1.5 Flash Vision OCR...');
+      setAiScanStep('2/4: Gửi dữ liệu tới Gemini 3.1 Flash Vision OCR...');
     }, 800);
 
     const t2 = setTimeout(() => {
@@ -92,11 +183,18 @@ export default function AdminKycPage() {
           showToast(`⚠️ Không thể kết nối Gemini API. Hệ thống giữ quy tắc FPT mặc định.`);
         }
       }, 700);
-    } catch (err) {
+    } catch (err: any) {
       clearTimeout(t1);
       clearTimeout(t2);
       setIsAiScanning(false);
-      showToast('⚠️ Quét AI gặp lỗi kết nối. Vui lòng thử lại sau.');
+      // Phát hiện lỗi hết quota API / token limit
+      const errMsg = err?.message || err?.response?.data?.message || '';
+      const isQuotaError = /quota|limit|429|exhausted|rate.limit|too.many/i.test(errMsg);
+      if (isQuotaError) {
+        showToast('🚫 Đã hết quota API AI hôm nay. Vui lòng duyệt thủ công hoặc thử lại sau.');
+      } else {
+        showToast('⚠️ Quét AI gặp lỗi kết nối. Vui lòng thử lại sau.');
+      }
     }
   };
 
@@ -137,6 +235,10 @@ export default function AdminKycPage() {
     approveApplication(app.id, 'SuperAdmin BQT');
     if (user.studentId === app.studentId || user.email === app.email) {
       setKycStatus(app.type === 'seller' ? 'approved_seller' : 'approved_student', app.type, app.id);
+      addCoins(200);
+      import('@/services/profileService').then(({ profileService }) => {
+        profileService.getProfile().catch(() => {});
+      }).catch(() => {});
     }
     showToast(
       `✅ Đã phê duyệt và cấp huy hiệu ${
@@ -394,9 +496,11 @@ export default function AdminKycPage() {
                       )}
 
                       <div className="flex items-start gap-3">
-                        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                          <Image src={app.selfieCardUrl || app.frontCardUrl} alt={app.fullName} fill className="object-cover" />
-                        </div>
+                        <AdminUserAvatar
+                          src={app.avatarUrl || app.selfieCardUrl}
+                          name={app.fullName}
+                          size="md"
+                        />
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
@@ -432,6 +536,14 @@ export default function AdminKycPage() {
                             <span>{app.cohort}</span>
                           </div>
 
+                          {app.type === 'seller' && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                                CCCD: {app.citizenId || (app.ocrData?.ocrCccdNumber ? `${app.ocrData.ocrCccdNumber}` : 'Chưa có số')}
+                              </span>
+                            </div>
+                          )}
+
                           {app.storeName && (
                             <div className="text-[11px] font-bold text-fpt-orange flex items-center gap-1 mt-1 truncate">
                               <Store className="h-3 w-3 shrink-0" />
@@ -441,7 +553,11 @@ export default function AdminKycPage() {
 
                           <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
                             <span>{app.submittedAt}</span>
-                            <span className="text-emerald-600 font-bold">AI Match: {app.aiMatchScore}%</span>
+                            {app.ocrData ? (
+                              <span className="text-emerald-600 font-bold">AI: {app.aiMatchScore}%</span>
+                            ) : (
+                              <span className="text-slate-400 font-medium">Chưa quét AI</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -459,14 +575,11 @@ export default function AdminKycPage() {
                 {/* Detail Header */}
                 <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-3">
-                    <div className="relative h-12 w-12 rounded-full overflow-hidden border-2 border-slate-200 bg-white shrink-0 shadow-2xs">
-                      <Image
-                        src={currentApp.selfieCardUrl || currentApp.frontCardUrl}
-                        alt={currentApp.fullName}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+                    <AdminUserAvatar
+                      src={currentApp.avatarUrl || currentApp.selfieCardUrl}
+                      name={currentApp.fullName}
+                      size="lg"
+                    />
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-base sm:text-lg font-black text-slate-900">{currentApp.fullName}</h3>
@@ -480,17 +593,36 @@ export default function AdminKycPage() {
                           {currentApp.type === 'seller' ? '🛍️ Đăng ký Seller' : '🎓 Xác thực Sinh viên'}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-500 font-medium mt-0.5">
-                        MSSV: <strong className="text-slate-800 font-mono">{currentApp.studentId}</strong> • {currentApp.campus} • {currentApp.major}
+                      <div className="text-xs text-slate-500 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <span>MSSV: <strong className="text-slate-800 font-mono">{currentApp.studentId}</strong></span>
+                        <span>•</span>
+                        <span>{currentApp.campus}</span>
+                        <span>•</span>
+                        <span>{currentApp.major}</span>
+                        {currentApp.type === 'seller' && (
+                          <>
+                            <span>•</span>
+                            <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[11px]">
+                              Số CCCD: {currentApp.citizenId || (currentApp.ocrData?.ocrCccdNumber ? `${currentApp.ocrData.ocrCccdNumber}` : 'Chưa cung cấp')}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
-                      <CheckCircle className="h-4 w-4 text-emerald-600" />
-                      <span>FAP SSO: Khớp {currentApp.aiMatchScore}%</span>
-                    </span>
+                    {currentApp.ocrData ? (
+                      <span className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
+                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                        <span>AI OCR: Khớp {currentApp.aiMatchScore}%</span>
+                      </span>
+                    ) : (
+                      <span className="rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 text-slate-400" />
+                        <span>Chưa quét AI</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -498,26 +630,36 @@ export default function AdminKycPage() {
                 <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
                   {/* Seller Info Box (if seller) */}
                   {currentApp.type === 'seller' && (
-                    <div className="rounded-2xl border border-orange-200 bg-orange-50/50 p-4 space-y-2">
+                    <div className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50/70 to-amber-50/40 p-4 space-y-3">
                       <div className="flex items-center justify-between text-xs font-extrabold text-fpt-orange">
                         <span className="flex items-center gap-1.5">
                           <Store className="h-4 w-4" />
-                          Thông tin gian hàng đăng ký bán đồ cũ
+                          Hồ sơ đăng ký Người Bán & Định danh Pháp lý CCCD
                         </span>
-                        <span className="text-[10px] bg-orange-100 px-2 py-0.5 rounded-full">Cam kết Safe-Handoff</span>
+                        <span className="text-[10px] bg-orange-100 border border-orange-200 px-2.5 py-0.5 rounded-full font-bold">
+                          Cam kết Safe-Handoff & Escrow
+                        </span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Tên gian hàng:</span>
-                          <strong className="text-slate-900">{currentApp.storeName || 'Chưa đặt'}</strong>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-1">
+                        <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Số CCCD đăng ký:</span>
+                          <strong className="text-indigo-900 font-mono text-xs sm:text-sm tracking-wider block mt-0.5">
+                            {currentApp.citizenId || (currentApp.ocrData?.ocrCccdNumber ? `${currentApp.ocrData.ocrCccdNumber}` : 'Chưa cung cấp')}
+                          </strong>
                         </div>
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Mặt hàng chính:</span>
-                          <strong className="text-slate-900">{currentApp.primaryCategory || 'Giáo trình & IT'}</strong>
+                        <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Tên gian hàng:</span>
+                          <strong className="text-slate-900 block mt-0.5 truncate">{currentApp.storeName || 'Chưa đặt tên'}</strong>
                         </div>
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Tài khoản thanh toán:</span>
-                          <strong className="text-slate-900">{currentApp.bankAccount || 'Tiền mặt / QR'}</strong>
+                        <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Mặt hàng chính:</span>
+                          <strong className="text-slate-900 block mt-0.5">{currentApp.primaryCategory || 'Giáo trình & IT'}</strong>
+                        </div>
+                        <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">TK thụ hưởng (Escrow):</span>
+                          <strong className="text-slate-900 block mt-0.5 text-[11px] leading-tight break-words">
+                            {currentApp.bankAccount || (currentApp.bankAccountName ? `${currentApp.bankAccountName} (${currentApp.bankName || ''})` : 'Chưa liên kết')}
+                          </strong>
                         </div>
                       </div>
                     </div>
@@ -526,66 +668,45 @@ export default function AdminKycPage() {
                   {/* ID Card Photos */}
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                      <span>📷 Ảnh minh chứng thẻ sinh viên nộp lên:</span>
+                      <span>{currentApp.type === 'seller' ? '📷 Ảnh minh chứng định danh (CCCD / Thẻ SV):' : '📷 Ảnh minh chứng thẻ sinh viên nộp lên:'}</span>
                       <span className="text-emerald-600 text-[11px]">Đầy đủ 2 mặt & Chân dung</span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {/* Front Card */}
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 space-y-1.5">
-                        <span className="text-[10px] font-bold text-slate-600 block">1. Mặt trước Thẻ SV</span>
-                        <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 bg-white">
-                          {currentApp.frontCardUrl ? (
-                            <img
-                              src={currentApp.frontCardUrl}
-                              alt="Mặt trước Thẻ SV"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-1">
-                              <Camera className="h-6 w-6" />
-                              <span>Chưa có ảnh</span>
-                            </div>
-                          )}
-                        </div>
+                        <span className="text-[10px] font-bold text-slate-600 block">
+                          {currentApp.type === 'seller' ? '1. Mặt trước CCCD' : '1. Mặt trước Thẻ SV'}
+                        </span>
+                        <CardImagePreview
+                          src={currentApp.frontCardUrl}
+                          alt="Mặt trước"
+                          onClick={setLightboxUrl}
+                        />
                       </div>
 
                       {/* Back Card */}
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 space-y-1.5">
-                        <span className="text-[10px] font-bold text-slate-600 block">2. Mặt sau (Mã vạch)</span>
-                        <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 bg-white">
-                          {currentApp.backCardUrl ? (
-                            <img
-                              src={currentApp.backCardUrl}
-                              alt="Mặt sau Thẻ SV"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-1">
-                              <Camera className="h-6 w-6" />
-                              <span>Chưa có ảnh</span>
-                            </div>
-                          )}
-                        </div>
+                        <span className="text-[10px] font-bold text-slate-600 block">
+                          {currentApp.type === 'seller' ? '2. Mặt sau CCCD' : '2. Mặt sau (Mã vạch)'}
+                        </span>
+                        <CardImagePreview
+                          src={currentApp.backCardUrl}
+                          alt="Mặt sau"
+                          onClick={setLightboxUrl}
+                        />
                       </div>
 
                       {/* Selfie */}
                       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 space-y-1.5 col-span-2 sm:col-span-1">
-                        <span className="text-[10px] font-bold text-slate-600 block">3. Chân dung sinh viên</span>
-                        <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 bg-white">
-                          {currentApp.selfieCardUrl || currentApp.frontCardUrl ? (
-                            <img
-                              src={currentApp.selfieCardUrl || currentApp.frontCardUrl}
-                              alt="Chân dung"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-1">
-                              <Camera className="h-6 w-6" />
-                              <span>Chưa có ảnh</span>
-                            </div>
-                          )}
-                        </div>
+                        <span className="text-[10px] font-bold text-slate-600 block">
+                          3. Chân dung sinh viên (Selfie)
+                        </span>
+                        <CardImagePreview
+                          src={currentApp.selfieCardUrl || currentApp.avatarUrl}
+                          alt="Chân dung"
+                          onClick={setLightboxUrl}
+                        />
                       </div>
                     </div>
                   </div>
@@ -600,7 +721,9 @@ export default function AdminKycPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-slate-900">
-                              Trợ Lý AI Thẩm Định Thẻ (Gemini 1.5 Flash Vision)
+                              {currentApp.type === 'seller'
+                                ? 'Trợ Lý AI Thẩm Định CCCD & Pháp Lý Người Bán (Gemini Vision)'
+                                : 'Trợ Lý AI Thẩm Định Thẻ Sinh Viên (Gemini Vision)'}
                             </span>
                             {currentApp.ocrData ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 border border-emerald-200">
@@ -613,7 +736,9 @@ export default function AdminKycPage() {
                             )}
                           </div>
                           <p className="text-[11px] text-slate-500">
-                            Chỉ kích hoạt AI theo yêu cầu để tiết kiệm chi phí token & tránh nghẽn API khi hàng ngàn sinh viên đăng ký.
+                            {currentApp.type === 'seller'
+                              ? 'Tự động quét Căn Cước Công Dân 12 số, đối soát Quốc huy, Họ tên và kiểm tra tính chính chủ của tài khoản ngân hàng nhận tiền thanh toán (Escrow).'
+                              : 'Chỉ kích hoạt AI theo yêu cầu để tiết kiệm chi phí token & tránh nghẽn API khi hàng ngàn sinh viên đăng ký.'}
                           </p>
                         </div>
                       </div>
@@ -664,149 +789,363 @@ export default function AdminKycPage() {
                           />
                         </div>
                         <p className="text-[10px] text-indigo-600 italic">
-                          * Tiến trình quét ngầm: đọc ảnh thẻ, OCR text, đối soát regex MSSV FPT và phát hiện bất thường.
+                          {currentApp.type === 'seller'
+                            ? '* Tiến trình quét ngầm: nhận diện phôi CCCD Việt Nam, OCR 12 số định danh, họ tên và kiểm tra chính chủ tài khoản ngân hàng.'
+                            : '* Tiến trình quét ngầm: đọc ảnh thẻ, OCR text, đối soát regex MSSV FPT và phát hiện bất thường.'}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  {/* SSO Comparison Table */}
+                  {/* SSO / CCCD Comparison Table */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                      <span>🔍 Bảng đối soát tự động: OCR Thẻ Sinh Viên & Cổng dữ liệu FAP SSO</span>
+                      <span>
+                        {currentApp.type === 'seller'
+                          ? '🔍 Bảng đối soát: OCR Căn Cước Công Dân (CCCD) & Thông Tin Đăng Ký Người Bán'
+                          : '🔍 Bảng đối soát: OCR Thẻ Sinh Viên & Thông Tin Khai Báo Trong Đơn'}
+                      </span>
                       {currentApp.ocrData ? (
                         <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                          ✓ Dữ liệu thực từ Gemini Vision OCR
+                          {currentApp.type === 'seller' ? '✓ Dữ liệu OCR Căn Cước Công Dân (Gemini Vision)' : '✓ Dữ liệu thực từ Gemini Vision OCR'}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-full">
-                          Dữ liệu chuẩn quy tắc FPT (Chưa quét AI)
+                        <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          ⏳ Chưa quét AI — Nhấn &quot;Quét Thẩm Định&quot; để bắt đầu
                         </span>
                       )}
                     </div>
-                    <div className="rounded-2xl border border-slate-200 overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 border-b border-slate-200">
-                          <tr>
-                            <th className="px-3.5 py-2.5">Trường dữ liệu</th>
-                            <th className="px-3.5 py-2.5">OCR Đọc Từ Thẻ</th>
-                            <th className="px-3.5 py-2.5">Dữ Liệu Gốc FAP SSO</th>
-                            <th className="px-3.5 py-2.5 text-right">Kết quả</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-[11px]">
-                          {(() => {
-                            const ocr = currentApp.ocrData;
-                            const ocrName = ocr?.ocrFullName || currentApp.fullName;
-                            const ocrId = ocr?.ocrStudentId || currentApp.studentId;
-                            const ocrCampus = ocr?.ocrCampus || (currentApp.studentId?.startsWith('Q') ? 'Quy Nhơn' : currentApp.campus);
-                            const ocrCohort = ocr?.ocrCohort || currentApp.cohort;
-                            const ocrExpiry = ocr?.ocrValidTill || 'Dec.2027';
 
-                            const isNameMatch = currentApp.fullName.trim().toLowerCase() === ocrName.trim().toLowerCase();
-                            const isIdMatch = currentApp.studentId.trim().toUpperCase() === ocrId.trim().toUpperCase();
-                            const isCampusMatch =
-                              currentApp.campus.toLowerCase().includes(ocrCampus.toLowerCase()) ||
-                              ocrCampus.toLowerCase().includes(currentApp.campus.toLowerCase());
+                    {currentApp.ocrData ? (
+                      /* AI đã quét → hiển thị bảng đối soát thực */
+                      <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 border-b border-slate-200">
+                            <tr>
+                              <th className="px-3.5 py-2.5">Trường dữ liệu</th>
+                              <th className="px-3.5 py-2.5">{currentApp.type === 'seller' ? 'OCR Đọc Từ CCCD' : 'OCR Đọc Từ Thẻ SV'}</th>
+                              <th className="px-3.5 py-2.5">Thông Tin Khai Báo (Đơn Nộp)</th>
+                              <th className="px-3.5 py-2.5 text-right">Kết quả</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-[11px]">
+                            {(() => {
+                              const ocr = currentApp.ocrData;
+                              const normalizeText = (s?: string) =>
+                                (s || '')
+                                  .normalize('NFD')
+                                  .replace(/[\u0300-\u036f]/g, '')
+                                  .replace(/[đĐ]/g, (m) => (m === 'đ' ? 'd' : 'D'))
+                                  .toUpperCase()
+                                  .trim();
 
-                            return (
-                              <>
-                                <tr>
-                                  <td className="px-3.5 py-2 font-semibold text-slate-700">Họ và tên</td>
-                                  <td className="px-3.5 py-2 text-slate-600 font-medium">{ocrName.toUpperCase()}</td>
-                                  <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.fullName.toUpperCase()}</td>
-                                  <td className={`px-3.5 py-2 text-right font-bold ${isNameMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {isNameMatch ? '✓ Khớp 100%' : '⚠️ Lệch họ tên'}
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3.5 py-2 font-semibold text-slate-700">Mã số sinh viên</td>
-                                  <td className="px-3.5 py-2 font-mono text-slate-600 font-bold">{ocrId}</td>
-                                  <td className="px-3.5 py-2 font-mono font-bold text-slate-900">{currentApp.studentId}</td>
-                                  <td className={`px-3.5 py-2 text-right font-bold ${isIdMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {isIdMatch ? '✓ Khớp 100%' : '⚠️ Lệch MSSV'}
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3.5 py-2 font-semibold text-slate-700">Email trường & Hạn thẻ</td>
-                                  <td className="px-3.5 py-2 text-slate-500">Hạn: {ocrExpiry}</td>
-                                  <td className="px-3.5 py-2 font-mono text-slate-900">{currentApp.email}</td>
-                                  <td className="px-3.5 py-2 text-right text-emerald-600 font-bold">✓ Đã xác thực</td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3.5 py-2 font-semibold text-slate-700">Cơ sở Campus (Suy từ MSSV)</td>
-                                  <td className="px-3.5 py-2 text-slate-700 font-semibold">{ocrCampus}</td>
-                                  <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.campus}</td>
-                                  <td className={`px-3.5 py-2 text-right font-bold ${isCampusMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                    {isCampusMatch ? '✓ Đúng cơ sở' : '⚠️ Khác cơ sở đăng ký'}
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3.5 py-2 font-semibold text-slate-700">Khóa học (2 số sau 2 chữ cái đầu)</td>
-                                  <td className="px-3.5 py-2 text-slate-700 font-bold">{ocrCohort}</td>
-                                  <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.cohort} (Đang học)</td>
-                                  <td className="px-3.5 py-2 text-right text-emerald-600 font-bold">✓ Khóa {ocrCohort}</td>
-                                </tr>
-                              </>
-                            );
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
+                              if (currentApp.type === 'seller') {
+                                const ocrCccd = (ocr.ocrCccdNumber || '').replace(/\D/g, '');
+                                const registeredCccd = (currentApp.citizenId || '').replace(/\D/g, '');
+                                const ocrName = (ocr.ocrFullName || '').trim();
+                                const registeredName = (currentApp.fullName || '').trim();
+                                const bankHolderName = (currentApp.bankAccountName || '').trim();
+
+                                const isCccdMatch = ocrCccd && registeredCccd
+                                  ? ocrCccd === registeredCccd
+                                  : Boolean(ocrCccd && ocrCccd.length === 12);
+                                const isNameMatch = ocrName && registeredName
+                                  ? normalizeText(ocrName) === normalizeText(registeredName)
+                                  : false;
+                                const isBankMatch = ocrName && bankHolderName
+                                  ? normalizeText(ocrName) === normalizeText(bankHolderName)
+                                  : false;
+
+                                return (
+                                  <>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">Số Căn Cước Công Dân (12 số)</td>
+                                      <td className="px-3.5 py-2 font-mono text-slate-900 font-bold tracking-wider">
+                                        {ocrCccd || '— Không đọc được'}
+                                      </td>
+                                      <td className="px-3.5 py-2 font-mono font-bold text-indigo-900 tracking-wider">
+                                        {registeredCccd || currentApp.citizenId || '—'}
+                                      </td>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isCccdMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {isCccdMatch ? '✓ Khớp 12 số' : ocrCccd ? '⚠️ Lệch số CCCD' : '— Không đọc được'}
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">Họ và tên công dân</td>
+                                      <td className="px-3.5 py-2 text-slate-900 font-bold">{ocrName ? ocrName.toUpperCase() : '—'}</td>
+                                      <td className="px-3.5 py-2 text-slate-900 font-bold">{registeredName.toUpperCase()}</td>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isNameMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {isNameMatch ? '✓ Khớp họ tên' : ocrName ? '⚠️ Lệch họ tên' : '— Không đọc được'}
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">
+                                        Chính chủ TK Ngân hàng (Escrow)
+                                      </td>
+                                      <td className="px-3.5 py-2 text-slate-600 font-medium">
+                                        Tên trên CCCD: <strong className="text-slate-900">{ocrName || '—'}</strong>
+                                      </td>
+                                      <td className="px-3.5 py-2 text-slate-900 font-bold">
+                                        Chủ TK: <strong className="text-indigo-900">{bankHolderName || 'Chưa cung cấp'}</strong>
+                                      </td>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isBankMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {isBankMatch ? '✓ Chính chủ tài khoản' : '⚠️ Lệch tên chủ TK'}
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">Ngày sinh & Giới tính</td>
+                                      <td className="px-3.5 py-2 text-slate-700 font-medium">
+                                        {ocr.ocrDateOfBirth || '—'} {ocr.ocrGender ? `(${ocr.ocrGender})` : ''}
+                                      </td>
+                                      <td className="px-3.5 py-2 text-slate-600">
+                                        Quốc tịch: {ocr.ocrNationality || 'Việt Nam'}
+                                      </td>
+                                      <td className="px-3.5 py-2 text-right text-slate-500 font-medium">Hồ sơ công dân</td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">Nơi thường trú / Quê quán</td>
+                                      <td className="px-3.5 py-2 text-slate-700 font-medium truncate max-w-[200px]" title={ocr.ocrResidence || ocr.ocrOrigin || ''}>
+                                        {ocr.ocrResidence || ocr.ocrOrigin || '—'}
+                                      </td>
+                                      <td className="px-3.5 py-2 text-slate-900 font-bold">Cơ sở: {currentApp.campus}</td>
+                                      <td className="px-3.5 py-2 text-right text-slate-500 font-medium">Địa chỉ</td>
+                                    </tr>
+                                    <tr>
+                                      <td className="px-3.5 py-2 font-semibold text-slate-700">Hiệu lực CCCD & Loại thẻ</td>
+                                      <td className="px-3.5 py-2 text-slate-700 font-medium">
+                                        Hạn: {ocr.ocrExpiryDate || '—'} ({ocr.cardType === 'THE_CAN_CUOC_2024' ? 'Thẻ Căn cước 2024' : ocr.cardType === 'CCCD_CHIP' ? 'CCCD gắn chip' : 'CCCD'})
+                                      </td>
+                                      <td className="px-3.5 py-2 text-slate-900 font-semibold">
+                                        {ocr.isExpired ? (
+                                          <span className="text-rose-600 font-bold">⚠️ Thẻ đã hết hạn</span>
+                                        ) : (
+                                          <span className="text-emerald-700 font-bold">✓ Còn hạn sử dụng</span>
+                                        )}
+                                      </td>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${ocr.isExpired ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {ocr.isExpired ? 'Hết hạn' : 'Hợp lệ'}
+                                      </td>
+                                    </tr>
+                                  </>
+                                );
+                              }
+
+                              // Chế độ Sinh viên (STUDENT)
+                              const ocrName = ocr.ocrFullName || '—';
+                              const ocrId = ocr.ocrStudentId || '—';
+                              const ocrCampus = ocr.ocrCampus || '—';
+                              const ocrCohort = ocr.ocrCohort || '—';
+                              const ocrExpiry = ocr.ocrValidTill || '—';
+
+                              const isNameMatch = ocrName !== '—' && currentApp.fullName.trim().toLowerCase() === ocrName.trim().toLowerCase();
+                              const isIdMatch = ocrId !== '—' && currentApp.studentId.trim().toUpperCase() === ocrId.trim().toUpperCase();
+                              const isCampusMatch = ocrCampus !== '—' && (
+                                currentApp.campus.toLowerCase().includes(ocrCampus.toLowerCase()) ||
+                                ocrCampus.toLowerCase().includes(currentApp.campus.toLowerCase())
+                              );
+
+                              return (
+                                <>
+                                  <tr>
+                                    <td className="px-3.5 py-2 font-semibold text-slate-700">Họ và tên</td>
+                                    <td className="px-3.5 py-2 text-slate-600 font-medium">{ocrName.toUpperCase()}</td>
+                                    <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.fullName.toUpperCase()}</td>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isNameMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                      {isNameMatch ? '✓ Khớp' : ocrName === '—' ? '— Không đọc được' : '⚠️ Lệch họ tên'}
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td className="px-3.5 py-2 font-semibold text-slate-700">Mã số sinh viên</td>
+                                    <td className="px-3.5 py-2 font-mono text-slate-600 font-bold">{ocrId}</td>
+                                    <td className="px-3.5 py-2 font-mono font-bold text-slate-900">{currentApp.studentId}</td>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isIdMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                      {isIdMatch ? '✓ Khớp' : ocrId === '—' ? '— Không đọc được' : '⚠️ Lệch MSSV'}
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td className="px-3.5 py-2 font-semibold text-slate-700">Email & Hạn thẻ</td>
+                                    <td className="px-3.5 py-2 text-slate-500">Hạn: {ocrExpiry}</td>
+                                    <td className="px-3.5 py-2 font-mono text-slate-900">{currentApp.email}</td>
+                                    <td className="px-3.5 py-2 text-right text-slate-500 font-medium">Tham khảo</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="px-3.5 py-2 font-semibold text-slate-700">Cơ sở Campus</td>
+                                    <td className="px-3.5 py-2 text-slate-700 font-semibold">{ocrCampus}</td>
+                                    <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.campus}</td>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isCampusMatch ? 'text-emerald-600' : ocrCampus === '—' ? 'text-slate-400' : 'text-amber-600'}`}>
+                                      {isCampusMatch ? '✓ Đúng cơ sở' : ocrCampus === '—' ? '— N/A' : '⚠️ Khác cơ sở'}
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td className="px-3.5 py-2 font-semibold text-slate-700">Khóa & Ngành học</td>
+                                    <td className="px-3.5 py-2 text-slate-700 font-bold">{ocrCohort}</td>
+                                    <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.cohort} {currentApp.major ? `(${currentApp.major})` : ''}</td>
+                                    <td className="px-3.5 py-2 text-right text-slate-500 font-medium">Tham khảo</td>
+                                  </tr>
+                                </>
+                              );
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      /* AI chưa quét → hiển thị thông tin đăng ký và hướng dẫn quét */
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-center space-y-2.5">
+                        <div className="flex flex-col items-center gap-2">
+                          <AlertCircle className="h-8 w-8 text-amber-400" />
+                          <p className="text-xs font-bold text-slate-700">
+                            {currentApp.type === 'seller'
+                              ? 'Chưa có dữ liệu OCR — AI chưa quét ảnh Căn Cước Công Dân (CCCD)'
+                              : 'Chưa có dữ liệu OCR — AI chưa quét ảnh thẻ sinh viên'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 max-w-md leading-relaxed">
+                            {currentApp.type === 'seller'
+                              ? 'Bấm nút "⚡ Quét Thẩm Định AI Ngay" ở phía trên để Gemini Vision đọc 12 số CCCD, Họ tên, Nơi thường trú và đối soát tính chính chủ tài khoản ngân hàng thụ hưởng.'
+                              : 'Bấm nút "⚡ Quét Thẩm Định AI Ngay" ở phía trên để Gemini Vision đọc ảnh thẻ, trích xuất Họ tên / MSSV / Campus và đối soát tự động với thông tin khai báo trong đơn.'}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-white border border-slate-200 p-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-left">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Họ tên (Đơn nộp):</span>
+                            <strong className="text-slate-800">{currentApp.fullName}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              {currentApp.type === 'seller' ? 'Số CCCD (Đơn nộp):' : 'MSSV (Đơn nộp):'}
+                            </span>
+                            <strong className="text-slate-800 font-mono">
+                              {currentApp.type === 'seller' ? (currentApp.citizenId || 'Chưa cung cấp') : currentApp.studentId}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              {currentApp.type === 'seller' ? 'Tài khoản ngân hàng:' : 'Cơ sở & Khóa:'}
+                            </span>
+                            <strong className="text-slate-800 truncate block">
+                              {currentApp.type === 'seller'
+                                ? (currentApp.bankAccountName || currentApp.bankAccount || 'Chưa liên kết')
+                                : `${currentApp.campus} • ${currentApp.cohort || '—'}`}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Email / Liên hệ:</span>
+                            <strong className="text-slate-800 text-[11px] break-all">{currentApp.email}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* AI Vision Security Verdict */}
-                  <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
-                        <Bot className="h-4 w-4 text-blue-600" />
-                        <span>Đánh giá AI Vision & Chống Gian Lận Thẻ Học Đường</span>
+                  {currentApp.ocrData ? (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                          <Bot className="h-4 w-4 text-blue-600" />
+                          <span>
+                            {currentApp.type === 'seller'
+                              ? 'Đánh giá AI Vision & Xác Thực Pháp Lý CCCD Người Bán'
+                              : 'Đánh giá AI Vision & Chống Gian Lận Thẻ Học Đường'}
+                          </span>
+                        </div>
+                        <span className={`rounded-full text-white text-[10px] font-extrabold px-2.5 py-0.5 ${
+                          (currentApp.aiMatchScore || 0) >= 80 ? 'bg-emerald-600' :
+                          (currentApp.aiMatchScore || 0) >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                        }`}>
+                          Độ tin cậy: {currentApp.aiMatchScore || 0}%
+                        </span>
                       </div>
-                      <span className="rounded-full bg-emerald-600 text-white text-[10px] font-extrabold px-2.5 py-0.5">
-                        Độ tin cậy: {currentApp.aiMatchScore || currentApp.ocrData?.aiMatchScore || 98}%
-                      </span>
+                      <p className="text-[11px] text-blue-800 leading-relaxed">
+                        {currentApp.ocrData.aiVerdict || 'AI đã phân tích tài liệu định danh. Admin vui lòng kiểm tra bảng đối soát phía trên và xác nhận thủ công trước khi phê duyệt.'}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-blue-800 leading-relaxed">
-                      {currentApp.ocrData?.aiVerdict ||
-                        'Ảnh chụp rõ nét từ camera, mã thẻ chuẩn định dạng FPT Edu. Hệ thống đã tự động đối soát thông tin với tài khoản đăng ký để Admin xem xét phê duyệt.'}
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/40 p-4 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                          <Bot className="h-4 w-4 text-slate-400" />
+                          <span>
+                            {currentApp.type === 'seller'
+                              ? 'Đánh giá AI Vision & Pháp Lý CCCD Người Bán'
+                              : 'Đánh giá AI Vision & Chống Gian Lận'}
+                          </span>
+                        </div>
+                        <span className="rounded-full bg-slate-300 text-white text-[10px] font-extrabold px-2.5 py-0.5">
+                          Chưa quét
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Chưa có đánh giá AI. Vui lòng bấm &quot;Quét Thẩm Định AI&quot; để hệ thống phân tích ảnh thẻ tự động, hoặc Admin có thể kiểm tra bằng mắt và phê duyệt thủ công.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions Footer */}
                 <div className="p-4 sm:p-5 border-t border-slate-100 bg-white shrink-0 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-3">
+                  {currentApp.status === 'pending' ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleRequestReupload(currentApp)}
+                          className="rounded-xl border border-amber-300 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                        >
+                          <Camera className="h-4 w-4" />
+                          <span>Yêu cầu chụp lại thẻ</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openRejectModal(currentApp)}
+                          className="rounded-xl border border-rose-300 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          <span>Từ chối & Ghi chú</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(currentApp)}
+                        className="w-full rounded-2xl bg-emerald-600 py-3 text-xs sm:text-sm font-black text-white hover:bg-emerald-700 transition cursor-pointer active:scale-98 shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
+                      >
+                        <ShieldCheck className="h-5 w-5" />
+                        <span>
+                          {currentApp.type === 'seller'
+                            ? 'Phê Duyệt & Mở Quyền Người Bán (Verified Seller)'
+                            : 'Phê Duyệt & Cấp Huy Hiệu Sinh Viên FPT'}
+                        </span>
+                      </button>
+                    </>
+                  ) : currentApp.status === 'approved' ? (
                     <button
                       type="button"
-                      onClick={() => handleRequestReupload(currentApp)}
-                      className="rounded-xl border border-amber-300 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                      disabled
+                      className="w-full rounded-2xl bg-slate-100 border border-slate-200 py-3 px-4 text-xs sm:text-sm font-bold text-slate-400 cursor-not-allowed flex items-center justify-center gap-2 select-none shadow-none opacity-80"
                     >
-                      <Camera className="h-4 w-4" />
-                      <span>Yêu cầu chụp lại thẻ</span>
+                      <CheckCircle className="h-5 w-5 text-slate-400" />
+                      <span>Hồ sơ đã Phê Duyệt — Đã hoàn tất</span>
                     </button>
-
+                  ) : currentApp.status === 'rejected' ? (
                     <button
                       type="button"
-                      onClick={() => openRejectModal(currentApp)}
-                      className="rounded-xl border border-rose-300 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                      disabled
+                      className="w-full rounded-2xl bg-slate-100 border border-slate-200 py-3 px-4 text-xs sm:text-sm font-bold text-slate-400 cursor-not-allowed flex items-center justify-center gap-2 select-none shadow-none opacity-80"
                     >
-                      <XCircle className="h-4 w-4" />
-                      <span>Từ chối & Ghi chú</span>
+                      <XCircle className="h-5 w-5 text-slate-400" />
+                      <span>Hồ sơ đã Từ Chối — Đã hoàn tất</span>
                     </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleApprove(currentApp)}
-                    className="w-full rounded-2xl bg-emerald-600 py-3 text-xs sm:text-sm font-black text-white hover:bg-emerald-700 transition cursor-pointer active:scale-98 shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
-                  >
-                    <ShieldCheck className="h-5 w-5" />
-                    <span>
-                      {currentApp.type === 'seller'
-                        ? 'Phê Duyệt & Mở Quyền Người Bán (Verified Seller)'
-                        : 'Phê Duyệt & Cấp Huy Hiệu Sinh Viên FPT'}
-                    </span>
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-2xl bg-slate-100 border border-slate-200 py-3 px-4 text-xs sm:text-sm font-bold text-slate-400 cursor-not-allowed flex items-center justify-center gap-2 select-none shadow-none opacity-80"
+                    >
+                      <Camera className="h-5 w-5 text-slate-400" />
+                      <span>Đã yêu cầu chụp lại thẻ — Chờ sinh viên nộp lại</span>
+                    </button>
+                  )}
                 </div>
               </>
             ) : (
@@ -916,6 +1255,29 @@ export default function AdminKycPage() {
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-xl backdrop-blur-md text-xs sm:text-sm font-semibold animate-in slide-in-from-bottom-4 duration-200">
           <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{toastMsg}</span>
+        </div>
+      )}
+      {/* Image Lightbox / Zoom Overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out animate-in fade-in duration-150"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+            <img
+              src={lightboxUrl}
+              alt="Phóng to ảnh thẻ"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border-2 border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white text-lg hover:bg-black/80 transition cursor-pointer shadow-lg"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
     </AdminLayoutShell>
