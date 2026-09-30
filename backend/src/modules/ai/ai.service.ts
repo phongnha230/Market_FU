@@ -14,8 +14,43 @@ export class AiService {
     }
   }
 
+  private readonly MODEL_CANDIDATES = [
+    'gemini-3.1-flash-lite',
+    'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+  ];
+
   /**
-   * 1. Vision Scan: Phân tích hình ảnh sản phẩm bằng Gemini 1.5 Flash Multimodal Vision
+   * Helper gọi Gemini với chiến lược ưu tiên Gemini 3.1:
+   * Thử 3.1 trước, nếu Google báo 503 (quá tải) hoặc 429 thì tự động fallback các model dự phòng
+   */
+  private async generateWithModelCascade(
+    contents: any[],
+    options?: { systemInstruction?: string; tools?: any[]; safetySettings?: any[] }
+  ) {
+    if (!this.genAI) throw new AppError('Gemini API chưa được cấu hình', 503, 'AI_NOT_CONFIGURED');
+
+    let lastError: any = null;
+    for (const modelName of this.MODEL_CANDIDATES) {
+      try {
+        const model = this.genAI.getGenerativeModel({
+          model: modelName,
+          ...(options?.systemInstruction ? { systemInstruction: options.systemInstruction } : {}),
+          ...(options?.tools ? { tools: options.tools } : {}),
+          ...(options?.safetySettings ? { safetySettings: options.safetySettings } : {}),
+        });
+        const result = await model.generateContent(contents);
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`⚠️ [Gemini ${modelName} call failed, trying next candidate]:`, err?.message?.split('\n')[0]);
+      }
+    }
+    throw lastError;
+  }
+
+  /**
+   * 1. Vision Scan: Phân tích hình ảnh sản phẩm bằng Gemini 3.1 Flash Multimodal Vision
    * Trả về JSON chuẩn để client tự động điền form đăng bài trong 3 giây
    */
   async visionScanPost(imageBuffer: Buffer, mimeType: string) {
@@ -35,8 +70,6 @@ export class AiService {
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
       const imagePart = {
         inlineData: {
           data: imageBuffer.toString('base64'),
@@ -66,7 +99,7 @@ Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT 
 }
 `;
 
-      const result = await model.generateContent([prompt, imagePart]);
+      const result = await this.generateWithModelCascade([prompt, imagePart]);
       const responseText = result.response.text().trim();
 
       const cleanJson = responseText
@@ -138,42 +171,16 @@ Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT 
       throw new AppError('File ảnh không hợp lệ hoặc rỗng', 400, 'INVALID_IMAGE');
     }
 
-    // Default fallback nếu chưa cấu hình GEMINI_API_KEY
+    // Nếu chưa cấu hình GEMINI_API_KEY → báo lỗi rõ ràng, KHÔNG fake data
     if (!this.genAI) {
-      const studentIdClean = userData.studentId.trim().toUpperCase();
-      const firstChar = studentIdClean[0] || 'Q';
-      const campusMap: Record<string, { name: string; code: string }> = {
-        Q: { name: 'Quy Nhơn', code: 'QN' },
-        H: { name: 'Hòa Lạc', code: 'HOL' },
-        S: { name: 'Hồ Chí Minh', code: 'HCM' },
-        D: { name: 'Đà Nẵng', code: 'DAD' },
-        C: { name: 'Cần Thơ', code: 'CT' },
-      };
-      const deducedCampus = campusMap[firstChar] || { name: 'Quy Nhơn', code: 'QN' };
-      const cohortDigits = studentIdClean.slice(2, 4);
-      const deducedCohort = cohortDigits ? `K${cohortDigits}` : 'K19';
-
-      return {
-        isFptCard: true,
-        ocrFullName: userData.fullName,
-        ocrStudentId: studentIdClean,
-        ocrCampus: deducedCampus.name,
-        ocrCampusCode: deducedCampus.code,
-        ocrCohort: deducedCohort,
-        ocrValidTill: 'Dec.2027',
-        aiMatchScore: 98,
-        aiVerdict: 'Hệ thống nhận diện sơ bộ qua mã thẻ chuẩn FPT Edu. Phù hợp cấp quyền.',
-        comparison: {
-          fullNameMatch: true,
-          studentIdMatch: true,
-          campusMatch: true,
-        },
-      };
+      throw new AppError(
+        'Chưa cấu hình Gemini API Key. Không thể quét AI. Admin vui lòng duyệt thủ công.',
+        503,
+        'AI_NOT_CONFIGURED'
+      );
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
       const imagePart = {
         inlineData: {
           data: imageBuffer.toString('base64'),
@@ -190,45 +197,54 @@ THÔNG TIN ĐỐI CHIẾU DO SINH VIÊN ĐĂNG KÝ:
 - Mã số sinh viên đăng ký: "${userData.studentId}"
 - Cơ sở Campus đăng ký: "${userData.campus}"
 
-QUY TẮC NHẬN DIỆN THẺ SINH VIÊN ĐẠI HỌC FPT:
-1. "fullName": Đọc chính xác Họ và Tên in trên thẻ (chữ in hoa hoặc thường có dấu tiếng Việt, ví dụ: "TRẦN ĐỖ PHONG NHÃ").
-2. "studentId": Đọc chính xác Mã số sinh viên (MSSV) in trên thẻ (thường có 2 chữ cái đầu và 6 số, ví dụ "QE190161", "HE180123", "SE172819").
-3. "validTill": Hạn sử dụng thẻ (Ví dụ: "Dec.2027", "12/2027").
-4. QUY TẮC SUY DIỄN CAMPUS VÀ KHÓA TỪ MSSV CỦA ĐẠI HỌC FPT:
-   - Ký tự đầu tiên của MSSV quy định Cơ sở Campus:
-     + 'H' -> 'Hòa Lạc' (HOL)
-     + 'S' -> 'Hồ Chí Minh' (HCM)
-     + 'D' -> 'Đà Nẵng' (DAD)
-     + 'Q' -> 'Quy Nhơn' (QN)
-     + 'C' -> 'Cần Thơ' (CT)
-   - 2 chữ số tiếp theo sau 2 chữ cái đầu quy định Khóa sinh viên: ví dụ "20" trong QE20043 là khóa "K20", "19" trong QE190161 là khóa "K19", "18" trong HE180123 là khóa "K18", "17" là khóa "K17".
-5. ĐỐI SOÁT & ĐÁNH GIÁ (So sánh với thông tin đăng ký):
-   - "fullNameMatch": true nếu họ tên trên thẻ khớp với họ tên đăng ký (không phân biệt hoa thường, cho phép sai khác dấu nhẹ nếu mờ).
-   - "studentIdMatch": true nếu MSSV trên thẻ trùng khớp với MSSV đăng ký.
-   - "campusMatch": true nếu Campus suy ra từ thẻ trùng khớp với Campus đăng ký.
-   - "aiMatchScore": Điểm số từ 0 đến 100% đánh giá độ tin cậy và độ khớp. Nếu khớp cả 3 trường và ảnh rõ nét không chỉnh sửa thì cho từ 95-100%. Nếu sai lệch hoặc ảnh mờ thì trừ điểm tương ứng.
-   - "aiVerdict": 1-2 câu nhận xét khách quan về chất lượng ảnh thẻ (rõ nét/mờ/lóa sáng), thẻ có dấu hiệu cắt ghép/photoshop không, và khuyến nghị cho Admin tham khảo.
+BƯỚC 1 — KIỂM TRA ĐÂY CÓ PHẢI THẺ SINH VIÊN FPT KHÔNG:
+- Nếu hình ảnh KHÔNG phải thẻ sinh viên FPT (ví dụ: ảnh chụp màn hình, flowchart, tranh vẽ, ảnh phong cảnh, ảnh anime, selfie, bất kỳ gì KHÔNG có phôi thẻ sinh viên), trả về:
+{
+  "isFptCard": false,
+  "ocrFullName": "",
+  "ocrStudentId": "",
+  "ocrCampus": "",
+  "ocrCampusCode": "",
+  "ocrCohort": "",
+  "ocrValidTill": "",
+  "aiMatchScore": 0,
+  "aiVerdict": "Ảnh tải lên KHÔNG phải thẻ sinh viên FPT. Hệ thống không nhận diện được phôi thẻ, logo FPT University, hoặc các trường thông tin chuẩn trên thẻ. Vui lòng yêu cầu sinh viên chụp lại ảnh thẻ sinh viên thật rõ ràng.",
+  "comparison": { "fullNameMatch": false, "studentIdMatch": false, "campusMatch": false }
+}
 
-Trả về DUY NHẤT một chuỗi JSON hợp lệ (tuyệt đối KHÔNG kèm markdown \`\`\`json, không kèm text giải thích bên ngoài):
+BƯỚC 2 — NẾU LÀ THẺ SINH VIÊN FPT, TRÍCH XUẤT DỮ LIỆU:
+1. "ocrFullName": Đọc chính xác Họ và Tên in trên thẻ. Nếu KHÔNG đọc được thì để chuỗi rỗng "".
+2. "ocrStudentId": Đọc chính xác Mã số sinh viên (MSSV) in trên thẻ. Nếu KHÔNG đọc được thì để chuỗi rỗng "".
+3. "ocrValidTill": Hạn sử dụng thẻ. Nếu KHÔNG đọc được thì để "".
+4. QUY TẮC SUY DIỄN CAMPUS VÀ KHÓA TỪ MSSV (chỉ áp dụng nếu đọc được MSSV):
+   - Ký tự đầu: 'H' -> 'Hòa Lạc' (HOL), 'S' -> 'Hồ Chí Minh' (HCM), 'D' -> 'Đà Nẵng' (DAD), 'Q' -> 'Quy Nhơn' (QN), 'C' -> 'Cần Thơ' (CT)
+   - 2 chữ số sau 2 chữ cái đầu = Khóa K (ví dụ: QE190161 -> K19)
+
+BƯỚC 3 — ĐỐI SOÁT:
+- "fullNameMatch": true chỉ khi đọc được tên VÀ tên khớp với "${userData.fullName}"
+- "studentIdMatch": true chỉ khi đọc được MSSV VÀ MSSV khớp với "${userData.studentId}"  
+- "campusMatch": true chỉ khi Campus suy ra từ MSSV trên thẻ khớp với "${userData.campus}"
+- "aiMatchScore": 0-100%. QUAN TRỌNG: Nếu không đọc được tên hoặc MSSV thì PHẢI cho điểm thấp (dưới 30%). Chỉ cho 90%+ khi đọc rõ và khớp hết.
+- "aiVerdict": Nhận xét khách quan về chất lượng ảnh, khả năng đọc, có dấu hiệu giả mạo không.
+
+QUAN TRỌNG: KHÔNG ĐƯỢC tự bịa data. Chỉ trả về những gì thực sự đọc được từ ảnh. Nếu không đọc được trường nào thì để chuỗi rỗng "".
+
+Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`json):
 {
   "isFptCard": true,
-  "ocrFullName": "HỌ VÀ TÊN TRÊN THẺ",
-  "ocrStudentId": "MSSV TRÊN THẺ",
-  "ocrCampus": "Tên campus suy ra (Hòa Lạc | Hồ Chí Minh | Đà Nẵng | Quy Nhơn | Cần Thơ)",
-  "ocrCampusCode": "HOL | HCM | DAD | QN | CT",
-  "ocrCohort": "K19",
-  "ocrValidTill": "Dec.2027",
-  "aiMatchScore": 98,
-  "aiVerdict": "Ảnh chụp rõ nét, khớp 100% họ tên và mã sinh viên với hồ sơ đăng ký. Phôi thẻ chuẩn FPT Quy Nhơn.",
-  "comparison": {
-    "fullNameMatch": true,
-    "studentIdMatch": true,
-    "campusMatch": true
-  }
+  "ocrFullName": "HỌ VÀ TÊN ĐỌC ĐƯỢC TRÊN THẺ hoặc rỗng",
+  "ocrStudentId": "MSSV ĐỌC ĐƯỢC TRÊN THẺ hoặc rỗng",
+  "ocrCampus": "Campus suy ra hoặc rỗng",
+  "ocrCampusCode": "HOL|HCM|DAD|QN|CT hoặc rỗng",
+  "ocrCohort": "K19 hoặc rỗng",
+  "ocrValidTill": "Dec.2027 hoặc rỗng",
+  "aiMatchScore": 0,
+  "aiVerdict": "Nhận xét thực tế",
+  "comparison": { "fullNameMatch": false, "studentIdMatch": false, "campusMatch": false }
 }
 `;
 
-      const result = await model.generateContent([prompt, imagePart]);
+      const result = await this.generateWithModelCascade([prompt, imagePart]);
       const responseText = result.response.text().trim();
 
       const cleanJson = responseText
@@ -238,65 +254,294 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (tuyệt đối KHÔNG kèm 
         .trim();
 
       const parsed = JSON.parse(cleanJson);
-      const finalStudentId = (parsed.ocrStudentId || userData.studentId || '').trim().toUpperCase();
-      const firstChar = finalStudentId[0] || 'Q';
-      const campusMap: Record<string, { name: string; code: string }> = {
-        Q: { name: 'Quy Nhơn', code: 'QN' },
-        H: { name: 'Hòa Lạc', code: 'HOL' },
-        S: { name: 'Hồ Chí Minh', code: 'HCM' },
-        D: { name: 'Đà Nẵng', code: 'DAD' },
-        C: { name: 'Cần Thơ', code: 'CT' },
-      };
-      const deducedCampus = campusMap[firstChar] || { name: 'Quy Nhơn', code: 'QN' };
-      // Quy chuẩn FPT: 2 chữ số ngay sau 2 ký tự đầu mã sinh viên là Khóa K (ví dụ: QE190161 -> "19" -> K19)
-      const cohortDigits = finalStudentId.slice(2, 4);
-      const calculatedCohort = cohortDigits && !isNaN(Number(cohortDigits)) ? `K${cohortDigits}` : (parsed.ocrCohort || 'K19');
 
-      return {
-        isFptCard: parsed.isFptCard ?? true,
-        ocrFullName: parsed.ocrFullName || userData.fullName,
-        ocrStudentId: finalStudentId,
-        ocrCampus: parsed.ocrCampus || deducedCampus.name,
-        ocrCampusCode: parsed.ocrCampusCode || deducedCampus.code,
-        ocrCohort: calculatedCohort,
-        ocrValidTill: parsed.ocrValidTill || 'Dec.2027',
-        aiMatchScore: Number(parsed.aiMatchScore) || 95,
-        aiVerdict: parsed.aiVerdict || 'Đã đối soát thông tin qua Gemini AI Vision.',
-        comparison: parsed.comparison || {
-          fullNameMatch: true,
-          studentIdMatch: true,
-          campusMatch: true,
-        },
-      };
-    } catch (err: any) {
-      console.warn('⚠️ [Gemini Vision Student Card OCR Warning]:', err?.message);
-      const studentIdClean = userData.studentId.trim().toUpperCase();
-      const firstChar = studentIdClean[0] || 'Q';
-      const campusMap: Record<string, { name: string; code: string }> = {
-        Q: { name: 'Quy Nhơn', code: 'QN' },
-        H: { name: 'Hòa Lạc', code: 'HOL' },
-        S: { name: 'Hồ Chí Minh', code: 'HCM' },
-        D: { name: 'Đà Nẵng', code: 'DAD' },
-        C: { name: 'Cần Thơ', code: 'CT' },
-      };
-      const deducedCampus = campusMap[firstChar] || { name: 'Quy Nhơn', code: 'QN' };
+      // Nếu Gemini xác định KHÔNG phải thẻ SV FPT → trả về kết quả thật (score thấp)
+      if (parsed.isFptCard === false) {
+        return {
+          isFptCard: false,
+          ocrFullName: '',
+          ocrStudentId: '',
+          ocrCampus: '',
+          ocrCampusCode: '',
+          ocrCohort: '',
+          ocrValidTill: '',
+          aiMatchScore: 0,
+          aiVerdict: parsed.aiVerdict || 'Ảnh tải lên không phải thẻ sinh viên FPT. Không thể đối soát.',
+          comparison: { fullNameMatch: false, studentIdMatch: false, campusMatch: false },
+        };
+      }
+
+      // Gemini xác định là thẻ SV FPT → dùng data Gemini đọc được, KHÔNG fallback userData
+      const ocrStudentId = (parsed.ocrStudentId || '').trim().toUpperCase();
+      const ocrFullName = (parsed.ocrFullName || '').trim();
+
+      // Suy Campus/Khóa từ MSSV mà Gemini đọc được (nếu có)
+      let ocrCampus = parsed.ocrCampus || '';
+      let ocrCampusCode = parsed.ocrCampusCode || '';
+      let ocrCohort = parsed.ocrCohort || '';
+
+      if (ocrStudentId.length >= 4) {
+        const firstChar = ocrStudentId[0];
+        const campusMap: Record<string, { name: string; code: string }> = {
+          Q: { name: 'Quy Nhơn', code: 'QN' },
+          H: { name: 'Hòa Lạc', code: 'HOL' },
+          S: { name: 'Hồ Chí Minh', code: 'HCM' },
+          D: { name: 'Đà Nẵng', code: 'DAD' },
+          C: { name: 'Cần Thơ', code: 'CT' },
+        };
+        const deduced = campusMap[firstChar];
+        if (deduced) {
+          ocrCampus = ocrCampus || deduced.name;
+          ocrCampusCode = ocrCampusCode || deduced.code;
+        }
+        const cohortDigits = ocrStudentId.slice(2, 4);
+        if (cohortDigits && !isNaN(Number(cohortDigits))) {
+          ocrCohort = ocrCohort || `K${cohortDigits}`;
+        }
+      }
 
       return {
         isFptCard: true,
-        ocrFullName: userData.fullName,
-        ocrStudentId: studentIdClean,
-        ocrCampus: deducedCampus.name,
-        ocrCampusCode: deducedCampus.code,
-        ocrCohort: `K${studentIdClean.slice(2, 4) || '19'}`,
-        ocrValidTill: 'Dec.2027',
-        aiMatchScore: 92,
-        aiVerdict: 'Hệ thống đối soát tiền kiểm theo quy chuẩn định dạng thẻ FPT Edu.',
-        comparison: {
-          fullNameMatch: true,
-          studentIdMatch: true,
-          campusMatch: true,
+        ocrFullName: ocrFullName, // Giữ nguyên — nếu Gemini không đọc được thì rỗng
+        ocrStudentId: ocrStudentId,
+        ocrCampus,
+        ocrCampusCode,
+        ocrCohort,
+        ocrValidTill: parsed.ocrValidTill || '',
+        aiMatchScore: Number(parsed.aiMatchScore) || 0,
+        aiVerdict: parsed.aiVerdict || 'AI đã quét ảnh nhưng không có nhận xét chi tiết.',
+        comparison: parsed.comparison || {
+          fullNameMatch: false,
+          studentIdMatch: false,
+          campusMatch: false,
         },
       };
+    } catch (err: any) {
+      console.error('❌ [Gemini Vision Student Card OCR Error]:', err?.message);
+      // KHÔNG fake data — trả về lỗi rõ ràng để frontend biết AI scan thất bại
+      const isQuotaError = /quota|limit|429|exhausted|rate.limit|too.many|resource/i.test(err?.message || '');
+      throw new AppError(
+        isQuotaError
+          ? 'Đã hết quota Gemini API hôm nay. Vui lòng duyệt thủ công hoặc thử lại sau.'
+          : `AI Vision gặp lỗi khi quét ảnh thẻ: ${err?.message || 'Lỗi không xác định'}`,
+        isQuotaError ? 429 : 500,
+        isQuotaError ? 'AI_QUOTA_EXCEEDED' : 'AI_SCAN_FAILED'
+      );
+    }
+  }
+
+  /**
+   * 1c. Thẩm định & OCR Căn Cước Công Dân (CCCD) / Thẻ Căn Cước Việt Nam bằng Gemini Vision
+   * Dành riêng cho: Đăng ký & Xét duyệt Người Bán (Seller Onboarding / Cấp Tích Xanh Bán Hàng)
+   * Tiêu chuẩn: Căn cước công dân gắn chip hoặc Thẻ Căn cước (Luật Căn cước mới của Việt Nam)
+   * Trích xuất:
+   *  - Số định danh cá nhân / CCCD (12 chữ số theo quy chuẩn Bộ Công An)
+   *  - Họ và tên công dân
+   *  - Ngày tháng năm sinh, Giới tính, Quê quán, Nơi thường trú
+   *  - Hạn sử dụng CCCD
+   * Đối soát:
+   *  - Khớp số CCCD 12 số với số khai báo trong đơn
+   *  - Khớp họ tên công dân với họ tên tài khoản người bán
+   *  - ĐẶC BIỆT: So khớp Họ tên CCCD với Tên chủ tài khoản thụ hưởng ngân hàng (Escrow Payout Match)
+   *    -> Bảo vệ người mua, chống rửa tiền và chống lừa đảo chuyển tiền về tài khoản người khác.
+   */
+  async scanCitizenCard(
+    imageBuffer: Buffer,
+    mimeType: string,
+    userData: {
+      fullName: string;
+      cccdNumber?: string;
+      bankAccountName?: string;
+      bankName?: string;
+    }
+  ) {
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new AppError('File ảnh CCCD không hợp lệ hoặc rỗng', 400, 'INVALID_IMAGE');
+    }
+
+    if (!this.genAI) {
+      throw new AppError(
+        'Chưa cấu hình Gemini API Key. Không thể quét AI CCCD. Admin vui lòng duyệt thủ công.',
+        503,
+        'AI_NOT_CONFIGURED'
+      );
+    }
+
+    try {
+      const imagePart = {
+        inlineData: {
+          data: imageBuffer.toString('base64'),
+          mimeType: mimeType || 'image/jpeg',
+        },
+      };
+
+      const prompt = `
+Bạn là chuyên gia thẩm định và xác thực danh tính Căn Cước Công Dân (CCCD) / Thẻ Căn Cước Nước Cộng Hòa Xã Hội Chủ Nghĩa Việt Nam cho hệ thống Campus Marketplace FU (Sàn thương mại điện tử sinh viên Đại học FPT).
+Hãy phân tích hình ảnh mặt trước của Căn Cước Công Dân được tải lên và trích xuất các trường dữ liệu theo quy chuẩn Bộ Công An Việt Nam:
+
+THÔNG TIN ĐỐI CHIẾU DO NGƯỜI BÁN KHAI BÁO:
+- Họ và tên người bán: "${userData.fullName}"
+- Số CCCD khai báo trong đơn: "${userData.cccdNumber || 'Chưa cung cấp'}"
+- Tên chủ tài khoản ngân hàng nhận tiền thanh toán: "${userData.bankAccountName || 'Chưa cung cấp'}"
+- Ngân hàng thụ hưởng: "${userData.bankName || 'Chưa cung cấp'}"
+
+BƯỚC 1 — KIỂM TRA ĐÂY CÓ PHẢI CĂN CƯỚC CÔNG DÂN / THẺ CĂN CƯỚC VIỆT NAM KHÔNG:
+- Nhận diện các dấu hiệu nhận biết pháp lý của Việt Nam:
+  + Quốc huy nước Cộng hòa Xã hội Chủ nghĩa Việt Nam (ở góc trên bên trái).
+  + Tiêu đề: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" / "Độc lập - Tự do - Hạnh phúc".
+  + Tiêu đề thẻ: "CĂN CƯỚC CÔNG DÂN" (CCCD gắn chip) hoặc "THẺ CĂN CƯỚC" (Luật Căn cước 2023) hoặc "IDENTITY CARD".
+  + Chip điện tử màu vàng hoặc mã QR định danh.
+- Nếu hình ảnh KHÔNG PHẢI CCCD/Thẻ Căn Cước Việt Nam (ví dụ: ảnh thẻ sinh viên FPT, ảnh phong cảnh, ảnh selfie, thẻ ngân hàng, bằng lái xe, tranh vẽ, ảnh màn hình), trả về JSON:
+{
+  "isCitizenCard": false,
+  "cardType": "NOT_CCCD",
+  "ocrCccdNumber": "",
+  "ocrFullName": "",
+  "ocrDateOfBirth": "",
+  "ocrGender": "",
+  "ocrNationality": "",
+  "ocrOrigin": "",
+  "ocrResidence": "",
+  "ocrExpiryDate": "",
+  "isExpired": false,
+  "aiMatchScore": 0,
+  "aiVerdict": "Ảnh tải lên KHÔNG phải Căn Cước Công Dân (CCCD) hoặc Thẻ Căn Cước Việt Nam hợp lệ. Hệ thống không tìm thấy Quốc huy hoặc phôi thẻ định danh công dân 12 số của Bộ Công An. Người bán cần chụp lại rõ nét mặt trước CCCD gắn chip để được kích hoạt quyền bán hàng.",
+  "comparison": {
+    "cccdNumberMatch": false,
+    "fullNameMatch": false,
+    "bankAccountMatch": false,
+    "isAuthenticCard": false
+  }
+}
+
+BƯỚC 2 — NẾU LÀ CCCD / THẺ CĂN CƯỚC VIỆT NAM, TRÍCH XUẤT DỮ LIỆU:
+1. "cardType": "CCCD_CHIP" (Căn cước gắn chip) hoặc "THE_CAN_CUOC_2024" (Thẻ Căn cước mới) hoặc "CCCD_MA_VACH" (mã vạch cũ).
+2. "ocrCccdNumber": Đọc chính xác 12 chữ số định danh cá nhân (Số / No.). Nếu bị mờ hoặc che khuất thì để "".
+3. "ocrFullName": Đọc chính xác Họ và Tên in hoa có dấu in trên thẻ CCCD (ví dụ: NGUYỄN VĂN A).
+4. "ocrDateOfBirth": Ngày tháng năm sinh trên thẻ (định dạng DD/MM/YYYY).
+5. "ocrGender": Giới tính (Nam hoặc Nữ).
+6. "ocrNationality": Quốc tịch (Việt Nam).
+7. "ocrOrigin": Quê quán in trên CCCD.
+8. "ocrResidence": Nơi thường trú in trên CCCD.
+9. "ocrExpiryDate": Có giá trị đến (DD/MM/YYYY hoặc "Không thời hạn").
+10. "isExpired": true nếu đã quá hạn tính đến năm 2026, false nếu còn thời hạn.
+
+BƯỚC 3 — ĐỐI SOÁT PHÁP LÝ & AN TOÀN THANH TOÁN (ESCROW):
+1. "cccdNumberMatch": So khớp 12 số CCCD đọc được với số khai báo "${userData.cccdNumber || ''}".
+   - Nếu đọc được 12 số và khớp với khai báo -> true.
+   - Nếu người dùng chưa điền số khai báo nhưng đọc được 12 số CCCD chuẩn -> true.
+   - Nếu số đọc được khác với số khai báo -> false.
+2. "fullNameMatch": So khớp Họ tên trên CCCD với "${userData.fullName}".
+   - Bỏ qua hoa thường, cho phép so khớp cả có dấu lẫn không dấu (ví dụ: "NGUYỄN VĂN A" khớp "Nguyen Van A").
+3. "bankAccountMatch": ĐẶC BIỆT QUAN TRỌNG VỀ PHÒNG CHỐNG LỪA ĐẢO / RỬA TIỀN:
+   - So khớp họ tên trên CCCD với tên chủ tài khoản ngân hàng thụ hưởng "${userData.bankAccountName || ''}".
+   - Tên ngân hàng thường không dấu (ví dụ: "NHÃ TRẦN" hoặc "NHA TRAN").
+   - Nếu tên trên CCCD trùng với tên chủ tài khoản ngân hàng -> true (Đảm bảo chính chủ).
+   - Nếu khác tên chủ tài khoản ngân hàng -> false (Cảnh báo gian lận).
+4. "aiMatchScore": 0 - 100%.
+   - Đọc rõ 12 số CCCD khớp + Họ tên khớp + Tên chủ tài khoản khớp: 90 - 100%.
+   - Đọc rõ CCCD khớp nhưng chưa có tài khoản ngân hàng: 80 - 88%.
+   - CCCD bị mờ, lệch số, hoặc lệch tên chủ tài khoản ngân hàng: dưới 40%.
+   - Không phải CCCD: 0%.
+5. "aiVerdict": Đưa ra nhận xét khách quan, cụ thể bằng tiếng Việt dành cho Admin kiểm duyệt:
+   - Nêu số CCCD 12 số đọc được, họ tên công dân, nơi cư trú.
+   - Nêu rõ tình trạng khớp số CCCD và tính chính chủ của tài khoản ngân hàng thụ hưởng.
+   - Đưa ra kết luận có đủ điều kiện cấp Tích Xanh Người Bán (Verified Seller) hay không.
+
+QUAN TRỌNG: TUYỆT ĐỐI KHÔNG BỊA DATA. Chỉ trả về thông tin đọc được từ ảnh.
+Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`json):
+{
+  "isCitizenCard": true,
+  "cardType": "CCCD_CHIP",
+  "ocrCccdNumber": "052204038003",
+  "ocrFullName": "NGUYỄN VĂN A",
+  "ocrDateOfBirth": "01/01/2003",
+  "ocrGender": "Nam",
+  "ocrNationality": "Việt Nam",
+  "ocrOrigin": "Quê quán",
+  "ocrResidence": "Nơi thường trú",
+  "ocrExpiryDate": "01/01/2028",
+  "isExpired": false,
+  "aiMatchScore": 95,
+  "aiVerdict": "CCCD gắn chip hợp lệ. Số CCCD và họ tên trùng khớp với hồ sơ đăng ký. Tên trên CCCD hoàn toàn khớp với chủ tài khoản ngân hàng thụ hưởng MB Bank.",
+  "comparison": {
+    "cccdNumberMatch": true,
+    "fullNameMatch": true,
+    "bankAccountMatch": true,
+    "isAuthenticCard": true
+  }
+}
+`;
+
+      const result = await this.generateWithModelCascade([prompt, imagePart]);
+      const responseText = result.response.text().trim();
+
+      const cleanJson = responseText
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim();
+
+      const parsed = JSON.parse(cleanJson);
+
+      if (parsed.isCitizenCard === false) {
+        return {
+          isCitizenCard: false,
+          cardType: 'NOT_CCCD',
+          ocrCccdNumber: '',
+          ocrFullName: '',
+          ocrDateOfBirth: '',
+          ocrGender: '',
+          ocrNationality: '',
+          ocrOrigin: '',
+          ocrResidence: '',
+          ocrExpiryDate: '',
+          isExpired: false,
+          aiMatchScore: 0,
+          aiVerdict: parsed.aiVerdict || 'Ảnh tải lên không phải Căn Cước Công Dân Việt Nam hợp lệ.',
+          comparison: {
+            cccdNumberMatch: false,
+            fullNameMatch: false,
+            bankAccountMatch: false,
+            isAuthenticCard: false,
+          },
+        };
+      }
+
+      const ocrCccdNumber = (parsed.ocrCccdNumber || '').replace(/\D/g, '');
+      const ocrFullName = (parsed.ocrFullName || '').trim();
+
+      return {
+        isCitizenCard: true,
+        cardType: parsed.cardType || 'CCCD_CHIP',
+        ocrCccdNumber,
+        ocrFullName,
+        ocrDateOfBirth: parsed.ocrDateOfBirth || '',
+        ocrGender: parsed.ocrGender || '',
+        ocrNationality: parsed.ocrNationality || 'Việt Nam',
+        ocrOrigin: parsed.ocrOrigin || '',
+        ocrResidence: parsed.ocrResidence || '',
+        ocrExpiryDate: parsed.ocrExpiryDate || '',
+        isExpired: Boolean(parsed.isExpired),
+        aiMatchScore: Number(parsed.aiMatchScore) || 0,
+        aiVerdict: parsed.aiVerdict || 'AI đã phân tích CCCD thành công.',
+        comparison: {
+          cccdNumberMatch: Boolean(parsed.comparison?.cccdNumberMatch),
+          fullNameMatch: Boolean(parsed.comparison?.fullNameMatch),
+          bankAccountMatch: Boolean(parsed.comparison?.bankAccountMatch),
+          isAuthenticCard: Boolean(parsed.comparison?.isAuthenticCard ?? true),
+        },
+      };
+    } catch (err: any) {
+      console.error('❌ [Gemini Vision CCCD OCR Error]:', err?.message);
+      const isQuotaError = /quota|limit|429|exhausted|rate.limit|too.many|resource/i.test(err?.message || '');
+      throw new AppError(
+        isQuotaError
+          ? 'Đã hết quota Gemini API hôm nay. Vui lòng duyệt thủ công hoặc thử lại sau.'
+          : `AI Vision gặp lỗi khi quét ảnh CCCD: ${err?.message || 'Lỗi không xác định'}`,
+        isQuotaError ? 429 : 500,
+        isQuotaError ? 'AI_QUOTA_EXCEEDED' : 'AI_SCAN_FAILED'
+      );
     }
   }
 
@@ -466,18 +711,6 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
 4. HỆ THỐNG FPT COIN & VOUCHER:
 - Sinh viên có thể dùng FPT Coin tích lũy (từ điểm danh, xác thực KYC Thẻ SV, viết đánh giá 2 chiều) để trừ tiền trực tiếp vào đơn hàng (50.000đ - 100.000đ).`;
 
-        const model = this.genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          systemInstruction: systemPrompt,
-          tools: [{ functionDeclarations: this.getFunctionDeclarations() as any }],
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-          ],
-        });
-
         // Tái tạo lịch sử hội thoại thực tế từ các tin nhắn trước đó trong database (B2-7 Fix)
         const pastMessages = await prisma.aiChatMessage.findMany({
           where: {
@@ -497,11 +730,36 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
             parts: [{ text: m.content }],
           }));
 
-        const chat = model.startChat({
-          history,
-        });
+        let chat: any = null;
+        let response: any = null;
+        let lastChatErr: any = null;
 
-        let response = await chat.sendMessage(sanitizedMessage);
+        for (const modelName of this.MODEL_CANDIDATES) {
+          try {
+            const model = this.genAI.getGenerativeModel({
+              model: modelName,
+              systemInstruction: systemPrompt,
+              tools: [{ functionDeclarations: this.getFunctionDeclarations() as any }],
+              safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+              ],
+            });
+
+            chat = model.startChat({ history });
+            response = await chat.sendMessage(sanitizedMessage);
+            break;
+          } catch (err: any) {
+            lastChatErr = err;
+            console.warn(`⚠️ [Gemini Chat ${modelName} attempt failed]:`, err?.message?.split('\n')[0]);
+          }
+        }
+
+        if (!response && lastChatErr) {
+          throw lastChatErr;
+        }
 
         // Kiểm tra nếu Gemini trả về Function Call
         let functionCall = response.response.functionCalls()?.[0];
