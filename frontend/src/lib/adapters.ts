@@ -17,17 +17,21 @@ export function formatCondition(condition?: string): string {
 }
 
 export function formatCampusTag(campus?: string): string {
-  switch (campus) {
+  switch (campus?.toUpperCase()) {
     case 'HOL':
+    case 'HOLA':
       return 'Hòa Lạc';
     case 'HCM':
       return 'Hồ Chí Minh';
     case 'DAD':
+    case 'DN':
       return 'Đà Nẵng';
     case 'QN':
       return 'Quy Nhơn';
     case 'CT':
       return 'Cần Thơ';
+    case 'ALL':
+      return 'Tất cả cơ sở';
     default:
       return campus || 'Hòa Lạc';
   }
@@ -81,38 +85,50 @@ export function adaptBackendProduct(item: any): ProductItem {
   if (item.isBoosted) badges.push('🔥 Nổi bật');
   if (item.price === 0) badges.push('Tặng miễn phí');
 
+  const sellerId = item.sellerId || item.seller?.id || item.seller?.userId || item.seller?._id;
   const sellerObj: Seller = {
-    name: item.seller?.fullName || item.seller?.name || 'Sinh viên FPT',
-    cohort: item.seller?.studentVerification?.studentId || item.seller?.cohort || 'FPT University',
-    initial: ((item.seller?.fullName || item.seller?.name || 'U')[0] || 'U').toUpperCase(),
-    verified: item.seller?.studentVerification?.status === 'APPROVED' || item.seller?.verified === true,
-    avatarUrl: item.seller?.avatarUrl || undefined,
-    rating: item.seller?.reputationScore ? Math.min(5.0, Number((item.seller.reputationScore / 20).toFixed(1))) : 0,
+    id: sellerId,
+    name: item.seller?.profile?.fullName || item.seller?.fullName || item.seller?.name || 'Sinh viên FPT',
+    cohort: item.seller?.profile?.campus ? formatCampusTag(item.seller.profile.campus) : (item.seller?.studentVerification?.studentId || item.seller?.cohort || 'FPT University'),
+    initial: ((item.seller?.profile?.fullName || item.seller?.fullName || item.seller?.name || 'U')[0] || 'U').toUpperCase(),
+    verified: item.seller?.profile?.isKycVerified || item.seller?.studentVerification?.status === 'APPROVED' || item.seller?.verified === true,
+    avatarUrl: item.seller?.profile?.avatarUrl || item.seller?.avatarUrl || undefined,
+    rating: item.seller?.profile?.reputationScore ? Math.min(5.0, Number((item.seller.profile.reputationScore / 20).toFixed(1))) : (item.seller?.reputationScore ? Math.min(5.0, Number((item.seller.reputationScore / 20).toFixed(1))) : 0),
     reviewCount: item.seller?.reviewCount || 0,
     dealCount: item.seller?.dealCount || 0,
     responseRate: '0%',
+    email: item.seller?.email || item.seller?.profile?.email,
+    phoneNumber: item.seller?.phoneNumber || item.seller?.profile?.phoneNumber || item.seller?.phone,
   };
 
-  const rawImages = Array.isArray(item.images) ? item.images : [];
+  const rawImages = Array.isArray(item.images)
+    ? item.images
+    : Array.isArray(item.imageUrls)
+    ? item.imageUrls
+    : [];
   const imageUrls: string[] = rawImages
     .map(extractImageUrl)
     .filter((url: string) => url.length > 0);
 
   const directImage = extractImageUrl(item.imageUrl);
   const primaryImage = imageUrls[0] || directImage || FALLBACK_PRODUCT_IMAGE;
+  const allImages = imageUrls.length > 0 ? imageUrls : [primaryImage];
 
   return {
     id: item.id || item._id,
+    sellerId,
     title: item.title || 'Sản phẩm không có tên',
     price: Number(item.price) || 0,
     originalPrice: item.originalPrice ? Number(item.originalPrice) : undefined,
     imageUrl: primaryImage,
+    images: allImages,
     campusTag: formatCampusTag(item.campus || item.campusTag),
+    campus: item.campus,
     badges: item.badges && item.badges.length > 0 ? item.badges : badges,
-    location: item.location || formatCampusTag(item.campus),
+    location: item.location || item.meetupLocation || formatCampusTag(item.campus),
     timeAgo: formatTimeAgo(item.createdAt),
     seller: sellerObj,
-    category: typeof item.category === 'object' ? item.category?.name : item.category,
+    category: typeof item.category === 'object' ? item.category?.name : (item.category || item.categoryType),
     viewCount: item.viewsCount ?? item.viewCount ?? 0,
   };
 }
@@ -122,29 +138,37 @@ export function adaptBackendProduct(item: any): ProductItem {
  */
 export function adaptBackendProductDetail(item: any): ProductDetail {
   const base = adaptBackendProduct(item);
-  const rawImages = Array.isArray(item.images) ? item.images : [];
+  const rawImages = Array.isArray(item.images)
+    ? item.images
+    : Array.isArray(item.imageUrls)
+    ? item.imageUrls
+    : Array.isArray(item.galleryImages)
+    ? item.galleryImages
+    : (base.images && base.images.length > 0 ? base.images : []);
+
   const imageUrls: string[] = rawImages
     .map(extractImageUrl)
     .filter((url: string) => url.length > 0);
-  const images = imageUrls.length > 0 ? imageUrls : [base.imageUrl];
+  const images = imageUrls.length > 0 ? imageUrls : (base.imageUrl ? [base.imageUrl] : []);
 
   const galleryImages = images.map((img: string, idx: number) => ({
     src: img,
-    alt: `${base.title} - Ảnh ${idx + 1}`,
+    alt: `${base.title} - Ảnh ${idx + 1}${idx === 0 ? ' (Bìa)' : ''}`,
   }));
 
   return {
     ...base,
+    images,
     galleryImages,
     condition: formatCondition(item.condition),
     description: item.description || 'Không có mô tả chi tiết cho sản phẩm này.',
     bulletPoints: [
       { title: 'Tình trạng', content: formatCondition(item.condition) },
       { title: 'Cơ sở', content: formatCampusTag(item.campus) },
-      { title: 'Địa điểm giao dịch', content: item.location || 'Tại khuôn viên trường' },
+      { title: 'Địa điểm giao dịch', content: item.meetupLocation || item.location || 'Tại khuôn viên trường' },
       { title: 'Trạng thái', content: item.status === 'AVAILABLE' ? 'Đang bán' : item.status === 'RESERVED' ? 'Đã đặt cọc' : 'Đã bán' },
     ],
-    meetingNote: item.location ? `Gặp trực tiếp tại: ${item.location}` : 'Gặp trực tiếp tại KTX hoặc khuôn viên trường',
+    meetingNote: (item.meetupLocation || item.location) ? `Gặp trực tiếp tại: ${item.meetupLocation || item.location}` : 'Gặp trực tiếp tại KTX hoặc khuôn viên trường',
   };
 }
 
@@ -164,22 +188,29 @@ export function adaptBackendUser(user: any): UserProfile {
 
   let kycStatus: UserProfile['kycStatus'] = 'unverified';
   const statusUpper = String(kyc.status || '').toUpperCase();
-  if (statusUpper === 'APPROVED' || user.role === 'SELLER') {
-    kycStatus = user.role === 'SELLER' ? 'approved_seller' : 'approved_student';
+  const kycTypeUpper = String(kyc.type || '').toUpperCase();
+
+  if (statusUpper === 'APPROVED') {
+    kycStatus = kycTypeUpper === 'SELLER' ? 'approved_seller' : 'approved_student';
   } else if (statusUpper === 'PENDING') {
     kycStatus = 'pending';
   } else if (statusUpper === 'REJECTED') {
     kycStatus = 'rejected';
+  } else if (user.role === 'SELLER' && kycTypeUpper !== 'STUDENT') {
+    kycStatus = 'approved_seller';
   } else if (isEdu) {
     // Tài khoản email trường @fpt.edu.vn hoặc @fe.edu.vn mặc định đã xác thực sinh viên
     kycStatus = 'approved_student';
   }
 
+  const userRole: UserProfile['role'] = user.role || (isEdu ? 'BUYER' : 'UNVERIFIED');
+
   const studentId = kyc.studentId || profile.studentId || user.studentId || '';
   const cohortMatch = studentId.match(/\d{2}/)?.[0];
-  const derivedCohort = profile.cohort || (cohortMatch ? `K${cohortMatch}` : isEdu ? 'K17' : '');
-  const isSE = studentId.toUpperCase().includes('SE') || studentId.toUpperCase().includes('HE');
-  const derivedMajor = profile.major || (isSE ? 'Kỹ thuật Phần mềm (SE)' : isEdu ? 'Kỹ thuật Phần mềm' : 'Công nghệ thông tin');
+  // Chỉ lấy cohort thật do người dùng nhập hoặc trích xuất từ MSSV thực tế, TUYỆT ĐỐI KHÔNG fake 'K17'
+  const derivedCohort = profile.cohort || (cohortMatch ? `K${cohortMatch}` : '');
+  // Chỉ lấy major thật do người dùng nhập, TUYỆT ĐỐI KHÔNG fake chuyên ngành
+  const derivedMajor = profile.major || '';
 
   return {
     id: user.userId || user.id || profile.userId || profile.id,
@@ -198,8 +229,9 @@ export function adaptBackendUser(user: any): UserProfile {
     savedVoucherIds: [],
     claimedQuestIds: [],
     dailyCheckedIn: false,
+    role: userRole,
     kycStatus,
-    kycRole: user.role === 'SELLER' ? 'seller' : 'student',
+    kycRole: kycTypeUpper === 'SELLER' || user.role === 'SELLER' ? 'seller' : 'student',
     kycApplicationId: kyc.id,
     kycRejectionReason: kyc.rejectedReason || profile.kyc?.rejectedReason || '',
     vouchers: [],

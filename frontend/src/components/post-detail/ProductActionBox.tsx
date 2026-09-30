@@ -54,160 +54,201 @@ export default function ProductActionBox({
     product.id === 'akko-3087-v2' ||
     product.id.includes('portable');
 
+  const isOwner = Boolean(
+    isLoggedIn && (
+      (currentUser.id && (product.sellerId === currentUser.id || product.seller.id === currentUser.id)) ||
+      (currentUser.email && product.seller.email && currentUser.email.toLowerCase() === product.seller.email.toLowerCase()) ||
+      (currentUser.name && product.seller.name && currentUser.name.trim().toLowerCase() === product.seller.name.trim().toLowerCase())
+    )
+  );
+
   return (
     <div className="space-y-2.5">
-      {/* INTER-CAMPUS DELIVERY NOTICE & BUTTON */}
-      {isInterCampus && (
-        <>
-          <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 text-xs text-slate-700 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
-                <Truck className="h-4 w-4 text-fpt-orange" />
-                Giao hàng Liên Campus (FPT CampusShip)
-              </span>
-              <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
-                Escrow 48h
-              </span>
+      {/* SELLER VIEWING OWN POST BANNER */}
+      {isOwner ? (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/90 p-4 sm:p-5 space-y-3 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5 text-blue-900 font-bold text-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 shrink-0">
+              <ShieldCheck className="h-5 w-5" />
             </div>
-            <p className="text-[11px] text-slate-600 leading-tight">
-              Món đồ ở <strong>{product.location}</strong> khác cơ sở Hòa Lạc của bạn. Hỗ trợ đóng thùng chống sốc KTX và ký quỹ Escrow an toàn.
-            </p>
+            <div>
+              <h4 className="font-extrabold text-slate-900 leading-tight">Bài đăng của chính bạn</h4>
+              <p className="text-[11px] font-normal text-blue-700">Tài khoản của bạn là người bán sản phẩm này</p>
+            </div>
           </div>
+          
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Theo quy chế chống gian lận và quy tắc giao dịch Market FU, người bán <strong>không được tự đặt mua, tự trả giá hay tự tạo đơn hàng với chính mình</strong>.
+          </p>
 
+          <div className="pt-1 flex flex-col sm:flex-row gap-2">
+            <Link
+              href="/profile"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 text-xs font-bold transition shadow-xs cursor-pointer active:scale-98"
+            >
+              <span>Quản lý tin tại Hồ sơ cá nhân</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* INTER-CAMPUS DELIVERY NOTICE & BUTTON */}
+          {isInterCampus && (
+            <>
+              <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 text-xs text-slate-700 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <Truck className="h-4 w-4 text-fpt-orange" />
+                    Giao hàng Liên Campus (FPT CampusShip)
+                  </span>
+                  <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                    Escrow 48h
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-tight">
+                  Món đồ ở <strong>{product.location}</strong> khác cơ sở Hòa Lạc của bạn. Hỗ trợ đóng thùng chống sốc KTX và ký quỹ Escrow an toàn.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    if (onRequireAuth) {
+                      onRequireAuth('buy');
+                    } else {
+                      router.push(`/login?redirect=${encodeURIComponent(`/checkout?productId=${encodeURIComponent(product.id)}`)}`);
+                    }
+                    return;
+                  }
+                  if (!isVerifiedStudent) {
+                    if (onRequireAuth) {
+                      onRequireAuth('buy');
+                    } else {
+                      router.push('/profile');
+                    }
+                    return;
+                  }
+                  router.push(`/checkout?productId=${encodeURIComponent(product.id)}`);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 via-fpt-orange to-amber-600 py-3 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition-all active:scale-98 cursor-pointer"
+              >
+                <Package className="h-4.5 w-4.5 stroke-[2.5]" />
+                <span>Đặt hàng Liên Campus (FPT CampusShip)</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+
+          {/* SAME-CAMPUS SAFE HANDOFF BUTTON */}
+          {!isInterCampus && (
+            <>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-slate-700 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    Giao dịch Safe-Handoff (Cùng Campus)
+                  </span>
+                  <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                    Safe Handoff
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-tight">
+                  Món đồ cùng cơ sở <strong>{product.location}</strong>. Bàn giao trực tiếp tại Safe-Points (Sảnh Alpha, Thư viện) và kích hoạt bảo hành 24h bằng mã QR Handshake.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    if (onRequireAuth) {
+                      onRequireAuth('buy');
+                    } else {
+                      router.push(`/login?redirect=${encodeURIComponent(`/checkout?productId=${encodeURIComponent(product.id)}&type=meetup`)}`);
+                    }
+                    return;
+                  }
+                  if (!isVerifiedStudent) {
+                    if (onRequireAuth) {
+                      onRequireAuth('buy');
+                    } else {
+                      router.push('/profile');
+                    }
+                    return;
+                  }
+                  router.push(`/checkout?productId=${encodeURIComponent(product.id)}&type=meetup`);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 py-3 text-sm font-extrabold text-white shadow-md shadow-emerald-500/25 hover:shadow-lg transition-all active:scale-98 cursor-pointer"
+              >
+                <ShieldCheck className="h-4.5 w-4.5 stroke-[2.5]" />
+                <span>Đặt hẹn Safe-Handoff (Cùng Campus)</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+
+          {/* Primary: Chat with Seller */}
           <button
             type="button"
             onClick={() => {
               if (!isLoggedIn) {
                 if (onRequireAuth) {
-                  onRequireAuth('buy');
+                  onRequireAuth('chat');
                 } else {
-                  router.push(`/login?redirect=${encodeURIComponent(`/checkout?productId=${encodeURIComponent(product.id)}`)}`);
+                  router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
                 }
                 return;
               }
               if (!isVerifiedStudent) {
                 if (onRequireAuth) {
-                  onRequireAuth('buy');
+                  onRequireAuth('chat');
                 } else {
                   router.push('/profile');
                 }
                 return;
               }
-              router.push(`/checkout?productId=${encodeURIComponent(product.id)}`);
+              router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 via-fpt-orange to-amber-600 py-3 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition-all active:scale-98 cursor-pointer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3 text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-98 cursor-pointer"
           >
-            <Package className="h-4.5 w-4.5 stroke-[2.5]" />
-            <span>Đặt hàng Liên Campus (FPT CampusShip)</span>
-            <ArrowRight className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4" />
+            <span>Nhắn tin ngay với người bán</span>
           </button>
-        </>
-      )}
 
-      {/* SAME-CAMPUS SAFE HANDOFF BUTTON */}
-      {!isInterCampus && (
-        <>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-slate-700 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                Giao dịch Safe-Handoff (Cùng Campus)
-              </span>
-              <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
-                Safe Handoff
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-600 leading-tight">
-              Món đồ cùng cơ sở <strong>{product.location}</strong>. Bàn giao trực tiếp tại Safe-Points (Sảnh Alpha, Thư viện) và kích hoạt bảo hành 24h bằng mã QR Handshake.
-            </p>
-          </div>
-
+          {/* Secondary Button: Offer Price */}
           <button
             type="button"
             onClick={() => {
               if (!isLoggedIn) {
                 if (onRequireAuth) {
-                  onRequireAuth('buy');
+                  onRequireAuth('offer');
                 } else {
-                  router.push(`/login?redirect=${encodeURIComponent(`/checkout?productId=${encodeURIComponent(product.id)}&type=meetup`)}`);
+                  router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
                 }
                 return;
               }
               if (!isVerifiedStudent) {
                 if (onRequireAuth) {
-                  onRequireAuth('buy');
+                  onRequireAuth('offer');
                 } else {
                   router.push('/profile');
                 }
                 return;
               }
-              router.push(`/checkout?productId=${encodeURIComponent(product.id)}&type=meetup`);
+              onOpenOfferModal();
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 py-3 text-sm font-extrabold text-white shadow-md shadow-emerald-500/25 hover:shadow-lg transition-all active:scale-98 cursor-pointer"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-98 cursor-pointer"
           >
-            <ShieldCheck className="h-4.5 w-4.5 stroke-[2.5]" />
-            <span>Đặt hẹn Safe-Handoff (Cùng Campus)</span>
-            <ArrowRight className="h-4 w-4" />
+            <BadgeDollarSign className="h-4 w-4 text-fpt-orange" />
+            <span>Đề nghị giá khác</span>
           </button>
         </>
       )}
 
-      {/* Primary: Chat with Seller */}
-      <button
-        type="button"
-        onClick={() => {
-          if (!isLoggedIn) {
-            if (onRequireAuth) {
-              onRequireAuth('chat');
-            } else {
-              router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-            }
-            return;
-          }
-          if (!isVerifiedStudent) {
-            if (onRequireAuth) {
-              onRequireAuth('chat');
-            } else {
-              router.push('/profile');
-            }
-            return;
-          }
-          router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
-        }}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3 text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-98 cursor-pointer"
-      >
-        <MessageSquare className="h-4 w-4" />
-        <span>Nhắn tin ngay với người bán</span>
-      </button>
-
-      {/* 2 Secondary Buttons */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            if (!isLoggedIn) {
-              if (onRequireAuth) {
-                onRequireAuth('offer');
-              } else {
-                router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-              }
-              return;
-            }
-            if (!isVerifiedStudent) {
-              if (onRequireAuth) {
-                onRequireAuth('offer');
-              } else {
-                router.push('/profile');
-              }
-              return;
-            }
-            onOpenOfferModal();
-          }}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-98 cursor-pointer"
-        >
-          <BadgeDollarSign className="h-4 w-4 text-fpt-orange" />
-          <span>Đề nghị giá khác</span>
-        </button>
+      {/* Favorite Button */}
+      <div>
 
         <button
           type="button"

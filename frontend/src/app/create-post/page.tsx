@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -9,9 +9,12 @@ import Footer from '@/components/Footer';
 import { useProductStore } from '@/stores/productStore';
 import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
+import { profileService } from '@/services/profileService';
 import { aiService } from '@/services/aiService';
+import { safehandoffService } from '@/services/safehandoffService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { checkPostModeration, ContentViolation } from '@/utils/contentModeration';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import {
   UploadCloud,
   Camera,
@@ -39,6 +42,10 @@ import {
   ShieldAlert,
   Loader2,
   Info,
+  Bold,
+  Italic,
+  List,
+  Heading,
 } from 'lucide-react';
 
 const SAMPLE_LOCAL_PHOTOS = [
@@ -71,6 +78,37 @@ const CAMPUS_OPTIONS = [
   { id: 'qn', label: 'Quy Nhơn - AI Campus An Phú Thịnh', shortName: 'Quy Nhơn' },
 ];
 
+export const CAMPUS_MEETING_LOCATIONS: Record<string, { id: string; name: string; desc: string }[]> = {
+  hola: [
+    { id: 'HL-01', name: 'Sảnh Chính Tòa Alpha (Tầng 1)', desc: 'Bàn tiếp tân sảnh chính, có bảo vệ 24/7' },
+    { id: 'HL-02', name: 'Thư viện Gamma (Tầng 1)', desc: 'Bàn quầy thủ thư, yên tĩnh để test máy' },
+    { id: 'HL-03', name: 'Dom A-B Sảnh KTX', desc: 'Khu lễ tân sảnh KTX Dom A-B' },
+    { id: 'HL-04', name: 'Dom E-F Điểm Hẹn Tiện Lợi', desc: 'Cạnh siêu thị mini & Căn tin Dom E' },
+    { id: 'HL-05', name: 'Tòa Beta Tầng Trệt', desc: 'Góc tự học tầng 1 Tòa Beta' },
+    { id: 'HL-06', name: 'Tòa Delta Phòng Chờ Sinh Viên', desc: 'Phòng chờ sảnh Tòa Delta' },
+    { id: 'HL-07', name: 'Khu Thể Thao & Sân Bóng', desc: 'Khán đài sân bóng đá số 1' },
+  ],
+  hcm: [
+    { id: 'SG-01', name: 'Sảnh Tòa E2a-7 (Khu CN Cao Q9)', desc: 'Khu vực DVC sảnh chính, camera toàn cảnh' },
+    { id: 'SG-02', name: 'Thư viện Tòa Nhà Sáng Tạo', desc: 'Tầng 2 Thư viện Tòa Nhà Sáng Tạo' },
+    { id: 'SG-03', name: 'Sảnh Canteen Tòa Alpha', desc: 'Lối vào khu ăn uống căng tin sinh viên' },
+    { id: 'SG-04', name: 'Khu Khởi nghiệp Startup Hub', desc: 'Tầng 3 Không gian Đổi mới Sáng tạo' },
+  ],
+  dn: [
+    { id: 'DN-01', name: 'Sảnh Tòa FPT City Ngũ Hành Sơn', desc: 'Sảnh chính Tòa Alpha, KĐT FPT City' },
+    { id: 'DN-02', name: 'Sân Vovinam Tòa Beta', desc: 'Nhà thi đấu Vovinam Tòa Beta' },
+    { id: 'DN-03', name: 'Thư viện Tòa Gamma (Tầng 2)', desc: 'Bàn thủ thư Thư viện Tòa Gamma' },
+  ],
+  ct: [
+    { id: 'CT-01', name: 'Sảnh Tòa Gamma Cần Thơ', desc: 'Sảnh Tòa Gamma, Cầu Rau Răm, Q. Ninh Kiều' },
+    { id: 'CT-02', name: 'Sân Cỏ Nhân Tạo KTX Cần Thơ', desc: 'Phía sau khu Ký túc xá FPT Cần Thơ' },
+  ],
+  qn: [
+    { id: 'QN-01', name: 'Trung tâm AI Hub & Innovation', desc: 'Sảnh Trung tâm AI & Trí tuệ nhân tạo Quy Nhơn' },
+    { id: 'QN-02', name: 'Sảnh Tòa Nhà Điều Hành Quy Nhơn', desc: 'Sảnh lễ tân Tòa nhà điều hành FPT Quy Nhơn' },
+  ],
+};
+
 const CONDITIONS = [
   { id: 'seal', label: 'Mới 100% Nguyên seal' },
   { id: 'likenew', label: 'Mới 99% Like new' },
@@ -78,36 +116,169 @@ const CONDITIONS = [
   { id: 'used', label: 'Pass thanh lý / Cũ' },
 ];
 
+export function resolveCampusId(userCampus?: string): string {
+  if (!userCampus) return 'hola';
+  const c = userCampus.toLowerCase().trim();
+  if (c.includes('cần thơ') || c.includes('can tho') || c === 'ct') return 'ct';
+  if (
+    c.includes('hồ chí minh') ||
+    c.includes('ho chi minh') ||
+    c.includes('tp.hcm') ||
+    c.includes('tp. hcm') ||
+    c.includes('hcm') ||
+    c.includes('sài gòn') ||
+    c.includes('sai gon') ||
+    c === 'sg'
+  ) return 'hcm';
+  if (c.includes('đà nẵng') || c.includes('da nang') || c === 'dn' || c === 'dad') return 'dn';
+  if (c.includes('quy nhơn') || c.includes('quy nhon') || c === 'qn') return 'qn';
+  if (
+    c.includes('hòa lạc') ||
+    c.includes('hoa lac') ||
+    c.includes('hà nội') ||
+    c.includes('ha noi') ||
+    c === 'hl' ||
+    c === 'hol' ||
+    c === 'hola'
+  ) return 'hola';
+  return 'hola';
+}
+
 export default function CreatePostPage() {
   const router = useRouter();
 
-  // 1. Form State
-  const [images, setImages] = useState<string[]>([
-    '/products/book-prf192.jpg',
-    '/products/books-mas291.jpg',
-    '/products/keyboard-akko.jpg',
-  ]);
-  const [title, setTitle] = useState(
-    'Giáo trình PRF192 bản đẹp + Kèm tóm tắt lý thuyết thi PE'
+  const currentUser = useUserStore((state) => state.user);
+  const resolvedCampusId = useMemo(() => resolveCampusId(currentUser.campus), [currentUser.campus]);
+  const defaultCampusLocs = useMemo(
+    () => CAMPUS_MEETING_LOCATIONS[resolvedCampusId] || CAMPUS_MEETING_LOCATIONS['hola'],
+    [resolvedCampusId]
   );
+
+  // 1. Form State - Khởi tạo sạch để người bán tự đăng sản phẩm của mình, không gán sẵn ảnh mẫu
+  const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
+  const [title, setTitle] = useState('');
   const [category, setCategory] = useState('books');
-  const [campus, setCampus] = useState('hola');
+  // Cơ sở Campus gắn chặt với hồ sơ sinh viên, không cho phép đổi tùy tiện
+  const [campus, setCampus] = useState(resolvedCampusId);
   const [pickupLocation, setPickupLocation] = useState(
-    'Sảnh Tòa Alpha / Căng tin Dom E KTX Hòa Lạc'
+    defaultCampusLocs[0]?.name || 'Sảnh Tòa nhà chính'
   );
-  const [price, setPrice] = useState('90000');
+  const [price, setPrice] = useState('');
   const [negotiable, setNegotiable] = useState(true);
   const [condition, setCondition] = useState('Mới 99% Like new');
-  const [description, setDescription] = useState(
-    'Sách PRF192 mình học kỳ trước xong, pass lại cho các bạn K18-K19 học lập trình C. Sách giữ rất kỹ, không rách gáy, không viết bút dạ quang lem nhem.\nĐặc biệt tặng kèm tập tài liệu tóm tắt con trỏ (Pointer) và bài tập luyện code PE 10 điểm.\nNhận sách tại sảnh Alpha hoặc KTX Dom E bất kỳ buổi chiều nào trong tuần.'
-  );
-  const [hashtags, setHashtags] = useState<string[]>(['sách', 'lập trình', 'K17', 'giá rẻ']);
+  const [description, setDescription] = useState('');
+  const [hashtags, setHashtags] = useState<string[]>([]);
   const [hashtagInput, setHashtagInput] = useState('');
-  const currentUser = useUserStore((state) => state.user);
+
+  // Nút hỗ trợ điền nhanh dữ liệu mẫu khi người dùng muốn thử nghiệm demo
+  const handleLoadSamplePost = () => {
+    setImages([
+      '/products/book-prf192.jpg',
+      '/products/books-mas291.jpg',
+      '/products/keyboard-akko.jpg',
+    ]);
+    setImageFiles([null, null, null]);
+    setTitle('Giáo trình PRF192 bản đẹp + Kèm tóm tắt lý thuyết thi PE');
+    setPrice('90000');
+    setCategory('books');
+    setCondition('Mới 99% Like new');
+    setDescription(
+      'Sách PRF192 mình học kỳ trước xong, pass lại cho các bạn K18-K19 học lập trình C. Sách giữ rất kỹ, không rách gáy, không viết bút dạ quang lem nhem.\nĐặc biệt tặng kèm tập tài liệu tóm tắt con trỏ (Pointer) và bài tập luyện code PE 10 điểm.\nNhận sách tại sảnh trường hoặc KTX bất kỳ buổi chiều nào trong tuần.'
+    );
+    setHashtags(['sách', 'lập trình', 'K17', 'giá rẻ']);
+    showToast('✨ Đã điền nhanh thông tin bài đăng mẫu để thử nghiệm!');
+  };
+
   const addProduct = useProductStore((state) => state.addProduct);
   const setKycStatus = useUserStore((state) => state.setKycStatus);
   const [phone, setPhone] = useState(currentUser.phone || '0982 345 678');
   const [userEmail] = useState(currentUser.email || 'sinhvien@fpt.edu.vn');
+  const [descTab, setDescTab] = useState<'write' | 'preview'>('write');
+  const [customLocations, setCustomLocations] = useState<{ id: string; name: string; desc: string }[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 1. Tự động đồng bộ thông tin hồ sơ người dùng mới nhất từ backend
+  useEffect(() => {
+    profileService.getProfile().catch(() => {});
+  }, []);
+
+  // 2. Gắn chặt cơ sở Campus giao dịch theo hồ sơ người dùng (Cần Thơ, Hòa Lạc, v.v.)
+  useEffect(() => {
+    const targetCampusId = resolveCampusId(currentUser.campus);
+    setCampus(targetCampusId);
+
+    const campusLocs = CAMPUS_MEETING_LOCATIONS[targetCampusId] || [];
+    if (campusLocs.length > 0) {
+      setPickupLocation((prev) => {
+        const belongsToTarget = campusLocs.some((l) => l.name === prev);
+        if (!prev || !belongsToTarget || (prev.includes('Hòa Lạc') && targetCampusId !== 'hola')) {
+          return campusLocs[0].name;
+        }
+        return prev;
+      });
+    }
+  }, [currentUser.campus]);
+
+  // 3. Lấy trạm Safe-Handoff từ backend theo Campus đang chọn
+  useEffect(() => {
+    const campusMap: Record<string, string> = {
+      hola: 'HOL',
+      hcm: 'HCM',
+      dn: 'DAD',
+      qn: 'QN',
+      ct: 'CT',
+    };
+    const cCode = campusMap[campus] || 'HOL';
+    safehandoffService
+      .getHubs({ campus: cCode })
+      .then((res) => {
+        if (res.hubs && res.hubs.length > 0) {
+          const mapped = res.hubs.map((h) => ({
+            id: h.code || h.id,
+            name: h.name,
+            desc: h.locationDetails || h.notes || 'Trạm kiểm định an toàn',
+          }));
+          setCustomLocations(mapped);
+        }
+      })
+      .catch(() => {
+        // Fallback tự động sang danh sách CAMPUS_MEETING_LOCATIONS có sẵn
+      });
+  }, [campus]);
+
+  const availableMeetingLocations = useMemo(() => {
+    if (customLocations.length > 0) return customLocations;
+    return CAMPUS_MEETING_LOCATIONS[campus] || CAMPUS_MEETING_LOCATIONS['hola'];
+  }, [campus, customLocations]);
+
+  // Khóa cố định campus: không cho phép đổi sang cơ sở khác ngoài cơ sở đã đăng ký trong hồ sơ
+  const handleCampusChange = (newCampus: string) => {
+    const allowedCampus = resolveCampusId(currentUser.campus);
+    if (newCampus !== allowedCampus) {
+      showToast(`⚠️ Cơ sở đăng bán được khóa cố định theo hồ sơ sinh viên của bạn (${currentUser.campus || getCampusShortName(allowedCampus)}).`);
+      return;
+    }
+    setCampus(newCampus);
+  };
+
+  const insertMarkdown = (before: string, after: string = '', defaultText: string = '') => {
+    const el = textareaRef.current;
+    if (!el) {
+      setDescription((prev) => `${prev}\n${before}${defaultText}${after}`);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selectedText = el.value.substring(start, end) || defaultText;
+    const replacement = `${before}${selectedText}${after}`;
+    const newText = el.value.substring(0, start) + replacement + el.value.substring(end);
+    setDescription(newText);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+    }, 50);
+  };
 
   // 2. Modals & Notifications
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
@@ -203,8 +374,9 @@ export default function CreatePostPage() {
       showToast('Vui lòng thêm ít nhất 1 ảnh để AI phân tích!');
       return;
     }
-    if (uploadedFiles.length > 0) {
-      handleAiScanImage(uploadedFiles[0]);
+    const firstFile = imageFiles[0];
+    if (firstFile) {
+      handleAiScanImage(firstFile);
     } else {
       handleAiScanImage(images[0]);
     }
@@ -214,22 +386,31 @@ export default function CreatePostPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const filesArray = Array.from(e.target.files);
-      setUploadedFiles((prev) => [...prev, ...filesArray].slice(0, 6));
+      const remainingSlots = 6 - images.length;
+      if (remainingSlots <= 0) {
+        showToast('Bạn chỉ có thể chọn tối đa 6 ảnh.');
+        return;
+      }
+      const filesToTake = filesArray.slice(0, remainingSlots);
       const newUrls: string[] = [];
-      filesArray.forEach((file) => {
-        if (images.length + newUrls.length < 6) {
-          const objectUrl = URL.createObjectURL(file);
-          newUrls.push(objectUrl);
-        }
+      const newFiles: (File | null)[] = [];
+
+      filesToTake.forEach((file) => {
+        const objectUrl = URL.createObjectURL(file);
+        newUrls.push(objectUrl);
+        newFiles.push(file);
       });
-      setImages((prev) => [...prev, ...newUrls].slice(0, 6));
+
+      setImages((prev) => [...prev, ...newUrls]);
+      setImageFiles((prev) => [...prev, ...newFiles]);
       showToast(`Đã thêm ${newUrls.length} ảnh vào bài đăng!`);
 
       // Tự động phân tích ảnh đầu tiên bằng Gemini Vision nếu còn trống tiêu đề
-      if (filesArray[0] && (!title || title.includes('Giáo trình PRF192'))) {
-        handleAiScanImage(filesArray[0]);
+      if (filesToTake[0] && (!title || title.includes('Giáo trình PRF192'))) {
+        handleAiScanImage(filesToTake[0]);
       }
     }
+    e.target.value = '';
   };
 
   // Add sample image
@@ -243,31 +424,49 @@ export default function CreatePostPage() {
       return;
     }
     setImages((prev) => [...prev, url]);
+    setImageFiles((prev) => [...prev, null]);
     showToast('Đã thêm ảnh vào danh sách bài đăng!');
   };
 
   // Remove image
   const handleRemoveImage = (index: number) => {
+    const urlToRemove = images[index];
+    if (urlToRemove && urlToRemove.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(urlToRemove);
+      } catch {}
+    }
     setImages((prev) => prev.filter((_, i) => i !== index));
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Set image as cover
   const handleSetCover = (index: number) => {
     if (index === 0) return;
-    const selected = images[index];
-    const remaining = images.filter((_, i) => i !== index);
-    setImages([selected, ...remaining]);
+    setImages((prev) => {
+      const selected = prev[index];
+      const remaining = prev.filter((_, i) => i !== index);
+      return [selected, ...remaining];
+    });
+    setImageFiles((prev) => {
+      const selected = prev[index];
+      const remaining = prev.filter((_, i) => i !== index);
+      return [selected, ...remaining];
+    });
     showToast('Đã đặt ảnh này làm ảnh bìa chính!');
   };
 
   // Quick Description Template
   const handleApplyTemplate = () => {
-    const template = `Mình pass lại "${title || 'món đồ này'}" cho các bạn sinh viên FPT campus ${getCampusShortName(campus)}.
-• Tình trạng: ${condition}, dùng giữ gìn cẩn thận.
-• Giá pass: ${formatVND(Number(price) || 0)} ${negotiable ? '(Có fix nhẹ xăng xe cho bạn nào qua lấy sớm)' : ''}.
-• Giao dịch: Hẹn gặp trực tiếp tại ${pickupLocation || 'khuôn viên trường'} để test đồ thoải mái trước khi thanh toán.`;
+    const defaultMeetup = pickupLocation || availableMeetingLocations[0]?.name || 'Sảnh Tòa nhà chính';
+    const template = `Mình pass lại **${title || 'món đồ này'}** cho các bạn sinh viên FPT campus ${getCampusShortName(campus)}.
+
+- **Tình trạng:** ${condition}, giữ gìn cẩn thận còn rất tốt.
+- **Giá mong muốn:** ${formatVND(Number(price) || 0)} ${negotiable ? '(Có fix nhẹ xăng xe cho bạn nào qua lấy sớm)' : ''}.
+- **Điểm hẹn giao nhận:** ${defaultMeetup}.
+- **Thời gian rảnh:** Giờ nghỉ trưa hoặc các buổi chiều trong tuần, hẹn gặp trực tiếp kiểm tra đồ thoải mái trước khi nhận.`;
     setDescription(template);
-    showToast('✨ Đã áp dụng mẫu mô tả nhanh thành công!');
+    showToast('✨ Đã áp dụng mẫu mô tả nhanh chuẩn Markdown!');
   };
 
   // Submit
@@ -310,17 +509,25 @@ export default function CreatePostPage() {
         'Đã qua sử dụng (Khá)': 'USED_FAIR',
       };
 
+      const defaultMeetup = pickupLocation || availableMeetingLocations[0]?.name || 'Sảnh Tòa nhà chính';
+
       const formData = new FormData();
       formData.append('title', title.trim());
       formData.append('description', description);
       formData.append('price', price);
       formData.append('category', category);
       formData.append('campus', campusMap[campus] || 'HOL');
-      formData.append('location', pickupLocation || 'KTX');
+      formData.append('meetupLocation', defaultMeetup);
+      formData.append('location', defaultMeetup);
       formData.append('condition', conditionMap[condition] || 'USED_GOOD');
 
-      images.forEach((img) => {
-        formData.append('imageUrls', img);
+      images.forEach((img, idx) => {
+        const file = imageFiles[idx];
+        if (file) {
+          formData.append('images', file);
+        } else {
+          formData.append('imageUrls', img);
+        }
       });
 
       hashtags.forEach((tag) => {
@@ -332,6 +539,11 @@ export default function CreatePostPage() {
       setIsSuccessModalOpen(true);
       return;
     } catch (err: any) {
+      if (err?.code === 'CAMPUS_MISMATCH' || err?.message?.includes('Cơ sở giao dịch')) {
+        showToast(`🚫 ${err?.message || 'Cơ sở đăng bán phải khớp với hồ sơ của bạn'}`);
+        return;
+      }
+
       if (err?.code === 'KYC_REQUIRED_TO_SELL' || err?.message?.includes('KYC')) {
         showToast('⚠️ Bạn cần xác thực Thẻ Sinh Viên để có quyền đăng bán đồ.');
         setIsKycModalOpen(true);
@@ -348,14 +560,19 @@ export default function CreatePostPage() {
       }
 
       // Fallback lưu local store nếu backend chưa phản hồi
+      const defaultMeetup = pickupLocation || availableMeetingLocations[0]?.name || 'Sảnh Tòa nhà chính';
       const newPost = addProduct({
         title: title.trim(),
         price: Number(price) || 0,
         originalPrice: Math.round((Number(price) || 0) * 1.3),
         imageUrl: images[0] || '/products/book-prf192.jpg',
+        images: [...images],
         badges: [condition, negotiable ? 'Có fix SV' : 'Giá chuẩn'],
-        location: `${getCampusShortName(campus)} • ${pickupLocation || 'KTX'}`,
+        location: `${getCampusShortName(campus)} • ${defaultMeetup}`,
         campusTag: getCampusShortName(campus),
+        campus,
+        description: description || `Pass lại "${title.trim()}". Hàng chính chủ dùng giữ gìn cẩn thận.`,
+        meetupLocation: defaultMeetup,
         seller: {
           name: currentUser.name,
           cohort: currentUser.cohort,
@@ -379,7 +596,7 @@ export default function CreatePostPage() {
   if (!isSeller) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
-        <Navbar selectedCampus={campus} onSelectCampus={(c) => setCampus(c)} />
+        <Navbar selectedCampus={campus} onSelectCampus={(c) => handleCampusChange(c)} />
 
         {/* Demo KYC Switcher for Fast Testing */}
         <div className="bg-slate-900 text-white px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shadow-inner">
@@ -558,7 +775,7 @@ export default function CreatePostPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
       {/* 1. MAIN NAVBAR */}
-      <Navbar selectedCampus={campus} onSelectCampus={(c) => setCampus(c)} />
+      <Navbar selectedCampus={campus} onSelectCampus={(c) => handleCampusChange(c)} />
 
       {/* 2. TOP HEADER BANNER */}
       <div className="border-b border-slate-200/80 bg-white">
@@ -579,18 +796,30 @@ export default function CreatePostPage() {
               </p>
             </div>
 
-            {/* Right student trust card */}
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-2.5 shadow-xs shrink-0 self-start lg:self-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
-                  Tài khoản Sinh viên @fpt.edu.vn
-                </p>
-                <p className="text-[11px] text-emerald-700 font-medium">
-                  Đã kích hoạt bảo trợ nội bộ
-                </p>
+            {/* Right student trust card & Quick Demo helper */}
+            <div className="flex flex-wrap items-center gap-3 self-start lg:self-center">
+              <button
+                type="button"
+                onClick={handleLoadSamplePost}
+                className="flex items-center gap-1.5 rounded-2xl border border-orange-200 bg-orange-50/80 px-3.5 py-2.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 hover:border-orange-300 transition shadow-2xs cursor-pointer"
+                title="Tự động điền dữ liệu mẫu (sách PRF192, 90.000đ, ảnh mẫu) để thử nghiệm đăng tin"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>⚡ Thử nhanh tin mẫu</span>
+              </button>
+
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-2.5 shadow-xs shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-slate-900 leading-tight">
+                    Tài khoản Sinh viên @fpt.edu.vn
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-medium">
+                    Đã kích hoạt bảo trợ nội bộ
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -886,44 +1115,94 @@ export default function CreatePostPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Cơ sở Campus giao dịch <span className="text-rose-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Cơ sở Campus giao dịch <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-full">
+                        <Lock className="h-3 w-3 text-slate-500" />
+                        Cố định theo hồ sơ
+                      </span>
+                    </div>
+
                     <div className="relative">
                       <select
+                        disabled
                         value={campus}
-                        onChange={(e) => setCampus(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition cursor-pointer"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-100/90 text-slate-800 px-3.5 py-2.5 pr-9 text-sm font-semibold outline-none cursor-not-allowed select-none shadow-2xs"
                       >
                         {CAMPUS_OPTIONS.map((camp) => (
                           <option key={camp.id} value={camp.id}>
-                            {camp.label}
+                            🏫 {camp.label}
                           </option>
                         ))}
                       </select>
-                      <MapPin className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-fpt-orange" />
+                      <Lock className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                    </div>
+
+                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-slate-500 leading-normal">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        Cơ sở giao dịch được liên kết và cố định theo thông tin sinh viên trong hồ sơ cá nhân ({currentUser.campus || getCampusShortName(campus)}) để bảo đảm gặp mặt an toàn tại trường.{' '}
+                        <Link href="/profile" className="font-bold text-fpt-orange hover:underline">
+                          Cập nhật cơ sở tại Hồ sơ ➔
+                        </Link>
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Điểm hẹn giao nhận cụ thể */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Điểm hẹn giao nhận cụ thể trong khuôn viên <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={pickupLocation}
-                      onChange={(e) => setPickupLocation(e.target.value)}
-                      placeholder="VD: Sảnh Tòa Alpha / Căng tin Dom E KTX Hòa Lạc..."
-                      className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
-                    />
-                    <Building className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Điểm hẹn giao nhận cụ thể trong khuôn viên <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Điểm hẹn Safe-Handoff an toàn
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    Gặp trực tiếp trong trường để xem đồ và thanh toán ngay, an toàn cho cả hai bên.
+
+                  {/* Dropdown chọn điểm hẹn */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <select
+                        value={availableMeetingLocations.some((loc) => loc.name === pickupLocation) ? pickupLocation : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val !== 'custom') {
+                            setPickupLocation(val);
+                          }
+                        }}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition cursor-pointer"
+                      >
+                        <option value="" disabled>-- Chọn điểm hẹn an toàn tại Campus {getCampusShortName(campus)} --</option>
+                        {availableMeetingLocations.map((loc) => (
+                          <option key={loc.id} value={loc.name}>
+                            🏢 {loc.name} {loc.desc ? `— (${loc.desc})` : ''}
+                          </option>
+                        ))}
+                        <option value="custom">📍 Tự nhập địa điểm khác trong trường...</option>
+                      </select>
+                    </div>
+
+                    {/* Input nhập/tinh chỉnh chi tiết địa điểm */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={pickupLocation}
+                        onChange={(e) => setPickupLocation(e.target.value)}
+                        placeholder="VD: Sảnh Tòa Alpha / Căng tin Dom E KTX Hòa Lạc..."
+                        className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+                      />
+                      <Building className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    💡 Khuyên dùng: Nên ưu tiên gặp tại các trạm Safe-Handoff có camera giám sát và nhân viên/bảo vệ trực để giao dịch an tâm nhất.
                   </p>
                 </div>
               </div>
@@ -1003,7 +1282,7 @@ export default function CreatePostPage() {
 
               {/* SECTION 4: MÔ TẢ CHI TIẾT */}
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fpt-orange text-xs font-bold text-white shadow-xs">
                       4
@@ -1011,6 +1290,76 @@ export default function CreatePostPage() {
                     <h2 className="text-base font-bold text-slate-900">
                       Mô tả chi tiết
                     </h2>
+                  </div>
+
+                  {/* Tabs: Soạn thảo / Xem trước Markdown */}
+                  <div className="flex items-center rounded-xl bg-slate-100 p-1 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setDescTab('write')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        descTab === 'write'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>Soạn thảo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescTab('preview')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        descTab === 'preview'
+                          ? 'bg-white text-fpt-orange shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Xem trước Markdown</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Markdown Formatting Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('**', '**', 'chữ in đậm')}
+                      title="In đậm (Bold)"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-slate-700 transition cursor-pointer"
+                    >
+                      <Bold className="h-3.5 w-3.5" />
+                      <span>Đậm</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('*', '*', 'chữ in nghiêng')}
+                      title="In nghiêng (Italic)"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-xs font-semibold text-slate-700 transition cursor-pointer"
+                    >
+                      <Italic className="h-3.5 w-3.5" />
+                      <span>Nghiêng</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('\n- ', '', 'Nội dung mục')}
+                      title="Danh sách gạch đầu dòng"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-xs font-medium text-slate-700 transition cursor-pointer"
+                    >
+                      <List className="h-3.5 w-3.5" />
+                      <span>Danh sách</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('\n### ', '', 'Tiêu đề mục')}
+                      title="Tiêu đề (Heading)"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-slate-700 transition cursor-pointer"
+                    >
+                      <Heading className="h-3.5 w-3.5" />
+                      <span>Tiêu đề</span>
+                    </button>
                   </div>
 
                   <button
@@ -1023,29 +1372,47 @@ export default function CreatePostPage() {
                   </button>
                 </div>
 
-                <div>
-                  <textarea
-                    rows={5}
-                    required
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Mô tả cụ thể về món đồ (thời gian đã sử dụng, lý do pass, quà tặng kèm nếu có)..."
-                    className={`w-full rounded-xl border bg-white p-3.5 text-sm text-slate-900 outline-none transition resize-none leading-relaxed ${
-                      moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase()))
-                        ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
-                        : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                    }`}
-                  />
-                  {moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase())) && (
-                    <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                      Mô tả chứa từ khóa cấm hoặc vi phạm quy chế giao dịch học đường.
-                    </p>
-                  )}
-                </div>
+                {descTab === 'write' ? (
+                  <div>
+                    <textarea
+                      ref={textareaRef}
+                      rows={6}
+                      required
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Mô tả cụ thể về món đồ (thời gian đã sử dụng, lý do pass, quà tặng kèm nếu có)...&#10;Hỗ trợ Markdown: xuống dòng được giữ nguyên, danh sách (- mục), in đậm (**chữ**)..."
+                      className={`w-full rounded-xl border bg-white p-3.5 text-sm text-slate-900 outline-none transition resize-none leading-relaxed ${
+                        moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase()))
+                          ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
+                          : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
+                      }`}
+                    />
+                    {moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase())) && (
+                      <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                        Mô tả chứa từ khóa cấm hoặc vi phạm quy chế giao dịch học đường.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-orange-200/80 bg-orange-50/20 p-4 min-h-[160px]">
+                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-orange-100 text-[11px] font-bold text-fpt-orange">
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Giao diện bài đăng thực tế của bạn
+                      </span>
+                      <span className="text-slate-400 font-normal">Xuống dòng & bố cục form được giữ nguyên vẹn</span>
+                    </div>
+                    {description.trim() ? (
+                      <MarkdownRenderer content={description} />
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">Chưa có nội dung mô tả để xem trước...</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Gợi ý: Nêu rõ thời gian bạn rảnh trong ngày để bạn mua dễ hẹn lịch.</span>
+                  <span>💡 Bạn đưa form như thế nào thì đăng tin ra vẫn giữ nguyên bố cục như thế, không bị dính dòng hay mất đoạn.</span>
                   <span className="font-mono">{description.length} ký tự</span>
                 </div>
               </div>

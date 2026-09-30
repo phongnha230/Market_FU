@@ -38,7 +38,7 @@ import { useRouter } from 'next/navigation';
 
 export default function HeroSearch({
   onSearch,
-  initialCampus = 'hola',
+  initialCampus = 'all',
 }: HeroSearchProps) {
   const router = useRouter();
   const products = useProductStore((state) => state.products);
@@ -475,7 +475,7 @@ export default function HeroSearch({
                                 {cat.label || cat.name}
                               </div>
                               <div className="text-[11px] text-slate-400 font-normal truncate">
-                                {cat.description || cat.count}
+                                {cat.description}
                               </div>
                             </div>
                           </div>

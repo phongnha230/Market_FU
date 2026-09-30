@@ -4,15 +4,19 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Heart } from 'lucide-react';
-import { SIMILAR_PRODUCTS } from '@/constants/mockProducts';
+import { ProductItem } from '@/types/product';
 
 interface SimilarProductsSectionProps {
-  products?: typeof SIMILAR_PRODUCTS;
+  products?: ProductItem[];
 }
 
 export default function SimilarProductsSection({
-  products = SIMILAR_PRODUCTS,
+  products = [],
 }: SimilarProductsSectionProps) {
+  if (!products || products.length === 0) {
+    return null;
+  }
+
   const formatVND = (amount: number) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
   };

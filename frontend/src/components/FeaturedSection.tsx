@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import ProductCard from './ProductCard';
 import { Flame } from 'lucide-react';
-import { FEATURED_PRODUCTS } from '@/constants/mockProducts';
 import { ProductService } from '@/services/productService';
 import { ProductItem } from '@/types/product';
 
@@ -16,13 +15,16 @@ const tabs = [
 
 export default function FeaturedSection() {
   const [activeTab, setActiveTab] = useState('all');
-  const [products, setProducts] = useState<ProductItem[]>(FEATURED_PRODUCTS);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     ProductService.getFeaturedProducts().then((res) => {
       if (res && res.length > 0) {
         setProducts(res);
       }
+    }).finally(() => {
+      setIsLoading(false);
     });
   }, []);
 

@@ -71,6 +71,22 @@ export class ProductController {
     }
   }
 
+  // Lấy danh sách sản phẩm của người dùng đang đăng nhập (GET /api/products/me)
+  async getMyProducts(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const query = queryProductSchema.parse({
+        ...req.query,
+        sellerId: req.user!.userId,
+        allStatuses: 'true', // Hiện tất cả trạng thái (available, sold, hidden...)
+        limit: 50,
+      });
+      const { products, pagination } = await productService.getProducts(query);
+      sendSuccess(res, products, pagination);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Gia hạn 30 ngày
   async renewProduct(req: AuthRequest, res: Response, next: NextFunction) {
     try {

@@ -1,4 +1,5 @@
 export interface Seller {
+  id?: string;
   name: string;
   cohort: string; // e.g. "K17 SE", "FPT K18"
   initial: string;
@@ -8,21 +9,33 @@ export interface Seller {
   reviewCount?: number;
   dealCount?: number;
   responseRate?: string;
+  studentId?: string;
+  badge?: string;
+  phoneNumber?: string;
+  email?: string;
+  reputation?: number;
 }
 
 export interface ProductItem {
   id: string;
+  sellerId?: string;
   title: string;
   price: number;
   originalPrice?: number;
   imageUrl: string;
+  images?: string[];
   campusTag?: string;
+  campus?: string;
   badges: string[];
   location: string;
+  meetupLocation?: string;
+  description?: string;
   timeAgo?: string;
   seller: Seller;
   category?: string;
   viewCount?: number;
+  status?: string;
+  createdAt?: string;
 }
 
 export interface ProductDetail extends ProductItem {

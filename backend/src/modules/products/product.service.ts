@@ -69,25 +69,31 @@ export class ProductService {
     imageFiles?: Express.Multer.File[],
     videoFile?: Express.Multer.File
   ) {
-    if (!imageFiles || imageFiles.length === 0) {
+    const uploadedCount = imageFiles?.length || 0;
+    const providedUrlsCount = input.imageUrls?.length || 0;
+    const totalImagesCount = uploadedCount + providedUrlsCount;
+
+    if (totalImagesCount === 0) {
       throw new AppError('Sản phẩm bắt buộc phải có ít nhất 1 hình ảnh thực tế', 400, 'IMAGE_REQUIRED');
     }
 
-    if (imageFiles.length > 5) {
-      throw new AppError('Chỉ được tải lên tối đa 5 hình ảnh cho mỗi sản phẩm', 400, 'TOO_MANY_IMAGES');
+    if (totalImagesCount > 6) {
+      throw new AppError('Chỉ được tải lên tối đa 6 hình ảnh cho mỗi sản phẩm', 400, 'TOO_MANY_IMAGES');
     }
 
     // Kiểm tra dung lượng từng ảnh (tối đa 5MB) và Magic Bytes chống giả mạo
-    for (const img of imageFiles) {
-      if (img.size > 5 * 1024 * 1024) {
-        throw new AppError(`Hình ảnh '${img.originalname}' vượt quá dung lượng tối đa 5MB`, 400, 'IMAGE_TOO_LARGE');
-      }
-      if (!isValidImageBuffer(img.buffer)) {
-        throw new AppError(
-          `Tệp hình ảnh '${img.originalname}' không đúng định dạng hợp lệ (thiếu Magic Bytes JPEG/PNG/WebP/GIF)`,
-          400,
-          'INVALID_IMAGE_SIGNATURE'
-        );
+    if (imageFiles && imageFiles.length > 0) {
+      for (const img of imageFiles) {
+        if (img.size > 5 * 1024 * 1024) {
+          throw new AppError(`Hình ảnh '${img.originalname}' vượt quá dung lượng tối đa 5MB`, 400, 'IMAGE_TOO_LARGE');
+        }
+        if (!isValidImageBuffer(img.buffer)) {
+          throw new AppError(
+            `Tệp hình ảnh '${img.originalname}' không đúng định dạng hợp lệ (thiếu Magic Bytes JPEG/PNG/WebP/GIF)`,
+            400,
+            'INVALID_IMAGE_SIGNATURE'
+          );
+        }
       }
     }
 
@@ -120,9 +126,10 @@ export class ProductService {
     // Business Rule: Đăng bán hoặc trao đổi món đồ bắt buộc tài khoản phải hoàn tất xác thực Thẻ Sinh Viên (KYC) hoặc là Người Bán đã duyệt (SELLER / ADMIN)
     // Người dùng chưa xác thực Thẻ sinh viên và chưa đăng ký Người Bán thì tuyệt đối KHÔNG được quyền đăng bán.
     const isVerifiedSeller =
-      seller.role === 'SELLER' ||
-      seller.role === 'ADMIN' ||
-      seller.profile?.kyc?.status === 'APPROVED';
+      (seller.role === 'SELLER' ||
+       seller.role === 'ADMIN' ||
+       seller.profile?.kyc?.status === 'APPROVED') &&
+      seller.role !== 'UNVERIFIED';
 
     if (!isVerifiedSeller) {
       throw new AppError(
@@ -136,7 +143,7 @@ export class ProductService {
     validateProductContent(input.title, input.description, input.hashtags);
 
     // Upload song song các ảnh và video lên Media Storage (Local + Cloudflare ready)
-    const imageUploadPromises = imageFiles.map((file) => saveImageToStorage(file.buffer, 'products'));
+    const imageUploadPromises = (imageFiles || []).map((file) => saveImageToStorage(file.buffer, 'products'));
     const videoUploadPromise = videoFile
       ? saveMediaToStorage(videoFile.buffer, 'products/videos', 'video')
       : Promise.resolve(null);
@@ -146,8 +153,11 @@ export class ProductService {
       videoUploadPromise,
     ]);
 
-    const productImages = uploadedImages.map((img, index) => ({
-      imageUrl: img.secure_url,
+    const uploadedUrls = uploadedImages.map((img) => img.secure_url);
+    const allFinalUrls = [...uploadedUrls, ...(input.imageUrls || [])];
+
+    const productImages = allFinalUrls.map((url, index) => ({
+      imageUrl: url,
       isCover: index === 0,
       displayOrder: index,
     }));
@@ -167,6 +177,16 @@ export class ProductService {
       }
     }
 
+    // Đảm bảo cơ sở giao dịch gắn liền với cơ sở đã đăng ký trong hồ sơ người bán
+    const sellerCampus = seller.profile?.campus || input.campus;
+    if (seller.profile?.campus && input.campus && input.campus !== seller.profile.campus) {
+      throw new AppError(
+        `Cơ sở giao dịch phải gắn liền với cơ sở đã đăng ký trong hồ sơ của bạn (${seller.profile.campus}). Bạn không thể đăng bán ở cơ sở khác.`,
+        400,
+        'CAMPUS_MISMATCH'
+      );
+    }
+
     const product = await prisma.product.create({
       data: {
         sellerId,
@@ -178,8 +198,8 @@ export class ProductService {
         originalPrice: input.originalPrice,
         condition: input.condition,
         quantity: input.quantity,
-        campus: input.campus,
-        meetupLocation: input.meetupLocation,
+        campus: sellerCampus,
+        meetupLocation: input.meetupLocation || (input as any).location,
         allowShipping: input.allowShipping,
         hashtags: input.hashtags ?? [],
         status: 'AVAILABLE',
@@ -209,7 +229,7 @@ export class ProductService {
 
   // 2. Danh sách sản phẩm kèm Bộ lọc đa chiều & Phân trang Skip-Limit
   async getProducts(query: QueryProductInput) {
-    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, search, hashtag, sortBy, page, limit } = query;
+    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy, page, limit } = query;
     const skip = (page - 1) * limit;
 
     // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
@@ -277,10 +297,11 @@ export class ProductService {
       // Nếu meiliResult === null (Meilisearch offline) -> tự động trôi xuống fallback Prisma bên dưới
     }
 
-    const where: any = {
-      status: 'AVAILABLE',
-    };
+    const where: any = allStatuses
+      ? {} // Hiển thị tất cả trạng thái khi là profile cá nhân
+      : { status: 'AVAILABLE' };
 
+    if (sellerId) where.sellerId = sellerId;
     if (campus) where.campus = campus;
     if (categoryId) where.categoryId = categoryId;
     if (categoryType) where.categoryType = categoryType;
@@ -721,7 +742,9 @@ export class ProductService {
         ...(input.condition && { condition: input.condition }),
         ...(input.quantity !== undefined && { quantity: input.quantity }),
         ...(input.campus && { campus: input.campus }),
-        ...(input.meetupLocation !== undefined && { meetupLocation: input.meetupLocation }),
+        ...((input.meetupLocation !== undefined || (input as any).location !== undefined) && {
+          meetupLocation: input.meetupLocation !== undefined ? input.meetupLocation : (input as any).location,
+        }),
         ...(input.allowShipping !== undefined && { allowShipping: input.allowShipping }),
         ...(input.hashtags !== undefined && { hashtags: input.hashtags }),
         ...(newImages && newImages.length > 0 && { images: updatedImages }),

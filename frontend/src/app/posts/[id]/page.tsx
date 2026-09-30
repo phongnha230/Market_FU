@@ -10,14 +10,14 @@ import SellerTrustCard from '@/components/post-detail/SellerTrustCard';
 import ProductActionBox from '@/components/post-detail/ProductActionBox';
 import SimilarProductsSection from '@/components/post-detail/SimilarProductsSection';
 import PostDetailModals from '@/components/post-detail/PostDetailModals';
-import { ProductDetail } from '@/types/product';
+import { ProductDetail, ProductItem } from '@/types/product';
 import { ProductService } from '@/services/productService';
 import { chatService } from '@/services/chatService';
-import { DETAIL_PRODUCT_AKKO, SIMILAR_PRODUCTS } from '@/constants/mockProducts';
 import { useMarket } from '@/context/MarketContext';
 import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import AuthPromptModal, { AuthActionType } from '@/components/modals/AuthPromptModal';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import {
   ChevronRight,
   Home,
@@ -30,14 +30,16 @@ import {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = (params?.id as string) || 'akko-3087-v2';
+  const id = params?.id as string;
 
   const { showToast } = useMarket();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
-  const isFavorite = useFavoriteStore((state) => state.isFavorite(id));
+  const isFavorite = useFavoriteStore((state) => state.isFavorite(id || ''));
   const toggleFavoriteStore = useFavoriteStore((state) => state.toggleFavorite);
 
-  const [product, setProduct] = useState<ProductDetail>(DETAIL_PRODUCT_AKKO);
+  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [similarProducts, setSimilarProducts] = useState<ProductItem[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -55,12 +57,22 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (id) {
-      ProductService.getPostById(id).then((data) => {
-        if (data) {
-          setProduct(data);
-          setActiveImageIndex(0);
-        }
-      });
+      setIsLoading(true);
+      ProductService.getPostById(id)
+        .then((data) => {
+          if (data) {
+            setProduct(data);
+            setActiveImageIndex(0);
+            ProductService.getSimilarPosts(data.campus).then((sim) => {
+              setSimilarProducts(sim.filter((p) => p.id !== data.id));
+            });
+          } else {
+            setProduct(null);
+          }
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
   }, [id]);
 
@@ -78,14 +90,16 @@ export default function ProductDetailPage() {
   };
 
   const handleToggleFavorite = async () => {
+    if (!product) return;
+    const currentProduct = product;
     if (!isLoggedIn) {
       handleRequireAuth('favorite');
       showToast('🔒 Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích!', 'warning');
       return;
     }
-    const nextState = toggleFavoriteStore(product as any);
+    const nextState = toggleFavoriteStore(currentProduct as any);
     try {
-      await ProductService.toggleFavorite(product.id);
+      await ProductService.toggleFavorite(currentProduct.id);
     } catch {
       // Offline fallback
     }
@@ -105,6 +119,8 @@ export default function ProductDetailPage() {
   const isVerifiedStudent = isEduEmail || user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
 
   const handleSendChat = async (msg: string) => {
+    if (!product) return;
+    const currentProduct = product;
     if (!isLoggedIn) {
       handleRequireAuth('chat');
       return;
@@ -114,9 +130,9 @@ export default function ProductDetailPage() {
       return;
     }
     setIsChatModalOpen(false);
-    showToast(`✅ Đang mở cuộc trò chuyện với ${product.seller.name}...`, 'success');
+    showToast(`✅ Đang mở cuộc trò chuyện với ${currentProduct.seller.name}...`, 'success');
     try {
-      const convRes = await chatService.createOrGetConversation(product.id);
+      const convRes = await chatService.createOrGetConversation(currentProduct.id);
       if (convRes?.id) {
         await chatService.sendMessage(convRes.id, {
           text: msg,
@@ -126,10 +142,12 @@ export default function ProductDetailPage() {
     } catch {
       // offline fallback
     }
-    router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
+    router.push(`/chat?seller=${encodeURIComponent(currentProduct.seller.name)}&postId=${encodeURIComponent(currentProduct.id)}`);
   };
 
   const handleSendOffer = async (price: string, note: string) => {
+    if (!product) return;
+    const currentProduct = product;
     if (!isLoggedIn) {
       handleRequireAuth('offer');
       return;
@@ -141,11 +159,11 @@ export default function ProductDetailPage() {
     const num = Number(price.replace(/\D/g, ''));
     setIsOfferModalOpen(false);
     showToast(
-      `✅ Đã gửi đề nghị giá ${num > 0 ? formatVND(num) : price} tới ${product.seller.name}! Đang chuyển sang chat...`,
+      `✅ Đã gửi đề nghị giá ${num > 0 ? formatVND(num) : price} tới ${currentProduct.seller.name}! Đang chuyển sang chat...`,
       'success'
     );
     try {
-      const convRes = await chatService.createOrGetConversation(product.id);
+      const convRes = await chatService.createOrGetConversation(currentProduct.id);
       if (convRes?.id) {
         await chatService.sendMessage(convRes.id, {
           text: note ? `Đề xuất giá: ${num > 0 ? formatVND(num) : price} - Ghi chú: ${note}` : `Đề xuất giá: ${num > 0 ? formatVND(num) : price}`,
@@ -156,15 +174,51 @@ export default function ProductDetailPage() {
     } catch {
       // offline fallback
     }
-    router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
+    router.push(`/chat?seller=${encodeURIComponent(currentProduct.seller.name)}&postId=${encodeURIComponent(currentProduct.id)}`);
   };
 
-  const galleryImages = product.galleryImages || DETAIL_PRODUCT_AKKO.galleryImages;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2.5 text-fpt-orange font-bold text-sm">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-fpt-orange border-t-transparent" />
+            <span>Đang tải thông tin sản phẩm...</span>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Không tìm thấy sản phẩm</h2>
+          <p className="text-sm text-slate-500">Sản phẩm này không tồn tại hoặc đã được giao dịch xong.</p>
+          <Link
+            href="/posts"
+            className="rounded-xl bg-fpt-orange px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition"
+          >
+            Quay lại danh sách sản phẩm
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const galleryImages = product.galleryImages && product.galleryImages.length > 0
+    ? product.galleryImages
+    : (product.imageUrl ? [{ src: product.imageUrl, alt: product.title }] : []);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
       {/* 1. HEADER */}
-      <Navbar selectedCampus="hola" />
+      <Navbar selectedCampus={product.campusTag || 'all'} />
 
       {/* 2. BREADCRUMBS */}
       <div className="border-b border-slate-200/70 bg-white py-2.5 px-4 sm:px-6">
@@ -175,13 +229,15 @@ export default function ProductDetailPage() {
               <span>Trang chủ</span>
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <Link href="/posts?category=electronics" className="hover:text-slate-800 transition">
-              Thiết bị điện tử
+            <Link href={`/posts?campus=${product.campus || 'all'}`} className="hover:text-slate-800 transition">
+              {product.campusTag || 'Campus FPT'}
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <span className="text-slate-700">Chuột & Phím</span>
+            <Link href="/posts" className="hover:text-slate-800 transition">
+              {product.category || 'Sản phẩm'}
+            </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
-            <span className="font-semibold text-slate-900">Chi tiết sản phẩm #{id}</span>
+            <span className="font-semibold text-slate-900 truncate max-w-[200px]">{product.title}</span>
           </nav>
         </div>
       </div>
@@ -263,8 +319,8 @@ export default function ProductDetailPage() {
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">
                 Mô tả từ người bán
               </h3>
-              <div className="text-xs sm:text-sm text-slate-600 leading-relaxed space-y-2.5">
-                <p>{product.description}</p>
+              <div className="space-y-3">
+                <MarkdownRenderer content={product.description} />
                 {product.bulletPoints && product.bulletPoints.length > 0 && (
                   <ul className="space-y-1.5 pl-1">
                     {product.bulletPoints.map((bp, i) => (
@@ -305,7 +361,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* 4. SIMILAR PRODUCTS IN CAMPUS */}
-        <SimilarProductsSection products={SIMILAR_PRODUCTS} />
+        <SimilarProductsSection products={similarProducts} />
       </main>
 
       {/* 5. FOOTER */}

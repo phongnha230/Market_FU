@@ -16,8 +16,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ProductItem } from '@/types/product';
 
 interface FilterSidebarProps {
+  products?: ProductItem[];
   onApply?: (filters: any) => void;
   onReset?: () => void;
   resultCount?: number;
@@ -38,11 +40,22 @@ import {
   PRODUCT_CONDITIONS as conditions,
   PICKUP_LOCATIONS as locations,
 } from '@/constants/marketplace';
+import { useProductStore } from '@/stores/productStore';
+
+const CAT_KEYWORDS: Record<string, string[]> = {
+  books: ['giáo trình', 'sách', 'book', 'pe', 'fe', 'prf', 'csl', 'mas', 'note', 'đề thi', 'tài liệu', 'syllabus'],
+  electronics: ['chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'switch', 'laptop', 'macbook', 'it', 'linh kiện', 'ram', 'logitech', 'akko'],
+  fashion: ['vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục', 'merch'],
+  dorm: ['tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ấm', 'nồi', 'ktx', 'giường', 'chiếu'],
+  hobbies: ['nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình'],
+  services: ['bus', 'vé', 'thẻ', 'gym', 'pass', 'voucher', 'căng tin', 'xe'],
+};
 
 export default function FilterSidebar({
+  products,
   onApply,
   onReset,
-  resultCount = 156,
+  resultCount: externalResultCount,
   isMobileOpen = false,
   onCloseMobile,
   selectedCampus: externalCampus,
@@ -52,22 +65,26 @@ export default function FilterSidebar({
   selectedPricePreset: externalPricePreset,
   onSelectPricePreset,
 }: FilterSidebarProps) {
-  const [internalCampus, setInternalCampus] = useState('hola');
-  const [internalCategories, setInternalCategories] = useState<string[]>([
-    'books',
-    'electronics',
-  ]);
-  const [internalPricePreset, setInternalPricePreset] = useState('100k-500k');
-  const [minPrice, setMinPrice] = useState('50.000');
-  const [maxPrice, setMaxPrice] = useState('1.500.000');
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([
-    'likenew',
-    'good',
-  ]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([
-    'canteen',
-    'dom',
-  ]);
+  const storeProducts = useProductStore((state) => state.products);
+  const activeProducts = products !== undefined ? products : storeProducts;
+  const resultCount = externalResultCount !== undefined ? externalResultCount : activeProducts.length;
+
+  const getCategoryCount = (catId: string) => {
+    return activeProducts.filter((p) => {
+      const rawCat = (p.category || '').toLowerCase();
+      const text = `${rawCat} ${(p.title || '')} ${(p.badges?.join(' ') || '')}`.toLowerCase();
+      const keywords = CAT_KEYWORDS[catId] || [catId];
+      return rawCat === catId || keywords.some((kw) => text.includes(kw));
+    }).length;
+  };
+
+  const [internalCampus, setInternalCampus] = useState('all');
+  const [internalCategories, setInternalCategories] = useState<string[]>([]);
+  const [internalPricePreset, setInternalPricePreset] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
 
   const currentCampus = externalCampus !== undefined ? externalCampus : internalCampus;
   const currentCategories = externalCategories !== undefined ? externalCategories : internalCategories;
@@ -217,7 +234,7 @@ export default function FilterSidebar({
                   </span>
                 </div>
                 <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-semibold text-slate-500 hover:bg-slate-100">
-                  {cat.count}
+                  {getCategoryCount(cat.id)} tin
                 </Badge>
               </label>
             );

@@ -4,13 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ProductCard from './ProductCard';
 import { Zap, Clock, ArrowRight, MapPin } from 'lucide-react';
-import { LATEST_PRODUCTS } from '@/constants/mockProducts';
 import { ProductService } from '@/services/productService';
 import { useProductStore } from '@/stores/productStore';
 import { ProductItem } from '@/types/product';
 
 export default function LatestPostsSection() {
-  const [products, setProducts] = useState<ProductItem[]>(LATEST_PRODUCTS);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const totalPostsCount = useProductStore((state) => state.products.length);
 
   useEffect(() => {
@@ -18,6 +18,8 @@ export default function LatestPostsSection() {
       if (res && res.length > 0) {
         setProducts(res);
       }
+    }).finally(() => {
+      setIsLoading(false);
     });
   }, []);
 
@@ -58,7 +60,7 @@ export default function LatestPostsSection() {
             href="/posts"
             className="group inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-800 shadow-xs hover:border-fpt-orange hover:text-fpt-orange hover:shadow-sm transition-all"
           >
-            <span>Xem tất cả tin đăng ({totalPostsCount})</span>
+            <span>Xem tất cả tin đăng ({totalPostsCount > 0 ? totalPostsCount : products.length})</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

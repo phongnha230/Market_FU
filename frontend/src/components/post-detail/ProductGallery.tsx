@@ -27,7 +27,11 @@ export default function ProductGallery({
   onShare,
   copiedLink,
 }: ProductGalleryProps) {
-  const activeImg = galleryImages[activeImageIndex];
+  const safeActiveIndex = Math.min(
+    Math.max(0, activeImageIndex),
+    Math.max(0, galleryImages.length - 1)
+  );
+  const activeImg = galleryImages[safeActiveIndex];
   const safeMainSrc =
     typeof activeImg?.src === 'string' && activeImg.src.trim().length > 0
       ? activeImg.src.trim()
@@ -82,40 +86,47 @@ export default function ProductGallery({
 
         {/* Bottom Right Counter */}
         <div className="absolute bottom-3 right-3 z-10 rounded-md bg-slate-900/75 backdrop-blur-xs px-2.5 py-0.5 text-xs font-semibold text-white">
-          {activeImageIndex + 1} / {galleryImages.length} Ảnh
+          {galleryImages.length > 0 ? safeActiveIndex + 1 : 0} / {galleryImages.length} Ảnh
         </div>
       </div>
 
       {/* Thumbnails Row */}
-      <div className="grid grid-cols-4 gap-3">
-        {galleryImages.map((img, idx) => {
-          const isActive = activeImageIndex === idx;
-          const thumbSrc =
-            typeof img?.src === 'string' && img.src.trim().length > 0
-              ? img.src.trim()
-              : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
-          return (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onSelectImage(idx)}
-              className={`relative aspect-[4/3] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                isActive
-                  ? 'border-fpt-orange shadow-md scale-[1.02]'
-                  : 'border-slate-200/80 hover:border-slate-300 opacity-80 hover:opacity-100'
-              }`}
-            >
-              <Image
-                src={thumbSrc}
-                alt={img.alt || 'Ảnh sản phẩm'}
-                fill
-                sizes="15vw"
-                className="object-cover"
-              />
-            </button>
-          );
-        })}
-      </div>
+      {galleryImages.length > 1 && (
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin">
+          {galleryImages.map((img, idx) => {
+            const isActive = safeActiveIndex === idx;
+            const thumbSrc =
+              typeof img?.src === 'string' && img.src.trim().length > 0
+                ? img.src.trim()
+                : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => onSelectImage(idx)}
+                className={`group relative h-20 w-24 sm:h-24 sm:w-28 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                  isActive
+                    ? 'border-fpt-orange shadow-md scale-[1.02] ring-2 ring-orange-200'
+                    : 'border-slate-200/80 hover:border-slate-300 opacity-75 hover:opacity-100'
+                }`}
+              >
+                <Image
+                  src={thumbSrc}
+                  alt={img.alt || 'Ảnh sản phẩm'}
+                  fill
+                  sizes="15vw"
+                  className="object-cover"
+                />
+                {idx === 0 && (
+                  <span className="absolute bottom-1 left-1 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                    Ảnh bìa
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* SAFETY HANDOFF GUARANTEE BOX */}
       <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-teal-50/30 to-white p-5 shadow-xs space-y-3.5">

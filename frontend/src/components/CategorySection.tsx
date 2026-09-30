@@ -1,14 +1,100 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { CATEGORIES as categories } from '@/constants/marketplace';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useProductStore } from '@/stores/productStore';
+import { categoryService } from '@/services/categoryService';
+
+// Từ khóa phân loại chuẩn để đếm chính xác sản phẩm thực tế theo danh mục
+const CAT_KEYWORDS: Record<string, string[]> = {
+  books: ['giáo trình', 'sách', 'book', 'pe', 'fe', 'prf', 'csl', 'mas', 'note', 'đề thi', 'tài liệu', 'syllabus'],
+  electronics: ['chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'switch', 'laptop', 'macbook', 'it', 'linh kiện', 'ram', 'logitech', 'akko'],
+  fashion: ['vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục', 'merch'],
+  dorm: ['tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ấm', 'nồi', 'ktx', 'giường', 'chiếu'],
+  hobbies: ['nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình'],
+  services: ['bus', 'vé', 'thẻ', 'gym', 'pass', 'voucher', 'căng tin', 'xe'],
+};
 
 export default function CategorySection() {
+  const products = useProductStore((state) => state.products);
+  const [backendCounts, setBackendCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    categoryService.getCategories().then((items) => {
+      if (isMounted && items && items.length > 0) {
+        const slugMap: Record<string, string> = {
+          'giao-trinh-sach': 'books',
+          'books': 'books',
+          'do-dien-tu': 'electronics',
+          'electronics': 'electronics',
+          'thoi-trang': 'fashion',
+          'fashion': 'fashion',
+          'do-dung-phong-tro': 'dorm',
+          'dorm': 'dorm',
+          'do-dung-khac': 'hobbies',
+          'hobbies': 'hobbies',
+          'xe-co': 'services',
+          'services': 'services',
+        };
+        const map: Record<string, number> = {};
+        items.forEach((item) => {
+          const mappedKey = slugMap[item.id] || slugMap[item.name?.toLowerCase()] || item.id;
+          if (mappedKey) {
+            map[mappedKey] = (map[mappedKey] || 0) + (Number(item.count) || 0);
+          }
+        });
+        setBackendCounts(map);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  // Tính số lượng tin đăng thực tế chính xác nhất cho từng danh mục
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      books: 0,
+      electronics: 0,
+      fashion: 0,
+      dorm: 0,
+      hobbies: 0,
+      services: 0,
+    };
+
+    // Nếu backend có số liệu sản phẩm thực tế, gán trực tiếp
+    const hasBackendData = Object.values(backendCounts).some((c) => c > 0);
+    if (hasBackendData) {
+      for (const [key, val] of Object.entries(backendCounts)) {
+        if (counts[key] !== undefined) {
+          counts[key] = val;
+        }
+      }
+      return counts;
+    }
+
+    // Đếm chính xác theo danh sách sản phẩm thực tế trong store
+    products.forEach((p) => {
+      const rawCat = (p.category || '').toLowerCase();
+      const title = (p.title || '').toLowerCase();
+      const location = (p.location || '').toLowerCase();
+      const text = `${rawCat} ${title} ${location}`;
+
+      for (const [catKey, keywords] of Object.entries(CAT_KEYWORDS)) {
+        if (rawCat === catKey || keywords.some((kw) => text.includes(kw))) {
+          counts[catKey] = (counts[catKey] || 0) + 1;
+          break;
+        }
+      }
+    });
+
+    return counts;
+  }, [products, backendCounts]);
+
   return (
     <section className="py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -38,6 +124,7 @@ export default function CategorySection() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {categories.map((cat) => {
             const Icon = cat.icon;
+            const count = categoryCounts[cat.id] ?? 0;
             return (
               <Link
                 key={cat.id}
@@ -64,10 +151,10 @@ export default function CategorySection() {
                     </p>
                   </div>
 
-                  {/* Tin count badge */}
+                  {/* Tin count badge (Biến động chính xác từ số lượng thực tế) */}
                   <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between">
                     <Badge variant="fpt" className="text-[10px] font-bold px-2 py-0.5 normal-case">
-                      {cat.count}
+                      {`${count} tin`}
                     </Badge>
                   </div>
                 </Card>

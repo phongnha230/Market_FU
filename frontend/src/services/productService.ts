@@ -1,13 +1,6 @@
 import { apiClient, ApiResponse } from './apiClient';
 import { ProductItem, ProductDetail } from '@/types/product';
 import { adaptBackendProduct, adaptBackendProductDetail } from '@/lib/adapters';
-import {
-  FEATURED_PRODUCTS,
-  LATEST_PRODUCTS,
-  SEARCH_PAGE_POSTS,
-  DETAIL_PRODUCT_AKKO,
-  SIMILAR_PRODUCTS,
-} from '@/constants/mockProducts';
 import { useProductStore } from '@/stores/productStore';
 
 export function stripVietnamese(str: string): string {
@@ -19,14 +12,6 @@ export function stripVietnamese(str: string): string {
     .trim();
 }
 
-// Fallback products in case backend is offline
-const ALL_MOCK_PRODUCTS: ProductItem[] = [
-  ...SEARCH_PAGE_POSTS,
-  ...FEATURED_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-  ...LATEST_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-  ...SIMILAR_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-];
-
 function getLiveLocalProducts(): ProductItem[] {
   try {
     const storeProducts = useProductStore.getState().products;
@@ -36,7 +21,7 @@ function getLiveLocalProducts(): ProductItem[] {
   } catch {
     // SSR or store hydration fallback
   }
-  return ALL_MOCK_PRODUCTS;
+  return [];
 }
 
 export const ProductService = {
@@ -178,10 +163,6 @@ export const ProductService = {
 
   // 5. Lấy chi tiết bài đăng theo ID
   async getPostById(id: string): Promise<ProductDetail | null> {
-    if (id === 'akko-3087-v2') {
-      return DETAIL_PRODUCT_AKKO;
-    }
-
     try {
       const response = await apiClient.get<ApiResponse<any>>(`/products/${id}`);
       if (response.data.data) {
@@ -202,7 +183,7 @@ export const ProductService = {
     if (found) {
       return adaptBackendProductDetail(found);
     }
-    return DETAIL_PRODUCT_AKKO;
+    return null;
   },
 
   // 6. Đăng bài mới (Bắt buộc xác thực KYC sinh viên theo quy tắc hệ thống)
@@ -215,10 +196,32 @@ export const ProductService = {
     return adaptBackendProduct(response.data.data);
   },
 
-  // 7. Chỉnh sửa thông tin bài viết
+  // 7. Chỉnh sửa thông tin bài viết (JSON - cho các trường không cần upload ảnh mới)
   async updateProduct(id: string, payload: any): Promise<ProductItem> {
     const response = await apiClient.patch<ApiResponse<any>>(`/products/${id}`, payload);
     return adaptBackendProduct(response.data.data);
+  },
+
+  // 7b. Chỉnh sửa bài viết với ảnh mới (multipart/form-data)
+  async updateProductWithForm(id: string, formData: FormData): Promise<ProductItem> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return adaptBackendProduct(response.data.data);
+  },
+
+  // 7c. Lấy danh sách sản phẩm của người dùng hiện tại (authenticated)
+  async getMyProducts(): Promise<ProductItem[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<any[]>>('/products/me');
+      if (response.data.data && response.data.data.length > 0) {
+        return response.data.data.map(adaptBackendProduct);
+      }
+      return [];
+    } catch {
+      // Fallback sang local store nếu chưa đăng nhập hoặc backend offline
+      return getLiveLocalProducts();
+    }
   },
 
   // 8. Đổi trạng thái bài đăng (AVAILABLE, RESERVED, SOLD, HIDDEN)
@@ -257,6 +260,6 @@ export const ProductService = {
     } catch {
       // Fallback
     }
-    return SIMILAR_PRODUCTS;
+    return getLiveLocalProducts().slice(0, 4);
   },
 };

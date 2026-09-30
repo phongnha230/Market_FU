@@ -26,12 +26,6 @@ import {
   Check,
 } from 'lucide-react';
 import { ProductItem } from '@/types/product';
-import {
-  SEARCH_PAGE_POSTS,
-  FEATURED_PRODUCTS,
-  LATEST_PRODUCTS,
-  SIMILAR_PRODUCTS,
-} from '@/constants/mockProducts';
 import { stripVietnamese, ProductService } from '@/services/productService';
 import {
   HOT_TAGS as hotSuggestions,
@@ -40,17 +34,10 @@ import {
   PRICE_PRESETS,
 } from '@/constants/marketplace';
 
-const ALL_PRODUCTS: ProductItem[] = [
-  ...SEARCH_PAGE_POSTS,
-  ...FEATURED_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-  ...LATEST_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-  ...SIMILAR_PRODUCTS.filter((p) => !SEARCH_PAGE_POSTS.some((s) => s.id === p.id)),
-];
-
 function PostsPageContent() {
   const searchParams = useSearchParams();
   const initialQ = searchParams.get('q') || '';
-  const initialCampus = searchParams.get('campus') || 'hola';
+  const initialCampus = searchParams.get('campus') || 'all';
   const initialCategory = searchParams.get('category') || '';
 
   const [searchKeyword, setSearchKeyword] = useState(initialQ);
@@ -62,7 +49,8 @@ function PostsPageContent() {
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [liveProducts, setLiveProducts] = useState<ProductItem[]>(ALL_PRODUCTS);
+  const [liveProducts, setLiveProducts] = useState<ProductItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCampusOpen, setIsCampusOpen] = useState(false);
   const campusDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +105,7 @@ function PostsPageContent() {
 
   useEffect(() => {
     let isMounted = true;
+    setIsLoading(true);
     ProductService.searchPosts({
       keyword: searchKeyword,
       campus: selectedCampus,
@@ -124,11 +113,21 @@ function PostsPageContent() {
       sort: sortOption,
     })
       .then((res) => {
-        if (isMounted && res.items && res.items.length > 0) {
-          setLiveProducts(res.items);
+        if (isMounted) {
+          setLiveProducts(res.items || []);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Lỗi tải sản phẩm:', err);
+        if (isMounted) {
+          setLiveProducts([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
     return () => {
       isMounted = false;
     };
@@ -144,7 +143,7 @@ function PostsPageContent() {
       const compactQ = strippedQ.replace(/[^a-z0-9]/g, '');
 
       list = list.filter((item) => {
-        const rawTarget = `${item.title} ${item.location} ${item.seller.name} ${item.badges.join(' ')} ${item.campusTag || ''}`.toLowerCase();
+        const rawTarget = `${item.title} ${item.location} ${item.seller.name} ${item.badges.join(' ')} ${item.campusTag || ''} ${item.campus || ''}`.toLowerCase();
         const strippedTarget = stripVietnamese(rawTarget);
         const compactTarget = strippedTarget.replace(/[^a-z0-9]/g, '');
 
@@ -158,15 +157,15 @@ function PostsPageContent() {
 
     if (selectedCampus && selectedCampus !== 'all') {
       const campMap: Record<string, string[]> = {
-        hola: ['hòa lạc', 'hola', 'dom', 'tân xã', 'thư viện'],
-        dn: ['đà nẵng', 'fpt đn', 'tòa f'],
+        hola: ['hòa lạc', 'hola', 'dom', 'tân xã', 'thư viện', 'hol'],
+        dn: ['đà nẵng', 'fpt đn', 'tòa f', 'dad'],
         hcm: ['hồ chí minh', 'hcm', 'quận 9', 'tòa alpha'],
-        ct: ['cần thơ', 'fpt ct'],
-        qn: ['quy nhơn', 'fpt qn'],
+        ct: ['cần thơ', 'fpt ct', 'ct'],
+        qn: ['quy nhơn', 'fpt qn', 'qn'],
       };
       const allowed = campMap[selectedCampus] || [selectedCampus];
       list = list.filter((item) => {
-        const combined = `${item.location} ${item.campusTag || ''}`.toLowerCase();
+        const combined = `${item.location} ${item.campusTag || ''} ${item.campus || ''}`.toLowerCase();
         return allowed.some((kw) => combined.includes(kw));
       });
     }
@@ -181,7 +180,7 @@ function PostsPageContent() {
         services: ['thẻ gym', 'gym', 'vé bus', 'bus'],
       };
       list = list.filter((item) => {
-        const text = `${item.title} ${item.badges.join(' ')}`.toLowerCase();
+        const text = `${item.title} ${item.badges.join(' ')} ${item.category || ''}`.toLowerCase();
         return selectedCategories.some((catId) => {
           const kws = catMap[catId] || [catId];
           return kws.some((kw) => text.includes(kw));
@@ -206,7 +205,7 @@ function PostsPageContent() {
     }
 
     return list;
-  }, [searchKeyword, selectedCampus, selectedCategories, selectedPricePreset, sortOption]);
+  }, [liveProducts, searchKeyword, selectedCampus, selectedCategories, selectedPricePreset, sortOption]);
 
   const activeFilters = useMemo(() => {
     const tags: { id: string; label: string; onRemove: () => void }[] = [];
@@ -264,7 +263,7 @@ function PostsPageContent() {
   };
 
   const campusLabel =
-    CAMPUSES.find((c) => c.id === selectedCampus)?.label || 'Hòa Lạc';
+    CAMPUSES.find((c) => c.id === selectedCampus)?.label || (selectedCampus === 'all' ? 'Tất cả cơ sở' : 'Hòa Lạc');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans py-4 sm:py-6">
@@ -273,7 +272,7 @@ function PostsPageContent() {
         <CompactHeader
           breadcrumbs={[
             { label: 'Khám phá sản phẩm' },
-            { label: `Campus ${campusLabel}` },
+            { label: selectedCampus === 'all' ? 'Toàn quốc' : `Campus ${campusLabel}` },
           ]}
           activeTab="explore"
         />
@@ -326,7 +325,7 @@ function PostsPageContent() {
                 <MapPin className="h-3.5 w-3.5 text-fpt-orange mr-1.5 shrink-0" />
                 <span className="text-slate-400 mr-1 text-[11px]">CƠ SỞ:</span>
                 <span className="font-bold text-slate-900 mr-1.5">
-                  {CAMPUSES.find((c) => c.id === selectedCampus)?.label || 'Hòa Lạc'}
+                  {CAMPUSES.find((c) => c.id === selectedCampus)?.label || 'Tất cả cơ sở'}
                 </span>
                 <ChevronDown
                   className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${
@@ -456,6 +455,7 @@ function PostsPageContent() {
           <div className="flex items-start gap-6 lg:gap-8">
           {/* Left Filter Sidebar */}
           <FilterSidebar
+            products={liveProducts}
             resultCount={filteredPosts.length}
             isMobileOpen={isMobileFilterOpen}
             onCloseMobile={() => setIsMobileFilterOpen(false)}
@@ -578,8 +578,21 @@ function PostsPageContent() {
               </div>
             )}
 
-            {/* Product Cards Grid / Empty State */}
-            {filteredPosts.length > 0 ? (
+            {/* Product Cards Grid / Loading Skeleton / Empty State */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-4.5">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 space-y-3 animate-pulse">
+                    <div className="aspect-square w-full rounded-xl bg-slate-200/70" />
+                    <div className="space-y-2 pt-1">
+                      <div className="h-4 w-3/4 rounded-md bg-slate-200/70" />
+                      <div className="h-4 w-1/2 rounded-md bg-slate-200/70" />
+                      <div className="h-3 w-1/3 rounded-md bg-slate-200/70" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredPosts.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-4.5">
                 {filteredPosts.map((post) => (
                   <ProductCard key={post.id} product={post} />
@@ -595,7 +608,9 @@ function PostsPageContent() {
                     Không tìm thấy sản phẩm phù hợp
                   </h3>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    Không có tin đăng nào khớp với từ khóa &quot;{searchKeyword}&quot; hoặc bộ lọc cơ sở/danh mục hiện tại.
+                    {searchKeyword
+                      ? `Không có tin đăng nào khớp với từ khóa "${searchKeyword}" hoặc bộ lọc hiện tại.`
+                      : 'Hiện tại chưa có tin đăng nào phù hợp với bộ lọc bạn đã chọn.'}
                   </p>
                 </div>
                 <button

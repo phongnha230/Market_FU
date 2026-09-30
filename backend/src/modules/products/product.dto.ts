@@ -14,8 +14,19 @@ export const createProductSchema = z.object({
   quantity: z.coerce.number().min(1).default(1),
   campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']),
   meetupLocation: z.string().max(200, 'Địa điểm hẹn tối đa 200 ký tự').optional(),
+  location: z.string().max(200, 'Địa điểm hẹn tối đa 200 ký tự').optional(),
   allowShipping: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(true)),
-  // Hashtags: nhận dạng cả string "quạt,điện tử" hoặc mảng ["#quạt", "#điện tử"]
+  imageUrls: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string') return [val];
+        if (Array.isArray(val)) return val.map((v) => String(v).trim()).filter(Boolean);
+        return [];
+      },
+      z.array(z.string().min(1)).max(10, 'Tối đa 10 URL ảnh')
+    )
+    .optional()
+    .default([]),
   hashtags: z
     .preprocess(
       (val) => {
@@ -40,6 +51,8 @@ export const queryProductSchema = z.object({
   maxPrice: z.coerce.number().optional(),
   search: z.string().max(100, 'Từ khóa tìm kiếm tối đa 100 ký tự').optional(),
   hashtag: z.string().max(50, 'Hashtag tối đa 50 ký tự').optional(), // Lọc theo 1 hashtag cụ thể: ?hashtag=quạt
+  sellerId: z.string().optional(), // Lọc theo người bán cụ thể
+  allStatuses: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(false)), // Hiển thị tất cả trạng thái (dùng cho profile của chính mình)
   sortBy: z.enum(['newest', 'price_asc', 'price_desc', 'views']).default('newest'),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(50).default(20),
