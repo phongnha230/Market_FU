@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  MapPin,
   Bell,
   MessageSquare,
   Plus,
@@ -29,12 +28,10 @@ import NotificationDropdown from '@/components/notifications/NotificationDropdow
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal';
 import SettingsModal from '@/components/modals/SettingsModal';
-import { CAMPUSES } from '@/constants/marketplace';
 import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useChatStore } from '@/stores/chatStore';
-import { useProductStore } from '@/stores/productStore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +39,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { initWebPush } from '@/utils/webPush';
+import { profileService } from '@/services/profileService';
+import { socketClient } from '@/services/socketClient';
 
 interface NavbarProps {
   selectedCampus?: string;
@@ -93,24 +92,27 @@ export default function Navbar({
   const mountedUnreadMessages = isMounted ? unreadMessages : 0;
   const mountedFavoritesCount = isMounted ? favoritesCount : 0;
 
-  const products = useProductStore((state) => state.products);
-  const todayPostsCount = React.useMemo(() => {
-    return products.filter((p) => {
-      if (!p.timeAgo) return false;
-      const lower = p.timeAgo.toLowerCase();
-      return lower.includes('giờ') || lower.includes('phút') || lower.includes('vừa') || lower.includes('hôm nay');
-    }).length;
-  }, [products]);
 
   React.useEffect(() => {
     if (mountedIsLoggedIn) {
+      // 1. Đồng bộ số dư Xu & thông tin người dùng mới nhất từ server
+      profileService.getProfile().catch(() => {});
+
+      // 2. Fetch thông báo và hội thoại
       notificationStore.fetchNotifications();
       const cleanupNotif = notificationStore.initSocketListeners();
       chatStore.fetchConversations();
       const cleanupChat = chatStore.initSocketListeners();
+
+      // 3. Lắng nghe cập nhật KYC thời gian thực từ BQT để cập nhật ngay số dư Xu
+      const cleanupKyc = socketClient.onKycStatusUpdated(() => {
+        profileService.getProfile().catch(() => {});
+      });
+
       return () => {
         cleanupNotif();
         cleanupChat();
+        cleanupKyc();
       };
     }
   }, [mountedIsLoggedIn]);
@@ -141,52 +143,7 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] border-b border-slate-100">
-      {/* 1. TOP ANNOUNCEMENT & CAMPUS SWITCHER BAR */}
-      <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-1.5 text-xs text-slate-600 transition-colors">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          {/* Campus selection pills */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
-            <span className="font-medium text-slate-500 flex items-center gap-1 shrink-0">
-              <MapPin className="h-3 w-3 text-fpt-orange" /> Cơ sở:
-            </span>
-            <div className="flex items-center gap-1 shrink-0">
-              {CAMPUSES.map((campus) => {
-                const isActive = currentCampus === campus.id;
-                return (
-                  <button
-                    key={campus.id}
-                    onClick={() => handleCampusChange(campus.id)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-fpt-orange text-white shadow-xs font-semibold'
-                        : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-                    }`}
-                  >
-                    {campus.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right live status */}
-          <div className="hidden md:flex items-center gap-4 text-xs font-medium shrink-0">
-            <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span suppressHydrationWarning>{todayPostsCount} tin mới hôm nay</span>
-            </div>
-            <div className="flex items-center gap-1 text-slate-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-              <span>An toàn nội bộ FPT Mail</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. MAIN NAVIGATION BAR */}
+      {/* MAIN NAVIGATION BAR */}
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Brand Logo */}
         <div className="flex items-center gap-7 xl:gap-9 min-w-0">

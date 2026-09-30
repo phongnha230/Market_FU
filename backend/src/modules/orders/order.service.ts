@@ -113,10 +113,12 @@ export class OrderService {
       buyerUser.email?.toLowerCase().endsWith('@fe.edu.vn')
     );
     const isVerifiedBuyer =
-      isEduEmail ||
-      buyerUser.profile.kyc?.status === 'APPROVED' ||
-      buyerUser.role === 'SELLER' ||
-      buyerUser.role === 'ADMIN';
+      (buyerUser.role === 'BUYER' ||
+       buyerUser.role === 'SELLER' ||
+       buyerUser.role === 'ADMIN' ||
+       isEduEmail ||
+       buyerUser.profile.kyc?.status === 'APPROVED') &&
+      buyerUser.role !== 'UNVERIFIED';
 
     if (!isVerifiedBuyer) {
       throw new AppError(

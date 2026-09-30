@@ -53,10 +53,12 @@ export class ChatService {
       sender?.email?.toLowerCase().endsWith('@fe.edu.vn')
     );
     const isVerifiedSender =
-      isEduEmail ||
-      sender?.profile?.kyc?.status === 'APPROVED' ||
-      sender?.role === 'SELLER' ||
-      sender?.role === 'ADMIN';
+      (sender?.role === 'BUYER' ||
+       sender?.role === 'SELLER' ||
+       sender?.role === 'ADMIN' ||
+       isEduEmail ||
+       sender?.profile?.kyc?.status === 'APPROVED') &&
+      sender?.role !== 'UNVERIFIED';
 
     if (!isVerifiedSender) {
       throw new AppError(
@@ -372,10 +374,12 @@ export class ChatService {
       sender?.email?.toLowerCase().endsWith('@fe.edu.vn')
     );
     const isVerifiedSender =
-      isEduEmail ||
-      sender?.profile?.kyc?.status === 'APPROVED' ||
-      sender?.role === 'SELLER' ||
-      sender?.role === 'ADMIN';
+      (sender?.role === 'BUYER' ||
+       sender?.role === 'SELLER' ||
+       sender?.role === 'ADMIN' ||
+       isEduEmail ||
+       sender?.profile?.kyc?.status === 'APPROVED') &&
+      sender?.role !== 'UNVERIFIED';
 
     if (!isVerifiedSender) {
       throw new AppError(

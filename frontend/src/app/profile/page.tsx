@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CompactHeader from '@/components/layout/CompactHeader';
@@ -44,8 +44,10 @@ import {
   AlertCircle,
   Camera,
   Upload,
+  Pencil,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
+import EditProductModal from '@/components/modals/EditProductModal';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal';
 import QrShareModal from '@/components/modals/QrShareModal';
 import SettingsModal from '@/components/modals/SettingsModal';
@@ -59,6 +61,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductItem } from '@/types/product';
 
 const COMMUNITY_REVIEWS: Array<{
   id: string;
@@ -92,13 +95,20 @@ export default function ProfilePage() {
   const [kycModalRole, setKycModalRole] = useState<KycType>('seller');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Edit product
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
+  const [isLoadingMyProducts, setIsLoadingMyProducts] = useState(false);
+
+
   const userData = useUserStore((state) => state.user);
-  const isSeller = userData.kycStatus === 'approved_seller';
+  const isSeller = userData.role === 'SELLER' || userData.kycStatus === 'approved_seller';
   const isEduEmail = Boolean(
     userData.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     userData.email?.toLowerCase().endsWith('@fe.edu.vn')
   );
-  const isVerifiedStudent = isEduEmail || userData.kycStatus === 'approved_student' || userData.kycStatus === 'approved_seller';
+  const isUnverified = userData.role === 'UNVERIFIED' || (!isEduEmail && userData.kycStatus === 'unverified');
+  const isVerifiedStudent = !isUnverified && (isEduEmail || userData.role === 'BUYER' || userData.role === 'SELLER' || userData.kycStatus === 'approved_student' || userData.kycStatus === 'approved_seller');
   const isPendingStudent = userData.kycStatus === 'pending';
   const isRejectedStudent = userData.kycStatus === 'rejected';
   const favorites = useFavoriteStore((state) => state.favorites);
@@ -182,30 +192,50 @@ export default function ProfilePage() {
     }
   };
 
+  // Load my products từ backend khi mount
+  useEffect(() => {
+    setIsLoadingMyProducts(true);
+    ProductService.getMyProducts()
+      .then((items) => {
+        setMyProducts(items);
+      })
+      .catch(() => {
+        // Fallback sang local store
+        const localItems = allProducts.filter(
+          (p) =>
+            (userData.name && p.seller.name.toLowerCase() === userData.name.toLowerCase()) ||
+            (userData.id && (p as any).sellerId === userData.id) ||
+            p.id.startsWith('fpt-post-')
+        );
+        setMyProducts(localItems);
+      })
+      .finally(() => setIsLoadingMyProducts(false));
+  }, [userData.id]);
+
+  // sellingItems: dùng myProducts từ backend (đã load), shape thêm các display fields
   const sellingItems = useMemo(() => {
-    const userPosts = allProducts.filter(
-      (p) =>
-        (userData.name && p.seller.name.toLowerCase() === userData.name.toLowerCase()) ||
-        (userData.id && (p as any).sellerId === userData.id) ||
-        p.id.startsWith('fpt-post-')
-    );
-    return userPosts.map((p) => ({
+    return myProducts.map((p) => ({
       id: p.id,
       title: p.title,
       price: p.price,
       imageUrl: p.imageUrl,
+      images: p.images,
       campusBadge: p.location,
       conditionBadge: p.badges[0] || 'Like New',
-      description: `Món đồ pass bởi ${p.seller.name} tại ${p.location}`,
-      timeAgo: 'Vừa đăng',
+      description: p.description || `Món đồ pass bởi ${p.seller.name} tại ${p.location}`,
+      timeAgo: p.timeAgo || 'Vừa đăng',
       detailLink: `/posts/${p.id}`,
+      status: p.status,
+      // Keep reference to full ProductItem for edit modal
+      _raw: p,
     }));
-  }, [allProducts, userData.name, userData.id]);
+  }, [myProducts]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
 
   const handleRenewProduct = async (id: string, title: string) => {
     try {
@@ -263,52 +293,54 @@ export default function ProfilePage() {
                   onChange={handleAvatarUpload}
                 />
 
-                {/* Clickable circular avatar */}
+                {/* Clickable circular avatar with FPT gradient ring */}
                 <div
                   onClick={() => avatarInputRef.current?.click()}
-                  className="relative cursor-pointer transition-transform active:scale-95"
+                  className="relative cursor-pointer transition-all duration-300 hover:scale-[1.02] active:scale-95 rounded-full p-[3px] bg-gradient-to-tr from-fpt-orange via-amber-400 to-orange-500 shadow-md hover:shadow-lg"
                   title="Nhấn để tải lên ảnh đại diện mới"
                 >
-                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-full bg-gradient-to-br from-orange-400 via-fpt-orange to-amber-600 border-2 border-white shadow-md ring-4 ring-orange-50 overflow-hidden">
-                    <AvatarImage src={userData.avatarUrl} alt={userData.name} className="object-cover h-full w-full rounded-full" />
+                  <Avatar className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 rounded-full bg-white border-2 border-white overflow-hidden">
+                    <AvatarImage src={userData.avatarUrl} alt={userData.name} className="object-cover h-full w-full rounded-full transition-transform duration-300 group-hover:scale-105" />
                     <AvatarFallback className="rounded-full bg-gradient-to-br from-orange-400 via-fpt-orange to-amber-600 font-black text-2xl text-white tracking-wider">
                       {userData.name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-slate-950/50 text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-2xs">
-                    <Camera className="h-5 w-5 drop-shadow-sm" />
-                    <span className="text-[10px] font-bold mt-0.5 drop-shadow-sm">Đổi ảnh</span>
+                  {/* Elegant Glassmorphic Hover Overlay */}
+                  <div className="absolute inset-[3px] flex flex-col items-center justify-center rounded-full bg-slate-950/50 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-[2px]">
+                    <Camera className="h-6 w-6 drop-shadow-md text-white" />
+                    <span className="text-[10px] font-black tracking-wider uppercase mt-1 drop-shadow-md text-white/90">Đổi ảnh</span>
                   </div>
                 </div>
 
-                {/* Mini Camera action button (bottom-left) */}
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  title="Đổi ảnh đại diện"
-                  className="absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-700 hover:text-fpt-orange border border-slate-200 shadow-md hover:scale-110 transition cursor-pointer"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Verification Badge (bottom-right) */}
+                {/* Verification Badge (bottom-right, with crisp white ring) */}
                 {isVerifiedStudent ? (
-                  <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white shadow-sm" title="Tài khoản FPT Edu đã xác minh">
-                    <CheckCircle2 className="h-4 w-4 stroke-[2.5]" />
+                  <div
+                    className="absolute bottom-0 right-0 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-emerald-500 text-white ring-4 ring-white shadow-md transition-transform group-hover:scale-110"
+                    title="Tài khoản Sinh viên FPT Edu đã xác minh chính quy"
+                  >
+                    <CheckCircle2 className="h-4 w-4 sm:h-4.5 sm:w-4.5 stroke-[2.5]" />
                   </div>
                 ) : isRejectedStudent ? (
-                  <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white ring-2 ring-white shadow-sm" title="Hồ sơ xác thực Thẻ SV bị từ chối">
-                    <AlertCircle className="h-4 w-4 stroke-[2.5]" />
+                  <div
+                    className="absolute bottom-0 right-0 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-rose-500 text-white ring-4 ring-white shadow-md transition-transform group-hover:scale-110"
+                    title="Hồ sơ xác thực Thẻ SV bị từ chối"
+                  >
+                    <AlertCircle className="h-4 w-4 sm:h-4.5 sm:w-4.5 stroke-[2.5]" />
                   </div>
                 ) : isPendingStudent ? (
-                  <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white shadow-sm" title="Đang chờ duyệt Thẻ Sinh viên">
-                    <Clock className="h-4 w-4 stroke-[2.5]" />
+                  <div
+                    className="absolute bottom-0 right-0 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-amber-500 text-white ring-4 ring-white shadow-md transition-transform group-hover:scale-110"
+                    title="Đang chờ duyệt Thẻ Sinh viên"
+                  >
+                    <Clock className="h-4 w-4 sm:h-4.5 sm:w-4.5 stroke-[2.5]" />
                   </div>
                 ) : (
-                  <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white shadow-sm" title="Chưa xác thực Thẻ Sinh viên FPT">
-                    <AlertCircle className="h-4 w-4 stroke-[2.5]" />
+                  <div
+                    className="absolute bottom-0 right-0 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-amber-500 text-white ring-4 ring-white shadow-md transition-transform group-hover:scale-110"
+                    title="Chưa xác thực Thẻ Sinh viên FPT"
+                  >
+                    <AlertCircle className="h-4 w-4 sm:h-4.5 sm:w-4.5 stroke-[2.5]" />
                   </div>
                 )}
               </div>
@@ -349,18 +381,18 @@ export default function ProfilePage() {
 
                 {/* Metadata Tags Row */}
                 <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                  {/* Major & Cohort */}
-                  {(userData.cohort || userData.major || isVerifiedStudent) && (
+                  {/* Major & Cohort - Chỉ hiển thị khi người dùng đã tự nhập hoặc có thông tin thật */}
+                  {(Boolean(userData.cohort?.trim()) || Boolean(userData.major?.trim())) && (
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-orange-50/80 border border-orange-200/60 text-xs font-bold text-orange-950">
                       <GraduationCap className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                      <span>{userData.cohort || 'K17'} • {userData.major || 'Kỹ thuật phần mềm'}</span>
+                      <span>{[userData.cohort?.trim(), userData.major?.trim()].filter(Boolean).join(' • ')}</span>
                     </div>
                   )}
 
                   {/* Campus Location */}
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/70 text-xs font-medium text-slate-700">
                     <MapPin className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                    <span>Cơ sở {userData.campus || 'Hòa Lạc'} (Hola Campus) {userData.dorm ? `• ${userData.dorm}` : ''}</span>
+                    <span>Cơ sở {userData.campus || 'Hòa Lạc'} {userData.dorm ? `• ${userData.dorm}` : ''}</span>
                   </div>
 
                   {/* Email Badge */}
@@ -393,6 +425,20 @@ export default function ProfilePage() {
                     <Plus className="h-4 w-4 stroke-[2.5]" />
                     <span>Đăng bán đồ ngay</span>
                   </Link>
+                </Button>
+              ) : isPendingStudent ? (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setKycModalRole(userData.kycRole || 'student');
+                    setIsKycModalOpen(true);
+                  }}
+                  className="gap-2 rounded-xl bg-amber-500/15 border-2 border-amber-400/80 px-5 py-2.5 h-auto text-xs font-bold text-amber-900 hover:bg-amber-500/25 transition-all active:scale-95 cursor-pointer shadow-xs"
+                >
+                  <Clock className="h-4 w-4 text-amber-600 stroke-[2.5]" />
+                  <span>
+                    {userData.kycRole === 'seller' ? 'Đang chờ duyệt Seller' : 'Đang chờ duyệt Thẻ SV'}
+                  </span>
                 </Button>
               ) : isVerifiedStudent ? (
                 <Button
@@ -536,7 +582,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="text-base font-extrabold text-slate-900 leading-tight">
                     {isVerifiedStudent
-                      ? `${userData.cohort || 'K17'} • ${userData.major || 'CNTT'}`
+                      ? ([userData.cohort?.trim(), userData.major?.trim()].filter(Boolean).join(' • ') || 'Sinh viên chính quy')
                       : isPendingStudent
                       ? 'Đang chờ duyệt'
                       : 'Chưa xác thực SV'}
@@ -741,10 +787,23 @@ export default function ProfilePage() {
                     setKycModalRole('student');
                     setIsKycModalOpen(true);
                   }}
-                  className="w-full gap-1.5 rounded-xl border-slate-200 bg-white py-2 h-auto text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className={`w-full gap-1.5 rounded-xl border py-2 h-auto text-[11px] font-bold transition cursor-pointer ${
+                    isPendingStudent
+                      ? 'border-amber-300 bg-amber-50/70 text-amber-800 hover:bg-amber-100'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
                 >
-                  <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Xác thực SV</span>
+                  {isPendingStudent ? (
+                    <>
+                      <Clock className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Thẻ SV: Chờ duyệt</span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Xác thực SV</span>
+                    </>
+                  )}
                 </Button>
 
                 <Button
@@ -839,11 +898,27 @@ export default function ProfilePage() {
                       <h3 className="text-sm font-bold text-slate-900">
                         Danh sách đồ dùng đang pass
                       </h3>
-                      <span>Cập nhật 2 giờ trước</span>
+                      {isLoadingMyProducts ? (
+                        <span className="text-slate-400 flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-slate-300 border-t-fpt-orange rounded-full"></span>Đang tải...</span>
+                      ) : (
+                        <span>{sellingItems.length} tin đăng</span>
+                      )}
                     </div>
 
                     {/* Grid 2x2 Products or Empty State */}
-                    {sellingItems.length === 0 ? (
+                    {isLoadingMyProducts ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[1, 2].map((i) => (
+                          <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+                            <div className="aspect-[16/10] bg-slate-100" />
+                            <div className="p-4 space-y-2">
+                              <div className="h-4 bg-slate-200 rounded w-2/3" />
+                              <div className="h-3 bg-slate-100 rounded w-full" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : sellingItems.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                         <p className="text-sm font-semibold text-slate-600">Bạn chưa đăng bài pass đồ nào</p>
                         <p className="text-xs text-slate-400 mt-1">Đăng bán các món giáo trình, đồ KTX hoặc đồ công nghệ không còn dùng đến</p>
@@ -880,6 +955,17 @@ export default function ProfilePage() {
                                 <div className="absolute top-2.5 right-2.5 rounded-md bg-amber-500/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white">
                                   {prod.conditionBadge}
                                 </div>
+
+                                {/* Status badge (SOLD / HIDDEN) */}
+                                {prod.status && prod.status !== 'AVAILABLE' && (
+                                  <div className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md ${
+                                    prod.status === 'SOLD' ? 'bg-slate-800/90' :
+                                    prod.status === 'HIDDEN' ? 'bg-rose-600/90' :
+                                    'bg-sky-600/90'
+                                  }`}>
+                                    {prod.status === 'SOLD' ? '✓ Đã bán' : prod.status === 'HIDDEN' ? '🚫 Đã ẩn' : prod.status}
+                                  </div>
+                                )}
                               </div>
 
                               {/* Content */}
@@ -901,6 +987,20 @@ export default function ProfilePage() {
                             {/* Actions Footer */}
                             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1.5 bg-slate-50/50 text-[11px]">
                               <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Edit button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setEditingProduct(prod._raw);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Chỉnh sửa thông tin bài đăng"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>Sửa</span>
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -942,6 +1042,7 @@ export default function ProfilePage() {
                     )}
                   </div>
                 )}
+
 
                 {/* TAB 2: ĐÁNH GIÁ CỘNG ĐỒNG */}
                 {activeTab === 'reviews' && (
@@ -1091,7 +1192,7 @@ export default function ProfilePage() {
                     </Button>
                   </Card>
                 ) : isPendingStudent ? (
-                  /* PENDING STUDENT VERIFICATION BANNER */
+                  /* PENDING STUDENT / SELLER VERIFICATION BANNER */
                   <Card className="rounded-2xl border-amber-300 bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-white p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-start gap-3.5">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-xs">
@@ -1100,14 +1201,18 @@ export default function ProfilePage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-extrabold text-slate-900">
-                            Hồ sơ Thẻ Sinh viên đang chờ Ban Quản Trị duyệt
+                            {userData.kycRole === 'seller'
+                              ? 'Hồ sơ mở quyền Người bán (Seller) đang chờ Ban Quản Trị duyệt'
+                              : 'Hồ sơ Thẻ Sinh viên đang chờ Ban Quản Trị duyệt'}
                           </h3>
                           <Badge className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 border-none">
                             Đang xử lý
                           </Badge>
                         </div>
                         <p className="mt-1.5 text-xs text-slate-600 leading-relaxed max-w-xl">
-                          Admin đang tiến hành đối soát thông tin Thẻ Sinh Viên của bạn. Kết quả phê duyệt sẽ được gửi qua email <strong>{userData.email}</strong> và chuông Thông báo trong vòng 2-24h làm việc.
+                          {userData.kycRole === 'seller'
+                            ? `Admin đang tiến hành đối soát thông tin tài khoản ngân hàng và định danh người bán của bạn. Kết quả phê duyệt sẽ được gửi qua email ${userData.email} và chuông Thông báo trong vòng 2-24h làm việc.`
+                            : `Admin đang tiến hành đối soát thông tin Thẻ Sinh Viên của bạn. Kết quả phê duyệt sẽ được gửi qua email ${userData.email} và chuông Thông báo trong vòng 2-24h làm việc.`}
                         </p>
                       </div>
                     </div>
@@ -1393,8 +1498,8 @@ export default function ProfilePage() {
               phone: updated.phone,
               bio: updated.bio,
               dorm: updated.dorm,
-              major: updated.major,
               avatarUrl: updated.avatarUrl,
+              campus: updated.campus,
             });
           } catch {
             // Keep local state
@@ -1438,7 +1543,23 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 6. FOOTER */}
+      {/* 6. EDIT PRODUCT MODAL */}
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSaved={(updated) => {
+            // Cập nhật danh sách myProducts với dữ liệu mới
+            setMyProducts((prev) =>
+              prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+            );
+            showToast('✅ Đã cập nhật thông tin bài đăng thành công!');
+            setEditingProduct(null);
+          }}
+        />
+      )}
+
+      {/* 7. FOOTER */}
       <Footer />
     </div>
   );

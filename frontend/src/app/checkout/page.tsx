@@ -77,6 +77,8 @@ function CheckoutContent() {
   // Product state
   const [productData, setProductData] = useState<{
     id: string;
+    sellerId?: string;
+    sellerEmail?: string;
     title: string;
     price: number;
     imageUrl: string;
@@ -139,6 +141,8 @@ function CheckoutContent() {
         if (!isMounted || !post) return;
         setProductData({
           id: post.id,
+          sellerId: post.sellerId || post.seller?.id,
+          sellerEmail: post.seller?.email,
           title: post.title,
           price: post.price,
           imageUrl: post.imageUrl || '/products/monitor-dell-24.jpg',
@@ -205,7 +209,20 @@ function CheckoutContent() {
 
   const totalAmount = Math.max(0, productData.price + effectiveShippingFee - coinDiscountAmount);
 
+  const isOwner = Boolean(
+    currentUser && (
+      (currentUser.id && productData.sellerId && currentUser.id === productData.sellerId) ||
+      (currentUser.email && productData.sellerEmail && currentUser.email.toLowerCase() === productData.sellerEmail.toLowerCase()) ||
+      (currentUser.name && productData.sellerName && currentUser.name.trim().toLowerCase() === productData.sellerName.trim().toLowerCase())
+    )
+  );
+
   const handleConfirmOrder = async () => {
+    if (isOwner) {
+      showToast('🚫 Bạn không thể tự mua sản phẩm do chính bạn đăng bán!');
+      return;
+    }
+
     if (!isKycVerified) {
       showToast('⚠️ Vui lòng xác thực Thẻ Sinh Viên để đặt đơn Safe-Handoff và kích hoạt bảo hiểm FPT Care!');
       setIsKycModalOpen(true);
@@ -233,6 +250,11 @@ function CheckoutContent() {
               },
         });
       } catch (err: any) {
+        if (err?.code === 'SELF_BUY_NOT_ALLOWED' || err?.message?.includes('tự mua')) {
+          showToast('🚫 Bạn không thể tự mua sản phẩm do chính bạn đăng bán!');
+          setIsSubmitting(false);
+          return;
+        }
         console.warn('Backend createOrder failed or offline, using resilient fallback:', err);
       }
 
@@ -827,15 +849,32 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                {isOwner && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 font-semibold mb-3 flex items-start gap-2">
+                    <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>Bạn không thể tự mua sản phẩm do chính bạn đăng bán. Vui lòng quay lại hoặc đăng nhập tài khoản khác.</span>
+                  </div>
+                )}
+
                 {/* CTA BUTTON */}
                 <button
                   type="button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isOwner}
                   onClick={handleConfirmOrder}
-                  className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3.5 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+                  className={`w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-extrabold text-white shadow-md transition-all active:scale-98 ${
+                    isOwner
+                      ? 'bg-slate-400 cursor-not-allowed shadow-none'
+                      : 'bg-fpt-orange hover:bg-fpt-orange-hover hover:shadow-lg shadow-orange-500/25 cursor-pointer disabled:opacity-50'
+                  }`}
                 >
                   <Lock className="h-4 w-4" />
-                  <span>{isSubmitting ? 'Đang xác nhận...' : `Xác nhận đặt đơn • ${totalAmount.toLocaleString('vi-VN')} đ`}</span>
+                  <span>
+                    {isOwner
+                      ? 'Không thể tự mua sản phẩm của mình'
+                      : isSubmitting
+                      ? 'Đang xác nhận...'
+                      : `Xác nhận đặt đơn • ${totalAmount.toLocaleString('vi-VN')} đ`}
+                  </span>
                 </button>
 
                 <p className="text-[11px] text-slate-400 text-center leading-tight pt-1">

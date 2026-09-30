@@ -337,6 +337,19 @@ class SocketClient {
       socket?.off('review_revealed', callback);
     };
   }
+
+  /**
+   * Lắng nghe sự kiện trạng thái KYC được cập nhật từ Admin (Phê duyệt hoặc Từ chối)
+   */
+  onKycStatusUpdated(callback: (data: any) => void) {
+    const socket = this.getSocket();
+    if (socket) {
+      socket.on('kyc_status_updated', callback);
+    }
+    return () => {
+      socket?.off('kyc_status_updated', callback);
+    };
+  }
 }
 
 export const socketClient = new SocketClient();

@@ -51,7 +51,17 @@ const processQueue = (error: any) => {
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     try {
-      const token = useUserStore.getState().accessToken;
+      const userToken = useUserStore.getState().accessToken;
+      let adminToken: string | null = null;
+      try {
+        const { useAdminStore } = require('@/stores/adminStore');
+        adminToken = useAdminStore.getState().accessToken;
+      } catch {}
+
+      const isAdminEndpoint = config.url?.startsWith('/reports') || config.url?.startsWith('/admin');
+      const isAdminPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+
+      const token = (isAdminEndpoint || isAdminPage) ? (adminToken || userToken) : (userToken || adminToken);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }

@@ -77,7 +77,7 @@ function ChatContent() {
           name: c.otherUser?.name || 'Sinh viên FPT',
           role: otherRole,
           roleLabel: otherRoleLabel,
-          cohortCampus: `${c.otherUser?.cohort || 'K18'} • ${c.otherUser?.campus || 'Hòa Lạc'}`,
+          cohortCampus: [c.otherUser?.cohort, c.otherUser?.campus].filter(Boolean).join(' • ') || (c.otherUser?.campus || 'FPT Campus'),
           avatar: c.otherUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
           isOnline: c.otherUser?.isOnline ?? true,
           verified: true,

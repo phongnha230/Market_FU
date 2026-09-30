@@ -73,6 +73,7 @@ export default function VouchersPage() {
   useEffect(() => {
     useVoucherStore.getState().fetchAvailableVouchers();
     useVoucherStore.getState().fetchMyVouchers();
+    profileService.getProfile().catch(() => {});
     profileService.getCheckInStatus().catch(() => {});
   }, []);
 

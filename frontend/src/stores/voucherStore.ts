@@ -212,10 +212,11 @@ export const useVoucherStore = create<VoucherState>()(
           const res = await voucherService.redeemVoucher(voucherId);
           const mappedVoucher = mapBackendUserVoucher(res.userVoucher);
 
-          // Cập nhật số dư Xu trong walletStore
-          useWalletStore.setState((s) => ({
-            campusCoins: res.remainingCoins ?? Math.max(0, s.campusCoins - mappedVoucher.voucher.coinCost),
-          }));
+          // Cập nhật số dư Xu trong walletStore và userStore
+          const { useUserStore } = await import('./userStore');
+          const remainingCoins = res.remainingCoins ?? Math.max(0, (useUserStore.getState().user.coins || 0) - mappedVoucher.voucher.coinCost);
+          useWalletStore.setState({ campusCoins: remainingCoins });
+          useUserStore.getState().updateProfile({ coins: remainingCoins });
 
           const activeUid = get().activeUserId || 'guest';
           const updatedMyVouchers = [mappedVoucher, ...get().myVouchers];

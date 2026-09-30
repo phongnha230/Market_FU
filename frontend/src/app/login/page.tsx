@@ -57,7 +57,7 @@ function LoginFormContent() {
   const handleLoginSuccess = async (email: string, password?: string) => {
     // 1. Kiểm tra nếu là tài khoản Quản trị viên (BQT)
     if (password) {
-      const adminResult = adminLogin(email, password);
+      const adminResult = await adminLogin(email, password);
       if (adminResult.success) {
         document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
         // Đồng thời đăng nhập vào backend để lấy Access Token có quyền ADMIN

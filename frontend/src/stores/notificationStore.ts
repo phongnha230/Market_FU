@@ -137,6 +137,13 @@ export const useNotificationStore = create<NotificationState>()(
             notifications: [newNotif, ...state.notifications],
           }));
 
+          // Tự động làm mới số dư Xu & quyền tài khoản khi có thông báo KYC hoặc thưởng Xu
+          if (newNotif.type === 'KYC' || newNotif.title?.includes('Xu') || newNotif.body?.includes('Xu')) {
+            import('@/services/profileService').then(({ profileService }) => {
+              profileService.getProfile().catch(() => {});
+            }).catch(() => {});
+          }
+
           showDesktopNotification({
             title: newNotif.title,
             body: newNotif.body,
