@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import {
   FileText,
@@ -20,90 +20,97 @@ import {
   MessageSquare,
   Star,
 } from 'lucide-react';
+import { useProductStore } from '@/stores/productStore';
+import { ProductService } from '@/services/productService';
+import { ProductItem } from '@/types/product';
 
 type TabType = 'all' | 'pending' | 'risk' | 'live' | 'rejected';
 
-const POSTS = [
-  {
-    id: '#POST-8921',
-    campus: 'HL • HÒA LẠC',
-    category: 'Đồ Công Nghệ & PC',
-    riskLevel: 'high',
-    riskBadge: '🔴 Rủi ro cao',
-    title: 'iPhone 15 Pro Max 256GB Titan Tự Nhiên (Fullbox)',
-    price: '11.500.000đ',
-    seller: 'Trần Minh Vương',
-    mssv: 'K20 SE',
-    aiNote: '⚠️ CẢNH BÁO NGUY CƠ CAO: Yêu cầu cọc 500k đặt trước MoMo từ người mua. Phát hiện vi phạm nghiêm trọng trong quy chế an ninh Campus. Người dùng đã thực hiện 2 lần "Cọc ngoài Momo" (vi phạm 3 lần ChucHo KTX)...',
-    aiScore: 18,
-    time: '1 giờ trước',
-    isCritical: true,
-  },
-  {
-    id: '#POST-4920',
-    campus: 'SG • TP.HCM',
-    category: 'Giáo trình & Sách',
-    riskLevel: 'clean',
-    riskBadge: '✅ Ổn lại/Clean',
-    title: 'Tài liệu ôn tập PE MAS291 & CSL201FPT (In mới...)',
-    price: '65.000đ',
-    seller: 'Đỗ Phương Linh',
-    mssv: 'SE171452 - K17',
-    aiNote: '✅ AI Verified: Khớp 100% đồ cương Syllabus FPT 2024 môn MAS291 & CSL201. Đề quét nội dung chính tránh tài liệu ngân hàng chưa FPT sử dụng thư viện đây.',
-    aiScore: 92,
-    time: '28 phút trước',
-    isCritical: false,
-  },
-  {
-    id: '#POST-4918',
-    campus: 'HL',
-    category: 'Đồ KTX & Gia Dụng',
-    riskLevel: 'pccc',
-    riskBadge: '⚠️ Cần lưu ý PCCC',
-    title: 'Bếp điện từ tiểu mini Sunhouse 2000W...',
-    price: '220.000đ',
-    seller: 'Lê Hoàng Phúc',
-    mssv: 'HE171709',
-    aiNote: '⚠️ Cảnh báo quy chế KTX: Công suất thiết bị 2000W vượt định mức tiêu chuẩn điện an toàn PCCC KTX FPT. Vui lòng kiểm tra lại với ban quản lý KTX.',
-    aiScore: 42,
-    time: '1 giờ trước',
-    isCritical: false,
-  },
-  {
-    id: '#POST-4917',
-    campus: 'ĐN',
-    category: 'Đồng phục VOVIMAZ',
-    riskLevel: 'clean',
-    riskBadge: '🟢 5 sinh viên đồng hội',
-    title: 'Đồng phục Vovinam FPT size L Kiêm đại xan...',
-    price: '140.000đ',
-    seller: 'Trần Quốc Bảo',
-    mssv: 'DS180300',
-    aiNote: '✅ Đề lọc cuộc Safe-Handoff: Bán gần Sân Vovinam Toa Beta ĐN vào lúc 18:30 chiều nay. Hệ thống đã kiểm tra việc giao dịch không vượt thời gian quy định.',
-    aiScore: 85,
-    time: '2 giờ trước',
-    isCritical: false,
-  },
-];
+export interface AdminPostItem {
+  id: string;
+  rawId: string;
+  campus: string;
+  category: string;
+  riskLevel: 'high' | 'pccc' | 'clean' | 'rejected';
+  riskBadge: string;
+  title: string;
+  price: string;
+  seller: string;
+  mssv: string;
+  aiNote: string;
+  aiScore: number;
+  time: string;
+  isCritical: boolean;
+  imageUrl?: string;
+  phone?: string;
+  email?: string;
+}
+
+function adaptProductToAdminPost(p: ProductItem): AdminPostItem {
+  const isPccc = p.title.toLowerCase().includes('bếp') || p.title.toLowerCase().includes('ấm');
+  const isHighRisk = p.price > 10000000 || p.title.toLowerCase().includes('cọc ngoài');
+  const riskLevel: 'high' | 'pccc' | 'clean' | 'rejected' = isHighRisk ? 'high' : isPccc ? 'pccc' : 'clean';
+  const riskBadge = isHighRisk ? '🔴 Cần thẩm tra' : isPccc ? '⚠️ Lưu ý PCCC' : '✅ An toàn/Clean';
+
+  return {
+    id: `#POST-${p.id.slice(-4).toUpperCase()}`,
+    rawId: p.id,
+    campus: p.campus || 'Hòa Lạc',
+    category: p.category || 'Đồ dùng học tập',
+    riskLevel,
+    riskBadge,
+    title: p.title,
+    price: `${p.price.toLocaleString('vi-VN')}đ`,
+    seller: p.seller?.name || 'Sinh viên FPT',
+    mssv: p.seller?.studentId || p.seller?.badge || 'K19',
+    aiNote: isHighRisk
+      ? '⚠️ CẢNH BÁO GIÁ TRỊ CAO: Đề xuất giao dịch tại điểm Safe-Handoff có camera giám sát và ký quỹ Escrow bảo hộ 48h.'
+      : isPccc
+      ? '⚠️ Cảnh báo quy chế KTX: Thiết bị điện cần kiểm tra công suất phù hợp định mức điện an toàn PCCC KTX FPT.'
+      : '✅ AI Verified: Đã đối soát tài khoản sinh viên FPT và nội dung tin đăng không vi phạm quy chế sàn.',
+    aiScore: isHighRisk ? 45 : isPccc ? 65 : 92,
+    time: p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay',
+    isCritical: isHighRisk,
+    imageUrl: p.imageUrl,
+    phone: p.seller?.phoneNumber || '0988 ••• 210',
+    email: p.seller?.email || 'student@fpt.edu.vn',
+  };
+}
 
 const RISK_COLORS: Record<string, string> = {
   high: 'border-l-4 border-red-400 bg-red-50/30',
   clean: '',
   pccc: 'border-l-4 border-amber-400 bg-amber-50/20',
+  rejected: 'border-l-4 border-slate-400 bg-slate-100/50 opacity-70',
 };
 
 const RISK_BADGE_COLORS: Record<string, string> = {
   high: 'bg-red-100 text-red-700 border-red-200',
   clean: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   pccc: 'bg-amber-100 text-amber-700 border-amber-200',
+  rejected: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
 export default function AdminPostsPage() {
-  const [posts, setPosts] = useState(POSTS);
+  const storeProducts = useProductStore((state) => state.products);
+  const [posts, setPosts] = useState<AdminPostItem[]>(() => storeProducts.map(adaptProductToAdminPost));
   const [processedCount, setProcessedCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<TabType>('pending');
+  const [activeTab, setActiveTab] = useState<TabType>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDetail, setSelectedDetail] = useState<(typeof POSTS)[0] | null>(POSTS[0]);
+  const [selectedDetail, setSelectedDetail] = useState<AdminPostItem | null>(null);
+
+  useEffect(() => {
+    ProductService.getAllProducts().then((res) => {
+      const mapped = (res || []).map(adaptProductToAdminPost);
+      setPosts(mapped);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDetail && posts.length > 0) {
+      setSelectedDetail(posts[0]);
+    }
+  }, [posts, selectedDetail]);
 
   const handleApprove = (id: string) => {
     setPosts((prev) =>
@@ -131,6 +138,25 @@ export default function AdminPostsPage() {
   const riskCount = posts.filter((p) => p.riskLevel === 'high' || p.riskLevel === 'pccc').length;
   const liveCount = posts.filter((p) => p.riskLevel === 'clean').length;
   const rejectedCount = posts.filter((p) => p.riskLevel === 'rejected').length;
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((p) => {
+      if (activeTab === 'pending' && (p.riskLevel === 'clean' || p.riskLevel === 'rejected')) return false;
+      if (activeTab === 'risk' && p.riskLevel !== 'high' && p.riskLevel !== 'pccc') return false;
+      if (activeTab === 'live' && p.riskLevel !== 'clean') return false;
+      if (activeTab === 'rejected' && p.riskLevel !== 'rejected') return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        return (
+          p.title.toLowerCase().includes(q) ||
+          p.seller.toLowerCase().includes(q) ||
+          p.id.toLowerCase().includes(q) ||
+          p.mssv.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [posts, activeTab, searchTerm]);
 
   const TABS: { key: TabType; label: string; count: number }[] = [
     { key: 'all', label: 'Tất cả', count: posts.length },
@@ -242,82 +268,88 @@ export default function AdminPostsPage() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  onClick={() => setSelectedDetail(post)}
-                  className={`p-4 cursor-pointer hover:bg-slate-50 transition ${RISK_COLORS[post.riskLevel] || ''} ${selectedDetail?.id === post.id ? 'bg-blue-50/30 ring-2 ring-inset ring-blue-200' : ''}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{post.id}</span>
-                        <span className="text-[10px] text-slate-500">{post.campus}</span>
-                        <span className="text-[10px] text-slate-500">{post.category}</span>
-                        <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${RISK_BADGE_COLORS[post.riskLevel] || ''}`}>
-                          {post.riskBadge}
-                        </span>
+              {filteredPosts.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  Không tìm thấy tin đăng nào trong mục này.
+                </div>
+              ) : (
+                filteredPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    onClick={() => setSelectedDetail(post)}
+                    className={`p-4 cursor-pointer hover:bg-slate-50 transition ${RISK_COLORS[post.riskLevel] || ''} ${selectedDetail?.id === post.id ? 'bg-blue-50/30 ring-2 ring-inset ring-blue-200' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">{post.id}</span>
+                          <span className="text-[10px] text-slate-500">{post.campus}</span>
+                          <span className="text-[10px] text-slate-500">{post.category}</span>
+                          <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${RISK_BADGE_COLORS[post.riskLevel] || ''}`}>
+                            {post.riskBadge}
+                          </span>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-slate-900 truncate">{post.title}</h4>
+                        <div className="text-[11px] text-slate-500 mt-0.5">• Người bán: {post.seller} ({post.mssv})</div>
+
+                        <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-start gap-1.5">
+                          <Bot className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-500" />
+                          <span className="line-clamp-2">{post.aiNote}</span>
+                        </div>
+
+                        {post.isCritical && (
+                          <div className="mt-1.5 flex gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                              className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
+                            >
+                              Khoá tin & Cảnh cáo User
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
+                              className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-emerald-600"
+                            >
+                              ✓ Duyệt ngoại lệ
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                              className="rounded-lg bg-red-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-red-600"
+                            >
+                              🚫 Khoá tin ngay
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      <h4 className="text-sm font-bold text-slate-900 truncate">{post.title}</h4>
-                      <div className="text-[11px] text-slate-500 mt-0.5">• Người bán: {post.seller} ({post.mssv})</div>
-
-                      <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-start gap-1.5">
-                        <Bot className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-500" />
-                        <span className="line-clamp-2">{post.aiNote}</span>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-black text-fpt-orange">{post.price}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{post.time}</div>
+                        {!post.isCritical && post.riskLevel !== 'rejected' && (
+                          <div className="flex gap-1 mt-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
+                            >
+                              Từ chối
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
+                              className="rounded-lg bg-fpt-orange px-2 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-fpt-orange-hover"
+                            >
+                              ✓ Phê duyệt
+                            </button>
+                          </div>
+                        )}
                       </div>
-
-                      {post.isCritical && (
-                        <div className="mt-1.5 flex gap-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
-                            className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
-                          >
-                            Khoá tin & Cảnh cáo User
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
-                            className="rounded-lg bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-emerald-600"
-                          >
-                            ✓ Duyệt ngoại lệ
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
-                            className="rounded-lg bg-red-500 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-red-600"
-                          >
-                            🚫 Khoá tin ngay
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-black text-fpt-orange">{post.price}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{post.time}</div>
-                      {!post.isCritical && post.riskLevel !== 'rejected' && (
-                        <div className="flex gap-1 mt-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleReject(post.id); }}
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
-                          >
-                            Từ chối
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
-                            className="rounded-lg bg-fpt-orange px-2 py-1 text-[10px] font-bold text-white cursor-pointer hover:bg-fpt-orange-hover"
-                          >
-                            ✓ Phê duyệt
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             <div className="border-t border-slate-100 flex items-center justify-between px-4 py-3">
-              <span className="text-xs text-slate-500">Hiển thị {posts.length} trên {posts.length} tin đăng lọc</span>
+              <span className="text-xs text-slate-500">Hiển thị {filteredPosts.length} trên {posts.length} tin đăng lọc</span>
             </div>
           </div>
 
@@ -338,7 +370,20 @@ export default function AdminPostsPage() {
               <div className="p-4 space-y-4">
                 {/* Image placeholder */}
                 <div className="grid grid-cols-2 gap-2">
-                  {[1, 2, 3, 4].map((i) => (
+                  {selectedDetail.imageUrl ? (
+                    <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                      <img
+                        src={selectedDetail.imageUrl}
+                        alt={selectedDetail.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                      <Camera className="h-6 w-6 text-slate-300" />
+                    </div>
+                  )}
+                  {[1, 2, 3].map((i) => (
                     <div key={i} className="aspect-square rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                       <Camera className="h-6 w-6 text-slate-300" />
                     </div>
@@ -375,8 +420,8 @@ export default function AdminPostsPage() {
                       </div>
                     </div>
                     {[
-                      { label: 'Số điện thoại', value: '0988 ••• 210' },
-                      { label: 'Email FPT', value: 'vuong@fpt.edu.vn' },
+                      { label: 'Số điện thoại', value: selectedDetail.phone || 'Chưa cập nhật' },
+                      { label: 'Email FPT', value: selectedDetail.email || 'student@fpt.edu.vn' },
                       { label: 'Chat', value: 'Chuẩn duyệt' },
                     ].map((row) => (
                       <div key={row.label} className="flex items-center justify-between text-[10px]">

@@ -28,63 +28,16 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
-const FALLBACK_REPORTS = [
-  {
-    id: 'rep-892',
-    type: 'KHẨN CẤP VĂN PHÒNG',
-    typeColor: 'bg-red-500 text-white',
-    campus: 'Hòa Lạc',
-    reporter: 'Người dùng: K10 SV',
-    time: '1 giờ trước',
-    title: 'Báo cáo tài liệu thiếu giáo trình / bản quyền Bộ môn',
-    desc: 'Người bán đang bán tài liệu PE có nội dung bài thi nội bộ, vi phạm nghiêm trọng quy chế thi cử học viện Spring 2024...',
-    reporterName: 'Nguyễn Bá Tình (K18 SE)',
-    accusedName: 'Nguyễn V. Toàn (K19 IA)',
-    aiMatch: '84% độ tương đồng với dữ liệu vi phạm đã xử lý',
-    isUrgent: true,
-  },
-  {
-    id: 'rep-887',
-    type: 'CẢNH BÁO BOOM HẸN',
-    typeColor: 'bg-amber-500 text-white',
-    campus: 'Hòa Lạc / Sảnh Alpha',
-    reporter: 'Hệ thống Safe-Handoff',
-    time: '52 phút trước',
-    title: 'Người bán không đến điểm hẹn tại Sảnh Alpha (Boom hẹn)',
-    desc: 'Người mua tại Safe-Handoff điểm số 04 Sảnh Alpha chờ 25 phút, gửi 6 tin nhắn nhưng người bán không xuất hiện...',
-    reporterName: 'Hệ thống Safe-Handoff Point Alpha',
-    accusedName: 'Trần Văn Q. (HE172190)',
-    aiMatch: '92% khả năng boom hẹn',
-    isUrgent: false,
-  },
-  {
-    id: 'rep-875',
-    type: 'NGHI VẤN GIAN LẬN CỌC NGOÀI',
-    typeColor: 'bg-purple-500 text-white',
-    campus: 'Khu CNC Quận 9 (TP.HCM)',
-    reporter: 'Hệ thống Bot Sentinel',
-    time: '2 giờ trước',
-    title: 'Tài khoản nhắn tin yêu cầu cọc MoMo 200.000đ ngoài sàn',
-    desc: 'Đối tượng yêu cầu người mua chuyển cọc 200k qua số MoMo cá nhân trước giờ bàn giao. Vi phạm quy chuẩn giao dịch Escrow...',
-    reporterName: 'Trần Hoàng V. (SE171231)',
-    accusedName: 'SĐT: 086.xxx.231 (Tài khoản Pass đồ K18)',
-    aiMatch: 'Phát hiện pattern cọc ngoài sàn',
-    isUrgent: false,
-  },
-];
-
-const SAFEHANDOFF_HUBS = [
-  { id: '01', name: 'Sảnh Tòa Alpha (Tầng 1)', campus: 'HÒA LẠC', code: 'HLA 01', storage: '42 GB', cameras: '2 Cam HD (OK)', students: '8 cán bộ', status: 'ĐANG HOẠT ĐỘNG', statusColor: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  { id: '02', name: 'Thư viện Gamma (Tầng 1)', campus: 'HÒA LẠC', code: 'HLA 02', storage: '28 GB', cameras: '360° Cam AI', students: 'Giờ tự học', status: 'ĐANG HOẠT ĐỘNG', statusColor: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  { id: '01', name: 'Tòa E2a-7 (Khu Công Nghệ Cao)', campus: 'TP. HỒ CHÍ MINH', code: 'SG 01', storage: '56 GB', cameras: 'Trực tiếp DVC', students: 'Trực tiếp DVC', status: 'ĐANG HOẠT ĐỘNG', statusColor: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  { id: '01', name: 'Sảnh Tòa FPT City Ngũ Hành Sơn', campus: 'ĐÀ NẴNG', code: 'DN 01', storage: '19 GB', cameras: '1 Cam Góc', students: 'Buổi sáng', status: 'ĐANG HOẠT ĐỘNG', statusColor: 'bg-emerald-100 text-emerald-700', dot: 'bg-blue-500' },
-  { id: '', name: 'Hub KTX & Điểm vệ tinh 5 Campus', campus: 'CÁC CAMPUS', code: '', storage: '', cameras: '', students: '', status: 'Căng tin KTX Dom E & Dom A (Hòa Lạc)', statusColor: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500', isSection: true },
-];
+import { safehandoffService, SafeHandoffHubItem } from '@/services/safehandoffService';
+import { BackendReport } from '@/services/reportService';
 
 export default function AdminReportsPage() {
   const { disputes, fetchDisputes, resolveDisputeByAdmin } = useDisputeStore();
 
   const [activeTab, setActiveTab] = useState<'disputes' | 'reports'>('disputes');
+  const [reports, setReports] = useState<BackendReport[]>([]);
+  const [hubs, setHubs] = useState<SafeHandoffHubItem[]>([]);
+  const [safetyRate, setSafetyRate] = useState<number>(100);
   const [noteText, setNoteText] = useState('Đã đối soát video mở hộp và log giao dịch: Tình trạng thiết bị đúng như khiếu nại.');
   const [warningText, setWarningText] = useState('');
   const [emailMSSV, setEmailMSSV] = useState('');
@@ -96,8 +49,30 @@ export default function AdminReportsPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const loadReportsAndHubs = async () => {
+    try {
+      const [reportsRes, hubsRes, analyticsRes] = await Promise.allSettled([
+        reportService.getReports(),
+        safehandoffService.getHubs(),
+        reportService.getSemesterAnalytics(),
+      ]);
+      if (reportsRes.status === 'fulfilled') {
+        setReports(reportsRes.value.reports || []);
+      }
+      if (hubsRes.status === 'fulfilled') {
+        setHubs(hubsRes.value.hubs || []);
+      }
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.metrics?.safetyRate !== undefined) {
+        setSafetyRate(analyticsRes.value.metrics.safetyRate);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     fetchDisputes();
+    loadReportsAndHubs();
   }, [fetchDisputes]);
 
   const handleResolveDispute = async (disputeId: string, action: 'REFUND' | 'REJECT') => {
@@ -147,13 +122,16 @@ export default function AdminReportsPage() {
                 Trung tâm An toàn, Khiếu nại Tranh chấp & Báo cáo Vi phạm
               </h1>
               <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-                Giám sát bảo hộ Escrow 48h, xử lý video mở hộp khiếu nại, điều tra gian lận học vụ và quản lý 18 trạm Safe-Handoff 5 phân hiệu.
+                Giám sát bảo hộ Escrow 48h, xử lý video mở hộp khiếu nại, điều tra gian lận học vụ và quản lý {hubs.length} trạm Safe-Handoff 5 phân hiệu.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => fetchDisputes()}
+                onClick={() => {
+                  fetchDisputes();
+                  loadReportsAndHubs();
+                }}
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
               >
                 <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
@@ -175,14 +153,14 @@ export default function AdminReportsPage() {
 
             <div className="rounded-xl border p-4 bg-blue-50 border-blue-100">
               <MapPin className="h-5 w-5 text-blue-500" />
-              <div className="text-2xl font-black text-slate-900 mt-2">18</div>
+              <div className="text-2xl font-black text-slate-900 mt-2">{hubs.length}</div>
               <div className="text-[11px] font-semibold text-slate-700 mt-0.5">Hạ tầng điểm hẹn KTX</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Điểm Safe-Handoff 5 Campus FPT</div>
             </div>
 
             <div className="rounded-xl border p-4 bg-emerald-50 border-emerald-100">
               <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              <div className="text-2xl font-black text-slate-900 mt-2">99.4%</div>
+              <div className="text-2xl font-black text-slate-900 mt-2">{safetyRate}%</div>
               <div className="text-[11px] font-semibold text-slate-700 mt-0.5">Chỉ số giao dịch an toàn</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Bảo hộ hoàn tiền Escrow 48h</div>
             </div>
@@ -217,7 +195,7 @@ export default function AdminReportsPage() {
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    🚨 Báo cáo Vi phạm ({FALLBACK_REPORTS.length})
+                    🚨 Báo cáo Vi phạm ({reports.length})
                   </button>
                 </div>
               </div>
@@ -324,67 +302,86 @@ export default function AdminReportsPage() {
               {/* REPORTS TAB */}
               {activeTab === 'reports' && (
                 <div className="divide-y divide-slate-100">
-                  {FALLBACK_REPORTS.map((r) => (
-                    <div key={r.id} className={`p-5 ${r.isUrgent ? 'bg-red-50/20' : ''}`}>
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                            <span className="text-[11px] font-extrabold text-slate-500">#{r.id}</span>
-                            <span className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${r.typeColor}`}>
-                              {r.type}
-                            </span>
-                            <span className="text-[10px] text-slate-500">{r.campus}</span>
-                            <span className="text-[10px] text-slate-400">• {r.time}</span>
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900 mb-1">{r.title}</h4>
-                          <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">{r.desc}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 mb-3 text-[11px]">
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
-                          <span className="text-slate-400">Người báo cáo: </span>
-                          <span className="font-bold text-slate-800">{r.reporterName}</span>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
-                          <span className="text-slate-400">Đối tượng bị báo cáo: </span>
-                          <span className="font-bold text-slate-800">{r.accusedName}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-100 px-3 py-1.5 mb-3">
-                        <Activity className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                        <span className="text-[11px] text-blue-700 font-medium">{r.aiMatch}</span>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          disabled={isProcessing === r.id}
-                          onClick={() => handleResolveReport(r.id, 'DISMISS')}
-                          className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                        >
-                          Bỏ qua
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isProcessing === r.id}
-                          onClick={() => handleResolveReport(r.id, 'HIDE_PRODUCT')}
-                          className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
-                        >
-                          Ẩn bài đăng
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isProcessing === r.id}
-                          onClick={() => handleResolveReport(r.id, 'BAN_USER')}
-                          className="rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
-                        >
-                          Khóa tài khoản sinh viên
-                        </button>
-                      </div>
+                  {reports.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500">
+                      Chưa có báo cáo vi phạm nào cần xử lý.
                     </div>
-                  ))}
+                  ) : (
+                    reports.map((r) => (
+                      <div key={r.id} className="p-5">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                              <span className="text-[11px] font-extrabold text-slate-500">#{r.id.slice(-6).toUpperCase()}</span>
+                              <span
+                                className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
+                                  r.status === 'PENDING'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                                }`}
+                              >
+                                {r.targetType === 'PRODUCT' ? 'Báo cáo Tin đăng' : 'Báo cáo Người dùng'}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {r.reporter?.profile?.campus || 'FU Campus'}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                • {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-slate-900 mb-1">{r.reason}</h4>
+                            {r.details && (
+                              <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">{r.details}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3 text-[11px]">
+                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
+                            <span className="text-slate-400">Người báo cáo: </span>
+                            <span className="font-bold text-slate-800">
+                              {r.reporter?.profile?.fullName || r.reporter?.email || 'Sinh viên'}
+                            </span>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
+                            <span className="text-slate-400">Đối tượng: </span>
+                            <span className="font-bold text-slate-800">
+                              {r.targetType === 'PRODUCT' ? `Sản phẩm #${r.targetId.slice(-6).toUpperCase()}` : `Sinh viên #${r.targetId.slice(-6).toUpperCase()}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {r.status === 'PENDING' && (
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              disabled={isProcessing === r.id}
+                              onClick={() => handleResolveReport(r.id, 'DISMISS')}
+                              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                            >
+                              Bỏ qua
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing === r.id}
+                              onClick={() => handleResolveReport(r.id, 'HIDE_PRODUCT')}
+                              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
+                            >
+                              Ẩn bài đăng
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing === r.id}
+                              onClick={() => handleResolveReport(r.id, 'BAN_USER')}
+                              className="rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
+                            >
+                              Khóa tài khoản sinh viên
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -422,27 +419,30 @@ export default function AdminReportsPage() {
             <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <h3 className="text-sm font-extrabold text-slate-900">🗺 Mạng lưới Safe-Handoff Hub</h3>
-                <span className="text-[11px] font-bold text-fpt-orange">18 Điểm trực</span>
+                <span className="text-[11px] font-bold text-fpt-orange">{hubs.length} Điểm trực</span>
               </div>
 
               <div className="p-4 space-y-3">
-                {SAFEHANDOFF_HUBS.map((hub, i) =>
-                  hub.isSection ? (
-                    <div key={i} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                      <div className="text-xs font-bold text-slate-700 mb-1">{hub.name}</div>
-                      <div className="text-[11px] text-slate-500">{hub.status}</div>
-                    </div>
-                  ) : (
-                    <div key={i} className="rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-2">
+                {hubs.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    Chưa có trạm Safe-Handoff nào được cấu hình.
+                  </div>
+                ) : (
+                  hubs.map((hub) => (
+                    <div key={hub.id} className="rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-2">
                       <div>
                         <div className="font-bold text-xs text-slate-800">{hub.name}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{hub.campus} • {hub.cameras}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {hub.campus} • {hub.cameras || 'Camera HD'} • {hub.operatingHours || '07:30 - 21:00'}
+                        </div>
                       </div>
-                      <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
-                        Trực tuyến
+                      <span className={`rounded text-[10px] font-bold px-2 py-0.5 ${
+                        hub.isOperating ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {hub.isOperating ? 'Trực tuyến' : 'Tạm dừng'}
                       </span>
                     </div>
-                  )
+                  ))
                 )}
               </div>
             </div>

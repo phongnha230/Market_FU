@@ -793,8 +793,11 @@ export class ReportService {
    * Admin xem danh sách hồ sơ xác thực KYC
    */
   async getKycVerifications(query: QueryKycInput) {
-    const { status, type, page, limit } = query;
+    const page = Number(query?.page) > 0 ? Number(query.page) : 1;
+    const limit = Number(query?.limit) > 0 ? Number(query.limit) : 20;
     const skip = (page - 1) * limit;
+
+    const { status, type } = query || {};
 
     const where: any = {};
     if (status) where.status = status;
@@ -816,9 +819,11 @@ export class ReportService {
               profile: {
                 select: {
                   fullName: true,
+                  avatarUrl: true,
                   campus: true,
                   phoneNumber: true,
                   bankAccount: true,
+                  kyc: true,
                 },
               },
             },
@@ -877,20 +882,30 @@ export class ReportService {
       // 2. Lấy số dư Xu hiện tại bên trong transaction để đảm bảo tính toàn vẹn (atomic)
       const currentProfile = await tx.profile.findUnique({
         where: { userId },
-        select: { campusCoins: true },
+        select: { campusCoins: true, kyc: true },
       });
       const previousCoins = currentProfile?.campusCoins || 0;
       const balanceAfter = previousCoins + bonusCoins;
 
-      // 3. Cập nhật Profile: kyc.status = APPROVED và cộng Xu thưởng
+      // 3. Cập nhật Profile: kyc.status = APPROVED, đồng bộ thông tin thẻ SV chính thức và cộng Xu thưởng
       await tx.profile.update({
         where: { userId },
         data: {
           campusCoins: { increment: bonusCoins },
+          ...(kyc.campus && { campus: kyc.campus }),
+          ...(kyc.cohort && { cohort: kyc.cohort }),
+          ...(kyc.major && { major: kyc.major }),
+          ...(kyc.fullName && { fullName: kyc.fullName }),
+          ...(kyc.phoneNumber && { phoneNumber: kyc.phoneNumber }),
           kyc: {
             set: {
               studentId: kyc.studentId,
               cardImageUrl: kyc.cardImageUrl,
+              cardBackUrl: kyc.cardBackUrl || (currentProfile?.kyc as any)?.cardBackUrl || null,
+              selfieCardUrl: kyc.selfieCardUrl || (currentProfile?.kyc as any)?.selfieCardUrl || null,
+              cccdNumber: (currentProfile?.kyc as any)?.cccdNumber || null,
+              cccdFrontUrl: (currentProfile?.kyc as any)?.cccdFrontUrl || null,
+              cccdBackUrl: (currentProfile?.kyc as any)?.cccdBackUrl || null,
               status: 'APPROVED',
               type: kyc.type || 'STUDENT',
               rejectedReason: null,
@@ -900,11 +915,19 @@ export class ReportService {
         },
       });
 
-      // 4. B4-4: Chỉ nâng role User thành SELLER nếu đang là BUYER (tránh vô tình hạ cấp tài khoản ADMIN)
-      await tx.user.updateMany({
-        where: { id: userId, role: 'BUYER' },
-        data: { role: 'SELLER' },
-      });
+      // 4. B4-4: Nâng role User tương ứng với loại hồ sơ KYC đã được duyệt
+      if (kyc.type === 'SELLER') {
+        await tx.user.updateMany({
+          where: { id: userId, role: { in: ['BUYER', 'UNVERIFIED'] } },
+          data: { role: 'SELLER' },
+        });
+      } else {
+        // Hồ sơ duyệt Thẻ Sinh Viên (STUDENT): Nâng từ UNVERIFIED lên BUYER
+        await tx.user.updateMany({
+          where: { id: userId, role: 'UNVERIFIED' },
+          data: { role: 'BUYER' },
+        });
+      }
 
       // 5. Ghi sổ cái CoinTransaction nếu có thưởng Xu
       if (bonusCoins > 0) {
@@ -936,7 +959,7 @@ export class ReportService {
     await sendKycResultEmail(userEmail, true, fullName);
 
     // Bắn realtime socket và thông báo Push Noti
-    emitToUser(userId, 'kyc_status_updated', { status: 'APPROVED', type: kyc.type });
+    emitToUser(userId, 'kyc_status_updated', { status: 'APPROVED', type: kyc.type, bonusCoins });
     await notificationService.sendNotification({
       userId,
       title: '🎉 Thẻ Sinh Viên đã được xác thực thành công!',
@@ -1058,15 +1081,23 @@ export class ReportService {
 
     let imageBuffer: Buffer | null = null;
     let mimeType = 'image/jpeg';
+    const isSeller = kyc.type === 'SELLER';
+    let targetImageUrl = kyc.cardImageUrl;
 
-    if (kyc.cardImageUrl.startsWith('data:')) {
-      const parts = kyc.cardImageUrl.split(',');
-      const match = kyc.cardImageUrl.match(/data:(.*?);base64/);
+    // Đối với Seller: ưu tiên sử dụng ảnh mặt trước CCCD gắn chip nếu có
+    const sellerCccdFront = (kyc.user?.profile?.kyc as any)?.cccdFrontUrl;
+    if (isSeller && sellerCccdFront && sellerCccdFront.trim().length > 0) {
+      targetImageUrl = sellerCccdFront.trim();
+    }
+
+    if (targetImageUrl.startsWith('data:')) {
+      const parts = targetImageUrl.split(',');
+      const match = targetImageUrl.match(/data:(.*?);base64/);
       if (match) mimeType = match[1];
       imageBuffer = Buffer.from(parts[1], 'base64');
-    } else if (kyc.cardImageUrl.startsWith('http')) {
+    } else if (targetImageUrl.startsWith('http')) {
       const axios = (await import('axios')).default;
-      const res = await axios.get(kyc.cardImageUrl, { responseType: 'arraybuffer' });
+      const res = await axios.get(targetImageUrl, { responseType: 'arraybuffer' });
       imageBuffer = Buffer.from(res.data);
       mimeType = String(res.headers['content-type'] || 'image/jpeg');
     }
@@ -1075,12 +1106,30 @@ export class ReportService {
       throw new AppError('Không thể tải file ảnh thẻ để phân tích', 400, 'IMAGE_DOWNLOAD_FAILED');
     }
 
-    const ocrResult = await aiService.scanStudentCard(imageBuffer, mimeType, {
-      fullName: kyc.user?.profile?.fullName || '',
-      studentId: kyc.studentId,
-      campus: kyc.user?.profile?.campus || '',
-      email: kyc.user?.email,
-    });
+    let ocrResult: any;
+
+    if (isSeller) {
+      // 1. Thẩm định Căn Cước Công Dân (CCCD) Việt Nam cho Người Bán (Seller)
+      const userProfile = kyc.user?.profile;
+      const expectedCccd = (userProfile?.kyc as any)?.cccdNumber || (kyc.ocrData as any)?.ocrCccdNumber || '';
+      const bankAccountName = userProfile?.bankAccount?.accountName || '';
+      const bankName = userProfile?.bankAccount?.bankName || '';
+
+      ocrResult = await aiService.scanCitizenCard(imageBuffer, mimeType, {
+        fullName: kyc.fullName || userProfile?.fullName || '',
+        cccdNumber: expectedCccd,
+        bankAccountName,
+        bankName,
+      });
+    } else {
+      // 2. Thẩm định Thẻ Sinh Viên FPT cho Người Mua (Student Buyer)
+      ocrResult = await aiService.scanStudentCard(imageBuffer, mimeType, {
+        fullName: kyc.fullName || kyc.user?.profile?.fullName || '',
+        studentId: kyc.studentId,
+        campus: kyc.campus || kyc.user?.profile?.campus || '',
+        email: kyc.user?.email,
+      });
+    }
 
     await prisma.kycVerification.update({
       where: { id: kycId },

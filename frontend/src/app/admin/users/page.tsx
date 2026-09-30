@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import {
   Users,
@@ -19,109 +19,31 @@ import {
   Clock,
   Minus,
 } from 'lucide-react';
+import { useKycStore, KycApplication } from '@/stores/kycStore';
+import { useProductStore } from '@/stores/productStore';
+import { userService, BackendUserItem } from '@/services/userService';
 
-const STUDENTS = [
-  {
-    name: 'Nguyễn Tuấn Anh',
-    mssv: 'HE172839',
-    campus: 'HLA',
-    major: 'Kỹ thuật Phần mềm K17',
-    email: 'tuananh17383@fpt.edu.vn',
-    kyc: 'verified',
-    sso: 'ok',
-    posts: 24,
-    done: 19,
-    responseTime: '~4 phút',
-    responseRate: 98,
-    handoffPlace: 'Sảnh Beta & Tòa Alpha HL',
-    trust: 98,
-    trustLabel: 'Kim Cương',
-    trustColor: 'text-cyan-600 bg-cyan-50 border-cyan-200',
-    violations: 0,
-    violationNote: 'Handoff: Đúng hẹn 100%',
-    violationColor: 'text-emerald-600',
-  },
-  {
-    name: 'Nguyễn Thu Thảo',
-    mssv: 'SB160412',
-    campus: 'SGN',
-    major: 'Quản trị Kinh doanh K18',
-    email: 'thaontsb160412@fpt.edu.vn',
-    kyc: 'verified',
-    sso: 'ok',
-    posts: 12,
-    done: 11,
-    responseTime: '~8 phút',
-    responseRate: 92,
-    handoffPlace: 'Thư viện Q.9 Campus SG',
-    trust: 88,
-    trustLabel: 'Vàng Tiên Phong',
-    trustColor: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-    violations: 0,
-    violationNote: 'Handoff: 1 lần dời giờ hẹn',
-    violationColor: 'text-amber-500',
-  },
-  {
-    name: 'Trần Quang Huy',
-    mssv: 'GD188901',
-    campus: 'DAN',
-    major: 'Thiết kế Đồ họa K18',
-    email: 'huytqgd180901@fpt.edu.vn',
-    kyc: 'pending',
-    sso: 'mismatch',
-    posts: 9,
-    done: 2,
-    responseTime: '>4 giờ',
-    responseRate: 28,
-    handoffPlace: 'Bị báo cáo mô tả sai lệch',
-    trust: 45,
-    trustLabel: 'Cảnh Báo Đỏ',
-    trustColor: 'text-red-700 bg-red-50 border-red-200',
-    violations: 3,
-    violationNote: 'Boom hẹn 2 lần tại Hub F-Complex',
-    violationColor: 'text-red-600',
-  },
-  {
-    name: 'Đoàn Bảo Long',
-    mssv: 'IA171120',
-    campus: 'CTH',
-    major: 'An toàn Thông tin K17',
-    email: 'longdbia171120@fpt.edu.vn',
-    kyc: 'verified',
-    sso: 'ok',
-    posts: 15,
-    done: 14,
-    responseTime: '~11 phút',
-    responseRate: 89,
-    handoffPlace: 'Sân cỏ nhân tạo Cần Thơ',
-    trust: 91,
-    trustLabel: 'Vàng Tiên Phong',
-    trustColor: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-    violations: 0,
-    violationNote: 'Đối tác giao dịch tốt',
-    violationColor: 'text-emerald-600',
-  },
-  {
-    name: 'Vũ Hoàng Mai Anh',
-    mssv: 'AI190045',
-    campus: 'QNH',
-    major: 'Trí tuệ Nhân tạo K19',
-    email: 'anhvhmai190045@fpt.edu.vn',
-    kyc: 'verified',
-    sso: 'ok',
-    posts: 5,
-    done: 4,
-    responseTime: '~6 phút',
-    responseRate: 80,
-    handoffPlace: 'Tòa nhà Innovation Quy Nhơn',
-    trust: 79,
-    trustLabel: 'Bạc Tiêu Chuẩn',
-    trustColor: 'text-slate-600 bg-slate-100 border-slate-200',
-    violations: 0,
-    violationNote: 'Tài khoản sinh viên mới K19',
-    violationColor: 'text-slate-500',
-  },
-];
+export interface StudentItem {
+  id: string;
+  name: string;
+  mssv: string;
+  campus: string;
+  major: string;
+  email: string;
+  kyc: 'verified' | 'pending' | 'rejected';
+  sso: 'ok' | 'mismatch';
+  posts: number;
+  done: number;
+  responseTime: string;
+  responseRate: number;
+  handoffPlace: string;
+  trust: number;
+  trustLabel: string;
+  trustColor: string;
+  violations: number;
+  violationNote: string;
+  violationColor: string;
+}
 
 const TRUST_BAR_COLORS: Record<number, string> = {};
 function getTrustBarColor(score: number) {
@@ -133,10 +55,122 @@ function getTrustBarColor(score: number) {
 }
 
 export default function AdminUsersPage() {
-  const [students, setStudents] = useState(STUDENTS);
-  const [search, setSearch] = useState('');
+  const kycApps = useKycStore((state) => state.applications);
+  const fetchKycApps = useKycStore((state) => state.fetchApplications);
+  const products = useProductStore((state) => state.products);
 
-  const filteredStudents = React.useMemo(() => {
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      await fetchKycApps();
+      const userRes = await userService.getUsers().catch(() => ({ users: [] }));
+      const backendUsers = userRes.users || [];
+
+      // Combine users from backend / KYC store
+      const combinedList: StudentItem[] = [];
+      const seenEmails = new Set<string>();
+
+      // 1. From backend users
+      backendUsers.forEach((u) => {
+        if (!u.email || seenEmails.has(u.email.toLowerCase())) return;
+        seenEmails.add(u.email.toLowerCase());
+        const kycMatch = kycApps.find((k) => k.email.toLowerCase() === u.email.toLowerCase());
+        const mssv = kycMatch?.studentId || (u.email.match(/[a-zA-Z]{2}\d{6}/i)?.[0]?.toUpperCase()) || 'FU' + u.id.slice(-6).toUpperCase();
+        const userProducts = products.filter(
+          (p) =>
+            p.seller?.email?.toLowerCase() === u.email.toLowerCase() ||
+            p.seller?.name?.toLowerCase() === (u.fullName || '').toLowerCase()
+        );
+        const postsCount = userProducts.length;
+        const doneCount = userProducts.filter((p) => p.status === 'SOLD').length;
+        const trust = u.reputationScore ?? 92;
+        const trustLabel =
+          trust >= 90 ? 'Kim Cương' : trust >= 80 ? 'Vàng Tiên Phong' : trust >= 60 ? 'Bạc Tiêu Chuẩn' : 'Cảnh Báo Đỏ';
+        const trustColor =
+          trust >= 90
+            ? 'text-cyan-600 bg-cyan-50 border-cyan-200'
+            : trust >= 80
+            ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+            : trust >= 60
+            ? 'text-slate-600 bg-slate-100 border-slate-200'
+            : 'text-red-700 bg-red-50 border-red-200';
+
+        combinedList.push({
+          id: u.id,
+          name: u.fullName || u.email.split('@')[0],
+          mssv,
+          campus: u.campus || kycMatch?.campus || 'Hòa Lạc',
+          major: kycMatch?.major || 'Kỹ thuật phần mềm',
+          email: u.email,
+          kyc: (kycMatch?.status === 'approved' ? 'verified' : kycMatch?.status === 'rejected' ? 'rejected' : 'pending') as any,
+          sso: 'ok',
+          posts: postsCount,
+          done: doneCount,
+          responseTime: '~5 phút',
+          responseRate: 95,
+          handoffPlace: `Campus ${u.campus || 'Hòa Lạc'}`,
+          trust,
+          trustLabel,
+          trustColor,
+          violations: u.isActive ? 0 : 1,
+          violationNote: u.isActive ? 'Tài khoản hoạt động an toàn' : 'Bị khóa bởi BQT',
+          violationColor: u.isActive ? 'text-emerald-600' : 'text-red-600',
+        });
+      });
+
+      // 2. From KYC applications if not already included
+      kycApps.forEach((k) => {
+        if (!k.email || seenEmails.has(k.email.toLowerCase())) return;
+        seenEmails.add(k.email.toLowerCase());
+        const userProducts = products.filter(
+          (p) =>
+            p.seller?.email?.toLowerCase() === k.email.toLowerCase() ||
+            p.seller?.name?.toLowerCase() === k.fullName.toLowerCase()
+        );
+        const postsCount = userProducts.length;
+        const doneCount = userProducts.filter((p) => p.status === 'SOLD').length;
+        const trust = k.aiMatchScore >= 80 ? 95 : 85;
+        const trustLabel = trust >= 90 ? 'Kim Cương' : 'Vàng Tiên Phong';
+        const trustColor = trust >= 90 ? 'text-cyan-600 bg-cyan-50 border-cyan-200' : 'text-yellow-700 bg-yellow-50 border-yellow-200';
+
+        combinedList.push({
+          id: k.id,
+          name: k.fullName,
+          mssv: k.studentId,
+          campus: k.campus || 'Hòa Lạc',
+          major: k.major || 'Kỹ thuật phần mềm',
+          email: k.email,
+          kyc: k.status === 'approved' ? 'verified' : k.status === 'rejected' ? 'rejected' : 'pending',
+          sso: 'ok',
+          posts: postsCount,
+          done: doneCount,
+          responseTime: '~8 phút',
+          responseRate: 90,
+          handoffPlace: `Campus ${k.campus || 'Hòa Lạc'}`,
+          trust,
+          trustLabel,
+          trustColor,
+          violations: 0,
+          violationNote: 'Đối tác giao dịch tốt',
+          violationColor: 'text-emerald-600',
+        });
+      });
+
+      setStudents(combinedList);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredStudents = useMemo(() => {
     return students.filter(
       (s) =>
         s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -153,16 +187,26 @@ export default function AdminUsersPage() {
       ? Math.round(students.reduce((sum, s) => sum + s.trust, 0) / totalStudents)
       : 0;
 
-  const handleToggleLock = (mssv: string) => {
+  const handleToggleLock = async (mssvOrId: string) => {
+    const student = students.find((s) => s.mssv === mssvOrId || s.id === mssvOrId);
+    if (!student) return;
+    const isCurrentlyLocked = student.violations > 0;
+    const newIsActive = isCurrentlyLocked;
+
+    try {
+      if (student.id && !student.id.startsWith('kyc-')) {
+        await userService.updateUserStatus(student.id, newIsActive).catch(() => {});
+      }
+    } catch {}
+
     setStudents((prev) =>
       prev.map((s) => {
-        if (s.mssv === mssv) {
-          const isLocked = s.violations > 0;
+        if (s.mssv === mssvOrId || s.id === mssvOrId) {
           return {
             ...s,
-            violations: isLocked ? 0 : 1,
-            violationNote: isLocked ? 'Đã gỡ khóa' : 'Bị khóa bởi BQT',
-            violationColor: isLocked ? 'text-slate-500' : 'text-red-600',
+            violations: isCurrentlyLocked ? 0 : 1,
+            violationNote: isCurrentlyLocked ? 'Tài khoản hoạt động an toàn' : 'Bị khóa bởi BQT',
+            violationColor: isCurrentlyLocked ? 'text-emerald-600' : 'text-red-600',
           };
         }
         return s;
@@ -271,7 +315,12 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="divide-y divide-slate-100">
-            {filteredStudents.map((sv) => (
+            {filteredStudents.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                {loading ? 'Đang đồng bộ dữ liệu sinh viên FPT...' : 'Chưa có sinh viên nào trong danh sách.'}
+              </div>
+            ) : (
+              filteredStudents.map((sv) => (
               <div
                 key={sv.mssv}
                 className={`grid grid-cols-12 gap-2 items-start px-4 py-3.5 hover:bg-slate-50/50 transition ${sv.violations > 0 ? 'bg-red-50/20' : ''}`}
@@ -351,7 +400,8 @@ export default function AdminUsersPage() {
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+          )}
           </div>
 
           {/* Pagination */}

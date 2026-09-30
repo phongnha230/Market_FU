@@ -17,20 +17,11 @@ import {
   X,
 } from 'lucide-react';
 import { useAdminStore } from '@/stores/adminStore';
+import { useKycStore } from '@/stores/kycStore';
+import { useDisputeStore } from '@/stores/disputeStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
-const NAV_ITEMS = [
-  { label: 'Tổng quan Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Tin đăng & Kiểm duyệt', href: '/admin/posts', icon: FileText, badge: '8', badgeColor: 'bg-amber-800 text-white border-transparent' },
-  { label: 'Xác minh Thẻ SV', href: '/admin/kyc', icon: ShieldCheck, badge: '14', badgeColor: 'bg-emerald-700 text-white border-transparent' },
-  { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
-  { label: 'Báo cáo & Gian lận', href: '/admin/reports', icon: AlertTriangle },
-  { label: 'Voucher & Nhiệm vụ Xu', href: '/admin/vouchers', icon: Ticket },
-  { label: 'Safe-Handoff Hub', href: '/admin/safehandoff', icon: MapPin },
-  { label: 'Cài đặt Hệ thống', href: '/admin/settings', icon: Settings },
-];
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -40,6 +31,31 @@ interface AdminSidebarProps {
 export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const admin = useAdminStore((s) => s.admin);
+  const pendingKycCount = useKycStore((s) => s.applications.filter((a) => a.status === 'pending').length);
+  const pendingDisputesCount = useDisputeStore((s) => s.disputes.filter((d) => d.status === 'PENDING').length);
+
+  const navItems = [
+    { label: 'Tổng quan Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+    { label: 'Tin đăng & Kiểm duyệt', href: '/admin/posts', icon: FileText },
+    {
+      label: 'Xác minh Thẻ SV',
+      href: '/admin/kyc',
+      icon: ShieldCheck,
+      badge: pendingKycCount > 0 ? String(pendingKycCount) : undefined,
+      badgeColor: 'bg-emerald-700 text-white border-transparent',
+    },
+    { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
+    {
+      label: 'Báo cáo & Gian lận',
+      href: '/admin/reports',
+      icon: AlertTriangle,
+      badge: pendingDisputesCount > 0 ? String(pendingDisputesCount) : undefined,
+      badgeColor: 'bg-rose-700 text-white border-transparent',
+    },
+    { label: 'Voucher & Nhiệm vụ Xu', href: '/admin/vouchers', icon: Ticket },
+    { label: 'Safe-Handoff Hub', href: '/admin/safehandoff', icon: MapPin },
+    { label: 'Cài đặt Hệ thống', href: '/admin/settings', icon: Settings },
+  ];
 
   return (
     <>
@@ -103,7 +119,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
         {/* Navigation List */}
         <nav className="flex-1 space-y-1 px-3 py-2 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href));
             const Icon = item.icon;
 

@@ -53,6 +53,13 @@ export interface BackendKycVerification {
   type?: string;
   studentId: string;
   cardImageUrl: string;
+  cardBackUrl?: string | null;
+  selfieCardUrl?: string | null;
+  fullName?: string | null;
+  campus?: string | null;
+  cohort?: string | null;
+  major?: string | null;
+  phoneNumber?: string | null;
   ocrData?: any;
   aiMatchScore?: number;
   status: KycStatus;
@@ -66,9 +73,11 @@ export interface BackendKycVerification {
     role: string;
     profile?: {
       fullName: string;
+      avatarUrl?: string | null;
       campus?: string;
       phoneNumber?: string;
       bankAccount?: any;
+      kyc?: any;
     };
   };
 }

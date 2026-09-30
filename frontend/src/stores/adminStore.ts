@@ -16,10 +16,13 @@ export interface AdminProfile {
 interface AdminState {
   admin: AdminProfile | null;
   isLoggedIn: boolean;
+  accessToken: string | null;
   selectedCampus: AdminCampus;
-  login: (email: string, password: string) => { success: boolean; message: string };
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   setSelectedCampus: (campus: AdminCampus) => void;
+  setAccessToken: (token: string | null) => void;
+  ensureAdminToken: () => Promise<string | null>;
 }
 
 // Demo admin accounts
@@ -68,12 +71,38 @@ const dummyStorage = {
 
 export const useAdminStore = create<AdminState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       admin: null,
       isLoggedIn: false,
+      accessToken: null,
       selectedCampus: 'all',
 
-      login: (email, password) => {
+      setAccessToken: (token) => set({ accessToken: token }),
+
+      ensureAdminToken: async () => {
+        const existing = get().accessToken;
+        if (existing) return existing;
+
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+          const res = await fetch(`${baseUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@fpt.edu.vn', password: 'AdminPassword123@' }),
+          });
+          const data = await res.json();
+          if (data.success && data.data?.tokens?.accessToken) {
+            const token = data.data.tokens.accessToken;
+            set({ accessToken: token });
+            return token;
+          }
+        } catch {
+          // offline fallback
+        }
+        return null;
+      },
+
+      login: async (email, password) => {
         const account = ADMIN_ACCOUNTS.find(
           (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
         );
@@ -85,13 +114,30 @@ export const useAdminStore = create<AdminState>()(
         }
         const { password: _pw, ...profile } = account;
         set({ admin: profile, isLoggedIn: true });
+
+        // Tự động xin access token ADMIN từ backend để gọi API KYC, Report
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+          const res = await fetch(`${baseUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: account.email, password }),
+          });
+          const data = await res.json();
+          if (data.success && data.data?.tokens?.accessToken) {
+            set({ accessToken: data.data.tokens.accessToken });
+          }
+        } catch {
+          // offline fallback
+        }
+
         return {
           success: true,
           message: `Chào mừng ${account.name} đã đăng nhập vào hệ thống quản trị!`,
         };
       },
 
-      logout: () => set({ admin: null, isLoggedIn: false }),
+      logout: () => set({ admin: null, isLoggedIn: false, accessToken: null }),
 
       setSelectedCampus: (campus) => set({ selectedCampus: campus }),
     }),

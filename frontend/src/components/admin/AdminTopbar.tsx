@@ -3,6 +3,9 @@
 import React from 'react';
 import { Bell, MapPin, ChevronDown, ArrowLeftRight, CheckCircle2, Menu } from 'lucide-react';
 import { useAdminStore, AdminCampus } from '@/stores/adminStore';
+import { useProductStore } from '@/stores/productStore';
+import { useKycStore } from '@/stores/kycStore';
+import { useDisputeStore } from '@/stores/disputeStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -24,6 +27,14 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
   const admin = useAdminStore((s) => s.admin);
   const selectedCampus = useAdminStore((s) => s.selectedCampus);
   const setSelectedCampus = useAdminStore((s) => s.setSelectedCampus);
+
+  const productsCount = useProductStore((s) => s.products.length);
+  const kycApplications = useKycStore((s) => s.applications);
+  const approvedKycCount = kycApplications.filter((a) => a.status === 'approved').length;
+  const kycApprovalRate = kycApplications.length > 0 ? Math.round((approvedKycCount / kycApplications.length) * 100) : 100;
+  const pendingKycCount = kycApplications.filter((a) => a.status === 'pending').length;
+  const pendingDisputesCount = useDisputeStore((s) => s.disputes.filter((d) => d.status === 'PENDING').length);
+  const totalPendingNotifications = pendingKycCount + pendingDisputesCount;
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 sm:px-5 shadow-2xs font-sans">
@@ -58,20 +69,20 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
           <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
         </div>
 
-        {/* Quick Stat 1: Giao dịch hôm nay */}
+        {/* Quick Stat 1: Giao dịch trên sàn (Biến động chính xác từ store) */}
         <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 font-medium pl-1 lg:pl-2">
           <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-          <span>Giao dịch hôm nay:</span>
-          <span className="font-bold text-slate-900">248 tin</span>
+          <span>Tin đăng hiện hữu:</span>
+          <span className="font-bold text-slate-900">{productsCount} tin</span>
         </div>
 
         <span className="hidden md:inline text-slate-300">•</span>
 
-        {/* Quick Stat 2: Hồ sơ đã duyệt */}
+        {/* Quick Stat 2: Hồ sơ đã duyệt (Biến động chính xác từ KYC store) */}
         <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
           <CheckCircle2 className="h-3.5 w-3.5 text-orange-500 shrink-0" />
           <span>Hồ sơ đã duyệt:</span>
-          <span className="font-bold text-orange-600">99.2%</span>
+          <span className="font-bold text-orange-600">{kycApprovalRate}%</span>
         </div>
 
         <span className="hidden lg:inline text-slate-300">•</span>
@@ -85,7 +96,7 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
 
       {/* Right: Notification + Admin Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Notification Bell with Badge */}
+        {/* Notification Bell with Badge (Biến động theo số việc chờ duyệt) */}
         <Button
           type="button"
           variant="ghost"
@@ -94,9 +105,11 @@ export default function AdminTopbar({ onOpenSidebar }: AdminTopbarProps) {
           title="Thông báo hệ thống"
         >
           <Bell className="h-4 w-4" />
-          <Badge variant="destructive" className="absolute -right-0.5 -top-0.5 flex h-4 w-4 p-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white ring-2 ring-white">
-            3
-          </Badge>
+          {totalPendingNotifications > 0 && (
+            <Badge variant="destructive" className="absolute -right-0.5 -top-0.5 flex h-4 w-4 p-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white ring-2 ring-white">
+              {totalPendingNotifications}
+            </Badge>
+          )}
         </Button>
 
         {/* Admin Profile Pill */}
