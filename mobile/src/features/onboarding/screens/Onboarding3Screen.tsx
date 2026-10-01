@@ -29,7 +29,9 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     if (onFinish) {
       onFinish();
     } else if (navigation && navigation.replace) {
-      navigation.replace('MainTabs');
+      navigation.replace('Login');
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('Login');
     }
   };
 
@@ -37,7 +39,9 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     if (onSkip) {
       onSkip();
     } else if (navigation && navigation.replace) {
-      navigation.replace('MainTabs');
+      navigation.replace('Login');
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('Login');
     }
   };
 
@@ -235,12 +239,12 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
           activeOpacity={0.88}
           onPress={handleStartHome}
         >
-          <Text style={styles.ctaButtonText}>Bắt đầu khám phá Trang chủ ngay</Text>
+          <Text style={styles.ctaButtonText}>Tiếp tục đăng nhập ngay</Text>
           <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
 
         <Text style={styles.footerNoteText}>
-          Bạn có thể duyệt đồ tự do, đăng nhập chỉ khi cần mua hàng hoặc trò chuyện
+          Đăng nhập tài khoản sinh viên FPT hoặc trải nghiệm chợ đồ cũ Campus
         </Text>
       </View>
     </View>

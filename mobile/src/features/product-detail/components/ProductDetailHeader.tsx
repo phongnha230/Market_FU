@@ -4,12 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface ProductDetailHeaderProps {
   onGoBack?: () => void;
+  onGoHome?: () => void;
   isSaved: boolean;
   onToggleSaved: () => void;
 }
 
 export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = ({
   onGoBack,
+  onGoHome,
   isSaved,
   onToggleSaved,
 }) => {
@@ -31,6 +33,16 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = ({
       </View>
 
       <View style={styles.actions}>
+        {onGoHome && (
+          <TouchableOpacity
+            style={styles.btn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={onGoHome}
+          >
+            <Ionicons name="home-outline" size={20} color="#0F172A" />
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.btn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

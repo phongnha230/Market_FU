@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
 import ProductCard from '../../../components/common/ProductCard';
 import HomeSearchBar from '../components/HomeSearchBar';
+import SearchSuggestionsDropdown from '../components/SearchSuggestionsDropdown';
 import CampusSelector from '../components/CampusSelector';
 import CategoryGrid from '../components/CategoryGrid';
 import KycBanner from '../components/KycBanner';
@@ -22,6 +23,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const [showSuggestions, setShowSuggestions] = React.useState(true);
   const {
     selectedCampus,
     setSelectedCampus,
@@ -43,14 +45,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.screen}>
-      <HomeHeader userName={user?.name || 'Quân'} campusName={campuses[selectedCampus] || 'HÒA LẠC'} />
+      <HomeHeader
+        userName={user?.name || 'Quân'}
+        campusName={campuses[selectedCampus] || 'HÒA LẠC'}
+        onNotificationPress={() => {
+          if (navigation && navigation.navigate) {
+            navigation.navigate('Notification');
+          }
+        }}
+        onAvatarPress={() => {
+          if (navigation && navigation.navigate) {
+            navigation.navigate('MainTabs', { screen: 'Profile' });
+          }
+        }}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <HomeSearchBar
           value={searchText}
-          onChangeText={setSearchText}
+          onChangeText={(txt) => {
+            setSearchText(txt);
+            setShowSuggestions(true);
+          }}
           onScanPress={handleOpenAiAssistant}
         />
+
+        {searchText.trim().length > 0 && showSuggestions && (
+          <SearchSuggestionsDropdown
+            searchText={searchText}
+            products={products}
+            onSelectKeyword={(kw) => {
+              setSearchText(kw);
+              setShowSuggestions(false);
+            }}
+            onSelectProduct={(pid) => {
+              setShowSuggestions(false);
+              if (onProductPress) {
+                onProductPress(pid);
+              } else {
+                navigation.navigate('ProductDetail', { productId: pid });
+              }
+            }}
+            onClose={() => setShowSuggestions(false)}
+          />
+        )}
+
         <CampusSelector campuses={campuses} selectedIndex={selectedCampus} onSelect={setSelectedCampus} />
         <CategoryGrid
           categories={categories}
@@ -68,12 +107,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <ProductCard
               key={item.id}
               {...item}
-              onPress={() => onProductPress && onProductPress(item.id)}
+              onPress={() => {
+                if (onProductPress) onProductPress(item.id);
+                else navigation.navigate('ProductDetail', { productId: item.id });
+              }}
             />
           ))}
         </View>
 
-        <VovinamBanner onPress={() => onProductPress && onProductPress('vovinam-uniform')} />
+        <VovinamBanner
+          onPress={() => {
+            if (onProductPress) onProductPress('vovinam-uniform');
+            else navigation.navigate('ProductDetail', { productId: 'vovinam-uniform' });
+          }}
+        />
         <SafePointWidget />
         <View style={styles.bottomSpacer} />
       </ScrollView>

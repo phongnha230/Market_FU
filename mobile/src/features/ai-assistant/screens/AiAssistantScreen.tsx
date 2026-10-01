@@ -214,14 +214,50 @@ export const AiAssistantScreen: React.FC = () => {
           1. TOP STATUS BAR: Campus Location + Bell + Avatar
       ═══════════════════════════════════════════════════════════ */}
       <View style={[styles.topNavBar, { paddingTop: Math.max(insets.top, 10) }]}>
-        <TouchableOpacity style={styles.campusLocationChip} activeOpacity={0.8}>
-          <Ionicons name="location-outline" size={14} color="#EA580C" style={{ marginRight: 4 }} />
-          <Text style={styles.campusLocationText}>FPT {currentCampus || 'Hòa Lạc'}</Text>
-          <Ionicons name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 3 }} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity
+            style={styles.bellBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (navigation && navigation.canGoBack()) {
+                navigation.goBack();
+              } else if (navigation) {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              }
+            }}
+          >
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.campusLocationChip} activeOpacity={0.8}>
+            <Ionicons name="location-outline" size={14} color="#EA580C" style={{ marginRight: 4 }} />
+            <Text style={styles.campusLocationText}>FPT {currentCampus || 'Hòa Lạc'}</Text>
+            <Ionicons name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 3 }} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.topRightIcons}>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.bellBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (navigation) {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              }
+            }}
+          >
+            <Ionicons name="home-outline" size={20} color="#0F172A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.bellBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (navigation && navigation.navigate) {
+                navigation.navigate('Notification');
+              }
+            }}
+          >
             <Ionicons name="notifications-outline" size={20} color="#0F172A" />
             <View style={styles.bellDot} />
           </TouchableOpacity>
