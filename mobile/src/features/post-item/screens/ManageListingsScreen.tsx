@@ -100,8 +100,10 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
   const handleBack = () => {
     if (onGoBack) {
       onGoBack();
-    } else if (navigation && navigation.goBack) {
+    } else if (navigation && navigation.canGoBack && navigation.canGoBack()) {
       navigation.goBack();
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('MainTabs', { screen: 'Home' });
     }
   };
 

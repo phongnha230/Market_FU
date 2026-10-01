@@ -14,6 +14,22 @@ import LoginScreen from '../screens/LoginScreen';
 import ManageListingsScreen from '../screens/ManageListingsScreen';
 import AiAssistantScreen from '../screens/AiAssistantScreen';
 import SavedItemsScreen from '../screens/SavedItemsScreen';
+
+// New Screens
+import CheckoutScreen from '../screens/CheckoutScreen';
+import OrderListScreen from '../screens/OrderListScreen';
+import OrderDetailScreen from '../screens/OrderDetailScreen';
+import ReviewScreen from '../screens/ReviewScreen';
+import ChatListScreen from '../screens/ChatListScreen';
+import ChatDetailScreen from '../screens/ChatDetailScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import AccountSettingsScreen from '../screens/AccountSettingsScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import AboutScreen from '../screens/AboutScreen';
+import NotificationScreen from '../screens/NotificationScreen';
+
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -49,6 +65,21 @@ export const RootNavigator = () => {
         />
         <Stack.Screen name="Dispute" component={DisputeScreen as any} />
         <Stack.Screen name="Voucher" component={VoucherScreen as any} />
+
+        {/* New Connected Screens */}
+        <Stack.Screen name="Checkout" component={CheckoutScreen as any} />
+        <Stack.Screen name="OrderList" component={OrderListScreen as any} />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen as any} />
+        <Stack.Screen name="Review" component={ReviewScreen as any} />
+        <Stack.Screen name="ChatList" component={ChatListScreen as any} />
+        <Stack.Screen name="ChatDetail" component={ChatDetailScreen as any} />
+        <Stack.Screen name="Settings" component={SettingsScreen as any} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen as any} />
+        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen as any} />
+        <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen as any} />
+        <Stack.Screen name="HelpCenter" component={HelpCenterScreen as any} />
+        <Stack.Screen name="About" component={AboutScreen as any} />
+        <Stack.Screen name="Notification" component={NotificationScreen as any} />
       </Stack.Navigator>
     </NavigationContainer>
   );

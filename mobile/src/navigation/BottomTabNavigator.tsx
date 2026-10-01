@@ -4,7 +4,7 @@ import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/b
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../features/home/screens/HomeScreen';
 import PostItemScreen from '../screens/PostItemScreen';
-import ChatScreen from '../screens/ChatScreen';
+import ChatListScreen from '../screens/ChatListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ManageListingsScreen from '../screens/ManageListingsScreen';
 import { MainTabsParamList } from './types';
@@ -32,24 +32,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
           }
         };
 
-        if (route.name === 'PostItem') {
-          return (
-            <TouchableOpacity
-              key={route.key}
-              style={styles.floatingCenterBtnWrapper}
-              activeOpacity={0.85}
-              onPress={onPress}
-            >
-              <View style={styles.floatingCenterBtn}>
-                <Ionicons name="add" size={30} color="#FFFFFF" />
-              </View>
-              <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
-                Đăng bán
-              </Text>
-            </TouchableOpacity>
-          );
-        }
-
         let iconName: any = 'storefront-outline';
         let label = 'Chợ Campus';
 
@@ -59,6 +41,9 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
         } else if (route.name === 'Chat') {
           iconName = isFocused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
           label = 'Tin nhắn';
+        } else if (route.name === 'PostItem') {
+          iconName = isFocused ? 'add-circle' : 'add-circle-outline';
+          label = 'Đăng bán';
         } else if (route.name === 'MyListings') {
           iconName = isFocused ? 'file-tray-full' : 'file-tray-full-outline';
           label = 'Tin của tôi';
@@ -67,15 +52,18 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
           label = 'Tài khoản';
         }
 
+        const iconSize = isFocused ? 28 : 22;
+        const iconColor = isFocused ? '#EA580C' : '#64748B';
+
         return (
           <TouchableOpacity
             key={route.key}
-            style={styles.tabItem}
+            style={[styles.tabItem, isFocused && styles.activeTabItem]}
             activeOpacity={0.7}
             onPress={onPress}
           >
-            <View style={styles.iconContainer}>
-              <Ionicons name={iconName} size={22} color={isFocused ? '#EA580C' : '#64748B'} />
+            <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
+              <Ionicons name={iconName} size={iconSize} color={iconColor} />
               {route.name === 'Chat' && (
                 <View style={styles.chatBadge}>
                   <Text style={styles.chatBadgeText}>2</Text>
@@ -99,7 +87,7 @@ export const BottomTabNavigator = () => {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="Chat" component={ChatListScreen} />
       <Tab.Screen name="PostItem" component={PostItemScreen} />
       <Tab.Screen name="MyListings" component={ManageListingsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -126,28 +114,37 @@ const styles = StyleSheet.create({
       android: { elevation: 8 },
     }),
   },
-  tabItem: { alignItems: 'center', justifyContent: 'center', flex: 1, paddingVertical: 4 },
-  iconContainer: { position: 'relative' },
-  tabLabel: { fontSize: 10, fontWeight: '600', color: '#64748B', marginTop: 2 },
-  activeTabLabel: { color: '#F27024', fontWeight: '800' },
-  floatingCenterBtnWrapper: { alignItems: 'center', justifyContent: 'center', top: -12, flex: 1 },
-  floatingCenterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F27024',
+  tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F27024',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
+    flex: 1,
+    paddingVertical: 5,
+  },
+  activeTabItem: {},
+  iconContainer: {
+    position: 'relative',
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeIconContainer: {
+    transform: [{ scale: 1.15 }],
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  activeTabLabel: {
+    color: '#EA580C',
+    fontWeight: '800',
+    fontSize: 10.5,
   },
   chatBadge: {
     position: 'absolute',
-    top: -3,
-    right: -7,
+    top: -2,
+    right: -8,
     backgroundColor: '#EA580C',
     minWidth: 14,
     height: 14,
@@ -155,8 +152,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
-  chatBadgeText: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '900' },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '900',
+  },
 });
 
 export default BottomTabNavigator;

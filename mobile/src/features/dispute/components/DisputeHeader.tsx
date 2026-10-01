@@ -1,31 +1,52 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 interface DisputeHeaderProps {
   onGoBack?: () => void;
 }
 
 export const DisputeHeader: React.FC<DisputeHeaderProps> = ({ onGoBack }) => {
+  const navigation = useNavigation<any>();
+
   return (
     <View style={styles.header}>
       <TouchableOpacity
         style={styles.btn}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        onPress={onGoBack}
+        onPress={() => {
+          if (onGoBack) {
+            onGoBack();
+          } else if (navigation && navigation.canGoBack()) {
+            navigation.goBack();
+          } else if (navigation) {
+            navigation.navigate('MainTabs', { screen: 'Home' });
+          }
+        }}
       >
         <Ionicons name="arrow-back" size={22} color="#0F172A" />
       </TouchableOpacity>
 
       <Text style={styles.title}>Khiếu Nại & Trả Hàng</Text>
 
-      <TouchableOpacity
-        style={styles.hotlineBtn}
-        onPress={() => Alert.alert('Hotline Trọng tài FPT', '1900 6600 (Nhánh 4 - Hỗ trợ SV)')}
-      >
-        <Ionicons name="headset-outline" size={13} color="#DC2626" style={{ marginRight: 3 }} />
-        <Text style={styles.hotlineText}>Hotline</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <TouchableOpacity
+          style={styles.btn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => navigation && navigation.navigate('MainTabs', { screen: 'Home' })}
+        >
+          <Ionicons name="home-outline" size={20} color="#0F172A" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.hotlineBtn}
+          onPress={() => Alert.alert('Hotline Trọng tài FPT', '1900 6600 (Nhánh 4 - Hỗ trợ SV)')}
+        >
+          <Ionicons name="headset-outline" size={13} color="#DC2626" style={{ marginRight: 3 }} />
+          <Text style={styles.hotlineText}>Hotline</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

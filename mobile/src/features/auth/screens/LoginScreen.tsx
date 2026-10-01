@@ -82,15 +82,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       onLoginSuccess();
     } else if (navigation && navigation.replace) {
       navigation.replace('MainTabs');
+    } else if (navigation && navigation.navigate) {
+      navigation.navigate('MainTabs', { screen: 'Home' });
     }
   };
 
   const handleDirectSubmit = () => {
-    if (!username.trim() && !password.trim()) {
-      // Cho phép đăng nhập demo tự động
-      handleFinishLogin('mssv_fap');
-      return;
-    }
     handleFinishLogin('mssv_fap');
   };
 
@@ -128,6 +125,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Top Back/Home Bar */}
+        <View style={styles.topBackBar}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (onGoBack) {
+                onGoBack();
+              } else if (navigation && navigation.canGoBack()) {
+                navigation.goBack();
+              } else if (navigation) {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              }
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.backBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (navigation) {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              }
+            }}
+          >
+            <Ionicons name="home-outline" size={22} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
+
         {/* ═══════════════════════════════════════════════════════════
             1. TOP BRANDING: LOGO 5 CƠ SỞ & LỜI CHÀO
         ═══════════════════════════════════════════════════════════ */}
@@ -453,6 +481,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
+  },
+  topBackBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  backBtn: {
+    padding: 6,
+    borderRadius: 8,
   },
 
   // 1. Header & Logo

@@ -7,7 +7,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      <StatusBar style="dark" />
       <RootNavigator />
     </SafeAreaProvider>
   );
