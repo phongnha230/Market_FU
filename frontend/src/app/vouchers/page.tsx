@@ -2,9 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMarket } from '@/hooks/useMarket';
-import { useVoucherStore } from '@/stores/voucherStore';
+import { useVoucherStore, UserVoucher } from '@/stores/voucherStore';
 import { profileService } from '@/services/profileService';
-import { ShieldCheck, Sparkles } from 'lucide-react';
+import {
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  QrCode,
+  Copy,
+  CheckCircle2,
+  Clock,
+  Coins,
+  Building,
+  Store,
+  Coffee,
+  Utensils,
+  ChevronRight,
+  ExternalLink,
+  Check,
+  X,
+  AlertCircle,
+  Truck,
+} from 'lucide-react';
 import {
   INITIAL_VOUCHERS,
   INITIAL_QUESTS,
@@ -34,10 +53,22 @@ export default function VouchersPage() {
     showToast,
   } = useMarket();
 
-  // State management
+  // Tab điều hướng chính: 'store' (Kho đổi voucher) | 'my_vouchers' (Ví voucher cá nhân)
+  const [pageView, setPageView] = useState<'store' | 'my_vouchers'>('store');
+  const [myVouchersFilter, setMyVouchersFilter] = useState<'ALL' | 'UNUSED' | 'USED' | 'EXPIRED'>('ALL');
+  const [selectedUserVoucher, setSelectedUserVoucher] = useState<UserVoucher | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [isUsingVoucher, setIsUsingVoucher] = useState(false);
+
+  // Store vouchers
+  const availableVouchers = useVoucherStore((state) => state.availableVouchers);
+  const myVouchers = useVoucherStore((state) => state.myVouchers);
+  const fetchAvailableVouchers = useVoucherStore((state) => state.fetchAvailableVouchers);
+  const fetchMyVouchers = useVoucherStore((state) => state.fetchMyVouchers);
+
+  // Category filter state
   const [activeTab, setActiveTab] = useState<VoucherCategoryTab>('all');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
-  const [vouchers, setVouchers] = useState<VoucherItem[]>(INITIAL_VOUCHERS);
   const [quests, setQuests] = useState<CoinQuestItem[]>(INITIAL_QUESTS);
 
   // Modals state
@@ -45,22 +76,96 @@ export default function VouchersPage() {
   const [isPolicyOpen, setIsPolicyOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
 
+  // Fetch real data on mount
+  useEffect(() => {
+    fetchAvailableVouchers();
+    fetchMyVouchers();
+    profileService
+      .getProfile()
+      .then((p: any) => {
+        if (p && p.campusCoins !== undefined) {
+          useUserStore.getState().updateProfile({ coins: p.campusCoins });
+        }
+      })
+      .catch(() => {});
+    profileService.getCheckInStatus().catch(() => {});
+  }, [fetchAvailableVouchers, fetchMyVouchers]);
+
+  // Map backend vouchers to VoucherItem format for standard rendering
+  const mappedBackendVouchers: VoucherItem[] = availableVouchers.map((bv) => {
+    let category: VoucherCategoryTab = 'coins';
+    if (bv.partner === 'OTHER') category = 'ship';
+    else if (bv.partner === 'SEVEN_ELEVEN') category = 'dorm';
+
+    const partnerLabel =
+      bv.partnerLabel ||
+      (bv.partner === 'CANTEEN'
+        ? 'Căn Tin FPT'
+        : bv.partner === 'PASSIO'
+        ? 'Passio Coffee'
+        : bv.partner === 'SEVEN_ELEVEN'
+        ? '7-Eleven FPT'
+        : 'CampusShip');
+
+    let tagTheme: 'hot' | 'blue' | 'green' | 'purple' | 'slate' | 'amber' = 'hot';
+    if (bv.partner === 'PASSIO') tagTheme = 'green';
+    else if (bv.partner === 'SEVEN_ELEVEN') tagTheme = 'blue';
+    else if (bv.partner === 'OTHER') tagTheme = 'purple';
+
+    let iconType: VoucherItem['iconType'] = 'coin';
+    if (bv.partner === 'OTHER') iconType = 'truck';
+    else if (bv.partner === 'SEVEN_ELEVEN') iconType = 'dorm';
+
+    return {
+      id: bv.id,
+      code: `FUV-${bv.partner}`,
+      category,
+      tagBadge: {
+        label: partnerLabel.toUpperCase(),
+        rightLabel: `Giảm ${bv.discountValue.toLocaleString('vi-VN')}đ`,
+        theme: tagTheme,
+      },
+      iconType,
+      title: bv.title,
+      subBadge: `Đổi bằng ${bv.coinCost} Coins`,
+      description:
+        bv.description ||
+        `Áp dụng giảm trực tiếp ${bv.discountValue.toLocaleString('vi-VN')}đ tại quầy ${partnerLabel} trong campus.`,
+      totalLimit: bv.quantity + 40,
+      claimedCount: 40,
+      usedPercentage: Math.min(100, Math.round((40 / (bv.quantity + 40)) * 100)),
+      usedText: `Còn ${bv.quantity} lượt đổi trong kho`,
+      metaRightText: `HSD: ${bv.validDays || 30} ngày`,
+      discount: bv.discountValue,
+      expiry: `${bv.validDays || 30} ngày sau khi đổi`,
+      actionType: 'redeem',
+      coinCost: bv.coinCost,
+      campuses: ['all'],
+    };
+  });
+
+  // Hợp nhất danh sách: Ưu tiên Voucher thật từ DB của Admin, kèm các mã hệ thống
+  const allDisplayVouchers: VoucherItem[] = [
+    ...mappedBackendVouchers,
+    ...INITIAL_VOUCHERS.filter(
+      (iv) => !mappedBackendVouchers.some((mv) => mv.id === iv.id || mv.title === iv.title)
+    ),
+  ];
+
   // Tab counts calculation
   const counts = {
-    all: vouchers.length,
-    ship: vouchers.filter((v) => v.category === 'ship').length,
-    it: vouchers.filter((v) => v.category === 'it').length,
-    dorm: vouchers.filter((v) => v.category === 'dorm').length,
-    coins: vouchers.filter((v) => v.category === 'coins').length,
+    all: allDisplayVouchers.length,
+    ship: allDisplayVouchers.filter((v) => v.category === 'ship').length,
+    it: allDisplayVouchers.filter((v) => v.category === 'it').length,
+    dorm: allDisplayVouchers.filter((v) => v.category === 'dorm').length,
+    coins: allDisplayVouchers.filter((v) => v.category === 'coins').length,
   };
 
-  // Filtered vouchers
-  const filteredVouchers = vouchers.filter((voucher) => {
-    // 1. Category filter
+  // Filtered vouchers for Store
+  const filteredVouchers = allDisplayVouchers.filter((voucher) => {
     if (activeTab !== 'all' && voucher.category !== activeTab) {
       return false;
     }
-    // 2. Campus filter
     if (selectedCampus !== 'all') {
       const matchCampus =
         voucher.campuses.includes('all') || voucher.campuses.includes(selectedCampus);
@@ -69,13 +174,13 @@ export default function VouchersPage() {
     return true;
   });
 
-  // Fetch live vouchers & check-in status on mount
-  useEffect(() => {
-    useVoucherStore.getState().fetchAvailableVouchers();
-    useVoucherStore.getState().fetchMyVouchers();
-    profileService.getProfile().catch(() => {});
-    profileService.getCheckInStatus().catch(() => {});
-  }, []);
+  // Filtered My Vouchers
+  const filteredMyVouchers = myVouchers.filter((uv) => {
+    if (myVouchersFilter === 'ALL') return true;
+    return uv.status === myVouchersFilter;
+  });
+
+  const unusedCount = myVouchers.filter((uv) => uv.status === 'UNUSED').length;
 
   // Action handlers
   const handleCheckIn = async () => {
@@ -110,7 +215,7 @@ export default function VouchersPage() {
       return;
     }
 
-    const found = vouchers.find((v) => v.code === upperCode);
+    const found = allDisplayVouchers.find((v) => v.code === upperCode);
     if (found) {
       saveVoucher(found.id, {
         id: found.id,
@@ -125,24 +230,102 @@ export default function VouchersPage() {
     }
   };
 
-  const incrementVoucherClaim = (voucherId: string) => {
-    setVouchers((prev) =>
-      prev.map((v) => {
-        if (v.id === voucherId) {
-          const newClaimed = (v.claimedCount || 0) + 1;
-          const total = v.totalLimit || 100;
-          const newPct = Math.min(100, Math.round((newClaimed / total) * 100));
-          return {
-            ...v,
-            claimedCount: newClaimed,
-            usedPercentage: newPct,
-            usedText: `Đã dùng ${newPct}% (${newClaimed}/${total})`,
-            actionType: 'saved' as const,
-          };
-        }
-        return v;
-      })
-    );
+  const handleSaveVoucher = (voucher: VoucherItem) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để lưu voucher vào ví!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    saveVoucher(voucher.id, {
+      id: voucher.id,
+      title: voucher.title,
+      code: voucher.code,
+      discount: voucher.discount,
+      expiry: voucher.expiry,
+    });
+    showToast(`🎟️ Đã lưu "${voucher.title}" vào ví! Bạn có thể sử dụng khi thanh toán.`, 'success');
+  };
+
+  // Đổi voucher thật bằng Campus Coins (API Backend + Atomic Transaction)
+  const handleRedeemVoucher = async (voucher: VoucherItem) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để đổi voucher từ Campus Coins!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    if (!voucher.coinCost) return;
+    if (user.coins < voucher.coinCost) {
+      showToast(`Số dư không đủ! Bạn cần ${voucher.coinCost} Coins, hiện có ${user.coins} Coins.`, 'warning');
+      return;
+    }
+
+    try {
+      const res = await useVoucherStore.getState().redeemVoucher(voucher.id);
+      if (res.success && res.voucher) {
+        showToast(`🎉 ${res.message || 'Đổi voucher thành công!'}`, 'success');
+        // Mở ngay modal chi tiết mã QR của voucher vừa nhận
+        setSelectedUserVoucher(res.voucher);
+        // Tải lại dữ liệu ví và kho voucher
+        await fetchMyVouchers();
+        await fetchAvailableVouchers();
+        profileService.getProfile().catch(() => {});
+      } else {
+        showToast(res.message || 'Không thể đổi voucher vào lúc này', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.response?.data?.error?.message || 'Có lỗi xảy ra khi đổi voucher', 'error');
+    }
+  };
+
+  // Sử dụng voucher tại quầy (Xác nhận đổi thưởng)
+  const handleConfirmUseVoucher = async (userVoucher: UserVoucher) => {
+    setIsUsingVoucher(true);
+    try {
+      const res = await useVoucherStore.getState().useVoucherCode(userVoucher.voucherCode);
+      if (res.success) {
+        showToast(`✅ ${res.message || 'Xác nhận sử dụng voucher thành công!'}`, 'success');
+        setSelectedUserVoucher((prev) =>
+          prev ? { ...prev, status: 'USED', usedAt: new Date().toLocaleTimeString('vi-VN') } : null
+        );
+        await fetchMyVouchers();
+      } else {
+        showToast(res.message || 'Không thể sử dụng mã này', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Lỗi khi kích hoạt voucher', 'error');
+    } finally {
+      setIsUsingVoucher(false);
+    }
+  };
+
+  const copyVoucherCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleClaimQuest = async (questId: string, coinsAmount: number) => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để nhận thưởng nhiệm vụ!', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    try {
+      const res = await profileService.claimQuest(questId, coinsAmount);
+      const added = res?.coinsAdded || coinsAmount;
+      showToast(`🎉 Chúc mừng! Bạn nhận được +${added} Campus Coins từ nhiệm vụ.`, 'success');
+    } catch (err: any) {
+      const res = claimQuestCoins(questId, coinsAmount);
+      if (res.success) {
+        showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
+      } else {
+        showToast(err.response?.data?.error?.message || 'Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!', 'info');
+      }
+    }
+  };
+
+  const handleReportSuccess = () => {
+    showToast('🚩 Đã gửi báo cáo sai phạm tới Ban CTSV FPT Edu! Chúng tôi sẽ xác minh trong 24h.', 'success');
   };
 
   // Dynamic Quests based on real user state
@@ -224,7 +407,7 @@ export default function VouchersPage() {
             ...q,
             isCompleted: true,
             actionType: 'claim' as const,
-            statusText: '✓ Đã hoàn tất đánh giá',
+            statusText: '✓ Đã đánh giá đơn hàng hoàn tất',
             actionLabel: 'Nhận 50 Coins',
           };
         }
@@ -232,97 +415,17 @@ export default function VouchersPage() {
           ...q,
           isCompleted: false,
           actionType: 'link' as const,
-          statusText: `Tiến độ: ${reviewedCount} / 1 đánh giá`,
+          statusText: 'Chưa có đánh giá đơn hàng nào',
           actionLabel: 'Đánh giá ngay',
         };
       }
 
-      if (q.id === 'quest-post') {
-        if (isClaimed) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claimed' as const,
-            statusText: '✓ Đã hoàn thành',
-            actionLabel: 'Đã nhận ✓',
-          };
-        }
-        return q;
-      }
-
       return q;
     });
-  }, [quests, user]);
-
-  const handleSaveVoucher = (voucher: VoucherItem) => {
-    if (!isLoggedIn) {
-      showToast('🔒 Vui lòng đăng nhập để lưu voucher vào ví cá nhân!', 'warning');
-      setIsAuthModalOpen(true);
-      return;
-    }
-    saveVoucher(voucher.id, {
-      id: voucher.id,
-      title: voucher.title,
-      code: voucher.code,
-      discount: voucher.discount,
-      expiry: voucher.expiry,
-    });
-    incrementVoucherClaim(voucher.id);
-    showToast(`🔖 Đã lưu "${voucher.title}" vào ví! Sẽ tự áp dụng khi thanh toán.`, 'success');
-  };
-
-  const handleRedeemVoucher = async (voucher: VoucherItem) => {
-    if (!isLoggedIn) {
-      showToast('🔒 Vui lòng đăng nhập để đổi voucher từ Campus Coins!', 'warning');
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (!voucher.coinCost) return;
-    if (user.coins < voucher.coinCost) {
-      showToast(`Bạn không đủ Coins! Cần thêm ${voucher.coinCost - user.coins} Coins nữa.`, 'warning');
-      return;
-    }
-
-    await useVoucherStore.getState().redeemVoucher(voucher.id);
-
-    addCoins(-voucher.coinCost);
-    saveVoucher(voucher.id, {
-      id: voucher.id,
-      title: voucher.title,
-      code: voucher.code,
-      discount: voucher.discount,
-      expiry: voucher.expiry,
-    });
-    incrementVoucherClaim(voucher.id);
-    showToast(`🪙 Đổi thành công! Đã trừ ${voucher.coinCost} Coins và cộng voucher vào ví.`, 'success');
-  };
-
-  const handleClaimQuest = async (questId: string, coinsAmount: number) => {
-    if (!isLoggedIn) {
-      showToast('🔒 Vui lòng đăng nhập để nhận thưởng nhiệm vụ!', 'warning');
-      setIsAuthModalOpen(true);
-      return;
-    }
-    try {
-      const res = await profileService.claimQuest(questId, coinsAmount);
-      const added = res?.coinsAdded || coinsAmount;
-      showToast(`🎉 Chúc mừng! Bạn nhận được +${added} Campus Coins từ nhiệm vụ.`, 'success');
-    } catch (err: any) {
-      const res = claimQuestCoins(questId, coinsAmount);
-      if (res.success) {
-        showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
-      } else {
-        showToast(err.response?.data?.error?.message || 'Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!', 'info');
-      }
-    }
-  };
-
-  const handleReportSuccess = () => {
-    showToast('🚩 Đã gửi báo cáo sai phạm tới Ban CTSV FPT Edu! Chúng tôi sẽ xác minh trong 24h.', 'success');
-  };
+  }, [quests, user.claimedQuestIds, user.kycStatus, user.dailyCheckedIn, orders]);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-6 sm:py-8">
+    <div className="min-h-screen bg-slate-50/50 py-6 sm:py-8 font-sans">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. Hero Banner & Coins Wallet */}
         <VoucherHeroBanner
@@ -332,95 +435,438 @@ export default function VouchersPage() {
           onOpenHistory={() => setIsHistoryOpen(true)}
         />
 
-        {/* 2. Voucher Search Bar & Quick Hot Suggestions */}
-        <VoucherSearchBar onApplyCode={handleApplyCode} />
+        {/* 2. Primary Navigation Switcher: Kho Đổi Voucher vs Ví Voucher Của Tôi */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPageView('store')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                pageView === 'store'
+                  ? 'bg-fpt-orange text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Store className="h-4 w-4" />
+              <span>Kho Đổi Voucher ({allDisplayVouchers.length})</span>
+            </button>
 
-        {/* 3. Category Tabs & Campus Selector */}
-        <VoucherFilterBar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          selectedCampus={selectedCampus}
-          onCampusChange={setSelectedCampus}
-          counts={counts}
-        />
-
-        {/* 4. Section: Ưu Đãi Đang Khả Dụng */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Ưu Đãi Đang Khả Dụng
-              </h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
-                <ShieldCheck className="h-3 w-3" />
-                Xác thực FPT
-              </span>
-            </div>
-
-            <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-500" />
-              <span>Bảo trợ bởi Quỹ Trợ Giá Sinh Viên FPT Edu</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isLoggedIn) {
+                  showToast('🔒 Vui lòng đăng nhập để xem Ví voucher cá nhân của bạn!', 'warning');
+                  setIsAuthModalOpen(true);
+                  return;
+                }
+                setPageView('my_vouchers');
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                pageView === 'my_vouchers'
+                  ? 'bg-fpt-orange text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Ticket className="h-4 w-4" />
+              <span>Ví Voucher Của Tôi</span>
+              {unusedCount > 0 && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    pageView === 'my_vouchers'
+                      ? 'bg-white text-orange-600'
+                      : 'bg-orange-100 text-orange-700'
+                  }`}
+                >
+                  {unusedCount}
+                </span>
+              )}
+            </button>
           </div>
 
-          <p className="text-xs text-slate-500 -mt-2">
-            Chọn &quot;Lưu mã vào ví&quot; hoặc &quot;Dùng ngay&quot; khi đặt mua giáo trình hoặc đồ án trên sàn
-          </p>
-
-          {/* Vouchers Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredVouchers.map((voucher) => {
-              const isSaved =
-                (user.savedVoucherIds || []).includes(voucher.id) ||
-                voucher.actionType === 'saved';
-
-              return (
-                <VoucherCard
-                  key={voucher.id}
-                  voucher={voucher}
-                  isSaved={isSaved}
-                  userCoins={user.coins}
-                  onSave={handleSaveVoucher}
-                  onRedeem={handleRedeemVoucher}
-                />
-              );
-            })}
+          <div className="text-xs text-slate-500 font-medium px-2">
+            {pageView === 'store' ? (
+              <span>Đổi Coins lấy ưu đãi Căn tin, Passio Coffee, 7-Eleven & Freeship</span>
+            ) : (
+              <span>Mỗi mã voucher là độc quyền của bạn, dùng 1 lần tại quầy</span>
+            )}
           </div>
+        </div>
 
-          {filteredVouchers.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-              <p className="text-sm font-semibold">
-                Không tìm thấy voucher phù hợp cho cơ sở đã chọn.
+        {/* VIEW 1: KHO ĐỔI VOUCHER */}
+        {pageView === 'store' && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Search Bar */}
+            <VoucherSearchBar onApplyCode={handleApplyCode} />
+
+            {/* Category Tabs & Campus Selector */}
+            <VoucherFilterBar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              selectedCampus={selectedCampus}
+              onCampusChange={setSelectedCampus}
+              counts={counts}
+            />
+
+            {/* Section: Ưu Đãi Đang Khả Dụng */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                    Ưu Đãi Đang Khả Dụng Trong Kho
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                    <ShieldCheck className="h-3 w-3" />
+                    Đồng bộ Live Admin
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  <span>Bảo trợ bởi Quỹ Trợ Giá Sinh Viên FPT Edu</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500 -mt-2">
+                Chọn &quot;Đổi ngay&quot; để quy đổi từ số dư Campus Coins. Mã sẽ được lưu trực tiếp vào Ví Voucher của bạn.
               </p>
+
+              {/* Vouchers Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredVouchers.map((voucher) => {
+                  const isSaved = (user.savedVoucherIds || []).includes(voucher.id);
+
+                  return (
+                    <VoucherCard
+                      key={voucher.id}
+                      voucher={voucher}
+                      isSaved={isSaved}
+                      userCoins={user.coins}
+                      onSave={handleSaveVoucher}
+                      onRedeem={handleRedeemVoucher}
+                    />
+                  );
+                })}
+              </div>
+
+              {filteredVouchers.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
+                  <p className="text-sm font-semibold">
+                    Không tìm thấy voucher phù hợp cho danh mục đã chọn.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('all');
+                      setSelectedCampus('all');
+                    }}
+                    className="mt-3 text-xs font-bold text-fpt-orange hover:underline cursor-pointer"
+                  >
+                    Xem lại tất cả mã ưu đãi
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Weekly Coin Quests */}
+            <div id="quests" className="scroll-mt-6">
+              <VoucherQuests
+                quests={liveQuests}
+                claimedQuestIds={user.claimedQuestIds || []}
+                onClaimQuest={handleClaimQuest}
+              />
+            </div>
+
+            {/* Policy & Guarantee Banner */}
+            <VoucherPolicyBanner
+              onOpenPolicy={() => setIsPolicyOpen(true)}
+              onReportViolation={() => setIsReportOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* VIEW 2: VÍ VOUCHER CỦA TÔI (CÁ NHÂN HÓA 100%) */}
+        {pageView === 'my_vouchers' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Filter pills */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {(
+                  [
+                    { id: 'ALL', label: 'Tất cả mã của tôi', count: myVouchers.length },
+                    { id: 'UNUSED', label: '🟢 Chưa sử dụng', count: unusedCount },
+                    {
+                      id: 'USED',
+                      label: '✅ Đã sử dụng',
+                      count: myVouchers.filter((v) => v.status === 'USED').length,
+                    },
+                    {
+                      id: 'EXPIRED',
+                      label: '⏳ Hết hạn',
+                      count: myVouchers.filter((v) => v.status === 'EXPIRED').length,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const isActive = myVouchersFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setMyVouchersFilter(tab.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+                        isActive
+                          ? 'bg-fpt-orange text-white shadow-xs'
+                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="text-xs text-slate-500 flex items-center gap-1">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>Mỗi mã thuộc quyền sở hữu riêng của bạn, không dùng chung</span>
+              </div>
+            </div>
+
+            {/* Empty state */}
+            {filteredMyVouchers.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500 space-y-3">
+                <Ticket className="h-10 w-10 text-slate-300 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-800">
+                  {myVouchersFilter === 'UNUSED'
+                    ? 'Bạn không có mã voucher nào chưa sử dụng'
+                    : 'Bạn chưa có mã voucher nào trong mục này'}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Hãy dùng số dư Campus Coins để đổi suất cơm Căn tin 10k, Passio Coffee 15k hoặc mã freeship CampusShip tại kho đổi nhé!
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPageView('store')}
+                  className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white px-4 py-2 text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Store className="h-4 w-4" />
+                  <span>Đến Kho Đổi Voucher Ngay</span>
+                </button>
+              </div>
+            )}
+
+            {/* List of User Vouchers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredMyVouchers.map((uv) => {
+                const isUnused = uv.status === 'UNUSED';
+                const isUsed = uv.status === 'USED';
+
+                const partnerName =
+                  uv.voucher?.partner === 'CANTEEN'
+                    ? 'Căn Tin FPT'
+                    : uv.voucher?.partner === 'PASSIO'
+                    ? 'Passio Coffee'
+                    : uv.voucher?.partner === 'SEVEN_ELEVEN'
+                    ? '7-Eleven FPT'
+                    : 'CampusShip';
+
+                return (
+                  <div
+                    key={uv.id}
+                    className={`relative rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md flex flex-col justify-between ${
+                      isUnused
+                        ? 'border-orange-200 ring-1 ring-orange-200/50'
+                        : isUsed
+                        ? 'border-slate-200 opacity-85'
+                        : 'border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <div>
+                      {/* Top status */}
+                      <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                          {partnerName}
+                        </span>
+
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isUnused
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : isUsed
+                              ? 'bg-slate-100 text-slate-600'
+                              : 'bg-rose-100 text-rose-700'
+                          }`}
+                        >
+                          {isUnused ? '🟢 Sẵn sàng dùng' : isUsed ? '✅ Đã sử dụng' : '⏳ Đã hết hạn'}
+                        </span>
+                      </div>
+
+                      {/* Title & value */}
+                      <div className="my-3 space-y-1">
+                        <h4 className="text-base font-bold text-slate-900 leading-snug">
+                          {uv.voucher?.title || 'Voucher Sinh Viên 5Campus'}
+                        </h4>
+                        <div className="text-xs font-extrabold text-fpt-orange">
+                          Giảm {(uv.voucher?.discountValue || 10000).toLocaleString('vi-VN')} VNĐ
+                        </div>
+                        <p className="text-xs text-slate-500 line-clamp-2 pt-1">
+                          {uv.voucher?.description || 'Áp dụng giảm trực tiếp khi thanh toán tại cơ sở.'}
+                        </p>
+                      </div>
+
+                      {/* Voucher Code Box */}
+                      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 flex items-center justify-between font-mono text-xs font-bold text-slate-800">
+                        <span className="tracking-wider">{uv.voucherCode}</span>
+                        <button
+                          type="button"
+                          onClick={() => copyVoucherCode(uv.voucherCode)}
+                          className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                          title="Sao chép mã"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="pt-4 border-t border-slate-100 mt-4 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>Hạn dùng:</span>
+                        <span className="font-semibold text-slate-700">{uv.expiredAt}</span>
+                      </div>
+
+                      {isUsed && uv.usedAt && (
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>Thời gian dùng:</span>
+                          <span className="font-semibold text-slate-700">{uv.usedAt}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserVoucher(uv)}
+                        className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
+                          isUnused
+                            ? 'bg-fpt-orange hover:bg-fpt-orange-hover text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <QrCode className="h-4 w-4" />
+                        <span>{isUnused ? 'Mở Mã QR & Quét Tại Quầy' : 'Xem Chi Tiết Mã'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL: MÃ QR TẠI QUẦY CỦA VOUCHER CÁ NHÂN */}
+      {selectedUserVoucher && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl border border-slate-100 p-6 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
+                  <Ticket className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 leading-tight">
+                    Mã Ưu Đãi Sinh Viên
+                  </h3>
+                  <span className="text-[10px] text-slate-500">Độc quyền riêng bạn • Dùng 1 lần</span>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('all');
-                  setSelectedCampus('all');
-                }}
-                className="mt-3 text-xs font-bold text-fpt-orange hover:underline cursor-pointer"
+                onClick={() => setSelectedUserVoucher(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
               >
-                Xem lại tất cả mã toàn quốc
+                <X className="h-5 w-5" />
               </button>
             </div>
-          )}
-        </div>
 
-        {/* 5. Weekly Coin Quests */}
-        <div id="quests" className="scroll-mt-6">
-          <VoucherQuests
-            quests={liveQuests}
-            claimedQuestIds={user.claimedQuestIds || []}
-            onClaimQuest={handleClaimQuest}
-          />
-        </div>
+            {/* Voucher title & partner */}
+            <div className="text-center space-y-1">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-700">
+                {selectedUserVoucher.voucher?.partner || 'ĐỐI TÁC 5CAMPUS'}
+              </span>
+              <h4 className="text-base font-extrabold text-slate-900">
+                {selectedUserVoucher.voucher?.title}
+              </h4>
+              <div className="text-sm font-black text-fpt-orange">
+                Giảm {(selectedUserVoucher.voucher?.discountValue || 10000).toLocaleString('vi-VN')} VNĐ
+              </div>
+            </div>
 
-        {/* 6. Policy & Guarantee Banner */}
-        <VoucherPolicyBanner
-          onOpenPolicy={() => setIsPolicyOpen(true)}
-          onReportViolation={() => setIsReportOpen(true)}
-        />
-      </div>
+            {/* QR Code Container */}
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                  selectedUserVoucher.voucherCode
+                )}`}
+                alt="QR Code Voucher"
+                className="w-48 h-48 rounded-xl object-contain bg-white p-2 shadow-2xs"
+              />
+              <p className="text-[11px] text-slate-500 font-medium text-center">
+                Đưa mã QR cho nhân viên thu ngân Căn tin / Passio / 7-Eleven để quét
+              </p>
+            </div>
+
+            {/* Code string with copy */}
+            <div className="flex items-center justify-between rounded-xl bg-orange-50/70 border border-orange-200 px-3 py-2">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-orange-600">
+                  MÃ VOUCHER
+                </div>
+                <div className="font-mono text-sm font-black text-slate-900 tracking-wider">
+                  {selectedUserVoucher.voucherCode}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyVoucherCode(selectedUserVoucher.voucherCode)}
+                className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-bold text-fpt-orange border border-orange-200 hover:bg-orange-50 cursor-pointer shadow-2xs"
+              >
+                {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copiedCode ? 'Đã chép' : 'Sao chép'}</span>
+              </button>
+            </div>
+
+            {/* Expiry & Meta */}
+            <div className="text-[11px] text-slate-500 flex justify-between px-1">
+              <span>Hạn sử dụng:</span>
+              <span className="font-bold text-slate-700">{selectedUserVoucher.expiredAt}</span>
+            </div>
+
+            {/* Confirmation button if UNUSED */}
+            {selectedUserVoucher.status === 'UNUSED' ? (
+              <button
+                type="button"
+                disabled={isUsingVoucher}
+                onClick={() => handleConfirmUseVoucher(selectedUserVoucher)}
+                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{isUsingVoucher ? 'Đang xác nhận...' : 'Tôi đã dùng tại quầy (Xác nhận)'}</span>
+              </button>
+            ) : (
+              <div className="rounded-xl bg-slate-100 p-2.5 text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Voucher này đã được xác nhận sử dụng</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <VoucherModals

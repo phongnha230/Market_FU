@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { profileController } from './profile.controller';
-import { authenticate } from '../../middlewares/auth.middleware';
+import { authenticate, authorize } from '../../middlewares/auth.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 
 const router = Router();
@@ -38,6 +38,10 @@ router.post('/badges/buy', profileController.buyAvatarBadge);
 // Rút tiền ví Xu tích lũy về tài khoản ngân hàng
 router.post('/withdrawals', profileController.createWithdrawalRequest);
 router.get('/withdrawals', profileController.getWithdrawalRequests);
+
+// [ADMIN] Quản lý & duyệt các yêu cầu rút tiền của sinh viên
+router.get('/admin/withdrawals', authorize('ADMIN'), profileController.getAllWithdrawalsAdmin);
+router.patch('/admin/withdrawals/:id', authorize('ADMIN'), profileController.processWithdrawalAdmin);
 
 // Xem lịch sử biến động sổ cái CoinTransaction
 router.get('/coins/history', profileController.getCoinHistory);

@@ -55,6 +55,7 @@ import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { KycType } from '@/stores/kycStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import { useOrderStore } from '@/stores/orderStore';
+import { orderService } from '@/services/orderService';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,25 +63,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductItem } from '@/types/product';
-
-const COMMUNITY_REVIEWS: Array<{
-  id: string;
-  reviewerName: string;
-  reviewerCohort: string;
-  rating: number;
-  date: string;
-  comment: string;
-  productTitle: string;
-}> = [];
-
-const SOLD_PRODUCTS: Array<{
-  id: string;
-  title: string;
-  price: number;
-  soldTo: string;
-  soldDate: string;
-  location: string;
-}> = [];
+import SellerWalletCard from '@/components/profile/SellerWalletCard';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'selling' | 'reviews' | 'sold'>('selling');
@@ -99,6 +82,10 @@ export default function ProfilePage() {
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
   const [isLoadingMyProducts, setIsLoadingMyProducts] = useState(false);
+
+  // Real user reviews from backend
+  const [userReviews, setUserReviews] = useState<any[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
 
   const userData = useUserStore((state) => state.user);
@@ -211,6 +198,47 @@ export default function ProfilePage() {
       })
       .finally(() => setIsLoadingMyProducts(false));
   }, [userData.id]);
+
+  // User ID to load (support viewing other profiles via ?id=...)
+  const [profileUserId, setProfileUserId] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryId = params.get('id');
+      if (queryId) {
+        setProfileUserId(queryId);
+      }
+    }
+  }, []);
+
+  const targetUserId = profileUserId || userData.id;
+
+  // Load reviews from backend
+  useEffect(() => {
+    if (targetUserId) {
+      setIsLoadingReviews(true);
+      orderService
+        .getUserReviews(targetUserId)
+        .then((items) => {
+          if (Array.isArray(items)) {
+            setUserReviews(items);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsLoadingReviews(false));
+    }
+  }, [targetUserId]);
+
+  const averageRating = useMemo(() => {
+    if (userReviews.length === 0) return '0.0';
+    const sum = userReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+    return (sum / userReviews.length).toFixed(1);
+  }, [userReviews]);
+
+  const soldItems = useMemo(() => {
+    return myProducts.filter((p) => p.status === 'SOLD');
+  }, [myProducts]);
 
   // sellingItems: dùng myProducts từ backend (đã load), shape thêm các display fields
   const sellingItems = useMemo(() => {
@@ -527,9 +555,9 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <div className="text-base font-extrabold text-slate-900 leading-tight">
-                    0.0 <span className="text-xs text-slate-400 font-normal">/ 5.0</span>
+                    {averageRating} <span className="text-xs text-slate-400 font-normal">/ 5.0</span>
                   </div>
-                  <div className="text-[11px] text-slate-500">{COMMUNITY_REVIEWS.length} đánh giá uy tín</div>
+                  <div className="text-[11px] text-slate-500">{userReviews.length} đánh giá uy tín</div>
                 </div>
               </Card>
 
@@ -540,9 +568,9 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <div className="text-base font-extrabold text-slate-900 leading-tight">
-                    {SOLD_PRODUCTS.length} <span className="text-xs text-slate-400 font-normal">giao dịch</span>
+                    {soldItems.length} <span className="text-xs text-slate-400 font-normal">giao dịch</span>
                   </div>
-                  <div className="text-[11px] text-slate-500">Hoàn tất 0%</div>
+                  <div className="text-[11px] text-slate-500">{soldItems.length > 0 ? 'Hoàn tất 100%' : 'Chưa có đơn hoàn tất'}</div>
                 </div>
               </Card>
 
@@ -825,6 +853,9 @@ export default function ProfilePage() {
 
           {/* === RIGHT COLUMN: DYNAMIC TABS & CONTENT BASED ON ROLE (8 COLS) === */}
           <div className="lg:col-span-8 space-y-5">
+            {/* VÍ DOANH THU & KÝ QUỸ ESCROW (DÀNH CHO NGƯỜI BÁN & SINH VIÊN) */}
+            <SellerWalletCard onShowToast={showToast} />
+
             {isSeller ? (
               /* SELLER VIEW */
               <>
@@ -866,7 +897,7 @@ export default function ProfilePage() {
                         activeTab === 'reviews' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
-                      {COMMUNITY_REVIEWS.length}
+                      {userReviews.length}
                     </Badge>
                   </Button>
 
@@ -886,7 +917,7 @@ export default function ProfilePage() {
                         activeTab === 'sold' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
-                      {SOLD_PRODUCTS.length}
+                      {soldItems.length}
                     </Badge>
                   </Button>
                 </div>
@@ -956,14 +987,20 @@ export default function ProfilePage() {
                                   {prod.conditionBadge}
                                 </div>
 
-                                {/* Status badge (SOLD / HIDDEN) */}
+                                {/* Status badge (PENDING_APPROVAL / REJECTED / SOLD / HIDDEN / RESERVED) */}
                                 {prod.status && prod.status !== 'AVAILABLE' && (
                                   <div className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md ${
+                                    prod.status === 'PENDING_APPROVAL' ? 'bg-amber-600/90' :
+                                    prod.status === 'REJECTED' ? 'bg-rose-600/90' :
                                     prod.status === 'SOLD' ? 'bg-slate-800/90' :
-                                    prod.status === 'HIDDEN' ? 'bg-rose-600/90' :
+                                    prod.status === 'HIDDEN' ? 'bg-zinc-600/90' :
                                     'bg-sky-600/90'
                                   }`}>
-                                    {prod.status === 'SOLD' ? '✓ Đã bán' : prod.status === 'HIDDEN' ? '🚫 Đã ẩn' : prod.status}
+                                    {prod.status === 'PENDING_APPROVAL' ? '⏳ Chờ BQT duyệt' :
+                                     prod.status === 'REJECTED' ? '🚫 Bị từ chối' :
+                                     prod.status === 'SOLD' ? '✓ Đã bán' :
+                                     prod.status === 'RESERVED' ? '🔒 Đã đặt cọc' :
+                                     prod.status === 'HIDDEN' ? 'Đã ẩn' : prod.status}
                                   </div>
                                 )}
                               </div>
@@ -988,18 +1025,14 @@ export default function ProfilePage() {
                             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1.5 bg-slate-50/50 text-[11px]">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {/* Edit button */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditingProduct(prod._raw);
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Chỉnh sửa thông tin bài đăng"
+                                <Link
+                                  href={`/posts/${encodeURIComponent(prod.id)}/edit`}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Chỉnh sửa toàn bộ thông tin bài đăng"
                                 >
                                   <Pencil className="h-3 w-3" />
-                                  <span>Sửa</span>
-                                </button>
+                                  <span>Sửa tin</span>
+                                </Link>
 
                                 <button
                                   type="button"
@@ -1048,58 +1081,88 @@ export default function ProfilePage() {
                 {activeTab === 'reviews' && (
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900">
-                      Đánh giá từ sinh viên cùng trường ({COMMUNITY_REVIEWS.length})
+                      Đánh giá từ sinh viên cùng trường ({userReviews.length})
                     </h3>
 
-                    {COMMUNITY_REVIEWS.length === 0 ? (
+                    {isLoadingReviews ? (
+                      <div className="rounded-2xl border border-slate-200 p-8 text-center bg-slate-50/50">
+                        <p className="text-sm font-medium text-slate-500">Đang tải đánh giá...</p>
+                      </div>
+                    ) : userReviews.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                         <p className="text-sm font-semibold text-slate-600">Chưa có đánh giá nào</p>
-                        <p className="text-xs text-slate-400 mt-1">Đánh giá từ người mua sẽ hiển thị tại đây sau khi hoàn tất giao dịch.</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Đánh giá từ người mua sẽ hiển thị tại đây sau khi hoàn tất giao dịch và công khai (Blind Review).
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {COMMUNITY_REVIEWS.map((rev) => (
-                          <Card
-                            key={rev.id}
-                            className="rounded-2xl border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-2.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <Avatar className="h-8 w-8 bg-orange-100 text-fpt-orange">
-                                  <AvatarFallback className="text-xs font-bold bg-orange-100 text-fpt-orange">
-                                    {rev.reviewerName.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-xs font-bold text-slate-900">
-                                    {rev.reviewerName}
-                                  </p>
-                                  <p className="text-[10px] text-slate-500">
-                                    {rev.reviewerCohort}
-                                  </p>
+                        {userReviews.map((rev) => {
+                          const reviewerName =
+                            rev.reviewer?.profile?.fullName || rev.reviewerName || 'Sinh viên FPT';
+                          const reviewerCampus =
+                            rev.reviewer?.profile?.campus || rev.reviewerCohort || 'FPT University';
+                          const avatarUrl = rev.reviewer?.profile?.avatarUrl;
+                          const formattedDate = rev.createdAt
+                            ? new Date(rev.createdAt).toLocaleDateString('vi-VN')
+                            : (rev.date || 'Gần đây');
+                          const productTitle =
+                            rev.order?.product?.title || rev.productTitle || 'Sản phẩm giao dịch';
+
+                          return (
+                            <Card
+                              key={rev.id}
+                              className="rounded-2xl border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                  <Avatar className="h-8 w-8 bg-orange-100 text-fpt-orange">
+                                    {avatarUrl ? (
+                                      <AvatarImage src={avatarUrl} alt={reviewerName} />
+                                    ) : null}
+                                    <AvatarFallback className="text-xs font-bold bg-orange-100 text-fpt-orange">
+                                      {reviewerName.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-900">
+                                      {reviewerName}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500">
+                                      {reviewerCampus}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 text-xs text-slate-400">
+                                  <div className="flex text-amber-500">
+                                    {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
+                                    ))}
+                                  </div>
+                                  <span className="ml-1 text-[11px]">{formattedDate}</span>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1 text-xs text-slate-400">
-                                <div className="flex text-amber-500">
-                                  {Array.from({ length: rev.rating }).map((_, i) => (
-                                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
-                                  ))}
+                              {rev.comment && (
+                                <p className="text-xs text-slate-700 leading-relaxed">
+                                  &quot;{rev.comment}&quot;
+                                </p>
+                              )}
+
+                              {rev.proofVideoUrl && (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
+                                  <span>🎥 Đã đính kèm video kiểm tra đồ (+200 Xu)</span>
                                 </div>
-                                <span className="ml-1 text-[11px]">{rev.date}</span>
+                              )}
+
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                <span>Đã mua:</span>
+                                <span className="font-semibold text-slate-600">{productTitle}</span>
                               </div>
-                            </div>
-
-                            <p className="text-xs text-slate-700 leading-relaxed">
-                              &quot;{rev.comment}&quot;
-                            </p>
-
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                              <span>Đã mua:</span>
-                              <span className="font-semibold text-slate-600">{rev.productTitle}</span>
-                            </div>
-                          </Card>
-                        ))}
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1109,17 +1172,17 @@ export default function ProfilePage() {
                 {activeTab === 'sold' && (
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900">
-                      Lịch sử các món đồ đã pass thành công ({SOLD_PRODUCTS.length})
+                      Lịch sử các món đồ đã pass thành công ({soldItems.length})
                     </h3>
 
-                    {SOLD_PRODUCTS.length === 0 ? (
+                    {soldItems.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                         <p className="text-sm font-semibold text-slate-600">Chưa có món đồ nào đã bán</p>
                         <p className="text-xs text-slate-400 mt-1">Các món đồ sau khi hoàn tất giao dịch an toàn SafeHandoff sẽ hiển thị tại đây.</p>
                       </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {SOLD_PRODUCTS.map((item) => (
+                        {soldItems.map((item) => (
                           <Card
                             key={item.id}
                             className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border-slate-200 bg-white p-4 shadow-2xs"
@@ -1129,7 +1192,7 @@ export default function ProfilePage() {
                                 {item.title}
                               </p>
                               <p className="text-[11px] text-slate-500">
-                                Người mua: <strong className="text-slate-700">{item.soldTo}</strong> • Điểm hẹn: {item.location}
+                                Điểm hẹn: {item.location || 'FPT Campus'}
                               </p>
                             </div>
 
@@ -1138,7 +1201,7 @@ export default function ProfilePage() {
                                 {formatVND(item.price)}
                               </span>
                               <Badge variant="success" className="px-2.5 py-0.5 text-[10px] font-bold normal-case">
-                                ✓ Đã giao dịch ({item.soldDate})
+                                ✓ Đã giao dịch
                               </Badge>
                             </div>
                           </Card>

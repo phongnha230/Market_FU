@@ -19,7 +19,7 @@ export default function VoucherHeroBanner({
 }: VoucherHeroBannerProps) {
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const user = useUserStore((state) => state.user);
-  const coinValueVND = (coins * 100).toLocaleString('vi-VN');
+  const coinValueVND = (coins * 1000).toLocaleString('vi-VN');
   const targetCoins = 500;
   const progressPercent = Math.min(100, Math.round((coins / targetCoins) * 100));
   const remainingCoins = Math.max(0, targetCoins - coins);
@@ -69,7 +69,7 @@ export default function VoucherHeroBanner({
               </div>
               <div className="flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm border border-white/20">
                 <Coins className="h-3.5 w-3.5 text-amber-300" />
-                <span>1 Coin = 100 VNĐ</span>
+                <span>1 Coin = 1.000 VNĐ</span>
               </div>
             </div>
           </div>

@@ -601,27 +601,31 @@ export class ReportService {
           data: { status: 'AVAILABLE' },
         });
 
-        // Hoàn lại Xu cho Người mua nếu đơn hàng có sử dụng Xu
-        const coinsToRefund = dispute.order.payment?.coinsUsed || 0;
-        if (coinsToRefund > 0) {
+        // Hoàn lại tiền mặt/tiền online (quy đổi Xu 1 Xu = 1.000đ) và Xu giảm giá cho Người mua
+        const isPaidOnline = dispute.order.payment?.isPaid;
+        const cashAmount = isPaidOnline ? (dispute.order.payment?.totalAmount || 0) : 0;
+        const coinsUsed = dispute.order.payment?.coinsUsed || 0;
+        const totalCoinsToRefund = Math.floor(cashAmount / 1000) + coinsUsed;
+
+        if (totalCoinsToRefund > 0) {
           const buyerProfile = await tx.profile.findUnique({
             where: { userId: dispute.order.buyerId },
             select: { campusCoins: true },
           });
-          const balanceAfter = (buyerProfile?.campusCoins || 0) + coinsToRefund;
+          const balanceAfter = (buyerProfile?.campusCoins || 0) + totalCoinsToRefund;
 
           await tx.profile.update({
             where: { userId: dispute.order.buyerId },
-            data: { campusCoins: { increment: coinsToRefund } },
+            data: { campusCoins: { increment: totalCoinsToRefund } },
           });
 
           await tx.coinTransaction.create({
             data: {
               userId: dispute.order.buyerId,
-              amount: coinsToRefund,
+              amount: totalCoinsToRefund,
               balanceAfter,
               type: 'ADMIN_ADJUSTMENT',
-              description: `Hoàn ${coinsToRefund} Xu do chấp thuận khiếu nại đơn hàng #${dispute.order.orderCode}`,
+              description: `Hoàn ${totalCoinsToRefund.toLocaleString('vi-VN')} Xu (${(totalCoinsToRefund * 1000).toLocaleString('vi-VN')} đ) do chấp thuận khiếu nại đơn hàng #${dispute.order.orderCode}`,
               referenceId: orderId,
             },
           });

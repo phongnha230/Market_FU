@@ -231,8 +231,8 @@ export default function AdminKycPage() {
   const [rejectReason, setRejectReason] = useState('Ảnh chụp thẻ bị mờ hoặc lóa sáng, không đọc rõ mã số SV');
   const [rejectNote, setRejectNote] = useState('');
 
-  const handleApprove = (app: KycApplication) => {
-    approveApplication(app.id, 'SuperAdmin BQT');
+  const handleApprove = async (app: KycApplication) => {
+    await approveApplication(app.id, 'SuperAdmin BQT');
     if (user.studentId === app.studentId || user.email === app.email) {
       setKycStatus(app.type === 'seller' ? 'approved_seller' : 'approved_student', app.type, app.id);
       addCoins(200);
@@ -254,10 +254,10 @@ export default function AdminKycPage() {
     setIsRejectModalOpen(true);
   };
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectTargetApp) return;
     const finalReason = rejectNote.trim() ? `${rejectReason}. Ghi chú: ${rejectNote.trim()}` : rejectReason;
-    rejectApplication(rejectTargetApp.id, finalReason);
+    await rejectApplication(rejectTargetApp.id, finalReason);
     if (user.studentId === rejectTargetApp.studentId || user.email === rejectTargetApp.email) {
       setKycStatus('rejected', rejectTargetApp.type, rejectTargetApp.id, finalReason);
     }

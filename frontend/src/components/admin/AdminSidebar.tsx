@@ -15,10 +15,13 @@ import {
   Ticket,
   MoreVertical,
   X,
+  CreditCard,
 } from 'lucide-react';
 import { useAdminStore } from '@/stores/adminStore';
 import { useKycStore } from '@/stores/kycStore';
 import { useDisputeStore } from '@/stores/disputeStore';
+import { ProductService } from '@/services/productService';
+import { apiClient } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -33,10 +36,33 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const admin = useAdminStore((s) => s.admin);
   const pendingKycCount = useKycStore((s) => s.applications.filter((a) => a.status === 'pending').length);
   const pendingDisputesCount = useDisputeStore((s) => s.disputes.filter((d) => d.status === 'PENDING').length);
+  const [pendingPostsCount, setPendingPostsCount] = React.useState<number>(0);
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    ProductService.getAdminProducts({ status: 'PENDING_APPROVAL', limit: 1 })
+      .then((res) => {
+        setPendingPostsCount(res.counts?.pending || 0);
+      })
+      .catch(() => {});
+
+    apiClient.get<any>('/profile/admin/withdrawals?status=PENDING')
+      .then((res) => {
+        const list = res.data?.data || res.data || [];
+        setPendingWithdrawalsCount(Array.isArray(list) ? list.length : 0);
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   const navItems = [
     { label: 'Tổng quan Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-    { label: 'Tin đăng & Kiểm duyệt', href: '/admin/posts', icon: FileText },
+    {
+      label: 'Tin đăng & Kiểm duyệt',
+      href: '/admin/posts',
+      icon: FileText,
+      badge: pendingPostsCount > 0 ? String(pendingPostsCount) : undefined,
+      badgeColor: 'bg-amber-600 text-white border-transparent',
+    },
     {
       label: 'Xác minh Thẻ SV',
       href: '/admin/kyc',
@@ -45,6 +71,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       badgeColor: 'bg-emerald-700 text-white border-transparent',
     },
     { label: 'Người dùng & MSSV', href: '/admin/users', icon: Users },
+    {
+      label: 'Rút tiền & Quỹ Escrow',
+      href: '/admin/withdrawals',
+      icon: CreditCard,
+      badge: pendingWithdrawalsCount > 0 ? String(pendingWithdrawalsCount) : undefined,
+      badgeColor: 'bg-indigo-600 text-white border-transparent',
+    },
     {
       label: 'Báo cáo & Gian lận',
       href: '/admin/reports',

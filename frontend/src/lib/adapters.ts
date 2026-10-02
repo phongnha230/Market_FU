@@ -129,7 +129,16 @@ export function adaptBackendProduct(item: any): ProductItem {
     timeAgo: formatTimeAgo(item.createdAt),
     seller: sellerObj,
     category: typeof item.category === 'object' ? item.category?.name : (item.category || item.categoryType),
+    categoryId: item.categoryId || (typeof item.category === 'object' ? item.category?.id : undefined),
+    categoryType: item.categoryType,
+    hashtags: Array.isArray(item.hashtags) ? item.hashtags : [],
+    condition: item.condition,
+    quantity: item.quantity,
+    allowShipping: item.allowShipping,
     viewCount: item.viewsCount ?? item.viewCount ?? 0,
+    status: item.status,
+    rejectionReason: item.rejectionReason,
+    approvedAt: item.approvedAt,
   };
 }
 
@@ -156,14 +165,17 @@ export function adaptBackendProductDetail(item: any): ProductDetail {
     alt: `${base.title} - Ảnh ${idx + 1}${idx === 0 ? ' (Bìa)' : ''}`,
   }));
 
+  const conditionText = formatCondition(item.condition);
+
   return {
     ...base,
     images,
     galleryImages,
-    condition: formatCondition(item.condition),
+    condition: conditionText,
+    hashtags: Array.isArray(item.hashtags) ? item.hashtags : (base.hashtags || []),
     description: item.description || 'Không có mô tả chi tiết cho sản phẩm này.',
     bulletPoints: [
-      { title: 'Tình trạng', content: formatCondition(item.condition) },
+      { title: 'Tình trạng', content: conditionText },
       { title: 'Cơ sở', content: formatCampusTag(item.campus) },
       { title: 'Địa điểm giao dịch', content: item.meetupLocation || item.location || 'Tại khuôn viên trường' },
       { title: 'Trạng thái', content: item.status === 'AVAILABLE' ? 'Đang bán' : item.status === 'RESERVED' ? 'Đã đặt cọc' : 'Đã bán' },

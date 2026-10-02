@@ -221,6 +221,39 @@ export class ProfileController {
       next(error);
     }
   };
+
+  /**
+   * [GET /api/profile/admin/withdrawals] Admin lấy danh sách tất cả yêu cầu rút tiền
+   */
+  getAllWithdrawalsAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 20;
+      const status = req.query.status as string | undefined;
+      const result = await profileService.getAllWithdrawalRequests(page, limit, status);
+      return sendPaginated(res, result.requests, result.pagination);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * [PATCH /api/profile/admin/withdrawals/:id] Admin duyệt hoặc từ chối yêu cầu rút tiền
+   */
+  processWithdrawalAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const withdrawalId = req.params.id as string;
+      const { status, adminNote } = req.body;
+      const result = await profileService.processWithdrawal(authReq.user!.userId, withdrawalId, {
+        status,
+        adminNote,
+      });
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const profileController = new ProfileController();

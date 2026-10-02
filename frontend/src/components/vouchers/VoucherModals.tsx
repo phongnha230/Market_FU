@@ -78,7 +78,7 @@ export default function VoucherModals({
               </span>
               <div className="text-2xl font-black">{coins} Coins</div>
               <span className="text-[11px] text-orange-100 font-medium">
-                = {(coins * 100).toLocaleString('vi-VN')}đ khấu trừ đơn hàng
+                = {(coins * 1000).toLocaleString('vi-VN')}đ khấu trừ đơn hàng
               </span>
             </div>
             <div className="text-right">

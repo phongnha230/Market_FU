@@ -188,5 +188,20 @@ export const profileService = {
     }
     return result;
   },
+
+  // 9. Tạo yêu cầu rút tiền về tài khoản ngân hàng
+  async createWithdrawal(amount: number): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/profile/withdrawals', { amount });
+    return response.data.data;
+  },
+
+  // 10. Danh sách các lệnh rút tiền của người dùng
+  async getWithdrawals(page: number = 1, limit: number = 20): Promise<{ requests: any[]; pagination: any }> {
+    const response = await apiClient.get<ApiResponse<any>>(`/profile/withdrawals?page=${page}&limit=${limit}`);
+    return {
+      requests: response.data.data || [],
+      pagination: (response.data as any).pagination || { total: 0, page: 1, limit: 20 },
+    };
+  },
 };
 

@@ -566,14 +566,40 @@ export class ProfileService {
 
   /**
    * Tạo yêu cầu rút tiền từ số dư Xu tích lũy về tài khoản ngân hàng
+   * Hỗ trợ cả 2 hình thức: truyền số Xu (ví dụ 100 Xu) hoặc số VNĐ (ví dụ 100.000 VNĐ)
+   * Cơ chế chống rút vượt quá số dư (Anti-overdraw & Race Condition Lock):
+   * 1. Xác thực số dư nguyên tử trong Prisma ACID Session Transaction
+   * 2. Khấu trừ trực tiếp ngay khi lập lệnh PENDING để khóa số dư
+   * 3. Giới hạn tối đa 3 lệnh rút PENDING cùng lúc để chống spam
    */
-  async createWithdrawalRequest(userId: string, amount: number) {
+  async createWithdrawalRequest(userId: string, inputAmount: number) {
+    if (!inputAmount || inputAmount <= 0 || isNaN(inputAmount)) {
+      throw new AppError('Số tiền rút không hợp lệ', 400, 'INVALID_AMOUNT');
+    }
+
+    // Tự động chuẩn hóa: Nếu người dùng nhập Xu (< 1000) hay VNĐ (>= 1000)
+    // Quy ước hệ thống 5Campus: 1 Xu = 1.000 VNĐ
+    let coinsToDeduct: number;
+    let vndAmount: number;
+
+    if (inputAmount >= 1000) {
+      vndAmount = Math.floor(inputAmount);
+      coinsToDeduct = Math.ceil(vndAmount / 1000);
+    } else {
+      coinsToDeduct = Math.floor(inputAmount);
+      vndAmount = coinsToDeduct * 1000;
+    }
+
+    if (vndAmount < 10000) {
+      throw new AppError('Số tiền rút tối thiểu là 10.000 VNĐ (tương đương 10 Xu)', 400, 'MINIMUM_WITHDRAWAL');
+    }
+
     const profile = await prisma.profile.findUnique({ where: { userId } });
     if (!profile) {
       throw new AppError('Hồ sơ không tồn tại', 404, 'PROFILE_NOT_FOUND');
     }
 
-    if (!profile.bankAccount || !profile.bankAccount.accountNo) {
+    if (!profile.bankAccount || !profile.bankAccount.accountNo || !profile.bankAccount.bankName) {
       throw new AppError(
         'Vui lòng cập nhật đầy đủ thông tin tài khoản ngân hàng nhận tiền trước khi tạo yêu cầu rút',
         400,
@@ -581,41 +607,61 @@ export class ProfileService {
       );
     }
 
-    if (profile.campusCoins < amount) {
+    // Giới hạn tối đa 3 yêu cầu đang chờ duyệt cùng lúc để chống flood/spam
+    const pendingCount = await prisma.withdrawalRequest.count({
+      where: { userId, status: 'PENDING' },
+    });
+    if (pendingCount >= 3) {
       throw new AppError(
-        `Số dư Xu (${profile.campusCoins} Xu) không đủ để rút ${amount.toLocaleString()} VNĐ`,
-        400,
-        'INSUFFICIENT_COINS'
+        'Bạn đang có 3 yêu cầu rút tiền đang chờ BQT xử lý. Vui lòng đợi các lệnh này hoàn tất trước khi tạo thêm.',
+        429,
+        'TOO_MANY_PENDING_REQUESTS'
       );
     }
 
+    // Thực thi trong ACID Transaction với điều kiện nguyên tử
     const withdrawal = await prisma.$transaction(async (tx) => {
-      // Khấu trừ Xu
+      // 1. Kiểm tra lại số dư Xu tức thời trong transaction để chặn race-condition
+      const freshProfile = await tx.profile.findUnique({
+        where: { userId },
+        select: { campusCoins: true, bankAccount: true },
+      });
+
+      if (!freshProfile || freshProfile.campusCoins < coinsToDeduct) {
+        throw new AppError(
+          `Số dư Xu hiện tại (${freshProfile?.campusCoins || 0} Xu) không đủ để rút ${vndAmount.toLocaleString('vi-VN')} VNĐ (cần ${coinsToDeduct} Xu)`,
+          400,
+          'INSUFFICIENT_COINS'
+        );
+      }
+
+      // 2. Khấu trừ Xu ngay lập tức để khóa số dư
       const updatedProf = await tx.profile.update({
         where: { userId },
         data: {
-          campusCoins: { decrement: amount },
+          campusCoins: { decrement: coinsToDeduct },
         },
       });
 
-      // Tạo WithdrawalRequest
+      // 3. Tạo bản ghi WithdrawalRequest với trạng thái PENDING
       const req = await tx.withdrawalRequest.create({
         data: {
           userId,
-          amount,
-          bankAccount: profile.bankAccount!,
+          amount: vndAmount,
+          bankAccount: freshProfile.bankAccount || profile.bankAccount!,
           status: 'PENDING',
         },
       });
 
-      // Ghi sổ cái
+      // 4. Ghi sổ cái CoinTransaction
       await tx.coinTransaction.create({
         data: {
           userId,
-          amount: -amount,
+          amount: -coinsToDeduct,
           balanceAfter: updatedProf.campusCoins,
           type: 'WITHDRAWAL',
-          description: `Tạo yêu cầu rút ${amount.toLocaleString()} VNĐ về ${profile.bankAccount!.bankName} (${profile.bankAccount!.accountNo})`,
+          description: `Tạo yêu cầu rút ${vndAmount.toLocaleString('vi-VN')} VNĐ (${coinsToDeduct} Xu) về ${profile.bankAccount!.bankName} (${profile.bankAccount!.accountNo})`,
+          referenceId: req.id,
         },
       });
 
@@ -939,6 +985,129 @@ export class ProfileService {
       newBalance: result,
       questId: input.questId,
     };
+  }
+
+  /**
+   * [ADMIN] Lấy tất cả yêu cầu rút tiền trên toàn hệ thống
+   */
+  async getAllWithdrawalRequests(page = 1, limit = 20, status?: string) {
+    const where: any = {};
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    const skip = (page - 1) * limit;
+
+    const [total, requests] = await Promise.all([
+      prisma.withdrawalRequest.count({ where }),
+      prisma.withdrawalRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  phoneNumber: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      requests,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * [ADMIN] Duyệt hoặc từ chối yêu cầu rút tiền
+   */
+  async processWithdrawal(
+    adminId: string,
+    withdrawalId: string,
+    input: { status: 'APPROVED' | 'REJECTED'; adminNote?: string }
+  ) {
+    const req = await prisma.withdrawalRequest.findUnique({
+      where: { id: withdrawalId },
+      include: { user: { select: { email: true, profile: { select: { fullName: true } } } } },
+    });
+
+    if (!req) {
+      throw new AppError('Yêu cầu rút tiền không tồn tại', 404, 'WITHDRAWAL_NOT_FOUND');
+    }
+
+    if (req.status !== 'PENDING') {
+      throw new AppError('Yêu cầu rút tiền này đã được xử lý trước đó', 400, 'WITHDRAWAL_ALREADY_PROCESSED');
+    }
+
+    const isApprove = input.status === 'APPROVED';
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // Nếu REJECTED -> Hoàn lại Xu/tiền cho người dùng
+      if (!isApprove) {
+        const refundCoins = Math.ceil(req.amount / 1000);
+        const prof = await tx.profile.update({
+          where: { userId: req.userId },
+          data: { campusCoins: { increment: refundCoins } },
+        });
+
+        await tx.coinTransaction.create({
+          data: {
+            userId: req.userId,
+            amount: refundCoins,
+            balanceAfter: prof.campusCoins,
+            type: 'ADMIN_ADJUSTMENT',
+            description: `Hoàn ${refundCoins} Xu do lệnh rút tiền bị từ chối (${input.adminNote || 'Sai thông tin STK'})`,
+            referenceId: req.id,
+          },
+        });
+      }
+
+      return tx.withdrawalRequest.update({
+        where: { id: withdrawalId },
+        data: {
+          status: input.status,
+          adminNote: input.adminNote?.trim() || null,
+          processedAt: new Date(),
+        },
+      });
+    });
+
+    // Thông báo cho người dùng
+    const notifBody = isApprove
+      ? `Khoản tiền ${req.amount.toLocaleString('vi-VN')} đ đã được chuyển tới số tài khoản ${req.bankAccount.accountNo} (${req.bankAccount.bankName}).`
+      : `Lệnh rút ${req.amount.toLocaleString('vi-VN')} đ bị từ chối. Lý do: ${input.adminNote || 'Sai thông tin tài khoản'}. Số dư đã được hoàn lại vào ví.`;
+
+    await notificationService.sendNotification({
+      userId: req.userId,
+      title: isApprove ? '✅ Lệnh rút tiền thành công' : '❌ Lệnh rút tiền bị từ chối',
+      body: notifBody,
+      type: 'SYSTEM',
+    });
+
+    emitToUser(req.userId, 'withdrawal_updated', {
+      withdrawalId: req.id,
+      status: input.status,
+      amount: req.amount,
+      adminNote: input.adminNote,
+    });
+
+    return updated;
   }
 }
 
