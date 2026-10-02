@@ -208,6 +208,39 @@ export const AiAssistantScreen: React.FC = () => {
     );
   };
 
+  const { isAuthenticated } = useAuthStore();
+
+  const handleBack = () => {
+    if (navigation && navigation.canGoBack && navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
+        <View style={styles.fallbackCard}>
+          <View style={styles.fallbackIconCircle}>
+            <Ionicons name="sparkles" size={40} color="#EA580C" />
+          </View>
+          <Text style={styles.fallbackTitle}>Trợ lý AI FPT 5Campus</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Sinh viên FPT để trò chuyện với Trợ lý AI, định giá sản phẩm và tìm bạn cùng KTX.
+          </Text>
+          <TouchableOpacity
+            style={styles.fallbackBtn}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.fallbackBtnText}>Đăng nhập ngay</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
+            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       {/* ═══════════════════════════════════════════════════════════
@@ -1110,5 +1143,65 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: '#FED7AA',
+  },
+  fallbackCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#F8FAFC',
+  },
+  fallbackCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fallbackIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFEDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  fallbackSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  fallbackBtn: {
+    backgroundColor: '#EA580C',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  fallbackBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  fallbackBackBtn: {
+    paddingVertical: 8,
+  },
+  fallbackBackText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
