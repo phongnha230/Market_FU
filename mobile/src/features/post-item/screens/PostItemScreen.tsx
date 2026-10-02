@@ -58,8 +58,8 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     if (data.price) setPrice(data.price);
   };
 
-  // Rule Backend: KYC_REQUIRED_TO_SELL
-  const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
+  // Rule: CHỈ CÓ SELLER MỚI ĐƯỢC ĐĂNG BÁN
+  const isSeller = user?.role === 'SELLER';
 
   // 1. Nếu chưa đăng nhập (Guest)
   if (!isAuthenticated) {
@@ -71,7 +71,7 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
           </View>
           <Text style={styles.fallbackTitle}>Yêu cầu đăng nhập</Text>
           <Text style={styles.fallbackSubtitle}>
-            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Sinh viên FPT để đăng bán đồ cũ.
+            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Người Bán (Seller) để đăng bán đồ cũ.
           </Text>
           <TouchableOpacity
             style={styles.fallbackBtn}
@@ -88,24 +88,24 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     );
   }
 
-  // 2. Nếu đã đăng nhập nhưng chưa KYC (SV chưa xác thực)
-  if (!isSellerOrKyc) {
+  // 2. Nếu đã đăng nhập nhưng KHÔNG PHẢI SELLER
+  if (!isSeller) {
     return (
       <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
         <View style={styles.fallbackCard}>
-          <View style={[styles.fallbackIconCircle, { backgroundColor: '#DBEAFE' }]}>
-            <Ionicons name="shield-checkmark" size={40} color="#2563EB" />
+          <View style={[styles.fallbackIconCircle, { backgroundColor: '#EEF2FF' }]}>
+            <Ionicons name="storefront" size={40} color="#4338CA" />
           </View>
-          <Text style={styles.fallbackTitle}>Yêu cầu Xác thực Thẻ SV</Text>
+          <Text style={styles.fallbackTitle}>Chỉ dành cho Người Bán (Seller)</Text>
           <Text style={styles.fallbackSubtitle}>
-            Theo quy định Chợ Market FU, sinh viên cần xác thực Thẻ SV FPT để đăng bán đồ thanh lý nhằm đảm bảo cộng đồng an toàn và uy tín.
+            Theo quy định Chợ Market FU, chỉ tài khoản Người Bán (Seller) mới có quyền đăng bán sản phẩm và quản lý gian hàng. Tài khoản Sinh viên (Buyer) hiện chỉ có quyền tìm kiếm, trả giá và đặt mua.
           </Text>
           <TouchableOpacity
-            style={[styles.fallbackBtn, { backgroundColor: '#2563EB' }]}
+            style={[styles.fallbackBtn, { backgroundColor: '#4338CA' }]}
             onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
             activeOpacity={0.85}
           >
-            <Text style={styles.fallbackBtnText}>Xem hồ sơ xác thực</Text>
+            <Text style={styles.fallbackBtnText}>Xem hồ sơ tài khoản</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
             <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>

@@ -28,6 +28,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Modal chặn truy cập
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'auth' | 'seller' | 'kyc'>('auth');
   const [authModalTitle, setAuthModalTitle] = useState<string | undefined>(undefined);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
@@ -127,8 +128,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             if (cat.id === '5') {
               // Bấm "Đăng bán" trong category grid
               if (!isAuthenticated) {
+                setAuthModalMode('auth');
                 setAuthModalTitle('Yêu cầu đăng nhập');
-                setAuthModalMessage('Bạn cần đăng nhập tài khoản Sinh viên FPT để đăng bán đồ cũ.');
+                setAuthModalMessage('Bạn cần đăng nhập tài khoản Người Bán (Seller) để đăng bán đồ cũ.');
+                setAuthModalVisible(true);
+                return;
+              }
+              if (user?.role !== 'SELLER') {
+                setAuthModalMode('seller');
+                setAuthModalTitle('Chỉ dành cho Người Bán (Seller)');
+                setAuthModalMessage('Theo quy định Chợ Market FU, chỉ tài khoản Người Bán (Seller) mới có quyền đăng bán đồ và mở gian hàng.');
                 setAuthModalVisible(true);
                 return;
               }
@@ -170,10 +179,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <RequireAuthModal
         visible={authModalVisible}
         onClose={() => setAuthModalVisible(false)}
-        mode="auth"
+        mode={authModalMode}
         title={authModalTitle}
         message={authModalMessage}
         onNavigateLogin={() => navigation.navigate('Login')}
+        onNavigateKyc={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
       />
     </View>
   );

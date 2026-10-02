@@ -246,15 +246,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Text style={styles.quickRoleSub}>Chặn bán</Text>
             </TouchableOpacity>
 
-            {/* 2. Đã KYC */}
+            {/* 2. Đã KYC (Buyer) */}
             <TouchableOpacity
               style={[styles.quickRoleBtn, styles.quickRoleBtnVerified]}
               activeOpacity={0.8}
               onPress={() => handleQuickSwitchRole('VERIFIED_STUDENT')}
             >
-              <Text style={styles.quickRoleTagVerified}>Đã KYC ✓</Text>
+              <Text style={styles.quickRoleTagVerified}>SV Đã KYC</Text>
               <Text style={styles.quickRoleName} numberOfLines={1}>SV K17</Text>
-              <Text style={styles.quickRoleSub}>Full quyền</Text>
+              <Text style={styles.quickRoleSub}>Chỉ mua đồ</Text>
             </TouchableOpacity>
 
             {/* 3. Seller */}
@@ -263,9 +263,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               activeOpacity={0.8}
               onPress={() => handleQuickSwitchRole('TOP_SELLER')}
             >
-              <Text style={styles.quickRoleTagSeller}>TOP SELLER ⭐</Text>
+              <Text style={styles.quickRoleTagSeller}>SELLER ⭐</Text>
               <Text style={styles.quickRoleName} numberOfLines={1}>Thùy Dương</Text>
-              <Text style={styles.quickRoleSub}>Gian hàng</Text>
+              <Text style={styles.quickRoleSub}>Được đăng bán</Text>
             </TouchableOpacity>
           </View>
         </View>

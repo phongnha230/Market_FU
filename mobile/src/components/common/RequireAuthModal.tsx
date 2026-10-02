@@ -8,7 +8,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface RequireAuthModalProps {
@@ -16,7 +16,7 @@ export interface RequireAuthModalProps {
   onClose: () => void;
   onNavigateLogin?: () => void;
   onNavigateKyc?: () => void;
-  mode?: 'auth' | 'kyc';
+  mode?: 'auth' | 'seller' | 'kyc';
   title?: string;
   message?: string;
 }
@@ -32,15 +32,19 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
 
+  const isSeller = mode === 'seller';
   const isKyc = mode === 'kyc';
 
-  const defaultTitle = isKyc
-    ? 'Yêu cầu xác thực Sinh viên FPT'
-    : 'Yêu cầu đăng nhập tài khoản';
+  let defaultTitle = 'Yêu cầu đăng nhập tài khoản';
+  let defaultMessage = 'Chức năng này chỉ dành cho thành viên Market FU. Bạn vui lòng đăng nhập tài khoản Sinh viên FPT để trải nghiệm đầy đủ các tính năng!';
 
-  const defaultMessage = isKyc
-    ? 'Theo quy định chợ Market FU, bạn cần xác thực Thẻ Sinh Viên FPT để đăng bán hàng và quản lý tin rao. Hãy xác thực ngay để nhận Tích Xanh uy tín!'
-    : 'Chức năng này chỉ dành cho thành viên Market FU. Bạn vui lòng đăng nhập tài khoản Sinh viên FPT để trải nghiệm đầy đủ các tính năng!';
+  if (isSeller) {
+    defaultTitle = 'Chỉ dành cho Người Bán (Seller)';
+    defaultMessage = 'Theo quy định chợ Market FU, chỉ tài khoản có vai trò Người Bán (Seller) mới được quyền đăng bán sản phẩm và quản lý kho hàng. Tài khoản Người Mua (Buyer) chỉ có quyền xem, trả giá và đặt mua.';
+  } else if (isKyc) {
+    defaultTitle = 'Yêu cầu xác thực Sinh viên FPT';
+    defaultMessage = 'Theo quy định chợ Market FU, bạn cần xác thực Thẻ Sinh Viên FPT để trải nghiệm các đặc quyền Campus.';
+  }
 
   return (
     <Modal
@@ -54,12 +58,23 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
         <Pressable style={styles.backdrop} onPress={onClose} />
         
         <View style={[styles.dialogCard, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
-          <View style={[styles.iconCircle, isKyc ? styles.iconCircleKyc : styles.iconCircleAuth]}>
-            <Ionicons
-              name={isKyc ? 'shield-checkmark' : 'lock-closed'}
-              size={32}
-              color={isKyc ? '#2563EB' : '#EA580C'}
-            />
+          <View
+            style={[
+              styles.iconCircle,
+              isSeller
+                ? styles.iconCircleSeller
+                : isKyc
+                ? styles.iconCircleKyc
+                : styles.iconCircleAuth,
+            ]}
+          >
+            {isSeller ? (
+              <MaterialCommunityIcons name="storefront" size={34} color="#4338CA" />
+            ) : isKyc ? (
+              <Ionicons name="shield-checkmark" size={32} color="#2563EB" />
+            ) : (
+              <Ionicons name="lock-closed" size={32} color="#EA580C" />
+            )}
           </View>
 
           <Text style={styles.titleText}>{title || defaultTitle}</Text>
@@ -69,19 +84,25 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
             <View style={styles.featureRow}>
               <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
               <Text style={styles.featureText}>
-                {isKyc ? 'Đăng bán đồ thanh lý không giới hạn' : 'Chat & Trả giá trực tiếp với người bán'}
+                {isSeller
+                  ? 'Quyền mở gian hàng và đăng bán đồ không giới hạn'
+                  : 'Chat & Trả giá trực tiếp với người bán qua Safe-Point'}
               </Text>
             </View>
             <View style={[styles.featureRow, { marginTop: 6 }]}>
               <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
               <Text style={styles.featureText}>
-                {isKyc ? 'Bảo đảm giao dịch qua Quỹ Escrow sinh viên' : 'Đổi voucher đồ ăn canteen, Passio giảm 15k'}
+                {isSeller
+                  ? 'Quản lý kho hàng, đơn đặt cọc và quỹ bảo hộ Escrow'
+                  : 'Bảo vệ tiền 100% trong quỹ tạm giữ Escrow'}
               </Text>
             </View>
             <View style={[styles.featureRow, { marginTop: 6 }]}>
               <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
               <Text style={styles.featureText}>
-                {isKyc ? 'Huy hiệu Sinh viên FPT xác thực uy tín' : 'Trợ lý ảo FU Chatbot hỗ trợ 24/7'}
+                {isSeller
+                  ? 'Huy hiệu TOP SELLER uy tín toàn hệ thống 5 Campus'
+                  : 'Đổi voucher đồ ăn Canteen, Passio Coffee'}
               </Text>
             </View>
           </View>
@@ -96,19 +117,28 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.primaryBtn, isKyc ? styles.primaryBtnKyc : styles.primaryBtnAuth]}
+              style={[
+                styles.primaryBtn,
+                isSeller
+                  ? styles.primaryBtnSeller
+                  : isKyc
+                  ? styles.primaryBtnKyc
+                  : styles.primaryBtnAuth,
+              ]}
               onPress={() => {
                 onClose();
-                if (isKyc && onNavigateKyc) {
+                if (isSeller && onNavigateKyc) {
                   onNavigateKyc();
-                } else if (!isKyc && onNavigateLogin) {
+                } else if (isKyc && onNavigateKyc) {
+                  onNavigateKyc();
+                } else if (onNavigateLogin) {
                   onNavigateLogin();
                 }
               }}
               activeOpacity={0.85}
             >
               <Text style={styles.primaryBtnText}>
-                {isKyc ? 'Xác thực ngay' : 'Đăng nhập ngay'}
+                {isSeller ? 'Xem quyền Seller' : isKyc ? 'Xác thực ngay' : 'Đăng nhập ngay'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -167,6 +197,9 @@ const styles = StyleSheet.create({
   },
   iconCircleKyc: {
     backgroundColor: '#DBEAFE',
+  },
+  iconCircleSeller: {
+    backgroundColor: '#EEF2FF',
   },
   titleText: {
     fontSize: 18,
@@ -234,6 +267,9 @@ const styles = StyleSheet.create({
   },
   primaryBtnKyc: {
     backgroundColor: '#2563EB',
+  },
+  primaryBtnSeller: {
+    backgroundColor: '#4338CA',
   },
   primaryBtnText: {
     fontSize: 14,

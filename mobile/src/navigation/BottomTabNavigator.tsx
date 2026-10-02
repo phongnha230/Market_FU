@@ -16,7 +16,7 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const { isAuthenticated, user } = useUserStore();
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState<'auth' | 'kyc'>('auth');
+  const [modalMode, setModalMode] = useState<'auth' | 'seller' | 'kyc'>('auth');
   const [modalTitle, setModalTitle] = useState<string | undefined>(undefined);
   const [modalMessage, setModalMessage] = useState<string | undefined>(undefined);
 
@@ -40,15 +40,14 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
       }
     }
 
-    // 2. Kiểm tra Phân quyền KYC (Sinh viên chưa xác thực)
-    // Quy định Backend: seller.role === 'SELLER' || profile.kyc.status === 'APPROVED' mới được bán
-    const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
-    if (isAuthenticated && !isSellerOrKyc) {
+    // 2. Kiểm tra Phân quyền Seller: Chỉ Seller mới được đăng bán & quản lý tin
+    const isSeller = user?.role === 'SELLER';
+    if (isAuthenticated && !isSeller) {
       if (['PostItem', 'MyListings'].includes(route.name)) {
-        setModalMode('kyc');
-        setModalTitle('Yêu cầu Xác thực Sinh viên FPT');
+        setModalMode('seller');
+        setModalTitle('Chỉ dành cho Người Bán (Seller)');
         setModalMessage(
-          'Tài khoản của bạn là Tân sinh viên K20 chưa xác thực Thẻ SV. Theo quy chuẩn Chợ FPT, chỉ sinh viên đã xác minh mới được quyền đăng bán và quản lý tin.'
+          'Theo quy định hệ thống Market FU, chỉ tài khoản Người Bán (Seller) mới có quyền đăng bán đồ và quản lý kho hàng. Tài khoản Sinh viên (Buyer) hiện chỉ có quyền xem, trả giá và đặt mua.'
         );
         setModalVisible(true);
         return;

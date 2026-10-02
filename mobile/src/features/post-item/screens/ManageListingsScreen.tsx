@@ -189,7 +189,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
   const soldCount = listings.filter((l) => l.status === 'sold').length;
 
   const { user, isAuthenticated } = useUserStore();
-  const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
+  const isSeller = user?.role === 'SELLER';
 
   // 1. Nếu chưa đăng nhập (Guest)
   if (!isAuthenticated) {
@@ -201,7 +201,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
           </View>
           <Text style={styles.fallbackTitle}>Yêu cầu đăng nhập</Text>
           <Text style={styles.fallbackSubtitle}>
-            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Sinh viên FPT để quản lý tin rao bán của bạn.
+            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Người Bán (Seller) để quản lý tin rao bán của bạn.
           </Text>
           <TouchableOpacity
             style={styles.fallbackBtn}
@@ -218,24 +218,24 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
     );
   }
 
-  // 2. Nếu đã đăng nhập nhưng chưa KYC (SV chưa xác thực)
-  if (!isSellerOrKyc) {
+  // 2. Nếu đã đăng nhập nhưng KHÔNG PHẢI SELLER
+  if (!isSeller) {
     return (
       <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
         <View style={styles.fallbackCard}>
-          <View style={[styles.fallbackIconCircle, { backgroundColor: '#DBEAFE' }]}>
-            <Ionicons name="shield-checkmark" size={40} color="#2563EB" />
+          <View style={[styles.fallbackIconCircle, { backgroundColor: '#EEF2FF' }]}>
+            <Ionicons name="storefront" size={40} color="#4338CA" />
           </View>
-          <Text style={styles.fallbackTitle}>Yêu cầu Xác thực Thẻ SV</Text>
+          <Text style={styles.fallbackTitle}>Chỉ dành cho Người Bán (Seller)</Text>
           <Text style={styles.fallbackSubtitle}>
-            Theo quy định Chợ Market FU, chỉ sinh viên FPT đã xác thực thẻ SV mới được phép đăng bán và quản lý tin rao để bảo vệ an toàn cho Campus.
+            Theo quy định Chợ Market FU, chỉ tài khoản Người Bán (Seller) mới có quyền đăng bán và quản lý kho hàng. Tài khoản Sinh viên (Buyer) hiện chỉ có quyền tìm kiếm và mua đồ.
           </Text>
           <TouchableOpacity
-            style={[styles.fallbackBtn, { backgroundColor: '#2563EB' }]}
+            style={[styles.fallbackBtn, { backgroundColor: '#4338CA' }]}
             onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
             activeOpacity={0.85}
           >
-            <Text style={styles.fallbackBtnText}>Xem hồ sơ xác thực</Text>
+            <Text style={styles.fallbackBtnText}>Xem hồ sơ tài khoản</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
             <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
