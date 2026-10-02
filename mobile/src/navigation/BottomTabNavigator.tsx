@@ -1,82 +1,140 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../features/home/screens/HomeScreen';
 import PostItemScreen from '../screens/PostItemScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ManageListingsScreen from '../screens/ManageListingsScreen';
 import { MainTabsParamList } from './types';
+import { useUserStore } from '../stores/userStore';
+import { RequireAuthModal } from '../components/common/RequireAuthModal';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
-  return (
-    <View style={styles.tabBar}>
-      {state.routes.map((route, index) => {
-        // Skip hidden routes if any
-        if (route.name === 'Explore') return null;
+  const { isAuthenticated, user } = useUserStore();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<'auth' | 'kyc'>('auth');
+  const [modalTitle, setModalTitle] = useState<string | undefined>(undefined);
+  const [modalMessage, setModalMessage] = useState<string | undefined>(undefined);
 
-        const isFocused = state.index === index;
+  const handleTabPress = (route: any, isFocused: boolean) => {
+    // 1. Kiểm tra Guest Mode (Chưa đăng nhập)
+    if (!isAuthenticated) {
+      if (['Chat', 'PostItem', 'MyListings', 'Profile'].includes(route.name)) {
+        let featureName = 'tính năng này';
+        if (route.name === 'Chat') featureName = 'Hộp thư tin nhắn & trả giá';
+        if (route.name === 'PostItem') featureName = 'Đăng bán đồ thanh lý';
+        if (route.name === 'MyListings') featureName = 'Quản lý tin rao bán';
+        if (route.name === 'Profile') featureName = 'Hồ sơ cá nhân & Ví voucher';
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        let iconName: any = 'storefront-outline';
-        let label = 'Chợ Campus';
-
-        if (route.name === 'Home') {
-          iconName = isFocused ? 'storefront' : 'storefront-outline';
-          label = 'Chợ Campus';
-        } else if (route.name === 'Chat') {
-          iconName = isFocused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
-          label = 'Tin nhắn';
-        } else if (route.name === 'PostItem') {
-          iconName = isFocused ? 'add-circle' : 'add-circle-outline';
-          label = 'Đăng bán';
-        } else if (route.name === 'MyListings') {
-          iconName = isFocused ? 'file-tray-full' : 'file-tray-full-outline';
-          label = 'Tin của tôi';
-        } else if (route.name === 'Profile') {
-          iconName = isFocused ? 'person' : 'person-outline';
-          label = 'Tài khoản';
-        }
-
-        const iconSize = isFocused ? 28 : 22;
-        const iconColor = isFocused ? '#EA580C' : '#64748B';
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            style={[styles.tabItem, isFocused && styles.activeTabItem]}
-            activeOpacity={0.7}
-            onPress={onPress}
-          >
-            <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
-              <Ionicons name={iconName} size={iconSize} color={iconColor} />
-              {route.name === 'Chat' && (
-                <View style={styles.chatBadge}>
-                  <Text style={styles.chatBadgeText}>2</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
+        setModalMode('auth');
+        setModalTitle('Yêu cầu đăng nhập tài khoản');
+        setModalMessage(
+          `Bạn đang ở chế độ xem sản phẩm (Khách). Để truy cập ${featureName}, vui lòng đăng nhập tài khoản Sinh viên FPT.`
         );
-      })}
-    </View>
+        setModalVisible(true);
+        return;
+      }
+    }
+
+    // 2. Kiểm tra Phân quyền KYC (Sinh viên chưa xác thực)
+    // Quy định Backend: seller.role === 'SELLER' || profile.kyc.status === 'APPROVED' mới được bán
+    const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
+    if (isAuthenticated && !isSellerOrKyc) {
+      if (['PostItem', 'MyListings'].includes(route.name)) {
+        setModalMode('kyc');
+        setModalTitle('Yêu cầu Xác thực Sinh viên FPT');
+        setModalMessage(
+          'Tài khoản của bạn là Tân sinh viên K20 chưa xác thực Thẻ SV. Theo quy chuẩn Chợ FPT, chỉ sinh viên đã xác minh mới được quyền đăng bán và quản lý tin.'
+        );
+        setModalVisible(true);
+        return;
+      }
+    }
+
+    // Chuyển tab bình thường
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  return (
+    <>
+      <View style={styles.tabBar}>
+        {state.routes.map((route, index) => {
+          if (route.name === 'Explore') return null;
+
+          const isFocused = state.index === index;
+
+          let iconName: any = 'storefront-outline';
+          let label = 'Chợ Campus';
+
+          if (route.name === 'Home') {
+            iconName = isFocused ? 'storefront' : 'storefront-outline';
+            label = 'Chợ Campus';
+          } else if (route.name === 'Chat') {
+            iconName = isFocused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
+            label = 'Tin nhắn';
+          } else if (route.name === 'PostItem') {
+            iconName = isFocused ? 'add-circle' : 'add-circle-outline';
+            label = 'Đăng bán';
+          } else if (route.name === 'MyListings') {
+            iconName = isFocused ? 'file-tray-full' : 'file-tray-full-outline';
+            label = 'Tin của tôi';
+          } else if (route.name === 'Profile') {
+            iconName = isFocused ? 'person' : 'person-outline';
+            label = 'Tài khoản';
+          }
+
+          const iconSize = isFocused ? 28 : 22;
+          const iconColor = isFocused ? '#EA580C' : '#64748B';
+
+          return (
+            <TouchableOpacity
+              key={route.key}
+              style={[styles.tabItem, isFocused && styles.activeTabItem]}
+              activeOpacity={0.7}
+              onPress={() => handleTabPress(route, isFocused)}
+            >
+              <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
+                <Ionicons name={iconName} size={iconSize} color={iconColor} />
+                {route.name === 'Chat' && isAuthenticated && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>2</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <RequireAuthModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        mode={modalMode}
+        title={modalTitle}
+        message={modalMessage}
+        onNavigateLogin={() => {
+          navigation.navigate('Login');
+        }}
+        onNavigateKyc={() => {
+          navigation.navigate('Profile');
+        }}
+      />
+    </>
   );
 };
 

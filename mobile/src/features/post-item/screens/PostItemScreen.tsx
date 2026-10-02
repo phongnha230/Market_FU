@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import PostItemHeader from '../components/PostItemHeader';
 import PostImageSection from '../components/PostImageSection';
 import AiPhotoAutoFillBanner from '../components/AiPhotoAutoFillBanner';
@@ -10,6 +11,7 @@ import PostCategoryConditionSection from '../components/PostCategoryConditionSec
 import PostPriceSafePointSection from '../components/PostPriceSafePointSection';
 import PostSubmitBar from '../components/PostSubmitBar';
 import usePostItem from '../hooks/usePostItem';
+import { useUserStore } from '../../../stores/userStore';
 import { PostItemScreenProps } from '../types/post-item.types';
 
 export const PostItemScreen: React.FC<PostItemScreenProps> = ({
@@ -17,6 +19,9 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
   onSubmitSuccess,
 }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const { user, isAuthenticated } = useUserStore();
+
   const {
     title,
     setTitle,
@@ -40,8 +45,6 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     currentCampus,
   } = usePostItem(onSubmitSuccess, onGoBack);
 
-  const navigation = useNavigation<any>();
-
   const handleBack = () => {
     if (onGoBack) onGoBack();
     else if (navigation && navigation.canGoBack && navigation.canGoBack()) navigation.goBack();
@@ -54,6 +57,63 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     if (data.condition) setSelectedCondition(data.condition);
     if (data.price) setPrice(data.price);
   };
+
+  // Rule Backend: KYC_REQUIRED_TO_SELL
+  const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
+
+  // 1. Nếu chưa đăng nhập (Guest)
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
+        <View style={styles.fallbackCard}>
+          <View style={styles.fallbackIconCircle}>
+            <Ionicons name="lock-closed" size={40} color="#EA580C" />
+          </View>
+          <Text style={styles.fallbackTitle}>Yêu cầu đăng nhập</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Sinh viên FPT để đăng bán đồ cũ.
+          </Text>
+          <TouchableOpacity
+            style={styles.fallbackBtn}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.fallbackBtnText}>Đăng nhập ngay</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
+            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 2. Nếu đã đăng nhập nhưng chưa KYC (SV chưa xác thực)
+  if (!isSellerOrKyc) {
+    return (
+      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
+        <View style={styles.fallbackCard}>
+          <View style={[styles.fallbackIconCircle, { backgroundColor: '#DBEAFE' }]}>
+            <Ionicons name="shield-checkmark" size={40} color="#2563EB" />
+          </View>
+          <Text style={styles.fallbackTitle}>Yêu cầu Xác thực Thẻ SV</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Theo quy định Chợ Market FU, sinh viên cần xác thực Thẻ SV FPT để đăng bán đồ thanh lý nhằm đảm bảo cộng đồng an toàn và uy tín.
+          </Text>
+          <TouchableOpacity
+            style={[styles.fallbackBtn, { backgroundColor: '#2563EB' }]}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.fallbackBtnText}>Xem hồ sơ xác thực</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
+            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -109,6 +169,66 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   keyboardContainer: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
+  fallbackCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#F8FAFC',
+  },
+  fallbackCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fallbackIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFEDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  fallbackSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  fallbackBtn: {
+    backgroundColor: '#EA580C',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  fallbackBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  fallbackBackBtn: {
+    paddingVertical: 8,
+  },
+  fallbackBackText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
 
 export default PostItemScreen;

@@ -13,6 +13,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useCampusStore } from '../../../stores/useCampusStore';
+import { useUserStore } from '../../../stores/userStore';
 
 export type ListingStatus = 'active' | 'scheduled' | 'sold';
 
@@ -186,6 +187,63 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
   const activeCount = listings.filter((l) => l.status === 'active').length;
   const scheduledCount = listings.filter((l) => l.status === 'scheduled').length;
   const soldCount = listings.filter((l) => l.status === 'sold').length;
+
+  const { user, isAuthenticated } = useUserStore();
+  const isSellerOrKyc = user?.role === 'SELLER' || user?.isKycVerified === true;
+
+  // 1. Nếu chưa đăng nhập (Guest)
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
+        <View style={styles.fallbackCard}>
+          <View style={styles.fallbackIconCircle}>
+            <Ionicons name="lock-closed" size={40} color="#EA580C" />
+          </View>
+          <Text style={styles.fallbackTitle}>Yêu cầu đăng nhập</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Bạn đang ở chế độ xem hàng (Khách). Vui lòng đăng nhập tài khoản Sinh viên FPT để quản lý tin rao bán của bạn.
+          </Text>
+          <TouchableOpacity
+            style={styles.fallbackBtn}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.fallbackBtnText}>Đăng nhập ngay</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
+            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 2. Nếu đã đăng nhập nhưng chưa KYC (SV chưa xác thực)
+  if (!isSellerOrKyc) {
+    return (
+      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
+        <View style={styles.fallbackCard}>
+          <View style={[styles.fallbackIconCircle, { backgroundColor: '#DBEAFE' }]}>
+            <Ionicons name="shield-checkmark" size={40} color="#2563EB" />
+          </View>
+          <Text style={styles.fallbackTitle}>Yêu cầu Xác thực Thẻ SV</Text>
+          <Text style={styles.fallbackSubtitle}>
+            Theo quy định Chợ Market FU, chỉ sinh viên FPT đã xác thực thẻ SV mới được phép đăng bán và quản lý tin rao để bảo vệ an toàn cho Campus.
+          </Text>
+          <TouchableOpacity
+            style={[styles.fallbackBtn, { backgroundColor: '#2563EB' }]}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.fallbackBtnText}>Xem hồ sơ xác thực</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
+            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -963,5 +1021,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#065F46',
+  },
+  fallbackCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#F8FAFC',
+  },
+  fallbackCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fallbackIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFEDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  fallbackSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  fallbackBtn: {
+    backgroundColor: '#EA580C',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  fallbackBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  fallbackBackBtn: {
+    paddingVertical: 8,
+  },
+  fallbackBackText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

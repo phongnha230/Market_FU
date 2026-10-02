@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
@@ -13,7 +13,8 @@ import FeedFilterChips from '../components/FeedFilterChips';
 import VovinamBanner from '../components/VovinamBanner';
 import SafePointWidget from '../components/SafePointWidget';
 import useHomeFeed from '../hooks/useHomeFeed';
-import { useAuthStore } from '../../../stores/useAuthStore';
+import { useUserStore } from '../../../stores/userStore';
+import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
 import { HomeScreenProps } from '../types/home.types';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -22,8 +23,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onPostPress,
 }) => {
   const navigation = useNavigation<any>();
-  const { user } = useAuthStore();
-  const [showSuggestions, setShowSuggestions] = React.useState(true);
+  const { user, isAuthenticated } = useUserStore();
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  // Modal chặn truy cập
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authModalTitle, setAuthModalTitle] = useState<string | undefined>(undefined);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
   const {
     selectedCampus,
     setSelectedCampus,
@@ -37,27 +44,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     products,
   } = useHomeFeed();
 
+  // Chặn mở AI Assistant nếu chưa đăng nhập
   const handleOpenAiAssistant = () => {
+    if (!isAuthenticated) {
+      setAuthModalTitle('Yêu cầu đăng nhập Chatbot AI');
+      setAuthModalMessage('Trợ lý ảo Market FU sẵn sàng giải đáp thắc mắc và định giá đồ cũ. Vui lòng đăng nhập tài khoản Sinh viên FPT để tiếp tục.');
+      setAuthModalVisible(true);
+      return;
+    }
     if (navigation && navigation.navigate) {
       navigation.navigate('AiAssistant');
     }
   };
 
+  // Chặn mở Thông báo nếu chưa đăng nhập
+  const handleOpenNotification = () => {
+    if (!isAuthenticated) {
+      setAuthModalTitle('Yêu cầu đăng nhập');
+      setAuthModalMessage('Bạn cần đăng nhập tài khoản Sinh viên FPT để xem danh sách thông báo tin nhắn và cập nhật giao dịch.');
+      setAuthModalVisible(true);
+      return;
+    }
+    if (navigation && navigation.navigate) {
+      navigation.navigate('Notification');
+    }
+  };
+
+  // Avatar press
+  const handleAvatarPress = () => {
+    if (!isAuthenticated) {
+      navigation.navigate('Login');
+      return;
+    }
+    navigation.navigate('MainTabs', { screen: 'Profile' });
+  };
+
   return (
     <View style={styles.screen}>
       <HomeHeader
-        userName={user?.name || 'Quân'}
+        userName={isAuthenticated && user?.name ? user.name : 'Khách'}
         campusName={campuses[selectedCampus] || 'HÒA LẠC'}
-        onNotificationPress={() => {
-          if (navigation && navigation.navigate) {
-            navigation.navigate('Notification');
-          }
-        }}
-        onAvatarPress={() => {
-          if (navigation && navigation.navigate) {
-            navigation.navigate('MainTabs', { screen: 'Profile' });
-          }
-        }}
+        avatarUrl={user?.avatar || user?.avatarUrl}
+        onNotificationPress={handleOpenNotification}
+        onAvatarPress={handleAvatarPress}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -91,13 +120,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         )}
 
         <CampusSelector campuses={campuses} selectedIndex={selectedCampus} onSelect={setSelectedCampus} />
+        
         <CategoryGrid
           categories={categories}
           onCategoryPress={(cat) => {
-            if (cat.id === '5' && onPostPress) onPostPress();
-            else if (cat.id === '5' && onTabChange) onTabChange('post');
+            if (cat.id === '5') {
+              // Bấm "Đăng bán" trong category grid
+              if (!isAuthenticated) {
+                setAuthModalTitle('Yêu cầu đăng nhập');
+                setAuthModalMessage('Bạn cần đăng nhập tài khoản Sinh viên FPT để đăng bán đồ cũ.');
+                setAuthModalVisible(true);
+                return;
+              }
+              if (onPostPress) onPostPress();
+              else if (onTabChange) onTabChange('post');
+              else navigation.navigate('MainTabs', { screen: 'PostItem' });
+            }
           }}
         />
+
         <KycBanner />
         <FeedHeader />
         <FeedFilterChips filters={feedFilters} selectedIndex={selectedFilter} onSelect={setSelectedFilter} />
@@ -124,13 +165,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <SafePointWidget />
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Modal Chặn truy cập cho Khách */}
+      <RequireAuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+        mode="auth"
+        title={authModalTitle}
+        message={authModalMessage}
+        onNavigateLogin={() => navigation.navigate('Login')}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  content: { paddingBottom: 24 },
+  content: { paddingBottom: 80 },
   productGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

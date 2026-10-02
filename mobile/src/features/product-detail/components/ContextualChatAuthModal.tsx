@@ -55,9 +55,13 @@ export const ContextualChatAuthModal: React.FC<ContextualChatAuthModalProps> = (
         studentId: 'HE170234',
         email: 'quannvhe170234@fpt.edu.vn',
         campus: 'HÒA LẠC',
+        role: 'BUYER',
         isKycVerified: true,
+        kycStatus: 'APPROVED',
         major: 'K17 Kỹ thuật phần mềm (SE)',
         rating: 5.0,
+        reputationPoints: 100,
+        coins: 50,
       },
       'mock_token_google_fpt_sso'
     );
@@ -76,9 +80,13 @@ export const ContextualChatAuthModal: React.FC<ContextualChatAuthModalProps> = (
         studentId: 'HE170234',
         email: 'quannvhe170234@fpt.edu.vn',
         campus: 'HÒA LẠC',
+        role: 'BUYER',
         isKycVerified: true,
+        kycStatus: 'APPROVED',
         major: 'K17 Kỹ thuật phần mềm (SE)',
         rating: 5.0,
+        reputationPoints: 100,
+        coins: 50,
       },
       'mock_token_fap_mssv'
     );
