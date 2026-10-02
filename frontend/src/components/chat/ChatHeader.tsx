@@ -25,9 +25,11 @@ export default function ChatHeader({
             fill
             className="object-cover"
           />
-          {conversation.isOnline && (
-            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
-          )}
+          <span
+            className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white ${
+              conversation.isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+            }`}
+          />
         </div>
 
         <div>
@@ -41,10 +43,19 @@ export default function ChatHeader({
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
-            <span className="text-emerald-700 font-medium">Đang hoạt động</span>
+            {conversation.isOnline ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span className="text-emerald-700 font-semibold">Đang hoạt động</span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0"></span>
+                <span className="text-slate-500 font-medium">Không hoạt động</span>
+              </>
+            )}
             <span>•</span>
-            <span className="truncate">{conversation.cohortCampus} (Khu KTX Dom A)</span>
+            <span className="truncate">{conversation.cohortCampus}</span>
           </div>
         </div>
       </div>

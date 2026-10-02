@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles } from 'lucide-react';
+import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin } from 'lucide-react';
 
 interface MessageHistoryProps {
   messages: ChatMessage[];
@@ -56,6 +57,63 @@ export default function MessageHistory({
                     </div>
                   </div>
                   <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          if (msg.offerPrice && !msg.isOfferAccepted) {
+            return (
+              <div key={msg.id} className="flex justify-center my-3">
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 shadow-xs max-w-md w-full text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                      <Tag className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-amber-950">
+                        Đề nghị thương lượng giá
+                      </div>
+                      <div className="text-[11px] text-amber-800">
+                        Mức giá đề xuất: <strong className="text-sm text-fpt-orange">{msg.offerPrice}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href="/orders"
+                    className="rounded-xl bg-fpt-orange px-3 py-1.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-xs shrink-0"
+                  >
+                    Xem đơn
+                  </Link>
+                </div>
+              </div>
+            );
+          }
+
+          const isMeetupMsg = msg.text.includes('hẹn điểm') || msg.text.includes('Hẹn điểm') || msg.text.includes('bàn giao đồ tại Sảnh');
+          if (isMeetupMsg) {
+            return (
+              <div key={msg.id} className="flex justify-center my-3">
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center justify-between gap-3 shadow-xs max-w-md w-full text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-emerald-950">
+                        Hẹn gặp Safe-Handoff tại Campus
+                      </div>
+                      <div className="text-[11px] text-emerald-800 leading-tight mt-0.5">
+                        {msg.text}
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href="/orders"
+                    className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-xs shrink-0"
+                  >
+                    Mở QR hẹn
+                  </Link>
                 </div>
               </div>
             );

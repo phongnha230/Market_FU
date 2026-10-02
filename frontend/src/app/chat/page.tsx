@@ -86,6 +86,7 @@ function ChatContent() {
           unreadCount: c.unreadCount || 0,
           productImage: c.product?.imageUrl,
           pinnedProduct: {
+            id: c.product?.id || (c as any).productId || (c as any).product_id,
             title: c.product?.title || 'Sản phẩm FPT Market',
             price: c.product?.price || 0,
             conditionBadge: 'Đang mở bán',

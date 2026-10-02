@@ -350,6 +350,44 @@ class SocketClient {
       socket?.off('kyc_status_updated', callback);
     };
   }
+
+  /**
+   * Lắng nghe sự kiện trạng thái online/offline của người dùng thay đổi (Presence)
+   */
+  onPresenceChanged(
+    callback: (data: {
+      userId: string;
+      isOnline: boolean;
+      lastActiveAt?: string;
+      lastSeenAt?: string;
+    }) => void
+  ) {
+    const socket = this.getSocket();
+    if (socket) {
+      socket.on('user_presence_changed', callback);
+    }
+    return () => {
+      socket?.off('user_presence_changed', callback);
+    };
+  }
+
+  /**
+   * Truy vấn trạng thái Presence của danh sách userIds
+   */
+  checkPresence(
+    userIds: string[]
+  ): Promise<Record<string, { userId: string; isOnline: boolean; lastSeenAt?: string }>> {
+    return new Promise((resolve) => {
+      const socket = this.getSocket();
+      if (!socket || !userIds || userIds.length === 0) {
+        return resolve({});
+      }
+      socket.emit('check_presence', { userIds }, (response: any) => {
+        resolve(response || {});
+      });
+      setTimeout(() => resolve({}), 3000);
+    });
+  }
 }
 
 export const socketClient = new SocketClient();

@@ -119,6 +119,29 @@ export const useChatStore = create<ChatState>()(
               unreadCount: c.unreadCount || 0,
             }));
             set({ conversations: mapped });
+
+            // Truy vấn trạng thái Presence thực tế từ Redis/Server
+            const otherUserIds = mapped.map((c) => c.otherUser.id).filter(Boolean);
+            if (otherUserIds.length > 0) {
+              socketClient.checkPresence(otherUserIds).then((presenceMap) => {
+                if (presenceMap) {
+                  set((state) => ({
+                    conversations: state.conversations.map((c) => {
+                      const p = presenceMap[c.otherUser.id];
+                      return p
+                        ? {
+                            ...c,
+                            otherUser: {
+                              ...c.otherUser,
+                              isOnline: p.isOnline,
+                            },
+                          }
+                        : c;
+                    }),
+                  }));
+                }
+              }).catch(() => {});
+            }
           }
         } catch {
           // fallback
@@ -197,8 +220,26 @@ export const useChatStore = create<ChatState>()(
           });
         });
 
+        // Lắng nghe sự kiện Online/Offline thời gian thực
+        const cleanupPresence = socketClient.onPresenceChanged((presence) => {
+          set((state) => ({
+            conversations: state.conversations.map((c) =>
+              c.otherUser?.id === presence.userId
+                ? {
+                    ...c,
+                    otherUser: {
+                      ...c.otherUser,
+                      isOnline: presence.isOnline,
+                    },
+                  }
+                : c
+            ),
+          }));
+        });
+
         return () => {
           cleanupMsg();
+          cleanupPresence();
         };
       },
 

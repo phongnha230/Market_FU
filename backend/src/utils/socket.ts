@@ -83,6 +83,11 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
     socket.join(`user_${userId}`);
     console.log(`🔌 [Socket.io] User connected: ${userId} (${user.email}) - SocketID: ${socket.id}`);
 
+    // Kích hoạt Presence Engine: Đánh dấu user ONLINE
+    import('../modules/presence/presence.service')
+      .then(({ presenceService }) => presenceService.setUserOnline(userId, socket.id))
+      .catch(() => {});
+
     // Tham gia vào phòng trò chuyện cụ thể
     socket.on('join_conversation', async (data: { conversationId: string }) => {
       try {
@@ -225,8 +230,24 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
       }
     });
 
+    // 7. Truy vấn trạng thái Presence của danh sách users (Batch Presence)
+    socket.on('check_presence', async (data: { userIds: string[] }, callback: any) => {
+      try {
+        if (typeof callback === 'function' && Array.isArray(data?.userIds)) {
+          const { presenceService } = await import('../modules/presence/presence.service');
+          const result = await presenceService.getBatchPresence(data.userIds);
+          callback(result);
+        }
+      } catch (err) {
+        // Silent error
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`🔌 [Socket.io] User disconnected: ${userId} (${socket.id})`);
+      import('../modules/presence/presence.service')
+        .then(({ presenceService }) => presenceService.setUserOffline(userId, socket.id))
+        .catch(() => {});
     });
   });
 

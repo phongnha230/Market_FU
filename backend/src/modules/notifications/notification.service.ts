@@ -12,6 +12,7 @@ export interface CreateNotificationParams {
   body: string;
   type?: 'CHAT' | 'ORDER' | 'KYC' | 'SYSTEM';
   targetUrl?: string;
+  imageUrl?: string;
   // Hỗ trợ FCM Multicast: gửi đến 1 hoặc nhiều thiết bị cùng lúc
   fcmTokens?: string[];
   // Hỗ trợ gửi Email HTML song song (Nodemailer)
@@ -33,7 +34,10 @@ export class NotificationService {
   async sendNotification(params: CreateNotificationParams) {
     const { userId, title, body, type = 'SYSTEM', targetUrl, fcmTokens, email } = params;
 
-    // ─── Kênh A: Lưu bản ghi thông báo vào MongoDB ───
+    // ─── Quy tắc Ma trận Phân luồng: CHAT tuyệt đối không gửi Email ───
+    const safeEmail = type === 'CHAT' ? undefined : email;
+
+    // ─── Kênh A: Lưu bản ghi thông báo vào MongoDB (Cực nhanh, ~3ms) ───
     const notification = await prisma.notification.create({
       data: {
         userId,
@@ -45,8 +49,30 @@ export class NotificationService {
       },
     });
 
-    // ─── Kênh B: Phát thông báo thời gian thực qua WebSocket Gateway ───
+    // ─── Kênh B: Phát thông báo thời gian thực qua WebSocket Gateway (~0.5ms) ───
     emitToUser(userId, 'new_notification', notification);
+
+    // ─── Kênh C & D: Đẩy việc gửi Push FCM & Email HTML sang Worker ngầm (Non-blocking I/O) ───
+    // Caller API không phải đợi 2-3s của SMTP handshake, response trả về ngay tức thì!
+    setImmediate(() => {
+      this.dispatchBackgroundPushAndEmail(notification, params, fcmTokens, safeEmail).catch((err) => {
+        console.warn('⚠️ [Background Notification Dispatch Warning]:', err?.message);
+      });
+    });
+
+    return notification;
+  }
+
+  /**
+   * Worker xử lý nền cho Push FCM Multicast và Nodemailer Email với cơ chế Retry
+   */
+  private async dispatchBackgroundPushAndEmail(
+    notification: any,
+    params: CreateNotificationParams,
+    fcmTokens?: string[],
+    email?: CreateNotificationParams['email']
+  ) {
+    const { userId, title, body, type = 'SYSTEM', targetUrl } = params;
 
     // ─── Kênh C: Push FCM Multicast đến nhiều thiết bị ───
     let tokensToSend = fcmTokens;
@@ -68,27 +94,62 @@ export class NotificationService {
 
       if (validTokens.length > 0) {
         try {
+          const channelId =
+            type === 'ORDER' ? 'orders_channel' : type === 'CHAT' ? 'chat_channel' : 'system_channel';
+
+          const fcmNotificationPayload = {
+            title,
+            body,
+            ...(params.imageUrl && { imageUrl: params.imageUrl }),
+          };
+
+          const fcmDataPayload: Record<string, string> = {
+            notificationId: notification.id,
+            type,
+            ...(targetUrl && { targetUrl }),
+          };
+
+          const androidOptions = {
+            priority: 'high' as const,
+            notification: {
+              channelId,
+              sound: 'default',
+              priority: 'max' as const,
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              ...(params.imageUrl && { imageUrl: params.imageUrl }),
+            },
+          };
+
+          const apnsOptions = {
+            headers: {
+              'apns-priority': '10',
+            },
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+              },
+            },
+          };
+
           if (validTokens.length === 1) {
             // Gửi đến 1 thiết bị duy nhất
             await firebaseMessaging.send({
               token: validTokens[0],
-              notification: { title, body },
-              data: {
-                notificationId: notification.id,
-                type,
-                ...(targetUrl && { targetUrl }),
-              },
+              notification: fcmNotificationPayload,
+              data: fcmDataPayload,
+              android: androidOptions,
+              apns: apnsOptions,
             });
           } else {
             // FCM Multicast: Gửi đồng thời đến nhiều thiết bị (tối đa 500 token/lần)
             const multicastRes = await firebaseMessaging.sendEachForMulticast({
               tokens: validTokens,
-              notification: { title, body },
-              data: {
-                notificationId: notification.id,
-                type,
-                ...(targetUrl && { targetUrl }),
-              },
+              notification: fcmNotificationPayload,
+              data: fcmDataPayload,
+              android: androidOptions,
+              apns: apnsOptions,
             });
 
             // Tự động dọn dẹp các token bị lỗi / đã hết hạn / uninstalled
@@ -119,9 +180,9 @@ export class NotificationService {
       }
     }
 
-    // ─── Kênh D: Gửi Email HTML qua Nodemailer ───
+    // ─── Kênh D: Gửi Email HTML qua Nodemailer với 1-time Retry (Backoff) ───
     if (email && email.to) {
-      try {
+      const sendEmailAttempt = async () => {
         const escapeHtml = (text: string) =>
           text.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m] || m));
 
@@ -148,12 +209,21 @@ export class NotificationService {
             </div>
           `,
         });
-      } catch (mailError: any) {
-        console.warn('⚠️ [Nodemailer Warning] Không thể gửi email:', mailError.message);
+      };
+
+      try {
+        await sendEmailAttempt();
+      } catch (firstErr: any) {
+        // Tự động thử lại 1 lần sau 3 giây (Exponential Backoff) nếu mạng SMTP bị timeout
+        setTimeout(async () => {
+          try {
+            await sendEmailAttempt();
+          } catch (retryErr: any) {
+            console.warn('⚠️ [Nodemailer Retry Failed] Không thể gửi email:', retryErr.message);
+          }
+        }, 3000);
       }
     }
-
-    return notification;
   }
 
   /**
@@ -170,17 +240,48 @@ export class NotificationService {
       const validTokens = storedTokens.map((t) => t.token).filter((t) => t && t.trim() !== '');
       if (validTokens.length === 0) return;
 
+      const pushChannelId =
+        data?.type === 'ORDER' ? 'orders_channel' : data?.type === 'CHAT' ? 'chat_channel' : 'system_channel';
+
+      const pushAndroidOptions = {
+        priority: 'high' as const,
+        notification: {
+          channelId: pushChannelId,
+          sound: 'default',
+          priority: 'max' as const,
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          ...(data?.imageUrl && { imageUrl: data.imageUrl }),
+        },
+      };
+
+      const pushApnsOptions = {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      };
+
       if (validTokens.length === 1) {
         await firebaseMessaging.send({
           token: validTokens[0],
           notification: { title, body },
           data: data || {},
+          android: pushAndroidOptions,
+          apns: pushApnsOptions,
         });
       } else {
         const res = await firebaseMessaging.sendEachForMulticast({
           tokens: validTokens,
           notification: { title, body },
           data: data || {},
+          android: pushAndroidOptions,
+          apns: pushApnsOptions,
         });
 
         const deadTokens: string[] = [];

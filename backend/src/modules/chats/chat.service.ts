@@ -3,6 +3,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { saveImageToStorage } from '../../config/storage';
 import { getIO, emitToUser } from '../../utils/socket';
 import { notificationService } from '../notifications/notification.service';
+import { getCache, setCache } from '../../config/redis';
 import {
   CreateConversationInput,
   QueryConversationsInput,
@@ -478,14 +479,47 @@ export class ChatService {
       createdAt: savedMessage.createdAt,
     });
 
-    // Bắn Push Notification FCM đến thiết bị đối phương
-    notificationService
-      .sendPushOnly(recipientId, senderName, summaryText, {
-        conversationId,
-        productId: conversation.productId,
-        type: 'CHAT',
-      })
-      .catch(() => {});
+    // Tối ưu hóa Presence Check & Anti-Spam Debounce:
+    // 1. Kiểm tra đối tác có đang ở trong phòng chat này không
+    let isRecipientActiveInRoom = false;
+    try {
+      if (io) {
+        const socketsInRoom = await io.in(`conversation_${conversationId}`).fetchSockets();
+        isRecipientActiveInRoom = socketsInRoom.some(
+          (s: any) => s.data?.user?.userId === recipientId
+        );
+      }
+    } catch {
+      // Giữ false nếu socket lookup không khả dụng
+    }
+
+    // 2. Chỉ gửi Push Notification khi đối tác KHÔNG ở trong phòng chat
+    if (!isRecipientActiveInRoom) {
+      // Áp dụng Debounce 10 giây chống spam rung/chuông dồn dập
+      const debounceKey = `chat_push_debounce:${conversationId}:${recipientId}`;
+      getCache<boolean>(debounceKey)
+        .then((hasRecentPush) => {
+          if (!hasRecentPush) {
+            setCache(debounceKey, true, 10).catch(() => {});
+            notificationService
+              .sendPushOnly(recipientId, senderName, summaryText, {
+                conversationId,
+                productId: conversation.productId,
+                type: 'CHAT',
+              })
+              .catch(() => {});
+          }
+        })
+        .catch(() => {
+          notificationService
+            .sendPushOnly(recipientId, senderName, summaryText, {
+              conversationId,
+              productId: conversation.productId,
+              type: 'CHAT',
+            })
+            .catch(() => {});
+        });
+    }
 
     return savedMessage;
   }

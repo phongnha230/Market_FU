@@ -59,27 +59,35 @@ export default function PinnedProductBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+      <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
         <button
           type="button"
           onClick={() => onOfferPrice(product.suggestedOffer)}
-          className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer flex items-center gap-1"
+          className="rounded-xl border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer flex items-center gap-1"
         >
           <Tag className="h-3.5 w-3.5" />
-          <span>Đề nghị giá: {product.suggestedOffer}</span>
+          <span>Đề nghị: {product.suggestedOffer}</span>
         </button>
 
         <button
           type="button"
           onClick={onScheduleMeeting}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1"
+          className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1"
         >
           <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Hẹn điểm nhận đồ</span>
+          <span>Hẹn điểm nhận</span>
         </button>
 
         <Link
-          href="/posts/feat-3"
+          href={`/checkout?productId=${encodeURIComponent(product.id || 'feat-3')}&type=meetup`}
+          className="rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
+          title="Đặt hẹn giao dịch Safe Handoff có Escrow bảo vệ"
+        >
+          <span>Đặt Safe-Handoff</span>
+        </Link>
+
+        <Link
+          href={product.id ? `/posts/${encodeURIComponent(product.id)}` : '/posts'}
           title="Mở trang chi tiết sản phẩm"
           className="rounded-xl p-1.5 border border-slate-200 bg-white text-slate-400 hover:text-slate-700 transition"
         >

@@ -20,6 +20,7 @@ import paymentRoutes, { paymentWebhookRouter } from './modules/payments/payment.
 import shippingWebhookRoutes from './modules/orders/webhook.routes';
 import reviewRoutes from './modules/reviews/review.routes';
 import safeHandoffRoutes from './modules/safehandoff/safehandoff.routes';
+import presenceRoutes from './modules/presence/presence.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
 import { requestTracingMiddleware } from './middlewares/tracing.middleware';
@@ -138,6 +139,7 @@ app.use('/api/vouchers', voucherRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/safe-handoff', safeHandoffRoutes);
 app.use('/api/safehandoff', safeHandoffRoutes);
+app.use('/api/presence', presenceRoutes);
 
 // Centralized Error Handling (Strict GEMINI.md error format)
 app.use(errorHandler);

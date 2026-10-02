@@ -22,6 +22,7 @@ export interface Conversation {
   unreadCount?: number;
   productImage?: string;
   pinnedProduct: {
+    id?: string;
     title: string;
     price: number;
     originalPrice?: number;
