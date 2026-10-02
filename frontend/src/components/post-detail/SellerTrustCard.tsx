@@ -35,13 +35,17 @@ export default function SellerTrustCard({
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-fpt-blue text-sm font-black text-white shadow-xs">
+        <Link
+          href={seller.id ? `/profile?id=${seller.id}` : '#'}
+          className="flex items-center gap-3 group transition"
+          title="Xem hồ sơ uy tín người bán"
+        >
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-fpt-blue text-sm font-black text-white shadow-xs group-hover:ring-2 group-hover:ring-fpt-orange transition">
             {seller.initial || seller.name[0]}
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 group-hover:text-fpt-orange transition">
               {seller.name}
               {seller.verified && (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
@@ -51,7 +55,7 @@ export default function SellerTrustCard({
               🛡️ Sinh viên {seller.cohort} Đã xác minh FPT Mail
             </span>
           </div>
-        </div>
+        </Link>
 
         <button
           type="button"

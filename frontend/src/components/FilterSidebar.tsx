@@ -31,6 +31,12 @@ interface FilterSidebarProps {
   onToggleCategory?: (catId: string) => void;
   selectedPricePreset?: string;
   onSelectPricePreset?: (preset: string) => void;
+  minPrice?: string;
+  onMinPriceChange?: (val: string) => void;
+  maxPrice?: string;
+  onMaxPriceChange?: (val: string) => void;
+  selectedConditions?: string[];
+  onToggleCondition?: (condId: string) => void;
 }
 
 import {
@@ -43,12 +49,12 @@ import {
 import { useProductStore } from '@/stores/productStore';
 
 const CAT_KEYWORDS: Record<string, string[]> = {
-  books: ['giáo trình', 'sách', 'book', 'pe', 'fe', 'prf', 'csl', 'mas', 'note', 'đề thi', 'tài liệu', 'syllabus'],
-  electronics: ['chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'switch', 'laptop', 'macbook', 'it', 'linh kiện', 'ram', 'logitech', 'akko'],
-  fashion: ['vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục', 'merch'],
-  dorm: ['tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ấm', 'nồi', 'ktx', 'giường', 'chiếu'],
-  hobbies: ['nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình'],
-  services: ['bus', 'vé', 'thẻ', 'gym', 'pass', 'voucher', 'căng tin', 'xe'],
+  books: ['books', 'book', 'giáo trình', 'sách', 'prf192', 'mas291', 'csd201', 'note', 'bài tập'],
+  electronics: ['electronics', 'electronic', 'chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'switch', 'laptop', 'macbook', 'it', 'linh kiện', 'ram', 'logitech', 'akko'],
+  fashion: ['clothing', 'fashion', 'vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục'],
+  dorm: ['dorm_item', 'dorm', 'đồ dùng', 'gia dụng', 'tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ấm', 'nồi', 'ktx', 'giường', 'chiếu'],
+  hobbies: ['hobbies', 'nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình'],
+  services: ['services', 'other', 'bus', 'vé', 'thẻ', 'gym', 'pass', 'voucher', 'căng tin', 'xe'],
 };
 
 export default function FilterSidebar({
@@ -64,6 +70,12 @@ export default function FilterSidebar({
   onToggleCategory,
   selectedPricePreset: externalPricePreset,
   onSelectPricePreset,
+  minPrice: externalMinPrice,
+  onMinPriceChange,
+  maxPrice: externalMaxPrice,
+  onMaxPriceChange,
+  selectedConditions: externalConditions,
+  onToggleCondition,
 }: FilterSidebarProps) {
   const storeProducts = useProductStore((state) => state.products);
   const activeProducts = products !== undefined ? products : storeProducts;
@@ -72,23 +84,27 @@ export default function FilterSidebar({
   const getCategoryCount = (catId: string) => {
     return activeProducts.filter((p) => {
       const rawCat = (p.category || '').toLowerCase();
-      const text = `${rawCat} ${(p.title || '')} ${(p.badges?.join(' ') || '')}`.toLowerCase();
+      const catType = (p.categoryType || '').toLowerCase();
+      const text = `${rawCat} ${catType} ${(p.title || '')} ${(p.badges?.join(' ') || '')}`.toLowerCase();
       const keywords = CAT_KEYWORDS[catId] || [catId];
-      return rawCat === catId || keywords.some((kw) => text.includes(kw));
+      return rawCat === catId || catType === catId || keywords.some((kw) => text.includes(kw));
     }).length;
   };
 
   const [internalCampus, setInternalCampus] = useState('all');
   const [internalCategories, setInternalCategories] = useState<string[]>([]);
   const [internalPricePreset, setInternalPricePreset] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [internalMinPrice, setInternalMinPrice] = useState('');
+  const [internalMaxPrice, setInternalMaxPrice] = useState('');
+  const [internalConditions, setInternalConditions] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
 
   const currentCampus = externalCampus !== undefined ? externalCampus : internalCampus;
   const currentCategories = externalCategories !== undefined ? externalCategories : internalCategories;
   const currentPricePreset = externalPricePreset !== undefined ? externalPricePreset : internalPricePreset;
+  const currentMinPrice = externalMinPrice !== undefined ? externalMinPrice : internalMinPrice;
+  const currentMaxPrice = externalMaxPrice !== undefined ? externalMaxPrice : internalMaxPrice;
+  const currentConditions = externalConditions !== undefined ? externalConditions : internalConditions;
 
   const handleCampusChange = (campId: string) => {
     setInternalCampus(campId);
@@ -114,10 +130,24 @@ export default function FilterSidebar({
     }
   };
 
+  const handleMinPriceChange = (val: string) => {
+    setInternalMinPrice(val);
+    if (onMinPriceChange) onMinPriceChange(val);
+  };
+
+  const handleMaxPriceChange = (val: string) => {
+    setInternalMaxPrice(val);
+    if (onMaxPriceChange) onMaxPriceChange(val);
+  };
+
   const toggleCondition = (condId: string) => {
-    setSelectedConditions((prev) =>
-      prev.includes(condId) ? prev.filter((id) => id !== condId) : [...prev, condId]
-    );
+    if (onToggleCondition) {
+      onToggleCondition(condId);
+    } else {
+      setInternalConditions((prev) =>
+        prev.includes(condId) ? prev.filter((id) => id !== condId) : [...prev, condId]
+      );
+    }
   };
 
   const toggleLocation = (locId: string) => {
@@ -130,9 +160,9 @@ export default function FilterSidebar({
     setInternalCampus('all');
     setInternalCategories([]);
     setInternalPricePreset('');
-    setMinPrice('');
-    setMaxPrice('');
-    setSelectedConditions([]);
+    setInternalMinPrice('');
+    setInternalMaxPrice('');
+    setInternalConditions([]);
     setSelectedLocations([]);
     if (onReset) onReset();
   };
@@ -143,9 +173,9 @@ export default function FilterSidebar({
         campus: currentCampus,
         categories: currentCategories,
         pricePreset: currentPricePreset,
-        minPrice,
-        maxPrice,
-        conditions: selectedConditions,
+        minPrice: currentMinPrice,
+        maxPrice: currentMaxPrice,
+        conditions: currentConditions,
         locations: selectedLocations,
       });
     }
@@ -279,8 +309,8 @@ export default function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="text"
-              value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
+              value={currentMinPrice}
+              onChange={(e) => handleMinPriceChange(e.target.value)}
               placeholder="50.000"
               className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 h-auto text-xs text-slate-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-fpt-orange"
             />
@@ -289,8 +319,8 @@ export default function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="text"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
+              value={currentMaxPrice}
+              onChange={(e) => handleMaxPriceChange(e.target.value)}
               placeholder="1.500.000"
               className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 h-auto text-xs text-slate-800 shadow-2xs focus-visible:ring-1 focus-visible:ring-fpt-orange"
             />
@@ -308,7 +338,7 @@ export default function FilterSidebar({
         </div>
         <div className="space-y-1.5">
           {conditions.map((cond) => {
-            const isChecked = selectedConditions.includes(cond.id);
+            const isChecked = currentConditions.includes(cond.id);
             return (
               <label
                 key={cond.id}

@@ -46,6 +46,9 @@ function PostsPageContent() {
     initialCategory ? [initialCategory] : []
   );
   const [selectedPricePreset, setSelectedPricePreset] = useState<string>('');
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -143,7 +146,7 @@ function PostsPageContent() {
       const compactQ = strippedQ.replace(/[^a-z0-9]/g, '');
 
       list = list.filter((item) => {
-        const rawTarget = `${item.title} ${item.location} ${item.seller.name} ${item.badges.join(' ')} ${item.campusTag || ''} ${item.campus || ''}`.toLowerCase();
+        const rawTarget = `${item.title} ${item.location} ${item.seller.name} ${item.badges.join(' ')} ${item.campusTag || ''} ${item.campus || ''} ${(item.hashtags || []).join(' ')}`.toLowerCase();
         const strippedTarget = stripVietnamese(rawTarget);
         const compactTarget = strippedTarget.replace(/[^a-z0-9]/g, '');
 
@@ -171,19 +174,44 @@ function PostsPageContent() {
     }
 
     if (selectedCategories.length > 0) {
-      const catMap: Record<string, string[]> = {
-        books: ['giáo trình', 'sách', 'prf192', 'mas291', 'csd201', 'note', 'bài tập'],
-        electronics: ['chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'sony', 'logitech', 'switch', 'hub'],
-        fashion: ['vovinam', 'võ phục', 'áo', 'polo', 'hoodie'],
-        dorm: ['tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor'],
-        hobbies: ['nintendo', 'switch', 'game', 'đàn'],
-        services: ['thẻ gym', 'gym', 'vé bus', 'bus'],
+      const catNormMap: Record<string, { types: string[]; keywords: string[] }> = {
+        books: {
+          types: ['BOOKS'],
+          keywords: ['giáo trình', 'sách', 'book', 'prf', 'mas', 'csd', 'pe', 'fe', 'note', 'tài liệu', 'học tập', 'vở'],
+        },
+        electronics: {
+          types: ['ELECTRONICS'],
+          keywords: ['điện tử', 'chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'sony', 'logitech', 'switch', 'hub', 'it', 'linh kiện', 'laptop', 'macbook', 'cáp', 'sạc', 'dock'],
+        },
+        fashion: {
+          types: ['CLOTHING'],
+          keywords: ['thời trang', 'vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục', 'quần'],
+        },
+        dorm: {
+          types: ['DORM_ITEM'],
+          keywords: ['đồ dùng', 'gia dụng', 'tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ktx', 'giường', 'chiếu', 'nồi', 'ấm', 'phòng', 'gương', 'kệ', 'móc'],
+        },
+        hobbies: {
+          types: ['ELECTRONICS', 'OTHER'],
+          keywords: ['nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình', 'gaming', 'console'],
+        },
+        services: {
+          types: ['OTHER'],
+          keywords: ['dịch vụ', 'tiện ích', 'thẻ gym', 'gym', 'vé bus', 'bus', 'pass', 'voucher', 'căng tin', 'xe'],
+        },
       };
+
       list = list.filter((item) => {
-        const text = `${item.title} ${item.badges.join(' ')} ${item.category || ''}`.toLowerCase();
+        const rawCat = (item.category || '').toLowerCase();
+        const catType = (item.categoryType || '').toUpperCase();
+        const text = `${rawCat} ${catType} ${item.title} ${item.badges.join(' ')}`.toLowerCase();
+
         return selectedCategories.some((catId) => {
-          const kws = catMap[catId] || [catId];
-          return kws.some((kw) => text.includes(kw));
+          const config = catNormMap[catId];
+          if (!config) return text.includes(catId);
+          const matchType = catType && config.types.includes(catType);
+          const matchKeyword = config.keywords.some((kw) => text.includes(kw) || rawCat.includes(kw));
+          return matchType || matchKeyword || rawCat === catId;
         });
       });
     }
@@ -198,6 +226,31 @@ function PostsPageContent() {
       list = list.filter((item) => item.price > 2000000);
     }
 
+    // Custom Min - Max Price filter
+    const parsedMin = Number(minPrice.replace(/\D/g, ''));
+    if (parsedMin > 0) {
+      list = list.filter((item) => item.price >= parsedMin);
+    }
+    const parsedMax = Number(maxPrice.replace(/\D/g, ''));
+    if (parsedMax > 0) {
+      list = list.filter((item) => item.price <= parsedMax);
+    }
+
+    // Conditions filter
+    if (selectedConditions.length > 0) {
+      list = list.filter((item) => {
+        const badgeStr = item.badges.join(' ').toLowerCase();
+        const condStr = (item.condition || '').toLowerCase();
+        return selectedConditions.some((c) => {
+          if (c === 'seal') return badgeStr.includes('100%') || condStr.includes('100') || condStr.includes('seal');
+          if (c === 'likenew') return badgeStr.includes('99%') || badgeStr.includes('like new') || condStr.includes('99');
+          if (c === 'good') return badgeStr.includes('tốt') || condStr.includes('good') || condStr.includes('tốt');
+          if (c === 'used') return badgeStr.includes('cũ') || badgeStr.includes('thanh lý') || condStr.includes('fair') || condStr.includes('used');
+          return true;
+        });
+      });
+    }
+
     if (sortOption === 'price-asc') {
       list.sort((a, b) => a.price - b.price);
     } else if (sortOption === 'price-desc') {
@@ -205,7 +258,7 @@ function PostsPageContent() {
     }
 
     return list;
-  }, [liveProducts, searchKeyword, selectedCampus, selectedCategories, selectedPricePreset, sortOption]);
+  }, [liveProducts, searchKeyword, selectedCampus, selectedCategories, selectedPricePreset, minPrice, maxPrice, selectedConditions, sortOption]);
 
   const activeFilters = useMemo(() => {
     const tags: { id: string; label: string; onRemove: () => void }[] = [];
@@ -246,19 +299,54 @@ function PostsPageContent() {
       });
     }
 
+    if (minPrice || maxPrice) {
+      tags.push({
+        id: 'custom-price',
+        label: `Giá: ${minPrice || '0'} - ${maxPrice || '∞'} đ`,
+        onRemove: () => {
+          setMinPrice('');
+          setMaxPrice('');
+        },
+      });
+    }
+
+    selectedConditions.forEach((condId) => {
+      const condLabels: Record<string, string> = {
+        seal: 'Mới 100%',
+        likenew: 'Mới 99%',
+        good: 'Còn tốt',
+        used: 'Thanh lý',
+      };
+      tags.push({
+        id: `cond-${condId}`,
+        label: `Tình trạng: ${condLabels[condId] || condId}`,
+        onRemove: () =>
+          setSelectedConditions((prev) => prev.filter((id) => id !== condId)),
+      });
+    });
+
     return tags;
-  }, [searchKeyword, selectedCampus, selectedCategories, selectedPricePreset]);
+  }, [searchKeyword, selectedCampus, selectedCategories, selectedPricePreset, minPrice, maxPrice, selectedConditions]);
 
   const clearAllFilters = () => {
     setSearchKeyword('');
     setSelectedCampus('all');
     setSelectedCategories([]);
     setSelectedPricePreset('');
+    setMinPrice('');
+    setMaxPrice('');
+    setSelectedConditions([]);
   };
 
   const handleToggleCategory = (catId: string) => {
     setSelectedCategories((prev) =>
       prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    );
+  };
+
+  const handleToggleCondition = (condId: string) => {
+    setSelectedConditions((prev) =>
+      prev.includes(condId) ? prev.filter((id) => id !== condId) : [...prev, condId]
     );
   };
 
@@ -465,6 +553,12 @@ function PostsPageContent() {
             onToggleCategory={handleToggleCategory}
             selectedPricePreset={selectedPricePreset}
             onSelectPricePreset={(preset) => setSelectedPricePreset(preset)}
+            minPrice={minPrice}
+            onMinPriceChange={setMinPrice}
+            maxPrice={maxPrice}
+            onMaxPriceChange={setMaxPrice}
+            selectedConditions={selectedConditions}
+            onToggleCondition={handleToggleCondition}
             onReset={clearAllFilters}
           />
 

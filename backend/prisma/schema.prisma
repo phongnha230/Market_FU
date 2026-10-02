@@ -49,11 +49,13 @@ enum ItemCondition {
 }
 
 enum ProductStatus {
+  PENDING_APPROVAL
   AVAILABLE
   RESERVED
   SOLD
   HIDDEN
   EXPIRED
+  REJECTED
 }
 
 enum OrderType {
@@ -288,7 +290,10 @@ model Product {
   campus         CampusLocation
   meetupLocation String?
   allowShipping  Boolean         @default(true)
-  status         ProductStatus   @default(AVAILABLE)
+  status         ProductStatus   @default(PENDING_APPROVAL)
+  rejectionReason String?
+  approvedAt      DateTime?
+  moderatedBy     String?         @db.ObjectId
 
   hashtags       String[]        // VD: ["quạt", "điện tử", "hòa lạc", "giá rẻ"]
 

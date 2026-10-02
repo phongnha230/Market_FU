@@ -3,9 +3,10 @@ import { saveImageToStorage, saveMediaToStorage, isValidVideoBuffer, isValidImag
 import { syncProductToMeili, deleteProductFromMeili, searchProductsMeili } from '../../config/meilisearch';
 import { AppError } from '../../middlewares/error.middleware';
 import { getCache, setCache } from '../../config/redis';
-import { CreateProductInput, UpdateProductInput, QueryProductInput } from './product.dto';
+import { CreateProductInput, UpdateProductInput, QueryProductInput, normalizeCategoryType } from './product.dto';
 import { trendingService } from '../analytics/trending.service';
 import { validateProductContent } from '../../utils/profanityFilter';
+import { notificationService } from '../notifications/notification.service';
 
 /**
  * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
@@ -123,19 +124,18 @@ export class ProductService {
       throw new AppError('Người bán không tồn tại', 404, 'SELLER_NOT_FOUND');
     }
 
-    // Business Rule: Đăng bán hoặc trao đổi món đồ bắt buộc tài khoản phải hoàn tất xác thực Thẻ Sinh Viên (KYC) hoặc là Người Bán đã duyệt (SELLER / ADMIN)
-    // Người dùng chưa xác thực Thẻ sinh viên và chưa đăng ký Người Bán thì tuyệt đối KHÔNG được quyền đăng bán.
-    const isVerifiedSeller =
-      (seller.role === 'SELLER' ||
-       seller.role === 'ADMIN' ||
-       seller.profile?.kyc?.status === 'APPROVED') &&
-      seller.role !== 'UNVERIFIED';
+    // Business Rule: Sinh viên thông thường (BUYER / UNVERIFIED) KHÔNG ĐƯỢC BÁN HÀNG.
+    // Chỉ tài khoản đã hoàn tất đăng ký Người Bán (Seller Onboarding) được BQT duyệt (SELLER / ADMIN hoặc profile.kyc APPROVED với type === 'SELLER') mới được phép đăng bán.
+    const isApprovedSeller =
+      seller.role === 'SELLER' ||
+      seller.role === 'ADMIN' ||
+      (seller.profile?.kyc?.status === 'APPROVED' && (seller.profile?.kyc as any)?.type === 'SELLER');
 
-    if (!isVerifiedSeller) {
+    if (!isApprovedSeller) {
       throw new AppError(
-        'Bạn cần hoàn tất đăng ký Người Bán hoặc xác thực Thẻ Sinh Viên (KYC) để được quyền đăng bán / trao đổi sản phẩm trên sàn MarketFU. Vui lòng nộp hồ sơ tại trang cá nhân.',
+        'Sinh viên thông thường chỉ có quyền mua hàng. Để đăng bán sản phẩm trên sàn MarketFU, bạn bắt buộc phải đăng ký nâng cấp tài khoản Người Bán (Seller Onboarding) và được Ban Quản Trị phê duyệt.',
         403,
-        'KYC_REQUIRED_TO_SELL'
+        'ONLY_SELLER_CAN_POST'
       );
     }
 
@@ -166,8 +166,8 @@ export class ProductService {
     const expiredAt = new Date();
     expiredAt.setDate(expiredAt.getDate() + 30);
 
-    // Đồng bộ categoryType từ categoryId nếu có
-    let finalCategoryType = input.categoryType;
+    // Đồng bộ categoryType từ input.category, input.categoryType hoặc categoryId
+    let finalCategoryType = input.categoryType || (input.category as any) || 'OTHER';
     if (input.categoryId) {
       const cat = await prisma.category.findUnique({
         where: { id: input.categoryId },
@@ -202,7 +202,8 @@ export class ProductService {
         meetupLocation: input.meetupLocation || (input as any).location,
         allowShipping: input.allowShipping,
         hashtags: input.hashtags ?? [],
-        status: 'AVAILABLE',
+        status: seller.role === 'ADMIN' ? 'AVAILABLE' : 'PENDING_APPROVAL',
+        approvedAt: seller.role === 'ADMIN' ? new Date() : undefined,
         expiredAt,
         images: productImages,
         videoUrl: uploadedVideo?.secure_url,
@@ -221,16 +222,30 @@ export class ProductService {
       },
     });
 
-    // Đồng bộ sản phẩm sang Meilisearch engine để tìm kiếm tức thì
-    await syncProductToMeili(product);
+    // Chỉ đồng bộ sang Meilisearch engine khi bài đăng được duyệt hiển thị (AVAILABLE)
+    if (product.status === 'AVAILABLE') {
+      await syncProductToMeili(product);
+    }
 
     return sanitizeProductSeller(product);
   }
 
   // 2. Danh sách sản phẩm kèm Bộ lọc đa chiều & Phân trang Skip-Limit
   async getProducts(query: QueryProductInput) {
-    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy, page, limit } = query;
+    const { campus, categoryId, category, categoryType: queryCatType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy, page, limit } = query as any;
     const skip = (page - 1) * limit;
+
+    // Xác định categoryType từ categoryType, category hoặc categoryId
+    let finalCatType = queryCatType;
+    if (!finalCatType && category) {
+      finalCatType = normalizeCategoryType(category);
+    }
+    if (!finalCatType && categoryId) {
+      const normalized = normalizeCategoryType(categoryId);
+      if (normalized && normalized !== 'OTHER') {
+        finalCatType = normalized;
+      }
+    }
 
     // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
     if (search && search.trim().length > 0) {
@@ -238,7 +253,7 @@ export class ProductService {
       const meiliResult = await searchProductsMeili(search.trim(), {
         campus,
         categoryId,
-        categoryType,
+        categoryType: finalCatType,
         condition,
         minPrice,
         maxPrice,
@@ -297,14 +312,20 @@ export class ProductService {
       // Nếu meiliResult === null (Meilisearch offline) -> tự động trôi xuống fallback Prisma bên dưới
     }
 
-    const where: any = allStatuses
-      ? {} // Hiển thị tất cả trạng thái khi là profile cá nhân
-      : { status: 'AVAILABLE' };
+    const where: any = {};
+    if (query.status) {
+      where.status = query.status;
+    } else if (!allStatuses) {
+      where.status = 'AVAILABLE';
+    }
 
     if (sellerId) where.sellerId = sellerId;
     if (campus) where.campus = campus;
-    if (categoryId) where.categoryId = categoryId;
-    if (categoryType) where.categoryType = categoryType;
+    if (finalCatType) {
+      where.categoryType = finalCatType;
+    } else if (categoryId && categoryId.length === 24) {
+      where.categoryId = categoryId;
+    }
     if (condition) where.condition = condition;
 
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -698,6 +719,33 @@ export class ProductService {
       throw new AppError('Không thể chỉnh sửa sản phẩm đã được bán', 400, 'PRODUCT_ALREADY_SOLD');
     }
 
+    // Nếu sản phẩm đã được Admin duyệt (AVAILABLE):
+    // Chỉ cho phép sửa: Giá bán (price), Giá gốc (originalPrice), Độ mới (condition), Điểm hẹn (meetupLocation), Mô tả (description), Cho phép ship (allowShipping), Hashtags.
+    // KHÔNG ĐƯỢC PHÉP sửa: Tiêu đề (title), Danh mục (category/categoryType), Cơ sở (campus) để chống tráo đổi hàng sau kiểm duyệt.
+    if (product.status === 'AVAILABLE') {
+      if (input.title && input.title.trim() !== product.title.trim()) {
+        throw new AppError(
+          'Tin đăng đã được duyệt không thể thay đổi tiêu đề món đồ để chống gian lận tráo đổi hàng. Bạn chỉ có thể sửa giá bán, mô tả, điểm hẹn Safe-Point hoặc đăng tin mới.',
+          400,
+          'CANNOT_EDIT_TITLE_AFTER_APPROVAL'
+        );
+      }
+      if ((input.categoryId && input.categoryId !== product.categoryId) || (input.categoryType && input.categoryType !== product.categoryType)) {
+        throw new AppError(
+          'Không thể thay đổi danh mục của sản phẩm sau khi đã được phê duyệt.',
+          400,
+          'CANNOT_EDIT_CATEGORY_AFTER_APPROVAL'
+        );
+      }
+      if (input.campus && input.campus !== product.campus) {
+        throw new AppError(
+          'Không thể thay đổi cơ sở campus của bài đăng đã duyệt.',
+          400,
+          'CANNOT_EDIT_CAMPUS_AFTER_APPROVAL'
+        );
+      }
+    }
+
     // Kiểm duyệt nội dung khi cập nhật thông tin bài viết
     if (input.title || input.description || input.hashtags) {
       validateProductContent(
@@ -708,27 +756,55 @@ export class ProductService {
     }
 
     let updatedImages = product.images;
-    if (newImages && newImages.length > 0) {
-      if (newImages.length > 5) {
-        throw new AppError('Chỉ được tải lên tối đa 5 hình ảnh cho mỗi sản phẩm', 400, 'TOO_MANY_IMAGES');
+    const hasNewImages = Boolean(newImages && newImages.length > 0);
+    const hasImageUrls = Boolean(input.imageUrls && input.imageUrls.length > 0);
+
+    if (hasNewImages || hasImageUrls) {
+      let finalImages: { imageUrl: string; isCover: boolean; displayOrder: number }[] = [];
+      let orderIndex = 0;
+
+      // 1. Giữ lại các URL ảnh cũ được chọn từ client
+      if (hasImageUrls && input.imageUrls) {
+        input.imageUrls.forEach((url) => {
+          finalImages.push({
+            imageUrl: url,
+            isCover: orderIndex === 0,
+            displayOrder: orderIndex++,
+          });
+        });
       }
 
-      for (const img of newImages) {
-        if (img.size > 5 * 1024 * 1024) {
-          throw new AppError(`Hình ảnh '${img.originalname}' vượt quá dung lượng tối đa 5MB`, 400, 'IMAGE_TOO_LARGE');
+      // 2. Upload và thêm các ảnh mới
+      if (hasNewImages && newImages) {
+        if (newImages.length > 5) {
+          throw new AppError('Chỉ được tải lên tối đa 5 hình ảnh cho mỗi sản phẩm', 400, 'TOO_MANY_IMAGES');
         }
+
+        for (const img of newImages) {
+          if (img.size > 5 * 1024 * 1024) {
+            throw new AppError(`Hình ảnh '${img.originalname}' vượt quá dung lượng tối đa 5MB`, 400, 'IMAGE_TOO_LARGE');
+          }
+        }
+
+        const uploadedImages = await Promise.all(
+          newImages.map((file) => saveImageToStorage(file.buffer, 'products'))
+        );
+
+        uploadedImages.forEach((img) => {
+          finalImages.push({
+            imageUrl: img.secure_url,
+            isCover: orderIndex === 0,
+            displayOrder: orderIndex++,
+          });
+        });
       }
 
-      const uploadedImages = await Promise.all(
-        newImages.map((file) => saveImageToStorage(file.buffer, 'products'))
-      );
-
-      updatedImages = uploadedImages.map((img, index) => ({
-        imageUrl: img.secure_url,
-        isCover: index === 0,
-        displayOrder: index,
-      }));
+      if (finalImages.length > 0) {
+        updatedImages = finalImages;
+      }
     }
+
+    const finalCategoryType = input.categoryType || (input.category as any);
 
     const updated = await prisma.product.update({
       where: { id: productId },
@@ -738,7 +814,7 @@ export class ProductService {
         ...(input.price !== undefined && { price: input.price }),
         ...(input.originalPrice !== undefined && { originalPrice: input.originalPrice }),
         ...(input.categoryId && { categoryId: input.categoryId }),
-        ...(input.categoryType && { categoryType: input.categoryType }),
+        ...(finalCategoryType && { categoryType: finalCategoryType }),
         ...(input.condition && { condition: input.condition }),
         ...(input.quantity !== undefined && { quantity: input.quantity }),
         ...(input.campus && { campus: input.campus }),
@@ -747,7 +823,7 @@ export class ProductService {
         }),
         ...(input.allowShipping !== undefined && { allowShipping: input.allowShipping }),
         ...(input.hashtags !== undefined && { hashtags: input.hashtags }),
-        ...(newImages && newImages.length > 0 && { images: updatedImages }),
+        ...((hasNewImages || hasImageUrls) && { images: updatedImages }),
       },
       include: {
         seller: {
@@ -960,6 +1036,182 @@ export class ProductService {
       campus: p.campus,
       hashtags: p.hashtags?.slice(0, 3) ?? [],
     }));
+  }
+
+  // 14. Lấy danh sách tin kiểm duyệt dành cho Quản trị viên (ADMIN)
+  async getAdminProducts(query: {
+    status?: string;
+    campus?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (query.status && query.status !== 'ALL' && query.status !== 'all') {
+      where.status = query.status;
+    }
+
+    if (query.campus && query.campus !== 'ALL' && query.campus !== 'all') {
+      where.campus = query.campus;
+    }
+
+    if (query.search && query.search.trim().length > 0) {
+      const q = query.search.trim();
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { seller: { profile: { fullName: { contains: q, mode: 'insensitive' } } } },
+        { seller: { email: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [total, products, totalPending, totalLive, totalRejected, totalAll] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          seller: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  phoneNumber: true,
+                  campus: true,
+                  reputationScore: true,
+                  cohort: true,
+                  kyc: true,
+                },
+              },
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              iconUrl: true,
+            },
+          },
+        },
+      }),
+      prisma.product.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.product.count({ where: { status: 'AVAILABLE' } }),
+      prisma.product.count({ where: { status: 'REJECTED' } }),
+      prisma.product.count(),
+    ]);
+
+    return {
+      products,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      counts: {
+        all: totalAll,
+        pending: totalPending,
+        live: totalLive,
+        rejected: totalRejected,
+      },
+    };
+  }
+
+  // 15. Quản trị viên duyệt tin đăng
+  async approveProduct(adminId: string, productId: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        status: 'AVAILABLE',
+        approvedAt: new Date(),
+        moderatedBy: adminId,
+        rejectionReason: null,
+      },
+      include: {
+        seller: publicSellerSelect,
+        category: true,
+      },
+    });
+
+    // Đồng bộ tin đăng đã duyệt sang Meilisearch engine để người mua tìm thấy
+    await syncProductToMeili(updated);
+
+    // Gửi thông báo thời gian thực cho Người bán
+    try {
+      await notificationService.sendNotification({
+        userId: product.sellerId,
+        title: 'Tin đăng đã được phê duyệt! 🎉',
+        body: `Tin đăng "${product.title}" của bạn đã được kiểm duyệt thành công và hiện đang hiển thị công khai trên chợ.`,
+        type: 'SYSTEM',
+        targetUrl: `/posts/${product.id}`,
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send approval notification:', notifErr);
+    }
+
+    return updated;
+  }
+
+  // 16. Quản trị viên từ chối duyệt tin đăng
+  async rejectProduct(adminId: string, productId: string, reason: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: reason,
+        moderatedBy: adminId,
+      },
+      include: {
+        seller: publicSellerSelect,
+        category: true,
+      },
+    });
+
+    // Xóa khỏi Meilisearch nếu có
+    await deleteProductFromMeili(productId);
+
+    // Gửi thông báo cho Người bán kèm lý do từ chối
+    try {
+      await notificationService.sendNotification({
+        userId: product.sellerId,
+        title: 'Tin đăng bị từ chối duyệt ⚠️',
+        body: `Tin đăng "${product.title}" của bạn không được duyệt. Lý do: ${reason}`,
+        type: 'SYSTEM',
+        targetUrl: `/profile`,
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send rejection notification:', notifErr);
+    }
+
+    return updated;
   }
 }
 

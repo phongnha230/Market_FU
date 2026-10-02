@@ -111,7 +111,8 @@ export const ProductService = {
         params.campus = campusMap[criteria.campus] || criteria.campus.toUpperCase();
       }
       if (criteria?.categories && criteria.categories.length > 0) {
-        params.categoryId = criteria.categories[0];
+        params.categoryType = criteria.categories[0];
+        params.category = criteria.categories[0];
       }
       if (criteria?.minPrice) params.minPrice = criteria.minPrice;
       if (criteria?.maxPrice) params.maxPrice = criteria.maxPrice;
@@ -261,5 +262,51 @@ export const ProductService = {
       // Fallback
     }
     return getLiveLocalProducts().slice(0, 4);
+  },
+
+  // 13. [Admin] Lấy danh sách tin kiểm duyệt kèm bộ lọc và thống kê số lượng
+  async getAdminProducts(params?: {
+    status?: string;
+    campus?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    products: any[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+    counts: { all: number; pending: number; live: number; rejected: number };
+  }> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/products/admin/moderation', {
+      params,
+    });
+    const meta: any = response.data.meta || {};
+    const rawProducts = response.data.data || [];
+    return {
+      products: rawProducts,
+      pagination: {
+        total: meta.total ?? rawProducts.length,
+        page: meta.page ?? 1,
+        limit: meta.limit ?? 20,
+        totalPages: meta.totalPages ?? 1,
+      },
+      counts: meta.counts || {
+        all: rawProducts.length,
+        pending: rawProducts.filter((p: any) => p.status === 'PENDING_APPROVAL').length,
+        live: rawProducts.filter((p: any) => p.status === 'AVAILABLE').length,
+        rejected: rawProducts.filter((p: any) => p.status === 'REJECTED').length,
+      },
+    };
+  },
+
+  // 14. [Admin] Phê duyệt tin đăng
+  async approveProduct(id: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/approve`);
+    return response.data.data;
+  },
+
+  // 15. [Admin] Từ chối tin đăng kèm lý do
+  async rejectProduct(id: string, reason: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason });
+    return response.data.data;
   },
 };

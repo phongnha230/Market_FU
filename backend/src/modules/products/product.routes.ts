@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { productController } from './product.controller';
-import { authenticate } from '../../middlewares/auth.middleware';
+import { authenticate, authorize } from '../../middlewares/auth.middleware';
 import { productUploadMiddleware } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
 // Public routes (Xem danh sách và chi tiết)
 router.get('/', productController.getProducts);
+
+// Admin moderation routes (Dành riêng cho ADMIN, đặt trước :id)
+router.get('/admin/moderation', authenticate, authorize('ADMIN'), productController.getAdminProducts);
+router.patch('/admin/:id/approve', authenticate, authorize('ADMIN'), productController.approveProduct);
+router.patch('/admin/:id/reject', authenticate, authorize('ADMIN'), productController.rejectProduct);
 
 // Protected routes (Xem danh sách yêu thích) - đặt trước :id
 router.get('/favorites/me', authenticate, productController.getMyFavorites);

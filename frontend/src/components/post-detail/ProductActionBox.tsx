@@ -44,15 +44,31 @@ export default function ProductActionBox({
   );
   const isVerifiedStudent = isEduEmail || currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const isInterCampus =
-    product.location.toLowerCase().includes('hcm') ||
-    product.location.toLowerCase().includes('đà nẵng') ||
-    product.location.toLowerCase().includes('quy nhơn') ||
-    product.location.toLowerCase().includes('cần thơ') ||
-    product.id.includes('feat-2') ||
-    product.id.includes('feat-3') ||
-    product.id === 'akko-3087-v2' ||
-    product.id.includes('portable');
+
+  const normalizeCampus = (raw?: string): string => {
+    if (!raw) return 'HOL';
+    const s = raw.toLowerCase().trim();
+    if (s.includes('hồ chí minh') || s.includes('hcm') || s.includes('tp.hcm') || s.includes('sg') || s.includes('sài gòn')) return 'HCM';
+    if (s.includes('đà nẵng') || s.includes('da nang') || s.includes('dad') || s.includes('dn')) return 'DAD';
+    if (s.includes('quy nhơn') || s.includes('quy nhon') || s.includes('qn')) return 'QN';
+    if (s.includes('cần thơ') || s.includes('can tho') || s.includes('ct')) return 'CT';
+    if (s.includes('hòa lạc') || s.includes('hoa lac') || s.includes('hn') || s.includes('hà nội') || s.includes('hol')) return 'HOL';
+    return 'HOL';
+  };
+
+  const CAMPUS_NAMES: Record<string, string> = {
+    HOL: 'Hòa Lạc',
+    HCM: 'TP. Hồ Chí Minh',
+    DAD: 'Đà Nẵng',
+    QN: 'Quy Nhơn',
+    CT: 'Cần Thơ',
+  };
+
+  const userCampusCode = normalizeCampus(currentUser.campus || 'HOL');
+  const productCampusCode = normalizeCampus(product.campus || product.campusTag || product.location);
+  const isInterCampus = userCampusCode !== productCampusCode;
+  const userCampusName = CAMPUS_NAMES[userCampusCode] || 'Hòa Lạc';
+  const productCampusName = CAMPUS_NAMES[productCampusCode] || product.location || 'cơ sở khác';
 
   const isOwner = Boolean(
     isLoggedIn && (
@@ -107,7 +123,7 @@ export default function ProductActionBox({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-tight">
-                  Món đồ ở <strong>{product.location}</strong> khác cơ sở Hòa Lạc của bạn. Hỗ trợ đóng thùng chống sốc KTX và ký quỹ Escrow an toàn.
+                  Món đồ ở cơ sở <strong>{productCampusName}</strong> khác cơ sở <strong>{userCampusName}</strong> của bạn. Hỗ trợ gửi bưu cục / GHN liên campus và bảo chứng Escrow 48h an toàn.
                 </p>
               </div>
 
@@ -155,7 +171,7 @@ export default function ProductActionBox({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-tight">
-                  Món đồ cùng cơ sở <strong>{product.location}</strong>. Bàn giao trực tiếp tại Safe-Points (Sảnh Alpha, Thư viện) và kích hoạt bảo hành 24h bằng mã QR Handshake.
+                  Món đồ cùng cơ sở <strong>{productCampusName}</strong> với bạn. Bàn giao trực tiếp tại Safe-Points (Sảnh Alpha, Thư viện) và kích hoạt bảo hành 24h bằng mã QR Handshake.
                 </p>
               </div>
 

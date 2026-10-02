@@ -25,6 +25,11 @@ import {
   Sparkles,
   Eye,
   Clock,
+  Tag,
+  Pencil,
+  Hash,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function ProductDetailPage() {
@@ -242,6 +247,29 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* Moderation Status Banner */}
+      {product.status === 'PENDING_APPROVAL' && (
+        <div className="bg-amber-500/10 border-b border-amber-300 py-3 px-4 sm:px-6">
+          <div className="mx-auto max-w-7xl flex items-center gap-2 text-xs sm:text-sm font-semibold text-amber-800">
+            <Clock className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>
+              <strong>Tin đăng đang chờ Ban Quản Trị duyệt:</strong> Tin chưa được hiển thị ra ngoài trang chủ cho đến khi được duyệt an toàn.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {product.status === 'REJECTED' && (
+        <div className="bg-red-50 border-b border-red-200 py-3 px-4 sm:px-6">
+          <div className="mx-auto max-w-7xl flex items-center gap-2 text-xs sm:text-sm font-semibold text-red-800">
+            <ShieldAlert className="h-4 w-4 shrink-0 text-red-600" />
+            <span>
+              <strong>Tin đăng đã bị từ chối:</strong> {product.rejectionReason ? `Lý do: ${product.rejectionReason}` : 'Nội dung hoặc hình ảnh vi phạm quy chế sàn.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 3. MAIN DETAIL BODY */}
       <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 py-6 sm:py-8 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
@@ -316,9 +344,23 @@ export default function ProductDetailPage() {
 
             {/* Seller Description */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">
-                Mô tả từ người bán
-              </h3>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                  Mô tả từ người bán
+                </h3>
+                {Boolean(
+                  (user.id && (product.sellerId === user.id || product.seller.id === user.id)) ||
+                  (user.name && product.seller.name && user.name.toLowerCase() === product.seller.name.toLowerCase())
+                ) && (
+                  <Link
+                    href={`/posts/${encodeURIComponent(product.id)}/edit`}
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 text-xs font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    <span>Sửa tin đăng</span>
+                  </Link>
+                )}
+              </div>
               <div className="space-y-3">
                 <MarkdownRenderer content={product.description} />
                 {product.bulletPoints && product.bulletPoints.length > 0 && (
@@ -337,6 +379,32 @@ export default function ProductDetailPage() {
                   <p className="text-xs text-slate-500 italic pt-1 border-t border-slate-50">
                     * {product.meetingNote}
                   </p>
+                )}
+
+                {/* HASHTAGS BADGES */}
+                {product.hashtags && product.hashtags.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                    <div className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                      <Tag className="h-3.5 w-3.5 text-fpt-orange" />
+                      <span>Hashtag liên quan:</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {product.hashtags.map((tag, idx) => {
+                        const cleanTag = tag.replace(/^#/, '').trim();
+                        if (!cleanTag) return null;
+                        return (
+                          <Link
+                            key={idx}
+                            href={`/posts?q=${encodeURIComponent('#' + cleanTag)}`}
+                            className="inline-flex items-center gap-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-fpt-orange border border-orange-200/80 px-2.5 py-1 text-xs font-bold transition-all shadow-2xs hover:scale-105"
+                          >
+                            <Hash className="h-3 w-3 text-fpt-orange/70" />
+                            <span>{cleanTag}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

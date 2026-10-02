@@ -8,6 +8,7 @@ import {
   updateProductStatusSchema,
   queryProductSchema,
   boostProductSchema,
+  rejectProductSchema,
 } from './product.dto';
 import { sendSuccess } from '../../utils/response';
 
@@ -237,6 +238,42 @@ export class ProductController {
 
       const suggestions = await productService.getSuggestions(q, { campus, limit });
       return sendSuccess(res, suggestions);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Quản trị viên xem danh sách tin kiểm duyệt (GET /api/products/admin/moderation)
+  async getAdminProducts(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await productService.getAdminProducts(req.query as any);
+      sendSuccess(res, result.products, {
+        ...result.pagination,
+        counts: result.counts,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Quản trị viên phê duyệt tin đăng (PATCH /api/products/admin/:id/approve)
+  async approveProduct(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const result = await productService.approveProduct(req.user!.userId, id);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Quản trị viên từ chối tin đăng (PATCH /api/products/admin/:id/reject)
+  async rejectProduct(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const { reason } = rejectProductSchema.parse(req.body);
+      const result = await productService.rejectProduct(req.user!.userId, id, reason);
+      sendSuccess(res, result);
     } catch (error) {
       next(error);
     }

@@ -33,8 +33,16 @@ export interface ProductItem {
   timeAgo?: string;
   seller: Seller;
   category?: string;
+  categoryId?: string;
+  categoryType?: string;
+  hashtags?: string[];
+  condition?: string;
+  quantity?: number;
+  allowShipping?: boolean;
   viewCount?: number;
   status?: string;
+  rejectionReason?: string;
+  approvedAt?: string;
   createdAt?: string;
 }
 
@@ -45,6 +53,7 @@ export interface ProductDetail extends ProductItem {
   }[];
   condition: string;
   description: string;
+  hashtags?: string[];
   bulletPoints: {
     title: string;
     content: string;
