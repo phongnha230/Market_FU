@@ -19,23 +19,32 @@ import { Card, Badge, Button } from '@/components/ui';
 
 interface OrderCardProps {
   order: OrderItem;
+  currentUserId?: string;
+  viewerRole?: 'buyer' | 'seller';
   onConfirmReceived: (code: string) => void;
   onOpenTracking: (order: OrderItem) => void;
   onOpenAiBot: () => void;
   onOpenQrModal?: (order: OrderItem) => void;
+  onOpenPaymentModal?: (order: OrderItem) => void;
   onCancelOrder?: (orderId: string, orderCode: string) => void;
   onShipOrder?: (order: OrderItem) => void;
 }
 
 export default function OrderCard({
   order,
+  currentUserId,
+  viewerRole,
   onConfirmReceived,
   onOpenTracking,
   onOpenAiBot,
   onOpenQrModal,
+  onOpenPaymentModal,
   onCancelOrder,
   onShipOrder,
 }: OrderCardProps) {
+  const isSellerViewer =
+    viewerRole === 'seller' ||
+    (Boolean(currentUserId) && Boolean(order.sellerId) && order.sellerId === currentUserId);
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + ' đ';
   };
@@ -105,11 +114,17 @@ export default function OrderCard({
           </p>
 
           <div className="mt-2 text-xs text-slate-600 flex items-center gap-3 flex-wrap">
-            <span>
-              👤 Người bán: <strong>{order.product.seller.name}</strong> ({order.product.seller.cohortCampus})
-            </span>
+            {isSellerViewer ? (
+              <span>
+                👤 Khách mua: <strong>{(order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT'}</strong>
+              </span>
+            ) : (
+              <span>
+                👤 Người bán: <strong>{order.product.seller.name}</strong> ({order.product.seller.cohortCampus})
+              </span>
+            )}
             <span className="text-emerald-600 flex items-center gap-1 font-medium">
-              <CheckCircle2 className="h-3.5 w-3.5" /> {order.product.seller.verifiedText}
+              <CheckCircle2 className="h-3.5 w-3.5" /> {isSellerViewer ? 'Đã xác thực tài khoản FPT' : order.product.seller.verifiedText}
             </span>
           </div>
         </div>
@@ -211,29 +226,34 @@ export default function OrderCard({
 
       {/* Action Buttons Row */}
       <div className="p-4 sm:px-5 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2.5 bg-slate-50/30">
+        {/* 1. Chat button */}
         <Button
           asChild
           variant="outline"
           className="h-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
         >
-          <Link href={`/chat?seller=${encodeURIComponent(order.product.seller.name)}`}>
+          <Link href={`/chat?seller=${encodeURIComponent(isSellerViewer ? ((order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT') : order.product.seller.name)}`}>
             <MessageSquare className="h-3.5 w-3.5 text-fpt-orange" />
-            <span>Chat với người bán</span>
+            <span>{isSellerViewer ? 'Chat với người mua' : 'Chat với người bán'}</span>
           </Link>
         </Button>
 
-        <Button
-          asChild
-          variant="outline"
-          className="h-auto rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
-        >
-          <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-            <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-            <span>Khiếu nại / Trả hàng</span>
-          </Link>
-        </Button>
+        {/* 2. Dispute button (Buyer only) */}
+        {!isSellerViewer && (
+          <Button
+            asChild
+            variant="outline"
+            className="h-auto rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
+          >
+            <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <span>Khiếu nại / Trả hàng</span>
+            </Link>
+          </Button>
+        )}
 
-        {order.status === 'processing' && onCancelOrder && (
+        {/* 3. Cancel order button (Buyer only when processing) */}
+        {!isSellerViewer && order.status === 'processing' && onCancelOrder && (
           <Button
             type="button"
             variant="outline"
@@ -245,17 +265,31 @@ export default function OrderCard({
           </Button>
         )}
 
-        {onShipOrder && order.status === 'processing' && (
+        {/* 3.1. Payment button for unpaid orders (Buyer) */}
+        {!isSellerViewer && onOpenPaymentModal && order.payment && !order.payment.isPaid && order.status !== 'completed' && (
+          <Button
+            type="button"
+            onClick={() => onOpenPaymentModal(order)}
+            className="h-auto rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
+          >
+            <QrCode className="h-3.5 w-3.5 text-white" />
+            <span>Thanh toán ngay (QR / PayOS)</span>
+          </Button>
+        )}
+
+        {/* 4. Ship order button (Seller only when processing/shipping) */}
+        {isSellerViewer && onShipOrder && (order.status === 'processing' || order.status === 'shipping') && (
           <Button
             type="button"
             onClick={() => onShipOrder(order)}
             className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <Truck className="h-3.5 w-3.5 text-white" />
-            <span>Gửi hàng / Nhập mã vận đơn</span>
+            <span>{order.status === 'shipping' ? 'Cập nhật vận đơn GHN' : 'Gửi hàng / Nhập mã GHN'}</span>
           </Button>
         )}
 
+        {/* 5. Support AI bot */}
         <Button
           type="button"
           variant="outline"
@@ -265,7 +299,8 @@ export default function OrderCard({
           Hỗ trợ đơn
         </Button>
 
-        {order.tracking && (
+        {/* 6. Tracking detail button */}
+        {(order.tracking || order.type === 'inter-campus') && (
           <Button
             type="button"
             variant="outline"
@@ -277,6 +312,7 @@ export default function OrderCard({
           </Button>
         )}
 
+        {/* 7. QR Handshake button */}
         {order.type === 'safe-handoff' && order.status !== 'completed' && onOpenQrModal && (
           <Button
             type="button"
@@ -285,11 +321,12 @@ export default function OrderCard({
             className="h-auto rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3.5 py-2 text-xs font-bold hover:bg-emerald-100 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <QrCode className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Mã QR Bàn giao</span>
+            <span>{isSellerViewer ? 'Xác nhận Bàn giao (QR/OTP)' : 'Mã QR Bàn giao'}</span>
           </Button>
         )}
 
-        {order.status === 'shipping' && (
+        {/* 8. Confirm received button (Buyer only when shipping or delivered) */}
+        {!isSellerViewer && (order.status === 'shipping' || order.status === 'delivered') && (
           <Button
             type="button"
             onClick={() => onConfirmReceived(order.code)}

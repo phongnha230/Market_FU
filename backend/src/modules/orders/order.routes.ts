@@ -10,8 +10,14 @@ router.use(authenticate);
 router.post('/', orderController.createOrder);
 router.get('/', orderController.getOrders);
 router.get('/shipping/estimate', orderController.estimateShipping);
+
+// Thống kê doanh thu & đơn hàng của Seller (đặt trước /:id)
+router.get('/seller/analytics', orderController.getSellerAnalytics);
+
 router.get('/:id', orderController.getOrderDetail);
+router.get('/:id/tracking', orderController.getOrderTracking);
 router.post('/:id/handshake', orderController.verifyHandshake);
+router.post('/:id/seller-confirm-handoff', orderController.sellerConfirmHandoff);
 router.patch('/:id/shipping', orderController.updateShippingStatus);
 router.post('/:id/cancel', orderController.cancelOrder);
 

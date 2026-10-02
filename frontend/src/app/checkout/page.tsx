@@ -106,8 +106,8 @@ function CheckoutContent() {
   const [estimatedDays, setEstimatedDays] = useState<string>('2 - 3 ngày làm việc');
   const [transitHub, setTransitHub] = useState<string>('Hub Nam - Bắc (FPT TP.HCM ➔ FPT Hòa Lạc)');
 
-  // Payment method state: vietqr | payos | cod
-  const [paymentMethod, setPaymentMethod] = useState<'vietqr' | 'payos' | 'cod'>('vietqr');
+  // Payment method state: payos (VietQR Napas247 tự động) | cod (Thanh toán khi nhận)
+  const [paymentMethod, setPaymentMethod] = useState<'payos' | 'cod'>('payos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -238,7 +238,7 @@ function CheckoutContent() {
           orderType: isMeetup ? 'MEETUP' : 'SHIP_COD',
           coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
           deliveryNote,
-          paymentMethod: paymentMethod === 'vietqr' ? 'VIETQR' : paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
+          paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined
             : {
@@ -279,7 +279,7 @@ function CheckoutContent() {
         },
         type: isMeetup ? 'safe-handoff' : 'inter-campus',
         deliveryNote,
-        paymentMethod: paymentMethod === 'payos' ? 'PayOS Web' : paymentMethod === 'vietqr' ? 'VietQR Napas247' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
+        paymentMethod: paymentMethod === 'payos' ? 'VietQR Napas247 (Tự động)' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
       });
 
       const finalCode = createdBackendOrder?.orderCode || localOrder.code;
@@ -607,118 +607,94 @@ function CheckoutContent() {
               </div>
 
               <div className="mt-4 space-y-4">
-                {/* OPTION 1: VIETQR NAPAS247 */}
+                {/* OPTION 1: VIETQR NAPAS247 (PAYOS GATEWAY) - KHUYÊN DÙNG */}
                 <div
-                  onClick={() => setPaymentMethod('vietqr')}
-                  className={`rounded-xl border p-4 transition-all cursor-pointer ${
-                    paymentMethod === 'vietqr'
-                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15'
+                  onClick={() => setPaymentMethod('payos')}
+                  className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
+                    paymentMethod === 'payos'
+                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15 shadow-xs'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === 'vietqr'}
-                        onChange={() => setPaymentMethod('vietqr')}
-                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange"
+                        checked={paymentMethod === 'payos'}
+                        onChange={() => setPaymentMethod('payos')}
+                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange mt-0.5 cursor-pointer"
                       />
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900">
-                            Quét mã QR Sàn FPT (VietQR Napas247 / Escrow An Toàn)
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-extrabold text-slate-900">
+                            Quét mã QR Ngân hàng (VietQR Napas 24/7 • Tự động khớp lệnh)
                           </span>
                           <span className="rounded bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
                             KHUYÊN DÙNG
                           </span>
+                          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                            ESCROW BẢO HỘ 100%
+                          </span>
                         </div>
-                        <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
-                          ⚡ Xác thực tức thì 0đ phí • Tự động khớp lệnh sau 5 giây.
+                        <p className="text-[11px] text-emerald-700 mt-1 font-medium">
+                          ⚡ Mở App Ngân hàng bất kỳ (VCB, MB, Techcom, BIDV,...) để quét • Khớp lệnh tự động trong 1-2 giây.
                         </p>
                       </div>
                     </div>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
+                      <QrCode className="h-5 w-5" />
+                    </div>
                   </div>
 
-                  <p className="mt-2 text-xs text-slate-600 pl-7 leading-relaxed">
+                  <p className="mt-2.5 text-xs text-slate-600 pl-7 leading-relaxed">
                     {isMeetup
                       ? 'Tiền chuyển vào tài khoản Escrow trung gian của Sàn FPT. Người bán chỉ được giải ngân sau khi xác thực mã QR Handshake hoặc OTP tại điểm hẹn.'
-                      : 'Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho bạn bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm "Đã kiểm tra OK".'}
+                      : 'Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho người bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm "Đã kiểm tra OK".'}
                   </p>
 
-                  {/* VIETQR INFO CARD */}
-                  {paymentMethod === 'vietqr' && (
-                    <div className="mt-3 ml-7 rounded-xl border border-orange-200/80 bg-orange-50/60 p-3.5 sm:p-4 text-xs">
+                  {/* PAYOS VIETQR INFO BOX */}
+                  {paymentMethod === 'payos' && (
+                    <div className="mt-3.5 ml-7 rounded-xl border border-orange-200/80 bg-orange-50/60 p-3.5 sm:p-4 text-xs space-y-2.5 animate-in fade-in duration-150">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
-                          <QrCode className="h-5 w-5" />
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-fpt-orange">
+                          <Sparkles className="h-4 w-4" />
                         </div>
                         <div className="space-y-1 flex-1">
-                          <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
-                            Thanh toán VietQR Napas247 chính xác tuyệt đối:
+                          <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                            Đối soát tự động qua Cổng thanh toán bảo mật PayOS (Napas 24/7):
                           </h4>
                           <p className="text-slate-600 text-xs leading-relaxed">
-                            Khi bạn bấm <span className="font-bold text-fpt-orange">&quot;Xác nhận đặt đơn&quot;</span>, hệ thống sẽ lưu đơn hàng vào Database và xuất mã QR Napas247 chính thức khớp 100% với mã đơn hàng của bạn.
+                            Khi bạn bấm <strong className="text-fpt-orange">&quot;Xác nhận đặt đơn&quot;</strong>, hệ thống sẽ kết nối với PayOS để hiển thị mã VietQR động chính thức. Khi bạn chuyển khoản xong, máy chủ sẽ tự động nhận Webhook và chuyển trạng thái thành công ngay lập tức mà không cần chụp lại ảnh biên lai.
                           </p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold pt-1">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                            <span>Tài khoản MB Bank Sàn FPT • Đối soát tự động thời gian thực (Webhook HMAC-SHA256)</span>
-                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-orange-200/60 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-600">
+                        <span className="font-medium flex items-center gap-1.5 text-emerald-800">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Tự động kích hoạt bảo chứng Escrow ngay khi tiền tới
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold">
+                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">MB Bank</span>
+                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Vietcombank</span>
+                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Techcombank</span>
+                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Napas247</span>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* OPTION 2: PAYOS WEB GATEWAY */}
-                <div
-                  onClick={() => setPaymentMethod('payos')}
-                  className={`rounded-xl border p-4 transition-all cursor-pointer ${
-                    paymentMethod === 'payos'
-                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15'
-                      : 'border-slate-200 bg-white hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={paymentMethod === 'payos'}
-                        onChange={() => setPaymentMethod('payos')}
-                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900">
-                            Cổng thanh toán trực tuyến PayOS (Web Checkout)
-                          </span>
-                          <span className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                            PAYOS WEB
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-blue-700 mt-0.5 font-medium">
-                          Hỗ trợ quét mã QR, thẻ ATM nội địa Napas, thẻ quốc tế Visa / MasterCard.
-                        </p>
-                      </div>
-                    </div>
-                    <CreditCard className="h-5 w-5 text-blue-600 shrink-0" />
-                  </div>
-                  <p className="mt-1.5 text-xs text-slate-500 pl-7 leading-relaxed">
-                    Sau khi nhấn &quot;Xác nhận đặt đơn&quot;, hệ thống sẽ tự động tạo link thanh toán PayOS bảo mật và tự động ghi nhận tiền vào Escrow ngay khi giao dịch thành công.
-                  </p>
-                </div>
-
-                {/* OPTION 3: COD / CASH */}
+                {/* OPTION 2: COD / CASH */}
                 <div
                   onClick={() => setPaymentMethod('cod')}
-                  className={`rounded-xl border p-4 transition-all cursor-pointer ${
+                  className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
                     paymentMethod === 'cod'
-                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15'
+                      ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15 shadow-xs'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
                   }`}
                 >
@@ -729,20 +705,25 @@ function CheckoutContent() {
                         name="payment"
                         checked={paymentMethod === 'cod'}
                         onChange={() => setPaymentMethod('cod')}
-                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange"
+                        className="h-4 w-4 text-fpt-orange focus:ring-fpt-orange cursor-pointer"
                       />
-                      <span className="text-xs sm:text-sm font-bold text-slate-900">
-                        {isMeetup ? 'Thanh toán tiền mặt khi gặp mặt (Cash Handshake)' : 'Thanh toán khi nhận hàng (COD Liên Campus)'}
-                      </span>
+                      <div>
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-900">
+                          {isMeetup ? 'Thanh toán tiền mặt khi gặp mặt (Cash Handshake)' : 'Thanh toán khi nhận hàng (COD KTX FPT)'}
+                        </span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isMeetup ? 'Thanh toán tiền mặt hoặc chuyển khoản tại Safe-Point sau khi test hàng' : 'Đồng kiểm tra bưu kiện tại sảnh KTX trước khi thanh toán cho bưu tá'}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-400 font-medium">
                       {isMeetup ? 'Tại Safe-Point' : 'Trả tại sảnh KTX'}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-xs text-slate-500 pl-7 leading-relaxed">
+                  <p className="mt-2 text-xs text-slate-500 pl-7 leading-relaxed">
                     {isMeetup
-                      ? 'Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho người bán tại điểm hẹn sau khi trực tiếp kiểm tra ưng ý món đồ.'
-                      : 'Thanh toán tiền mặt hoặc chuyển khoản trực tiếp cho nhân viên giao vận FPT Express / Ban quản lý KTX sau khi bóc hộp, cắm thử thiết bị.'}
+                      ? 'Thanh toán trực tiếp cho người bán tại điểm hẹn sau khi trực tiếp kiểm tra ưng ý món đồ.'
+                      : 'Thanh toán tiền mặt hoặc chuyển khoản cho nhân viên giao vận FPT Express / Ban quản lý KTX sau khi bóc hộp, cắm thử thiết bị.'}
                   </p>
                 </div>
               </div>

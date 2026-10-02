@@ -17,6 +17,7 @@ import {
   EstimateShippingInput,
 } from './order.dto';
 import { calculateShippingFee } from './shipping-matrix';
+import { ghnService } from './ghn.service';
 
 /** B3-10: MongoDB ObjectId hợp lệ (tránh Prisma throw 500 với id rác) */
 const isValidObjectId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
@@ -473,18 +474,7 @@ export class OrderService {
       throw new AppError('Bạn không có quyền xem thông tin đơn hàng này', 403, 'FORBIDDEN');
     }
 
-    // Nếu là người bán (sellerId), không lộ trước handshakeOtp và handshakeToken của người mua
-    if (order.sellerId === userId && order.handshake && !order.handshake.isVerified) {
-      return {
-        ...order,
-        handshake: {
-          ...order.handshake,
-          handshakeOtp: null,
-          handshakeToken: null,
-        },
-      };
-    }
-
+    // Cả Người mua và Người bán trong đơn đều có quyền xem mã QR & OTP để xác thực tại điểm hẹn Safe-Handoff
     return order;
   }
 
@@ -538,8 +528,9 @@ export class OrderService {
       );
     }
 
-    if (order.sellerId !== sellerId) {
-      throw new AppError('Chỉ có người bán của đơn hàng mới có quyền xác nhận Handshake nhận đồ', 403, 'UNAUTHORIZED_SELLER');
+    const isParticipant = order.sellerId === sellerId || order.buyerId === sellerId;
+    if (!isParticipant) {
+      throw new AppError('Chỉ các bên tham gia đơn hàng (Người mua hoặc Người bán) mới có quyền xác nhận Handshake nhận đồ', 403, 'UNAUTHORIZED_PARTICIPANT');
     }
 
     if (order.status === 'COMPLETED') {
@@ -605,6 +596,26 @@ export class OrderService {
         where: { userId: { in: [order.buyerId, order.sellerId] } },
         data: { reputationScore: { increment: 5 } },
       });
+
+      // Giải ngân Escrow: cộng tiền/xu cho người bán nếu đơn đã thanh toán trước (online)
+      const earnedCoins = Math.floor(order.payment.totalAmount / 1000);
+      if (order.payment.isPaid && earnedCoins > 0) {
+        const updatedSeller = await tx.profile.update({
+          where: { userId: order.sellerId },
+          data: { campusCoins: { increment: earnedCoins } },
+        });
+
+        await tx.coinTransaction.create({
+          data: {
+            userId: order.sellerId,
+            amount: earnedCoins,
+            balanceAfter: updatedSeller.campusCoins,
+            type: 'BONUS',
+            description: `Giải ngân Escrow đơn hàng #${order.orderCode} (${order.payment.totalAmount.toLocaleString('vi-VN')} đ)`,
+            referenceId: order.id,
+          },
+        });
+      }
 
       return resOrder;
     });
@@ -753,6 +764,7 @@ export class OrderService {
             : order.payment,
           shipping: {
             ...currentShipping,
+            shippingPartner: input.shippingPartner || currentShipping.shippingPartner,
             trackingCode: trackingCode || currentShipping.trackingCode,
             deliveredAt: isDelivered ? now : currentShipping.deliveredAt,
           },
@@ -959,6 +971,26 @@ export class OrderService {
         data: { reputationScore: { increment: 5 } },
       });
 
+      // Giải ngân Escrow: cộng tiền/xu cho người bán khi người mua xác nhận nhận hàng
+      const earnedCoins = Math.floor(order.payment.totalAmount / 1000);
+      if (order.payment.isPaid && earnedCoins > 0) {
+        const updatedSeller = await tx.profile.update({
+          where: { userId: order.sellerId },
+          data: { campusCoins: { increment: earnedCoins } },
+        });
+
+        await tx.coinTransaction.create({
+          data: {
+            userId: order.sellerId,
+            amount: earnedCoins,
+            balanceAfter: updatedSeller.campusCoins,
+            type: 'BONUS',
+            description: `Giải ngân Escrow đơn hàng #${order.orderCode} (${order.payment.totalAmount.toLocaleString('vi-VN')} đ)`,
+            referenceId: order.id,
+          },
+        });
+      }
+
       return resOrder;
     });
 
@@ -1096,6 +1128,253 @@ export class OrderService {
    */
   async estimateShipping(input: EstimateShippingInput) {
     return calculateShippingFee(input);
+  }
+
+  /**
+   * 10. Tra cứu hành trình vận chuyển chi tiết & Realtime Tracking (GHN/Campus Hub)
+   */
+  async getOrderTracking(userId: string, orderIdOrCode: string) {
+    const cleanCode = orderIdOrCode.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          { orderCode: orderIdOrCode },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
+      include: {
+        product: { select: { id: true, title: true, campus: true } },
+      },
+    });
+
+    if (!order) {
+      throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
+    }
+
+    const isAuthorized = order.buyerId === userId || order.sellerId === userId;
+    if (!isAuthorized) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (user?.role !== 'ADMIN') {
+        throw new AppError('Bạn không có quyền theo dõi vận đơn này', 403, 'FORBIDDEN');
+      }
+    }
+
+    const trackingCode = order.shipping?.trackingCode || '';
+    const partner = order.shipping?.shippingPartner || 'GHTK';
+    const isGhn = partner.toUpperCase().includes('GHN') || trackingCode.startsWith('GHN');
+
+    let ghnData: any = null;
+    if (isGhn && trackingCode && ghnService.isConfigured()) {
+      ghnData = await ghnService.getTrackingDetail(trackingCode);
+    }
+
+    const fromCampus = order.product?.campus || 'HOL';
+    const toCampus = (order.shipping as any)?.destinationCampus || fromCampus;
+    const matrixInfo = calculateShippingFee({
+      orderType: order.orderType,
+      fromCampus,
+      toCampus,
+    });
+
+    const isShipped = order.status === 'SHIPPING' || order.status === 'DELIVERED' || order.status === 'COMPLETED';
+    const isDelivered = order.status === 'DELIVERED' || order.status === 'COMPLETED';
+
+    const steps = [
+      {
+        title: 'Tiếp nhận đơn hàng',
+        desc: `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
+        status: 'completed',
+        time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
+      },
+      {
+        title: 'Đóng gói & Bưu tá nhận',
+        desc: isShipped ? `Đã bàn giao bưu cục (${partner})` : 'Người bán đang chuẩn bị đóng gói',
+        status: isShipped ? 'completed' : order.status === 'PENDING' ? 'current' : 'pending',
+        time: isShipped && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
+      },
+      {
+        title: 'Trung chuyển liên Campus',
+        desc: isShipped ? (ghnData?.currentLocation || matrixInfo.transitHub) : `Tuyến ${matrixInfo.routeTitle}`,
+        status: order.status === 'SHIPPING' ? 'current' : isDelivered ? 'completed' : 'pending',
+      },
+      {
+        title: 'Giao hàng tới KTX',
+        desc: isDelivered ? 'Đã giao thành công tại sảnh KTX' : `Dự kiến: ${matrixInfo.estimatedDays}`,
+        status: isDelivered ? 'completed' : 'pending',
+        time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
+      },
+    ];
+
+    return {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: order.status,
+      orderType: order.orderType,
+      shippingPartner: partner,
+      trackingCode,
+      shippingAddress: order.shipping?.shippingAddress,
+      receiverName: order.shipping?.receiverName,
+      receiverPhone: order.shipping?.receiverPhone,
+      routeTitle: matrixInfo.routeTitle,
+      estimatedArrival: matrixInfo.estimatedDays,
+      currentLocation: ghnData?.currentLocation || (isDelivered ? 'Sảnh KTX điểm đến' : isShipped ? matrixInfo.transitHub : 'Chờ lấy hàng'),
+      steps,
+      ghnLogs: ghnData?.logs || [],
+      shipper: ghnData?.shipperName ? { name: ghnData.shipperName, phone: ghnData.shipperPhone } : undefined,
+    };
+  }
+
+  /**
+   * Thống kê Doanh thu và Hiệu suất bán hàng của Seller (Seller Analytics Hub)
+   */
+  async getSellerAnalytics(sellerId: string) {
+    const orders = await prisma.order.findMany({
+      where: { sellerId },
+      include: {
+        product: { select: { id: true, title: true, price: true, images: true } },
+        buyer: { select: { id: true, email: true, profile: { select: { fullName: true, avatarUrl: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let totalRevenue = 0;
+    let pendingEscrow = 0;
+    let completedOrders = 0;
+    let shippingOrders = 0;
+    let processingOrders = 0;
+    let disputedOrders = 0;
+    let cancelledOrders = 0;
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    let monthlyRevenue = 0;
+
+    const recentSales: Array<{
+      id: string;
+      orderCode: string;
+      productTitle: string;
+      productImage?: string;
+      buyerName: string;
+      amount: number;
+      orderType: string;
+      status: string;
+      createdAt: Date;
+    }> = [];
+
+    for (const o of orders) {
+      const price = o.payment?.price || 0;
+      if (o.status === 'COMPLETED') {
+        totalRevenue += price;
+        completedOrders += 1;
+
+        if (o.createdAt.getMonth() === currentMonth && o.createdAt.getFullYear() === currentYear) {
+          monthlyRevenue += price;
+        }
+
+        if (recentSales.length < 5) {
+          recentSales.push({
+            id: o.id,
+            orderCode: o.orderCode,
+            productTitle: o.product?.title || 'Sản phẩm',
+            productImage: o.product?.images?.[0]?.imageUrl,
+            buyerName: o.buyer?.profile?.fullName || o.buyer?.email || 'Sinh viên FPT',
+            amount: price,
+            orderType: o.orderType,
+            status: o.status,
+            createdAt: o.createdAt,
+          });
+        }
+      } else if (['PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(o.status)) {
+        pendingEscrow += price;
+        if (['SHIPPING', 'DELIVERED'].includes(o.status)) {
+          shippingOrders += 1;
+        } else {
+          processingOrders += 1;
+        }
+      } else if (o.status === 'DISPUTED') {
+        disputedOrders += 1;
+      } else if (o.status === 'CANCELLED') {
+        cancelledOrders += 1;
+      }
+    }
+
+    const totalOrders = orders.length;
+    const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 100;
+
+    return {
+      totalRevenue,
+      monthlyRevenue,
+      pendingEscrow,
+      completionRate,
+      counts: {
+        total: totalOrders,
+        completed: completedOrders,
+        shipping: shippingOrders,
+        processing: processingOrders,
+        disputed: disputedOrders,
+        cancelled: cancelledOrders,
+      },
+      recentSales,
+    };
+  }
+
+  /**
+   * Người bán xác nhận đã giao đồ tận tay tại Safe-Point trong Campus
+   */
+  async sellerConfirmHandoff(sellerId: string, orderIdOrCode: string, otp?: string) {
+    if (otp && otp.trim()) {
+      return this.verifyHandshake(sellerId, orderIdOrCode, { handshakeOtp: otp.trim() });
+    }
+
+    const cleanCode = orderIdOrCode.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          { orderCode: orderIdOrCode },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
+      include: { product: true, buyer: { select: { email: true, profile: { select: { fullName: true } } } } },
+    });
+
+    if (!order) {
+      throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
+    }
+
+    if (order.sellerId !== sellerId) {
+      throw new AppError('Chỉ người bán của đơn hàng mới có quyền thực hiện thao tác này', 403, 'UNAUTHORIZED_SELLER');
+    }
+
+    if (order.status === 'COMPLETED') {
+      return order;
+    }
+
+    const now = new Date();
+    const warrantyEndsAt = new Date(now.getTime() + order.warrantyHours * 60 * 60 * 1000);
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'DELIVERED',
+        warrantyEndsAt,
+        shipping: order.shipping ? {
+          ...order.shipping,
+          deliveredAt: now,
+        } : undefined,
+        handshake: order.handshake ? {
+          ...order.handshake,
+          isVerified: true,
+          verifiedAt: now,
+        } : undefined,
+      },
+      include: { product: true },
+    });
+
+    return updated;
   }
 }
 

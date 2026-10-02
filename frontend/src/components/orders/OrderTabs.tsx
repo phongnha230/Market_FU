@@ -14,6 +14,7 @@ interface OrderTabsProps {
   listingsCount?: number;
   handoffCount?: number;
   isSeller?: boolean;
+  filterCounts?: Record<string, number>;
 }
 
 export default function OrderTabs({
@@ -21,19 +22,20 @@ export default function OrderTabs({
   onMainTabChange,
   activeProgressFilter,
   onProgressFilterChange,
-  ordersCount = 2,
-  sellingCount = 1,
-  listingsCount = 3,
-  handoffCount = 1,
+  ordersCount = 0,
+  sellingCount = 0,
+  listingsCount = 0,
+  handoffCount = 0,
   isSeller = false,
+  filterCounts,
 }: OrderTabsProps) {
   const progressFilters = [
-    { id: 'all', label: 'Tất cả (2)' },
-    { id: 'qr', label: 'Chờ quét QR (0)' },
-    { id: 'packing', label: 'Đang đóng gói (1)' },
-    { id: 'shipping', label: 'Đang ship liên campus (1)' },
-    { id: 'inspecting', label: 'Đồng kiểm hàng (0)' },
-    { id: 'delivered', label: 'Đã giao & Chờ đánh giá' },
+    { id: 'all', label: `Tất cả (${ordersCount})` },
+    { id: 'qr', label: `Chờ quét QR / Pay (${filterCounts?.qr ?? 0})` },
+    { id: 'packing', label: `Đang đóng gói (${filterCounts?.packing ?? 0})` },
+    { id: 'shipping', label: `Đang ship (${filterCounts?.shipping ?? 0})` },
+    { id: 'inspecting', label: `Đồng kiểm (${filterCounts?.inspecting ?? 0})` },
+    { id: 'delivered', label: `Đã giao & Đánh giá (${filterCounts?.delivered ?? 0})` },
   ];
 
   return (

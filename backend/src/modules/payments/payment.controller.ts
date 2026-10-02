@@ -29,7 +29,7 @@ export class PaymentController {
       } else if (req.body?.signature) {
         if (isPayOsConfigured()) {
           try {
-            getPayOsClient().webhooks.verify(req.body);
+            await getPayOsClient().webhooks.verify(req.body);
           } catch (payosErr: any) {
             throw new AppError('Chữ ký webhook PayOS không hợp lệ', 401, 'PAYOS_SIGNATURE_INVALID');
           }

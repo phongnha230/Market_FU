@@ -41,12 +41,13 @@ import {
   HelpCircle,
   Receipt,
   FileCheck,
+  CreditCard,
 } from 'lucide-react';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderCode = searchParams.get('orderCode') || 'ORD-88392-HCM-HL';
-  const paymentMethodParam = searchParams.get('paymentMethod') || 'vietqr';
+  const paymentMethodParam = searchParams.get('paymentMethod') || 'payos';
   const amountParam = searchParams.get('amount');
   const productId = searchParams.get('productId');
 
@@ -134,9 +135,9 @@ function OrderSuccessContent() {
     };
   }, [orderCode]);
 
-  // 2. Poll payment status if VietQR and unpaid
+  // 2. Poll payment status if online payment and unpaid
   useEffect(() => {
-    if (isPaid || paymentMethod !== 'vietqr') return;
+    if (isPaid || !isOnlinePayment) return;
 
     const interval = setInterval(async () => {
       try {
@@ -152,7 +153,7 @@ function OrderSuccessContent() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [orderCode, isPaid, paymentMethod]);
+  }, [orderCode, isPaid, isOnlinePayment]);
 
   // 3. Socket.io real-time listener for order_paid
   useEffect(() => {
@@ -263,15 +264,11 @@ function OrderSuccessContent() {
                     className="border-white/30 bg-white/15 text-white font-bold text-[10px] tracking-wider uppercase px-2.5 py-0.5"
                   >
                     {isPaid
-                      ? paymentMethod === 'payos'
-                        ? 'CỔNG THANH TOÁN PAYOS WEB • ĐÃ THANH TOÁN'
-                        : paymentMethod === 'vietqr'
-                        ? 'VIETQR NAPAS247 • ĐÃ NHẬN TIỀN ESCROW'
+                      ? isOnlinePayment
+                        ? 'VIETQR NAPAS247 (PAYOS) • ĐÃ NHẬN TIỀN ESCROW'
                         : 'THANH TOÁN KHI NHẬN HÀNG (COD)'
-                      : paymentMethod === 'vietqr'
+                      : isOnlinePayment
                       ? 'VIETQR NAPAS247 • CHỜ THANH TOÁN'
-                      : paymentMethod === 'payos'
-                      ? 'PAYOS WEB • ĐANG XỬ LÝ'
                       : 'THANH TOÁN KHI NHẬN HÀNG (COD)'}
                   </Badge>
                   <span className="text-xs text-white/80 font-medium">
@@ -282,7 +279,7 @@ function OrderSuccessContent() {
                 <h1 className="mt-1.5 text-xl sm:text-2xl font-black tracking-tight text-white">
                   {isPaid
                     ? 'Thanh toán & Đặt hàng thành công!'
-                    : paymentMethod === 'vietqr'
+                    : isOnlinePayment
                     ? 'Đơn hàng đã tạo • Vui lòng quét mã VietQR để thanh toán'
                     : 'Đặt đơn hàng COD thành công!'}
                 </h1>
@@ -290,7 +287,7 @@ function OrderSuccessContent() {
                 <p className="mt-1 text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
                   {isPaid
                     ? 'Khoản thanh toán của bạn đã được đóng băng an toàn trong Ví Escrow của Sàn ĐH FPT. Người bán sẽ chỉ nhận được tiền sau 48h kiểm tra hàng.'
-                    : paymentMethod === 'vietqr'
+                    : isOnlinePayment
                     ? `Đơn hàng #${orderCode} đang chờ bạn chuyển khoản ${productData.price.toLocaleString('vi-VN')} đ. Tiền sẽ được sàn bảo hộ an toàn trong ví Escrow ngay khi nhận được giao dịch.`
                     : 'Đơn hàng đã được ghi nhận vào hệ thống điều phối bưu tá KTX. Bạn sẽ kiểm tra hàng thực tế trước khi thanh toán tiền mặt/chuyển khoản.'}
                 </p>
@@ -442,13 +439,13 @@ function OrderSuccessContent() {
             </Card>
 
             {/* CARD 2A: MÃ VIETQR CHUYỂN KHOẢN ESCROW (KHI CHƯA THANH TOÁN) */}
-            {paymentMethod === 'vietqr' && !isPaid ? (
+            {isOnlinePayment && !isPaid ? (
               <Card className="rounded-2xl border-2 border-orange-300 bg-white p-5 sm:p-6 shadow-md">
                 <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <QrCode className="h-5 w-5 text-fpt-orange" />
                     <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Chuyển tiền vào Ví Escrow (VietQR Napas 24/7)
+                      {paymentMethod === 'payos' ? 'Thanh toán PayOS / VietQR Napas 24/7' : 'Chuyển tiền vào Ví Escrow (VietQR Napas 24/7)'}
                     </h2>
                   </div>
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
@@ -554,6 +551,21 @@ function OrderSuccessContent() {
                         Vui lòng giữ nguyên nội dung chuyển khoản là <strong className="font-mono text-fpt-orange">{orderCode}</strong> để hệ thống đối soát tự động kích hoạt bảo chứng Escrow ngay tức thì.
                       </p>
                     </div>
+
+                    {backendOrder?.payment?.payosCheckoutUrl && (
+                      <div className="pt-2">
+                        <a
+                          href={backendOrder.payment.payosCheckoutUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 text-xs transition shadow-sm"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          <span>Mở cổng thanh toán trực tuyến PayOS</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

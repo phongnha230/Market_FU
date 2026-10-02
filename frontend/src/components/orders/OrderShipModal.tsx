@@ -17,7 +17,7 @@ export default function OrderShipModal({
   onSuccess,
 }: OrderShipModalProps) {
   const [trackingCode, setTrackingCode] = useState('');
-  const [partner, setPartner] = useState('GHTK');
+  const [partner, setPartner] = useState('GHN');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -36,6 +36,7 @@ export default function OrderShipModal({
       await orderService.updateShippingStatus(order.id, {
         status: 'SHIPPING',
         trackingCode: trackingCode.trim().toUpperCase(),
+        shippingPartner: partner,
       });
       onSuccess(order.id, trackingCode.trim().toUpperCase());
       onClose();
@@ -90,6 +91,7 @@ export default function OrderShipModal({
               onChange={(e) => setPartner(e.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-orange-500 focus:outline-hidden"
             >
+              <option value="GHN">Giao Hàng Nhanh (GHN Express)</option>
               <option value="GHTK">Giao Hàng Tiết Kiệm (GHTK)</option>
               <option value="VIETTEL_POST">Viettel Post</option>
               <option value="SPX">Shopee Xpress (SPX)</option>

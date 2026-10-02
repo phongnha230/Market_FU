@@ -69,6 +69,7 @@ const mapCarrierStatus = (payload: ShippingWebhookPayload): 'SHIPPING' | 'DELIVE
   const raw = [
     payload.order_status,
     payload.status,
+    (payload as any).Status,
     ...(payload.status_report?.map((s) => String(s.ErrorCode ?? '')) || []),
     ...(payload.status_report?.map((s) => s.ErrorText ?? '') || []),
   ]
@@ -80,7 +81,7 @@ const mapCarrierStatus = (payload: ShippingWebhookPayload): 'SHIPPING' | 'DELIVE
   if (/(delivery_success|delivered|giao_hang_thanh_cong|giao hàng thành công|accept_success)/.test(raw)) {
     return 'DELIVERED';
   }
-  if (/(delivering|transporting|ship|đang giao|vận chuyển|collect-success|pickup)/.test(raw)) {
+  if (/(delivering|transporting|ship|đang giao|vận chuyển|collect-success|pickup|ready_to_pick|picking|storing)/.test(raw)) {
     return 'SHIPPING';
   }
   if (/(cancel|hủy|hoan_tra|return)/.test(raw)) {
@@ -91,11 +92,12 @@ const mapCarrierStatus = (payload: ShippingWebhookPayload): 'SHIPPING' | 'DELIVE
 
 export class ShippingWebhookService {
   async processShippingWebhook(payload: ShippingWebhookPayload) {
-    // 1. Trích mã đơn hàng MarketFU từ các biến thể field của carrier
+    // 1. Trích mã đơn hàng MarketFU từ các biến thể field của carrier (GHTK/GHN)
     const orderCode =
       payload.order_code ||
       payload.tracking_order_code ||
       payload.report_code ||
+      (payload as any).OrderCode ||
       (payload.id !== undefined ? String(payload.id) : undefined);
 
     if (!orderCode) {
@@ -135,12 +137,22 @@ export class ShippingWebhookService {
       include: orderInclude,
     });
 
-    if (!order && payload.tracking_order_code) {
-      const derived = `ORD-${String(payload.tracking_order_code).replace(/^[A-Za-z]+-/i, '')}`;
+    if (!order && (payload.tracking_order_code || (payload as any).OrderCode)) {
+      const carrierCode = String(payload.tracking_order_code || (payload as any).OrderCode);
+      const derived = `ORD-${carrierCode.replace(/^[A-Za-z]+-/i, '')}`;
       order = await prisma.order.findFirst({
         where: { orderCode: derived },
         include: orderInclude,
       });
+
+      if (!order) {
+        const candidateOrders = await prisma.order.findMany({
+          where: { orderType: 'SHIP_COD', status: { in: ['SHIPPING', 'PENDING', 'PAID'] } },
+          include: orderInclude,
+          take: 30,
+        });
+        order = candidateOrders.find((o) => o.shipping?.trackingCode === carrierCode) || null;
+      }
     }
 
     if (!order) {

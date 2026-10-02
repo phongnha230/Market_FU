@@ -58,6 +58,19 @@ export class OrderController {
   }
 
   /**
+   * GET /api/orders/seller/analytics
+   * Thống kê doanh thu và đơn hàng của người bán
+   */
+  async getSellerAnalytics(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const analytics = await orderService.getSellerAnalytics(req.user!.userId);
+      return sendSuccess(res, analytics);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/orders/:id/handshake
    * Xác thực mã QR Handshake hoặc OTP tại điểm hẹn
    */
@@ -65,6 +78,23 @@ export class OrderController {
     try {
       const validated = verifyHandshakeSchema.parse(req.body);
       const order = await orderService.verifyHandshake(req.user!.userId, req.params.id as string, validated);
+      return sendSuccess(res, order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/orders/:id/seller-confirm-handoff
+   * Người bán xác nhận đã giao đồ tận tay tại Safe Point
+   */
+  async sellerConfirmHandoff(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const order = await orderService.sellerConfirmHandoff(
+        req.user!.userId,
+        req.params.id as string,
+        req.body?.otp
+      );
       return sendSuccess(res, order);
     } catch (error) {
       next(error);
@@ -143,6 +173,19 @@ export class OrderController {
     try {
       const order = await orderService.confirmDelivery(req.user!.userId, req.params.id as string);
       return sendSuccess(res, order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/orders/:id/tracking
+   * Lấy chi tiết hành trình vận đơn realtime (GHN/Hub 5 Campus)
+   */
+  async getOrderTracking(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tracking = await orderService.getOrderTracking(req.user!.userId, req.params.id as string);
+      return sendSuccess(res, tracking);
     } catch (error) {
       next(error);
     }

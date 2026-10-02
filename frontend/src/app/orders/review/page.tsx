@@ -30,7 +30,8 @@ import { Card, Badge, Button, Avatar, AvatarFallback, Progress } from '@/compone
 function ReviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderCode = searchParams.get('code') || '#ORD-88392-HCM-HL';
+  const rawParam = searchParams.get('code') || searchParams.get('orderId') || '#ORD-88392-HCM-HL';
+  const orderCode = rawParam.startsWith('#') ? rawParam : `#${rawParam}`;
 
   const markOrderReviewed = useOrderStore((state) => state.markOrderReviewed);
   const addCoins = useUserStore((state) => state.addCoins);
@@ -45,6 +46,7 @@ function ReviewContent() {
   const [comment, setComment] = useState<string>(
     'Màn hình nhận tại sảnh Dom B KTX Hòa Lạc nguyên vẹn không vết xước. Bạn An đóng gói bằng 4 lớp màng xốp khí và thùng carton rất cẩn thận. Test kết nối Type-C với laptop ThinkPad lên ngay 1080p 60Hz sáng đẹp, kèm đủ 2 cáp zin. Rất uy tín!'
   );
+  const [proofVideoUrl, setProofVideoUrl] = useState<string>('');
   const [giveBonusTrust, setGiveBonusTrust] = useState<boolean>(true);
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -74,14 +76,16 @@ function ReviewContent() {
     setIsSubmitting(true);
     try {
       const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
+      const earnedCoins = proofVideoUrl.trim() ? 200 : 100;
       await orderService.submitReview({
         orderId: rawOrderId,
         rating,
         comment,
+        proofVideoUrl: proofVideoUrl.trim() || undefined,
       });
       markOrderReviewed(orderCode);
-      addCoins(50);
-      showToast('🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng 50 Campus Coins vào tài khoản.');
+      addCoins(earnedCoins);
+      showToast(`🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng +${earnedCoins} Xu vào tài khoản.`);
       setTimeout(() => {
         router.push('/orders');
       }, 1200);
@@ -94,9 +98,10 @@ function ReviewContent() {
         setTimeout(() => router.push('/orders'), 1200);
       } else if (orderCode.includes('77102') || !currentOrder?.id) {
         // Mock fallback for static demo orders
+        const earnedCoins = proofVideoUrl.trim() ? 200 : 100;
         markOrderReviewed(orderCode);
-        addCoins(50);
-        showToast('🎉 Đã ghi nhận đánh giá thành công & cộng 50 Coins.');
+        addCoins(earnedCoins);
+        showToast(`🎉 Đã ghi nhận đánh giá thành công & cộng +${earnedCoins} Xu.`);
         setTimeout(() => router.push('/orders'), 1200);
       } else {
         showToast(`❌ ${message}`);
@@ -142,8 +147,8 @@ function ReviewContent() {
                   <Coins className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="text-sm font-black text-white">+50 Coins</div>
-                  <div className="text-[10px] text-orange-200">Campus Coins</div>
+                  <div className="text-sm font-black text-white">+100 Xu</div>
+                  <div className="text-[10px] text-orange-200">+200 Xu nếu kèm video test</div>
                 </div>
               </Card>
 
@@ -443,16 +448,24 @@ function ReviewContent() {
                     </Button>
 
                     {/* Slot 4: Add Video */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => showToast('🎥 Tính năng video test: Tải video quay kiểm tra máy dưới 60 giây.')}
-                      className="h-auto flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer"
-                    >
-                      <Video className="h-5 w-5 text-rose-500 mb-1" />
-                      <span className="text-xs font-bold text-slate-800">Video test</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Dưới 60s</span>
-                    </Button>
+                    <div className="col-span-2 sm:col-span-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-1.5 mt-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Video className="h-4 w-4 text-fpt-orange" />
+                          Link Video mở hộp & cắm test máy tại KTX (Nhận thưởng x2 = 200 Xu)
+                        </span>
+                        <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                          +200 Xu
+                        </Badge>
+                      </div>
+                      <input
+                        type="url"
+                        value={proofVideoUrl}
+                        onChange={(e) => setProofVideoUrl(e.target.value)}
+                        placeholder="Dán link video Google Drive, YouTube hoặc cloud test máy..."
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-fpt-orange transition"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -493,7 +506,7 @@ function ReviewContent() {
                     className="h-auto w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3.5 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:bg-fpt-orange-hover hover:shadow-lg transition active:scale-98 cursor-pointer disabled:opacity-50"
                   >
                     <Coins className="h-4 w-4" />
-                    <span>{isSubmitting ? 'Đang gửi đánh giá...' : 'Gửi đánh giá & Nhận ngay 50 Campus Coins'}</span>
+                    <span>{isSubmitting ? 'Đang gửi đánh giá...' : proofVideoUrl.trim() ? 'Gửi đánh giá & Nhận ngay +200 Xu (Kèm video test)' : 'Gửi đánh giá & Nhận ngay +100 Xu'}</span>
                   </Button>
 
                   <Button

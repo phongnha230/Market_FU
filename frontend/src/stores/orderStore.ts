@@ -26,6 +26,17 @@ export interface OrderItem {
     isVerified?: boolean;
     verifiedAt?: string;
   };
+  payment?: {
+    price?: number;
+    shippingFee?: number;
+    totalAmount: number;
+    vietqrUrl?: string;
+    payosOrderCode?: number;
+    payosCheckoutUrl?: string;
+    paymentMethod?: string;
+    isPaid: boolean;
+    paidAt?: string;
+  };
   product: {
     title: string;
     subtitle: string;
@@ -194,12 +205,36 @@ export const useOrderStore = create<OrderState>()(
                 typeLabel: bo.orderType === 'SHIP_COD' ? 'Inter-Campus Express • FPT CampusShip' : 'Nội bộ Campus - Safe Handoff',
                 timeLabel: new Date(bo.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
                 status: statusMap[bo.status] || 'processing',
-                statusText: bo.status === 'COMPLETED' ? 'Giao dịch thành công' : bo.status === 'PAID' ? 'Đã nạp Escrow bảo hộ' : bo.status === 'SHIPPING' ? 'Đang vận chuyển' : bo.status === 'DELIVERED' ? 'Đã giao tới nơi' : 'Chờ xử lý',
+                statusText:
+                  bo.status === 'COMPLETED'
+                    ? 'Giao dịch thành công'
+                    : bo.status === 'PAID'
+                    ? 'Đã nạp Escrow bảo hộ'
+                    : bo.status === 'SHIPPING'
+                    ? 'Đang vận chuyển'
+                    : bo.status === 'DELIVERED'
+                    ? 'Đã giao tới nơi'
+                    : bo.status === 'PENDING' && !bo.payment?.isPaid && bo.payment?.paymentMethod !== 'CASH'
+                    ? 'Chờ thanh toán (Quét QR / PayOS)'
+                    : 'Chờ xử lý',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
                 reviewed: bo.reviews && bo.reviews.length > 0,
                 buyerId: bo.buyerId,
                 sellerId: bo.sellerId,
                 handshake: bo.handshake,
+                payment: bo.payment
+                  ? {
+                      price: bo.payment.price,
+                      shippingFee: bo.payment.shippingFee,
+                      totalAmount: bo.payment.totalAmount,
+                      vietqrUrl: bo.payment.vietqrUrl,
+                      payosOrderCode: (bo.payment as any).payosOrderCode,
+                      payosCheckoutUrl: (bo.payment as any).payosCheckoutUrl,
+                      paymentMethod: bo.payment.paymentMethod,
+                      isPaid: bo.payment.isPaid,
+                      paidAt: bo.payment.paidAt,
+                    }
+                  : undefined,
                 product: {
                   title: bo.product?.title || 'Sản phẩm FPT Market',
                   subtitle: bo.product?.meetupLocation || 'Bàn giao trực tiếp campus',

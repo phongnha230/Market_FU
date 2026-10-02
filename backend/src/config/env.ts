@@ -74,6 +74,11 @@ const envSchema = z.object({
   VIETQR_ACCOUNT_NAME: z.string().default(''),
   VIETQR_TEMPLATE: z.string().default('compact2'),
 
+  // 12.1. GHN (Giao Hàng Nhanh) Logistics Integration
+  GHN_API_URL: z.string().default('https://dev-online-gateway.ghn.vn/shiip/public-api/v2'),
+  GHN_API_TOKEN: z.string().default(''),
+  GHN_SHOP_ID: z.string().default(''),
+
   // 13. Redis Caching & Distributed Store
   REDIS_URL: z.string().default('redis://localhost:6379'),
   REDIS_PASSWORD: z.string().default(''),

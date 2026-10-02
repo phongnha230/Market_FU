@@ -63,6 +63,7 @@ export type CreateOrderDisputeInput = z.infer<typeof createOrderDisputeSchema>;
 
 export const updateShippingStatusSchema = z.object({
   trackingCode: z.string().min(3, 'Mã vận đơn quá ngắn').optional(),
+  shippingPartner: z.string().optional(),
   status: z.enum(['SHIPPING', 'DELIVERED'], {
     errorMap: () => ({ message: 'Trạng thái vận chuyển chỉ có thể là SHIPPING hoặc DELIVERED' }),
   }),

@@ -17,6 +17,8 @@ export interface BackendOrder {
     coinDiscount: number;
     totalAmount: number;
     vietqrUrl?: string;
+    payosOrderCode?: number;
+    payosCheckoutUrl?: string;
     paymentMethod?: string;
     isPaid: boolean;
     paidAt?: string;
@@ -126,12 +128,18 @@ export const orderService = {
   // 5. Cập nhật thông tin vận chuyển
   async updateShippingStatus(
     orderId: string,
-    params: { status: 'SHIPPING' | 'DELIVERED'; trackingCode?: string }
+    params: { status: 'SHIPPING' | 'DELIVERED'; trackingCode?: string; shippingPartner?: string }
   ): Promise<BackendOrder> {
     const response = await apiClient.patch<ApiResponse<BackendOrder>>(
       `/orders/${orderId}/shipping`,
       params
     );
+    return response.data.data;
+  },
+
+  // 5.1. Tra cứu chi tiết tiến trình vận chuyển realtime (GHN/Hub 5 Campus)
+  async getOrderTracking(orderIdOrCode: string): Promise<any> {
+    const response = await apiClient.get<ApiResponse<any>>(`/orders/${orderIdOrCode}/tracking`);
     return response.data.data;
   },
 
@@ -157,6 +165,8 @@ export const orderService = {
     orderId: string;
     rating: number;
     comment?: string;
+    images?: string[];
+    proofVideoUrl?: string;
   }): Promise<any> {
     const response = await apiClient.post<ApiResponse<any>>('/reviews', params);
     return response.data.data;
@@ -166,6 +176,16 @@ export const orderService = {
   async getOrderReviews(orderId: string): Promise<any[]> {
     const response = await apiClient.get<ApiResponse<any[]>>(`/reviews/order/${orderId}`);
     return response.data.data || [];
+  },
+
+  // 8.1. Lấy đánh giá của người dùng để hiển thị trên Hồ sơ (Profile Reviews)
+  async getUserReviews(userId: string): Promise<any[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>(`/reviews/user/${userId}`);
+      return response.data.data?.reviews || response.data.data || [];
+    } catch {
+      return [];
+    }
   },
 
   // 9. Kiểm tra trạng thái thanh toán từ Gateway
@@ -189,6 +209,45 @@ export const orderService = {
     const response = await apiClient.get<ApiResponse<any>>('/orders/shipping/estimate', {
       params,
     });
+    return response.data.data;
+  },
+
+  // 11. Lấy thống kê doanh thu và đơn bán của Seller
+  async getSellerAnalytics(): Promise<{
+    totalRevenue: number;
+    monthlyRevenue: number;
+    pendingEscrow: number;
+    completionRate: number;
+    counts: {
+      total: number;
+      completed: number;
+      shipping: number;
+      processing: number;
+      disputed: number;
+      cancelled: number;
+    };
+    recentSales: Array<{
+      id: string;
+      orderCode: string;
+      productTitle: string;
+      productImage?: string;
+      buyerName: string;
+      amount: number;
+      orderType: string;
+      status: string;
+      createdAt: string;
+    }>;
+  }> {
+    const response = await apiClient.get<ApiResponse<any>>('/orders/seller/analytics');
+    return response.data.data;
+  },
+
+  // 12. Người bán xác nhận đã giao đồ tận tay tại Safe Point
+  async sellerConfirmHandoff(orderId: string, otp?: string): Promise<BackendOrder> {
+    const response = await apiClient.post<ApiResponse<BackendOrder>>(
+      `/orders/${orderId}/seller-confirm-handoff`,
+      { otp }
+    );
     return response.data.data;
   },
 };

@@ -29,6 +29,21 @@ export class ShippingWebhookController {
       next(error);
     }
   };
+
+  /**
+   * POST /api/webhooks/ghn
+   * Webhook endpoint riêng cho đối tác Giao Hàng Nhanh (GHN).
+   * Không bị ép chữ ký HMAC GHTK mà tiếp nhận payload chuẩn của GHN.
+   */
+  handleGhnWebhook = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const payload = req.body as ShippingWebhookPayload;
+      const result = await shippingWebhookService.processShippingWebhook(payload);
+      return res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const shippingWebhookController = new ShippingWebhookController();
