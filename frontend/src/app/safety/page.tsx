@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Building,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const HUBS_5CAMPUS = [
   {
@@ -212,10 +213,10 @@ export default function SafetyPage() {
               return (
                 <div
                   key={card.title}
-                  className={`rounded-2xl border ${card.border} p-6 shadow-xs hover:shadow-md transition space-y-4`}
+                  className={cn('rounded-2xl border p-6 shadow-xs hover:shadow-md transition space-y-4', card.border)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-md ${card.color}`}>
+                    <div className={cn('h-12 w-12 rounded-2xl flex items-center justify-center shadow-md', card.color)}>
                       <Icon className="h-6 w-6" />
                     </div>
                     <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-extrabold px-2.5 py-1 font-mono">
@@ -259,11 +260,12 @@ export default function SafetyPage() {
                 key={c.campus}
                 type="button"
                 onClick={() => setSelectedCampusTab(idx)}
-                className={`rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                className={cn(
+                  'rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                   selectedCampusTab === idx
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                )}
               >
                 {c.campus}
               </button>

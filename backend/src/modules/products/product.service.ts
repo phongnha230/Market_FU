@@ -247,16 +247,20 @@ export class ProductService {
       }
     }
 
-    // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
-    if (search && search.trim().length > 0) {
-      trendingService.recordSearchKeyword(search.trim()).catch(() => {});
-      const meiliResult = await searchProductsMeili(search.trim(), {
+    // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả & Hashtag)
+    if ((search && search.trim().length > 0) || (hashtag && hashtag.trim().length > 0)) {
+      const searchQuery = search ? search.trim() : (hashtag ? hashtag.trim().replace(/^#/, '') : '');
+      if (searchQuery) {
+        trendingService.recordSearchKeyword(searchQuery).catch(() => {});
+      }
+      const meiliResult = await searchProductsMeili(searchQuery, {
         campus,
         categoryId,
         categoryType: finalCatType,
         condition,
         minPrice,
         maxPrice,
+        hashtag,
         sortBy,
         page,
         limit,
@@ -1005,8 +1009,8 @@ export class ProductService {
     const filter: any = {
       status: 'AVAILABLE',
       OR: [
-        { title: { contains: q, mode: 'insensitive' } },
-        { hashtags: { has: q.toLowerCase() } },
+        { title: { contains: q.replace(/^#/, ''), mode: 'insensitive' } },
+        { hashtags: { has: q.toLowerCase().replace(/^#/, '') } },
       ],
     };
     if (campusCode) filter.campus = campusCode;

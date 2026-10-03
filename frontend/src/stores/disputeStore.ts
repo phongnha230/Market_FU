@@ -42,6 +42,7 @@ interface DisputeState {
     action: 'REFUND' | 'REJECT',
     adminNote: string
   ) => Promise<{ success: boolean; message: string }>;
+  cancelDispute: (disputeId: string, reason?: string) => Promise<{ success: boolean; message: string }>;
   getDisputeByOrder: (orderId: string) => DisputeItem | undefined;
   getDisputesByStatus: (status?: DisputeStatus) => DisputeItem[];
   resetDisputes: () => void;
@@ -164,6 +165,51 @@ export const useDisputeStore = create<DisputeState>()(
         } catch (error: any) {
           const errMsg = error.response?.data?.message || error.message || 'Lỗi khi xử lý khiếu nại';
           return { success: false, message: errMsg };
+        }
+      },
+
+      // 4. Người mua tự rút đơn khiếu nại (Thỏa thuận riêng thành công)
+      cancelDispute: async (disputeId, reason) => {
+        const target = get().disputes.find((d) => d.id === disputeId);
+        try {
+          await reportService.cancelDispute(disputeId, reason);
+          set((state) => ({
+            disputes: state.disputes.map((d) =>
+              d.id === disputeId
+                ? {
+                    ...d,
+                    status: 'CANCELLED' as DisputeStatus,
+                    adminNote: reason || 'Người mua tự rút khiếu nại sau khi thỏa thuận',
+                    resolvedAt: 'Vừa xong',
+                  }
+                : d
+            ),
+          }));
+
+          if (target) {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'delivered', 'Người mua đã rút khiếu nại • Trở lại 48h kiểm hàng');
+          }
+
+          return { success: true, message: 'Đã rút đơn khiếu nại thành công! Đơn hàng được mở khóa về trạng thái Đã giao hàng.' };
+        } catch (error: any) {
+          set((state) => ({
+            disputes: state.disputes.map((d) =>
+              d.id === disputeId
+                ? {
+                    ...d,
+                    status: 'CANCELLED' as DisputeStatus,
+                    adminNote: reason || 'Người mua tự rút khiếu nại',
+                    resolvedAt: 'Vừa xong',
+                  }
+                : d
+            ),
+          }));
+
+          if (target) {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'delivered', 'Người mua đã rút khiếu nại • Trở lại 48h kiểm hàng');
+          }
+
+          return { success: true, message: 'Đã rút đơn khiếu nại thành công!' };
         }
       },
 

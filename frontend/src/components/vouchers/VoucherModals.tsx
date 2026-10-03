@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useWalletStore } from '@/stores/walletStore';
+import { cn } from '@/lib/utils';
 import {
   X,
   Award,
@@ -112,9 +113,10 @@ export default function VoucherModals({
                     </div>
                   </div>
                   <div
-                    className={`text-xs font-black ${
+                    className={cn(
+                      'text-xs font-black',
                       tx.amount > 0 ? 'text-emerald-600' : 'text-rose-500'
-                    }`}
+                    )}
                   >
                     {tx.amount > 0 ? `+${tx.amount}` : tx.amount} Coins
                   </div>

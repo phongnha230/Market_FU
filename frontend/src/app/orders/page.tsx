@@ -3,23 +3,27 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import OrderTabs from '@/components/orders/OrderTabs';
 import OrderCard from '@/components/orders/OrderCard';
-import OrderTrackingModal from '@/components/orders/OrderTrackingModal';
-import OrderShipModal from '@/components/orders/OrderShipModal';
-import OrderAiBotModal from '@/components/orders/OrderAiBotModal';
-import OrderQrModal from '@/components/orders/OrderQrModal';
-import OrderPaymentModal from '@/components/orders/OrderPaymentModal';
 import OrderSidebar from '@/components/orders/OrderSidebar';
-import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
+
+const OrderTrackingModal = dynamic(() => import('@/components/orders/OrderTrackingModal'), { ssr: false });
+const OrderShipModal = dynamic(() => import('@/components/orders/OrderShipModal'), { ssr: false });
+const OrderAiBotModal = dynamic(() => import('@/components/orders/OrderAiBotModal'), { ssr: false });
+const OrderQrModal = dynamic(() => import('@/components/orders/OrderQrModal'), { ssr: false });
+const OrderPaymentModal = dynamic(() => import('@/components/orders/OrderPaymentModal'), { ssr: false });
+const OrderCancelModal = dynamic(() => import('@/components/orders/OrderCancelModal'), { ssr: false });
+const BoostProductModal = dynamic(() => import('@/components/orders/BoostProductModal'), { ssr: false });
+const KycRegistrationModal = dynamic(() => import('@/components/modals/KycRegistrationModal'), { ssr: false });
 import { useMarket } from '@/context/MarketContext';
 import { useUserStore } from '@/stores/userStore';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { ShieldCheck, MapPin, QrCode, Phone, Lock, Store, Edit3, Loader2 } from 'lucide-react';
+import { ShieldCheck, MapPin, QrCode, Phone, Lock, Store, Edit3, Loader2, Zap } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 import { orderService } from '@/services/orderService';
 import { ProductService } from '@/services/productService';
@@ -66,6 +70,10 @@ export default function OrdersPage() {
   const [isAiBotOpen, setIsAiBotOpen] = useState(false);
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<OrderItem | null>(null);
   const [selectedShipOrder, setSelectedShipOrder] = useState<OrderItem | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [selectedCancelOrder, setSelectedCancelOrder] = useState<OrderItem | null>(null);
+  const [isBoostModalOpen, setIsBoostModalOpen] = useState(false);
+  const [selectedBoostProduct, setSelectedBoostProduct] = useState<ProductItem | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
   // Thống kê số lượng đơn theo tiến trình
@@ -185,18 +193,15 @@ export default function OrdersPage() {
     }
   };
 
-  const handleCancelOrder = async (orderId: string, orderCode: string) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng ${orderCode}? Tiền cọc hoặc Xu sẽ được hoàn về tài khoản.`);
-    if (!confirmed) return;
+  const handleOpenCancelModal = (order: OrderItem) => {
+    setSelectedCancelOrder(order);
+    setIsCancelModalOpen(true);
+  };
 
-    try {
-      await orderService.cancelOrder(orderId, 'Người mua yêu cầu hủy đơn');
-    } catch {
-      // offline fallback
-    }
-
-    updateOrderStatus(orderCode, 'processing', 'Đã hủy đơn hàng');
+  const handleCancelSuccess = (_orderId: string, orderCode: string, reason: string) => {
+    updateOrderStatus(orderCode, 'cancelled', `Đã hủy: ${reason}`);
     showToast(`Đã hủy đơn hàng ${orderCode} thành công.`, 'info');
+    useOrderStore.getState().fetchOrders();
   };
 
   return (
@@ -341,7 +346,7 @@ export default function OrdersPage() {
                         setSelectedPaymentOrder(ord);
                         setIsPaymentModalOpen(true);
                       }}
-                      onCancelOrder={handleCancelOrder}
+                      onCancelOrder={handleOpenCancelModal}
                       onShipOrder={(ord) => setSelectedShipOrder(ord)}
                     />
                   ))
@@ -495,7 +500,7 @@ export default function OrdersPage() {
                           setSelectedQrOrder(ord);
                           setIsQrModalOpen(true);
                         }}
-                        onCancelOrder={handleCancelOrder}
+                        onCancelOrder={handleOpenCancelModal}
                         onShipOrder={(ord) => setSelectedShipOrder(ord)}
                       />
                     ))
@@ -650,6 +655,17 @@ export default function OrdersPage() {
                                     <span>Sửa</span>
                                   </Link>
                                 </Button>
+                                <Button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedBoostProduct(prod);
+                                    setIsBoostModalOpen(true);
+                                  }}
+                                  className="h-auto rounded-lg bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                >
+                                  <Zap className="h-3 w-3" />
+                                  <span>Đẩy tin</span>
+                                </Button>
                               </div>
                             </Card>
                           );
@@ -742,6 +758,27 @@ export default function OrdersPage() {
         onPaymentSuccess={() => {
           showToast('🎉 Xác nhận thanh toán Escrow thành công qua VietQR / PayOS!', 'success');
           useOrderStore.getState().fetchOrders();
+        }}
+      />
+      <OrderCancelModal
+        isOpen={isCancelModalOpen}
+        onClose={() => {
+          setIsCancelModalOpen(false);
+          setSelectedCancelOrder(null);
+        }}
+        order={selectedCancelOrder}
+        isSellerViewer={activeMainTab === 'selling' || selectedCancelOrder?.sellerId === userData?.id}
+        onSuccess={handleCancelSuccess}
+      />
+      <BoostProductModal
+        isOpen={isBoostModalOpen}
+        onClose={() => {
+          setIsBoostModalOpen(false);
+          setSelectedBoostProduct(null);
+        }}
+        product={selectedBoostProduct}
+        onSuccess={(msg) => {
+          showToast(msg, 'success');
         }}
       />
 

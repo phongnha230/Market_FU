@@ -13,8 +13,11 @@ import { profileService } from '@/services/profileService';
 import { aiService } from '@/services/aiService';
 import { safehandoffService } from '@/services/safehandoffService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
+import LivePreviewCard from '@/components/create-post/LivePreviewCard';
+import PostSuccessModal from '@/components/create-post/PostSuccessModal';
 import { checkPostModeration, ContentViolation } from '@/utils/contentModeration';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { cn } from '@/lib/utils';
 import {
   UploadCloud,
   Camera,
@@ -622,36 +625,40 @@ export default function CreatePostPage() {
             <button
               type="button"
               onClick={() => setKycStatus('unverified')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+              className={cn(
+                'px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer',
                 currentUser.kycStatus === 'unverified' ? 'bg-fpt-orange text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
+              )}
             >
               1. Chưa xác thực
             </button>
             <button
               type="button"
               onClick={() => setKycStatus('pending', 'seller')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+              className={cn(
+                'px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer',
                 currentUser.kycStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
+              )}
             >
               2. Đang chờ duyệt
             </button>
             <button
               type="button"
               onClick={() => setKycStatus('approved_student', 'student')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+              className={cn(
+                'px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer',
                 currentUser.kycStatus === 'approved_student' ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
+              )}
             >
               3. Đã duyệt Người mua
             </button>
             <button
               type="button"
               onClick={() => setKycStatus('approved_seller', 'seller')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+              className={cn(
+                'px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer',
                 currentUser.kycStatus === 'approved_seller' ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
+              )}
             >
               4. Đã duyệt Seller (Mở form)
             </button>
@@ -1093,11 +1100,12 @@ export default function CreatePostPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="VD: Giáo trình PRF192 bản đẹp + Kèm tóm tắt lý thuyết thi PE..."
-                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition ${
+                    className={cn(
+                      'w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition',
                       moderation.violations.some((v) => title.toLowerCase().includes(v.word.toLowerCase()))
                         ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
                         : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                    }`}
+                    )}
                   />
                   {moderation.violations.some((v) => title.toLowerCase().includes(v.word.toLowerCase())) && (
                     <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
@@ -1276,11 +1284,12 @@ export default function CreatePostPage() {
                             key={cond.id}
                             type="button"
                             onClick={() => setCondition(cond.label)}
-                            className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-semibold transition cursor-pointer text-left ${
+                            className={cn(
+                              'flex items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-semibold transition cursor-pointer text-left',
                               isSelected
                                 ? 'border-fpt-orange bg-orange-50/60 text-fpt-orange shadow-2xs ring-1 ring-fpt-orange'
                                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                            }`}
+                            )}
                           >
                             <span>{cond.label}</span>
                             {isSelected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
@@ -1309,11 +1318,12 @@ export default function CreatePostPage() {
                     <button
                       type="button"
                       onClick={() => setDescTab('write')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer',
                         descTab === 'write'
                           ? 'bg-white text-slate-900 shadow-2xs'
                           : 'text-slate-500 hover:text-slate-900'
-                      }`}
+                      )}
                     >
                       <FileText className="h-3.5 w-3.5" />
                       <span>Soạn thảo</span>
@@ -1321,11 +1331,12 @@ export default function CreatePostPage() {
                     <button
                       type="button"
                       onClick={() => setDescTab('preview')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer',
                         descTab === 'preview'
                           ? 'bg-white text-fpt-orange shadow-2xs'
                           : 'text-slate-500 hover:text-slate-900'
-                      }`}
+                      )}
                     >
                       <Eye className="h-3.5 w-3.5" />
                       <span>Xem trước Markdown</span>
@@ -1393,11 +1404,12 @@ export default function CreatePostPage() {
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Mô tả cụ thể về món đồ (thời gian đã sử dụng, lý do pass, quà tặng kèm nếu có)...&#10;Hỗ trợ Markdown: xuống dòng được giữ nguyên, danh sách (- mục), in đậm (**chữ**)..."
-                      className={`w-full rounded-xl border bg-white p-3.5 text-sm text-slate-900 outline-none transition resize-none leading-relaxed ${
+                      className={cn(
+                        'w-full rounded-xl border bg-white p-3.5 text-sm text-slate-900 outline-none transition resize-none leading-relaxed',
                         moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase()))
                           ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 bg-rose-50/30'
                           : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                      }`}
+                      )}
                     />
                     {moderation.violations.some((v) => description.toLowerCase().includes(v.word.toLowerCase())) && (
                       <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
@@ -1604,11 +1616,12 @@ export default function CreatePostPage() {
                   <button
                     type="submit"
                     disabled={!moderation.isClean}
-                    className={`flex items-center gap-2 rounded-xl px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition-all active:scale-98 ${
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl px-6 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition-all active:scale-98',
                       !moderation.isClean
                         ? 'bg-rose-400 cursor-not-allowed opacity-80'
                         : 'bg-fpt-orange hover:bg-fpt-orange-hover hover:shadow cursor-pointer'
-                    }`}
+                    )}
                   >
                     {!moderation.isClean ? (
                       <>
@@ -1627,207 +1640,33 @@ export default function CreatePostPage() {
             </div>
 
             {/* === RIGHT COLUMN: STICKY LIVE PREVIEW & TIPS (4 COLS) === */}
-            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-              
-              {/* LIVE PREVIEW CARD */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <Eye className="h-4 w-4 text-fpt-orange" />
-                    <span>Xem trước thẻ tin</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>TRỰC TIẾP</span>
-                  </span>
-                </div>
-
-                {/* THE CARD */}
-                <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md transition-all hover:shadow-lg">
-                  {/* Image container */}
-                  <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
-                    <Image
-                      src={images[0] || '/products/book-prf192.jpg'}
-                      alt={title || 'Xem trước'}
-                      fill
-                      className="object-cover"
-                    />
-
-                    {/* Campus tag */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-slate-900/70 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-white">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                      <span>{getCampusShortName(campus)}</span>
-                    </div>
-
-                    {/* Heart button */}
-                    <button
-                      type="button"
-                      className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 backdrop-blur-xs shadow-xs hover:text-rose-500 transition"
-                    >
-                      <Heart className="h-4 w-4" />
-                    </button>
-
-                    {/* Category overlay */}
-                    <div className="absolute bottom-2 left-2.5 rounded-md bg-slate-900/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold text-white">
-                      {getCategoryLabel(category)}
-                    </div>
-                  </div>
-
-                  {/* Body */}
-                  <div className="p-4 space-y-2.5">
-                    {/* Price & negotiate */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-extrabold text-rose-600">
-                          {formatVND(Number(price) || 0)}
-                        </span>
-                      </div>
-                      {negotiable && (
-                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                          Fix nhẹ SV
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
-                      {title || 'Tiêu đề tin đăng của bạn sẽ hiển thị tại đây...'}
-                    </h3>
-
-                    {/* Condition badge */}
-                    <div>
-                      <span className="inline-block rounded-md bg-orange-100/80 px-2 py-0.5 text-[10px] font-bold text-orange-800">
-                        {condition}
-                      </span>
-                    </div>
-
-                    {/* Location */}
-                    <p className="flex items-center gap-1 text-xs text-slate-500 line-clamp-1">
-                      <MapPin className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                      <span>{pickupLocation || 'Điểm giao nhận'}</span>
-                    </p>
-
-                    {/* Seller footer */}
-                    <div className="border-t border-slate-100 pt-2.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white shadow-2xs">
-                          {(currentUser.name || 'FU')[0].toUpperCase()}
-                        </div>
-                        <span className="font-semibold text-slate-800">
-                          {currentUser.name || 'Người bán'}
-                        </span>
-                      </div>
-                      <span className="text-slate-400 text-[11px]">Vừa xong</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: MẸO BÁN NHANH CHO FPTERS */}
-              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/40 p-5 space-y-3.5 text-xs shadow-2xs">
-                <div className="flex items-center gap-2 font-bold text-amber-900 text-sm">
-                  <Lightbulb className="h-4 w-4 text-amber-600" />
-                  <span>Mẹo bán nhanh cho FPTers</span>
-                </div>
-
-                <ul className="space-y-2.5 text-slate-700">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <span>Chụp rõ gáy sách, mã vạch hoặc tem bảo hành laptop nếu có.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <span>Hẹn nhận đồ vào giờ nghỉ giải lao 10h15 hoặc 15h15 tại thư viện để tiện cả hai.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <span>Không yêu cầu chuyển cọc trước ngoài kênh trường.</span>
-                  </li>
-                </ul>
-              </div>
-
-            </div>
+            <LivePreviewCard
+              images={images}
+              title={title}
+              campus={campus}
+              category={category}
+              price={price}
+              negotiable={negotiable}
+              condition={condition}
+              pickupLocation={pickupLocation}
+              sellerName={currentUser.name}
+              formatVND={formatVND}
+              getCampusShortName={getCampusShortName}
+              getCategoryLabel={getCategoryLabel}
+            />
           </div>
         </form>
       </main>
 
       {/* 4. SUCCESS POST MODAL */}
-      {isSuccessModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 sm:p-7 shadow-2xl text-center space-y-4">
-            <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${createdStatus === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-              {createdStatus === 'PENDING_APPROVAL' ? (
-                <Clock className="h-8 w-8" />
-              ) : (
-                <CheckCircle2 className="h-8 w-8" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">
-                {createdStatus === 'PENDING_APPROVAL'
-                  ? 'Đăng tin thành công! Đang chờ kiểm duyệt'
-                  : 'Đăng tin thành công! Đã xuất bản'}
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                {createdStatus === 'PENDING_APPROVAL' ? (
-                  <>
-                    Tin đăng &quot;<span className="font-semibold text-slate-800">{title}</span>&quot; đã được gửi lên hệ thống và đang chờ Ban Quản Trị ({getCampusShortName(campus)}) phê duyệt trước khi hiển thị công khai.
-                  </>
-                ) : (
-                  <>
-                    Tin đăng &quot;<span className="font-semibold text-slate-800">{title}</span>&quot; đã được xuất bản lên kênh sinh viên FPT 5Campus ({getCampusShortName(campus)}) và sẵn sàng giao dịch.
-                  </>
-                )}
-              </p>
-              {createdStatus === 'PENDING_APPROVAL' && (
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-3 py-1 text-xs font-semibold text-amber-700">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Quy trình an toàn: BQT sẽ duyệt tin trong 15-30 phút
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-3">
-              {createdStatus === 'PENDING_APPROVAL' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => router.push('/profile')}
-                    className="w-full sm:w-auto rounded-xl bg-fpt-orange px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition cursor-pointer"
-                  >
-                    Về trang cá nhân theo dõi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => router.push(createdPostId ? `/posts/${createdPostId}` : '/posts')}
-                    className="w-full sm:w-auto rounded-xl border border-slate-200 px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Xem trước bài viết
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => router.push(createdPostId ? `/posts/${createdPostId}` : '/posts')}
-                    className="w-full sm:w-auto rounded-xl bg-fpt-orange px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition cursor-pointer"
-                  >
-                    Xem bài vừa đăng
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => router.push('/posts')}
-                    className="w-full sm:w-auto rounded-xl border border-slate-200 px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Chợ Khám phá
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <PostSuccessModal
+        isOpen={isSuccessModalOpen}
+        createdStatus={createdStatus}
+        title={title}
+        campus={campus}
+        createdPostId={createdPostId}
+        getCampusShortName={getCampusShortName}
+      />
 
       {/* 5. FLOATING TOAST NOTIFICATION */}
       {toastMessage && (

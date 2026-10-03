@@ -24,6 +24,7 @@ import { ProductService } from '@/services/productService';
 import { apiClient } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface AdminSidebarProps {
@@ -47,7 +48,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       .catch(() => {});
 
     apiClient.get<any>('/profile/admin/withdrawals?status=PENDING')
-      .then((res) => {
+      .then((res: any) => {
         const list = res.data?.data || res.data || [];
         setPendingWithdrawalsCount(Array.isArray(list) ? list.length : 0);
       })
@@ -102,9 +103,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white text-slate-800 shadow-xl lg:shadow-xs font-sans transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white text-slate-800 shadow-xl lg:shadow-xs font-sans transition-transform duration-200 ease-in-out lg:static lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        )}
       >
         {/* Brand Logo & Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -161,25 +163,28 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150 ${
+                className={cn(
+                  'group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150',
                   isActive
                     ? 'bg-orange-50/90 text-orange-600 font-bold shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
+                )}
               >
                 <div className="flex items-center gap-2.5">
                   <Icon
-                    className={`h-4 w-4 transition-colors ${
+                    className={cn(
+                      'h-4 w-4 transition-colors',
                       isActive ? 'text-fpt-orange' : 'text-slate-400 group-hover:text-slate-600'
-                    }`}
+                    )}
                   />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
                   <Badge
-                    className={`px-1.5 py-0.2 text-[10px] font-bold ${
+                    className={cn(
+                      'px-1.5 py-0.2 text-[10px] font-bold',
                       item.badgeColor || 'bg-slate-200 text-slate-700'
-                    }`}
+                    )}
                   >
                     {item.badge}
                   </Badge>

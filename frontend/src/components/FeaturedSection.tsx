@@ -5,6 +5,7 @@ import ProductCard from './ProductCard';
 import { Flame } from 'lucide-react';
 import { ProductService } from '@/services/productService';
 import { ProductItem } from '@/types/product';
+import { cn } from '@/lib/utils';
 
 const tabs = [
   { id: 'all', label: 'Tất cả' },
@@ -52,11 +53,12 @@ export default function FeaturedSection() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all',
                     isActive
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
+                  )}
                 >
                   {tab.label}
                 </button>

@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
 import { checkPostModeration, ContentViolation } from '@/utils/contentModeration';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { cn } from '@/lib/utils';
 import {
   UploadCloud,
   Camera,
@@ -535,9 +536,10 @@ export default function EditPostPage() {
                 {images.map((imgUrl, idx) => (
                   <div
                     key={`${imgUrl}-${idx}`}
-                    className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                    className={cn(
+                      'group relative aspect-square rounded-xl overflow-hidden border-2 transition-all',
                       idx === 0 ? 'border-fpt-orange ring-2 ring-fpt-orange/20 shadow-xs' : 'border-slate-200 hover:border-slate-300'
-                    }`}
+                    )}
                   >
                     <Image
                       src={imgUrl}
@@ -624,11 +626,12 @@ export default function EditPostPage() {
                   minLength={5}
                   maxLength={150}
                   placeholder="VD: Chuột Gaming Razer Basilisk Ultimate kèm Dock Sạc..."
-                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm transition ${
+                  className={cn(
+                    'w-full rounded-xl border px-3.5 py-2.5 text-sm transition',
                     postStatus === 'AVAILABLE'
                       ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed select-none font-medium'
                       : 'border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-fpt-orange/50 focus:border-fpt-orange'
-                  }`}
+                  )}
                 />
                 <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
                   <span>
@@ -656,11 +659,12 @@ export default function EditPostPage() {
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     disabled={postStatus === 'AVAILABLE'}
-                    className={`w-full rounded-xl border px-3.5 py-2.5 text-sm transition ${
+                    className={cn(
+                      'w-full rounded-xl border px-3.5 py-2.5 text-sm transition',
                       postStatus === 'AVAILABLE'
                         ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
                         : 'border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-fpt-orange/50 focus:border-fpt-orange'
-                    }`}
+                    )}
                   >
                     {CATEGORY_OPTIONS.map((cat) => (
                       <option key={cat.id} value={cat.id}>
@@ -928,18 +932,20 @@ export default function EditPostPage() {
                     <button
                       type="button"
                       onClick={() => setDescTab('write')}
-                      className={`rounded-md px-2.5 py-1 transition ${
+                      className={cn(
+                        'rounded-md px-2.5 py-1 transition',
                         descTab === 'write' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                      }`}
+                      )}
                     >
                       Soạn thảo
                     </button>
                     <button
                       type="button"
                       onClick={() => setDescTab('preview')}
-                      className={`rounded-md px-2.5 py-1 transition ${
+                      className={cn(
+                        'rounded-md px-2.5 py-1 transition',
                         descTab === 'preview' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                      }`}
+                      )}
                     >
                       Xem trước
                     </button>

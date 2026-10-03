@@ -11,6 +11,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface DisputeSidebarProps {
   itemPrice?: number;
@@ -74,7 +75,16 @@ export default function DisputeSidebar({
 
         <div className="flex items-center gap-4 bg-orange-50/50 p-3.5 rounded-xl border border-orange-100">
           {/* Gauge Circle */}
-          <div className={`relative h-14 w-14 rounded-full border-4 ${aiConfidenceScore > 70 ? 'border-emerald-500' : aiConfidenceScore > 0 ? 'border-amber-500' : 'border-slate-300'} flex items-center justify-center font-black text-slate-900 text-sm shrink-0 bg-white`}>
+          <div
+            className={cn(
+              'relative h-14 w-14 rounded-full border-4 flex items-center justify-center font-black text-slate-900 text-sm shrink-0 bg-white',
+              aiConfidenceScore > 70
+                ? 'border-emerald-500'
+                : aiConfidenceScore > 0
+                ? 'border-amber-500'
+                : 'border-slate-300'
+            )}
+          >
             {aiConfidenceScore}%
           </div>
           <div>

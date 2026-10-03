@@ -702,8 +702,16 @@ export class OrderService {
   async updateShippingStatus(userId: string, orderId: string, input: UpdateShippingStatusInput) {
     const { status, trackingCode } = input;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: { product: true },
     });
 
@@ -800,8 +808,16 @@ export class OrderService {
   async cancelOrder(userId: string, orderId: string, input: CancelOrderInput) {
     const { reason = 'Người dùng hủy đơn' } = input;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: { product: true },
     });
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, CheckCircle2, KeyRound } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -110,7 +111,7 @@ export default function ChangePasswordModal({
             {/* Strength meter */}
             <div className="mt-1.5 flex items-center gap-2">
               <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
-                <div className={`h-full ${strength.color} transition-all duration-300 ${strength.width}`}></div>
+                <div className={cn('h-full transition-all duration-300', strength.color, strength.width)}></div>
               </div>
               <span className="text-[11px] font-semibold text-slate-500">
                 {strength.label}

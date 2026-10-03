@@ -14,13 +14,25 @@ export const queryMessagesSchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(30),
 });
 
-export const sendMessageSchema = z.object({
-  text: z.string().max(2000).optional(),
-  messageType: z.enum(['TEXT', 'IMAGE', 'OFFER_PRICE', 'MEETUP_LOCATION']).default('TEXT'),
-  offerPrice: z.coerce.number().positive('Giá mặc cả phải lớn hơn 0').optional(),
-  meetupLocation: z.string().max(255).optional(),
-  mediaUrl: z.string().url().optional(),
-});
+export const sendMessageSchema = z.preprocess(
+  (data: any) => {
+    if (data && typeof data === 'object') {
+      const type = data.messageType || data.type;
+      return {
+        ...data,
+        messageType: type || 'TEXT',
+      };
+    }
+    return data;
+  },
+  z.object({
+    text: z.string().max(2000).optional(),
+    messageType: z.enum(['TEXT', 'IMAGE', 'OFFER_PRICE', 'MEETUP_LOCATION']).default('TEXT'),
+    offerPrice: z.coerce.number().positive('Giá mặc cả phải lớn hơn 0').optional(),
+    meetupLocation: z.string().max(255).optional(),
+    mediaUrl: z.string().url().optional(),
+  })
+);
 
 export type CreateConversationInput = z.infer<typeof createConversationSchema>;
 export type QueryConversationsInput = z.infer<typeof queryConversationsSchema>;

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
+import { cn } from '@/lib/utils';
 import {
   MapPin,
   Camera,
@@ -153,7 +154,7 @@ export default function AdminSafeHandoffPage() {
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 title="Tải lại dữ liệu"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
                 Làm mới
               </button>
               <button
@@ -166,14 +167,14 @@ export default function AdminSafeHandoffPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { label: 'Tổng điểm Safe-Handoff', value: stats.total },
               { label: 'Đang hoạt động', value: stats.operating, color: 'text-emerald-600' },
               { label: 'Cần bảo trì / Tạm ngưng', value: stats.maintenance, color: stats.maintenance > 0 ? 'text-amber-600' : 'text-slate-900' },
             ].map((s) => (
               <div key={s.label} className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-                <div className={`text-2xl font-black ${s.color || 'text-slate-900'}`}>{s.value}</div>
+                <div className={cn('text-2xl font-black', s.color || 'text-slate-900')}>{s.value}</div>
                 <div className="text-xs text-slate-500 mt-1">{s.label}</div>
               </div>
             ))}
@@ -197,11 +198,12 @@ export default function AdminSafeHandoffPage() {
                 <button
                   key={c.value}
                   onClick={() => setSelectedCampus(c.value)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold cursor-pointer transition ${
+                  className={cn(
+                    'rounded-lg px-2.5 py-1 text-xs font-bold cursor-pointer transition',
                     selectedCampus === c.value
                       ? 'bg-orange-500 text-white shadow-2xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                  )}
                 >
                   {c.label}
                 </button>
@@ -228,9 +230,10 @@ export default function AdminSafeHandoffPage() {
                 <div key={hub.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50 transition">
                   <div className="flex items-center gap-4">
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
                         hub.status === 'Hoạt động' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-                      }`}
+                      )}
                     >
                       <MapPin className="h-5 w-5" />
                     </div>
@@ -262,11 +265,12 @@ export default function AdminSafeHandoffPage() {
                     {/* Status Toggle Button */}
                     <button
                       onClick={() => handleToggleStatus(hub)}
-                      className={`flex items-center gap-1.5 rounded-xl border text-[11px] font-bold px-3 py-1 cursor-pointer transition ${
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-xl border text-[11px] font-bold px-3 py-1 cursor-pointer transition',
                         hub.status === 'Hoạt động'
                           ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                           : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                      }`}
+                      )}
                     >
                       {hub.status === 'Hoạt động' ? (
                         <>
@@ -299,7 +303,7 @@ export default function AdminSafeHandoffPage() {
         {/* Modal Thêm trạm mới */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 sm:p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">Thêm Trạm Safe-Handoff Mới</h3>
                 <button
@@ -317,7 +321,7 @@ export default function AdminSafeHandoffPage() {
               )}
 
               <form onSubmit={handleCreateHub} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700">Mã trạm (VD: HL-08)</label>
                     <input
@@ -357,7 +361,7 @@ export default function AdminSafeHandoffPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700">Camera giám sát</label>
                     <input
@@ -378,7 +382,7 @@ export default function AdminSafeHandoffPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700">Nhân sự / Trực nhật</label>
                     <input

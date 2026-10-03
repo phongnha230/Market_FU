@@ -14,7 +14,7 @@ export interface OrderItem {
   type: 'inter-campus' | 'safe-handoff';
   typeLabel: string;
   timeLabel: string;
-  status: 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed';
+  status: 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed' | 'cancelled';
   statusText: string;
   statusColor: string;
   reviewed?: boolean;
@@ -28,6 +28,8 @@ export interface OrderItem {
   };
   payment?: {
     price?: number;
+    coinsUsed?: number;
+    coinDiscount?: number;
     shippingFee?: number;
     totalAmount: number;
     vietqrUrl?: string;
@@ -185,7 +187,7 @@ export const useOrderStore = create<OrderState>()(
                 SHIPPING: 'shipping',
                 DELIVERED: 'delivered',
                 COMPLETED: 'completed',
-                CANCELLED: 'processing',
+                CANCELLED: 'cancelled',
                 DISPUTED: 'disputed',
               };
               const statusColorMap: Record<string, string> = {
@@ -208,6 +210,8 @@ export const useOrderStore = create<OrderState>()(
                 statusText:
                   bo.status === 'COMPLETED'
                     ? 'Giao dịch thành công'
+                    : bo.status === 'CANCELLED'
+                    ? 'Đơn hàng đã hủy'
                     : bo.status === 'PAID'
                     ? 'Đã nạp Escrow bảo hộ'
                     : bo.status === 'SHIPPING'
@@ -225,6 +229,8 @@ export const useOrderStore = create<OrderState>()(
                 payment: bo.payment
                   ? {
                       price: bo.payment.price,
+                      coinsUsed: bo.payment.coinsUsed || 0,
+                      coinDiscount: bo.payment.coinDiscount || 0,
                       shippingFee: bo.payment.shippingFee,
                       totalAmount: bo.payment.totalAmount,
                       vietqrUrl: bo.payment.vietqrUrl,
@@ -309,7 +315,7 @@ export const useOrderStore = create<OrderState>()(
           }
         });
         const cleanupCancel = socketClient.onOrderCancelled((data) => {
-          get().updateOrderStatus(data.orderId || data.orderCode, 'processing', 'Đơn hàng đã bị hủy');
+          get().updateOrderStatus(data.orderId || data.orderCode, 'cancelled', 'Đơn hàng đã bị hủy');
         });
 
         return () => {
@@ -378,6 +384,7 @@ export const useOrderStore = create<OrderState>()(
               let color = 'text-fpt-orange';
               if (status === 'delivered' || status === 'completed') color = 'text-emerald-600';
               if (status === 'disputed') color = 'text-rose-600';
+              if (status === 'cancelled') color = 'text-slate-400';
               return {
                 ...o,
                 status,

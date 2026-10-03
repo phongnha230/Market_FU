@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { VoucherItem } from '@/data/voucherData';
+import { cn } from '@/lib/utils';
 
 interface VoucherCardProps {
   voucher: VoucherItem;
@@ -102,7 +103,10 @@ export default function VoucherCard({
       {/* Top Banner Tag */}
       <div className="flex items-center justify-between gap-2 border-b border-dashed border-slate-100 pb-3">
         <span
-          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-extrabold tracking-wide uppercase shadow-2xs ${getBadgeStyle()}`}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-extrabold tracking-wide uppercase shadow-2xs',
+            getBadgeStyle()
+          )}
         >
           {voucher.tagBadge.label}
         </span>
@@ -142,9 +146,10 @@ export default function VoucherCard({
           {voucher.category !== 'coins' && (
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
               <div
-                className={`h-full rounded-full transition-all ${
+                className={cn(
+                  'h-full rounded-full transition-all',
                   voucher.usedPercentage > 80 ? 'bg-fpt-orange' : 'bg-slate-400'
-                }`}
+                )}
                 style={{ width: `${voucher.usedPercentage}%` }}
               ></div>
             </div>
@@ -176,11 +181,12 @@ export default function VoucherCard({
               type="button"
               onClick={() => onRedeem(voucher)}
               disabled={!hasEnoughCoins}
-              className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-all shadow-xs ${
+              className={cn(
+                'w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-all shadow-xs',
                 hasEnoughCoins
                   ? 'bg-fpt-orange text-white hover:bg-fpt-orange-hover cursor-pointer active:scale-98'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-              }`}
+              )}
             >
               <Coins className="h-4 w-4" />
               <span>

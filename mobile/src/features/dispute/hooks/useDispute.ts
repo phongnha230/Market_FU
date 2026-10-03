@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { DISPUTE_REASONS, EVIDENCE_ITEMS } from '../constants/dispute.constants';
 import { DisputeType, EvidenceItem } from '../types/dispute.types';
+import { useOrderStore } from '../../../stores/orderStore';
 
-export const useDispute = (onGoBack?: () => void) => {
+export const useDispute = (onGoBack?: () => void, orderId?: string) => {
   const [disputeType, setDisputeType] = useState<DisputeType>('refund_full');
   const [selectedReasons, setSelectedReasons] = useState<string[]>(['wrong_item', 'wrong_spec']);
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(EVIDENCE_ITEMS);
@@ -22,6 +23,9 @@ export const useDispute = (onGoBack?: () => void) => {
   };
 
   const handleSubmit = () => {
+    if (orderId) {
+      useOrderStore.getState().createDispute(orderId, description);
+    }
     Alert.alert(
       '✅ Đã gửi khiếu nại!',
       'Hội đồng Trọng tài Sinh viên FPT đã tiếp nhận hồ sơ. Tiền của bạn sẽ được giữ an toàn trên ví Escrow trong khi xử lý.',

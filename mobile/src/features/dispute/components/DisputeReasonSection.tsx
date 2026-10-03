@@ -18,12 +18,14 @@ export const DisputeReasonSection: React.FC<DisputeReasonSectionProps> = ({
   description,
   onChangeDescription,
 }) => {
+  const selectedSet = React.useMemo(() => new Set(selectedReasons), [selectedReasons]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Lý do khiếu nại (Chọn ít nhất 1)</Text>
 
       {reasons.map((r) => {
-        const active = selectedReasons.includes(r.id);
+        const active = selectedSet.has(r.id);
         return (
           <TouchableOpacity
             key={r.id}

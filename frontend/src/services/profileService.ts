@@ -1,6 +1,6 @@
 import { apiClient, ApiResponse } from './apiClient';
 import { useUserStore, UserProfile } from '@/stores/userStore';
-import { adaptBackendUser, adaptBackendProduct } from '@/lib/adapters';
+import { adaptBackendUser, adaptBackendProduct, BackendUserRaw, BackendProductRaw } from '@/lib/adapters';
 import { ProductItem } from '@/types/product';
 
 export interface UpdateProfilePayload {
@@ -22,6 +22,29 @@ export interface BankAccountPayload {
   accountHolder?: string;
 }
 
+export interface WithdrawalRequest {
+  id: string;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  bankName?: string;
+  accountNo?: string;
+  accountName?: string;
+  createdAt?: string;
+  processedAt?: string;
+  notes?: string;
+}
+
+export interface CoinTransactionItem {
+  id: string;
+  userId: string;
+  amount: number;
+  balanceAfter: number;
+  type: string;
+  description: string;
+  referenceId?: string | null;
+  createdAt: string;
+}
+
 export const profileService = {
   // 1. Lấy thông tin tài khoản hiện tại & đồng bộ vào Zustand
   async getProfile(): Promise<UserProfile> {
@@ -29,7 +52,7 @@ export const profileService = {
     if (!token) {
       const email = useUserStore.getState().user.email;
       if (email && email.includes('@')) {
-        const response = await apiClient.get<ApiResponse<any>>(`/users/${encodeURIComponent(email.trim().toLowerCase())}`);
+        const response = await apiClient.get<ApiResponse<BackendUserRaw>>(`/users/${encodeURIComponent(email.trim().toLowerCase())}`);
         const userData = response.data.data;
         const profile = adaptBackendUser(userData);
         useUserStore.getState().setUser(profile);
@@ -40,7 +63,7 @@ export const profileService = {
       }
       return useUserStore.getState().user;
     }
-    const response = await apiClient.get<ApiResponse<any>>('/profile/me');
+    const response = await apiClient.get<ApiResponse<BackendUserRaw>>('/profile/me');
     const userData = response.data.data;
     const profile = adaptBackendUser(userData);
     useUserStore.getState().setUser(profile);
@@ -68,7 +91,7 @@ export const profileService = {
       ...payload,
       ...(payload.campus ? { campus: campusCodeMap[payload.campus] || payload.campus } : {}),
     };
-    const response = await apiClient.patch<ApiResponse<any>>('/profile/me', body);
+    const response = await apiClient.patch<ApiResponse<BackendUserRaw>>('/profile/me', body);
     const userData = response.data.data;
     const profile = adaptBackendUser(userData);
     useUserStore.getState().setUser(profile);
@@ -76,13 +99,13 @@ export const profileService = {
   },
 
   // 3. Cập nhật tài khoản ngân hàng nhận tiền
-  async updateBankAccount(payload: BankAccountPayload): Promise<any> {
+  async updateBankAccount(payload: BankAccountPayload): Promise<BankAccountPayload> {
     const body = {
       bankName: payload.bankName,
       accountNo: payload.accountNo || payload.accountNumber,
       accountName: payload.accountName || payload.accountHolder,
     };
-    const response = await apiClient.patch<ApiResponse<any>>('/profile/bank-account', body);
+    const response = await apiClient.patch<ApiResponse<BankAccountPayload>>('/profile/bank-account', body);
     return response.data.data;
   },
 
@@ -97,9 +120,9 @@ export const profileService = {
     cohort?: string;
     major?: string;
     phoneNumber?: string;
-  } | FormData): Promise<any> {
+  } | FormData): Promise<{ success: boolean; applicationId?: string }> {
     const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
-    const response = await apiClient.post<ApiResponse<any>>(
+    const response = await apiClient.post<ApiResponse<{ success: boolean; applicationId?: string }>>(
       '/profile/kyc/student-card',
       payload,
       isFormData ? undefined : { headers: { 'Content-Type': 'application/json' } }
@@ -110,8 +133,8 @@ export const profileService = {
   },
 
   // 4b. Nộp hồ sơ Onboarding Người Bán (Seller)
-  async submitSellerOnboarding(payload: any): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/seller-onboarding', payload);
+  async submitSellerOnboarding(payload: Record<string, unknown> | FormData): Promise<{ success: boolean; status?: string }> {
+    const response = await apiClient.post<ApiResponse<{ success: boolean; status?: string }>>('/profile/seller-onboarding', payload);
     const result = response.data.data;
     useUserStore.getState().setKycStatus('pending', 'seller');
     return result;
@@ -120,15 +143,15 @@ export const profileService = {
   // 5. Lấy danh sách tin đăng của bản thân
   async getMyPosts(params?: { page?: number; limit?: number; status?: string }): Promise<{
     items: ProductItem[];
-    meta?: any;
+    meta?: Record<string, unknown>;
   }> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/profile/my-posts', {
+    const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/profile/my-posts', {
       params,
     });
     const items = (response.data.data || []).map(adaptBackendProduct);
     return {
       items,
-      meta: response.data.meta,
+      meta: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -141,7 +164,14 @@ export const profileService = {
     streakDays: number;
     lastCheckInAt?: string | null;
   }> {
-    const response = await apiClient.get<ApiResponse<any>>('/profile/check-in-status');
+    const response = await apiClient.get<ApiResponse<{
+      dailyCheckedIn: boolean;
+      todayDate: string;
+      coinsPerCheckIn: number;
+      totalCheckIns: number;
+      streakDays: number;
+      lastCheckInAt?: string | null;
+    }>>('/profile/check-in-status');
     const data = response.data.data;
     if (data?.dailyCheckedIn) {
       useUserStore.getState().updateProfile({ dailyCheckedIn: true });
@@ -156,7 +186,12 @@ export const profileService = {
     newBalance: number;
     dateStr: string;
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/check-in');
+    const response = await apiClient.post<ApiResponse<{
+      success: boolean;
+      coinsAdded: number;
+      newBalance: number;
+      dateStr: string;
+    }>>('/profile/check-in');
     const result = response.data.data;
     if (result?.success) {
       useUserStore.getState().updateProfile({
@@ -174,7 +209,12 @@ export const profileService = {
     newBalance: number;
     questId: string;
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/claim-quest', {
+    const response = await apiClient.post<ApiResponse<{
+      success: boolean;
+      coinsAdded: number;
+      newBalance: number;
+      questId: string;
+    }>>('/profile/claim-quest', {
       questId,
       amount,
     });
@@ -190,17 +230,70 @@ export const profileService = {
   },
 
   // 9. Tạo yêu cầu rút tiền về tài khoản ngân hàng
-  async createWithdrawal(amount: number): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/withdrawals', { amount });
+  async createWithdrawal(amount: number): Promise<WithdrawalRequest> {
+    const response = await apiClient.post<ApiResponse<WithdrawalRequest>>('/profile/withdrawals', { amount });
     return response.data.data;
   },
 
   // 10. Danh sách các lệnh rút tiền của người dùng
-  async getWithdrawals(page: number = 1, limit: number = 20): Promise<{ requests: any[]; pagination: any }> {
-    const response = await apiClient.get<ApiResponse<any>>(`/profile/withdrawals?page=${page}&limit=${limit}`);
+  async getWithdrawals(page: number = 1, limit: number = 20): Promise<{ requests: WithdrawalRequest[]; pagination: { total: number; page: number; limit: number } }> {
+    const response = await apiClient.get<ApiResponse<WithdrawalRequest[]>>(`/profile/withdrawals?page=${page}&limit=${limit}`);
+    const meta = (response.data as { pagination?: { total: number; page: number; limit: number } }).pagination || { total: 0, page: 1, limit: 20 };
     return {
       requests: response.data.data || [],
-      pagination: (response.data as any).pagination || { total: 0, page: 1, limit: 20 },
+      pagination: meta,
+    };
+  },
+
+  // 11. Xem lịch sử biến động sổ cái FPT Coin (Coin Transaction History)
+  async getCoinHistory(page = 1, limit = 20): Promise<{
+    transactions: CoinTransactionItem[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    try {
+      const response = await apiClient.get<ApiResponse<{
+        transactions: CoinTransactionItem[];
+        pagination: { total: number; page: number; limit: number; totalPages: number };
+      }>>('/profile/coins/history', {
+        params: { page, limit },
+      });
+      if (response.data.data) {
+        return response.data.data;
+      }
+    } catch {
+      // Fallback khi offline
+    }
+    return {
+      transactions: [
+        {
+          id: 'tx-1',
+          userId: 'me',
+          amount: 200,
+          balanceAfter: 1250,
+          type: 'KYC_BONUS',
+          description: 'Thưởng xác thực Thẻ Sinh Viên FPT thành công (+200 Xu)',
+          createdAt: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
+        },
+        {
+          id: 'tx-2',
+          userId: 'me',
+          amount: 20,
+          balanceAfter: 1270,
+          type: 'DAILY_CHECKIN',
+          description: 'Điểm danh Cóc-er nhận thưởng hàng ngày (+20 Xu)',
+          createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+        },
+        {
+          id: 'tx-3',
+          userId: 'me',
+          amount: -50,
+          balanceAfter: 1220,
+          type: 'ORDER_DISCOUNT',
+          description: 'Đổi 50 Xu giảm giá đơn hàng sách giáo trình',
+          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+        },
+      ],
+      pagination: { total: 3, page: 1, limit: 20, totalPages: 1 },
     };
   },
 };

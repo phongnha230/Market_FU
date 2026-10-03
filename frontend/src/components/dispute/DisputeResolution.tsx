@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card, Badge, Button } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface DisputeResolutionProps {
   resolutionPlan: 'return' | 'partial';
@@ -40,11 +41,12 @@ export default function DisputeResolution({
           {/* Option 1 */}
           <label
             onClick={() => onPlanChange('return')}
-            className={`rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between ${
+            className={cn(
+              'rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between',
               resolutionPlan === 'return'
                 ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
                 : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
+            )}
           >
             <div className="flex items-start gap-2.5">
               <input
@@ -73,11 +75,12 @@ export default function DisputeResolution({
           {/* Option 2 */}
           <label
             onClick={() => onPlanChange('partial')}
-            className={`rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between ${
+            className={cn(
+              'rounded-2xl border p-4 cursor-pointer transition flex flex-col justify-between',
               resolutionPlan === 'partial'
                 ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
                 : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
+            )}
           >
             <div className="flex items-start gap-2.5">
               <input
@@ -119,11 +122,12 @@ export default function DisputeResolution({
                 key={r.id}
                 type="button"
                 onClick={() => onReasonChange(r.id)}
-                className={`h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
+                className={cn(
+                  'h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer',
                   isSelected
                     ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
                     : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 shadow-none'
-                }`}
+                )}
               >
                 {r.label}
               </Button>

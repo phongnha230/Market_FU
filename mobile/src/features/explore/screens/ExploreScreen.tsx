@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import ExploreSearchBar from '../components/ExploreSearchBar';
 import ExploreFilterChips from '../components/ExploreFilterChips';
 import VerificationFilters from '../components/VerificationFilters';
@@ -10,6 +11,22 @@ import { ExploreScreenProps, ExploreProduct } from '../types/explore.types';
 
 export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProductPress }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+
+  const handleBack = () => {
+    if (onGoBack) onGoBack();
+    else if (navigation && navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
+  const handleProductPress = React.useCallback(
+    (id: string) => {
+      if (onProductPress) onProductPress(id);
+      else navigation.navigate('ProductDetail', { productId: id });
+    },
+    [onProductPress, navigation]
+  );
   const {
     searchText,
     setSearchText,
@@ -37,7 +54,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProduc
       <ExploreSearchBar
         searchText={searchText}
         onChangeText={setSearchText}
-        onGoBack={onGoBack}
+        onGoBack={handleBack}
         onClearText={() => setSearchText('')}
       />
       <ExploreFilterChips
@@ -67,18 +84,23 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProduc
     </View>
   );
 
+  const renderItem = React.useCallback(
+    ({ item }: { item: ExploreProduct }) => (
+      <ExploreProductCard
+        product={item}
+        onSelect={handleProductPress}
+      />
+    ),
+    [handleProductPress]
+  );
+
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>
       <FlatList<ExploreProduct>
         data={products}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
-        renderItem={({ item }) => (
-          <ExploreProductCard
-            product={item}
-            onPress={() => onProductPress && onProductPress(item.id)}
-          />
-        )}
+        renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />

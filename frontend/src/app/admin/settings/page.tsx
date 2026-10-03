@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import { Settings, Save, Bell, Shield, Users, Globe, Database } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function AdminSettingsPage() {
   const [autoApprove, setAutoApprove] = useState(true);
@@ -14,9 +15,17 @@ export default function AdminSettingsPage() {
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${value ? 'bg-fpt-orange' : 'bg-slate-200'}`}
+      className={cn(
+        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer',
+        value ? 'bg-fpt-orange' : 'bg-slate-200'
+      )}
     >
-      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
+      <span
+        className={cn(
+          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+          value ? 'translate-x-6' : 'translate-x-1'
+        )}
+      />
     </button>
   );
 
@@ -74,7 +83,7 @@ export default function AdminSettingsPage() {
             <Database className="h-5 w-5 text-slate-500" />
             <h3 className="text-sm font-extrabold text-slate-900">Thông tin Hệ thống</h3>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {[
               { label: 'Phiên bản', value: 'V2.4 Production 5Campus' },
               { label: 'Môi trường', value: 'Production' },

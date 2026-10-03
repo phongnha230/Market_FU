@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   StyleSheet,
   Alert,
   FlatList,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useUserStore } from '../../../stores/userStore';
+import { notificationMobileService } from '../../../services/notificationMobileService';
 
 export interface NotificationItem {
   id: string;
@@ -106,19 +109,107 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+function adaptBackendNotification(item: any): NotificationItem {
+  const type = String(item.type || '').toUpperCase();
+  let category: NotificationItem['category'] = 'system';
+  let icon = 'notifications-outline';
+  let iconColor = '#0D9488';
+  let iconBg = '#F0FDFA';
+  let targetScreen: string | undefined;
+  let targetParams: any = undefined;
+
+  if (type === 'ORDER') {
+    category = 'order';
+    icon = 'shield-checkmark';
+    iconColor = '#059669';
+    iconBg = '#ECFDF5';
+    targetScreen = 'OrderDetail';
+    if (item.targetUrl) {
+      const match = item.targetUrl.match(/[?&]id=([^&]+)/) || item.targetUrl.match(/\/([^\/?]+)$/);
+      if (match) targetParams = { orderId: match[1] };
+    }
+  } else if (type === 'CHAT') {
+    category = 'chat';
+    icon = 'chatbubble';
+    iconColor = '#EA580C';
+    iconBg = '#FFF7ED';
+    targetScreen = 'ChatList';
+  } else if (type === 'KYC') {
+    category = 'system';
+    icon = 'card-outline';
+    iconColor = '#7C3AED';
+    iconBg = '#F5F3FF';
+    targetScreen = 'AccountSettings';
+  } else if (item.targetUrl?.includes('voucher')) {
+    category = 'promo';
+    icon = 'gift';
+    iconColor = '#9333EA';
+    iconBg = '#FAF5FF';
+    targetScreen = 'Voucher';
+  }
+
+  let timeStr = 'Vừa xong';
+  if (item.createdAt) {
+    const diffMs = Date.now() - new Date(item.createdAt).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) timeStr = `${Math.max(1, diffMins)} phút trước`;
+    else if (diffMins < 1440) timeStr = `${Math.floor(diffMins / 60)} giờ trước`;
+    else timeStr = new Date(item.createdAt).toLocaleDateString('vi-VN');
+  }
+
+  return {
+    id: item.id || item._id,
+    category,
+    title: item.title || 'Thông báo mới',
+    body: item.body || '',
+    time: timeStr,
+    unread: !item.isRead,
+    icon,
+    iconColor,
+    iconBg,
+    targetScreen,
+    targetParams,
+  };
+}
+
 type FilterType = 'all' | 'order' | 'chat' | 'promo';
 
 export const NotificationScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { isAuthenticated } = useUserStore();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const items = await notificationMobileService.getNotifications();
+      if (Array.isArray(items) && items.length > 0) {
+        setNotifications(items.map(adaptBackendNotification));
+      }
+    } catch (e) {
+      console.log('Error fetching notifications:', e);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  }, [fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
+    await notificationMobileService.markAllNotificationsAsRead();
     Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc!');
   };
 
@@ -129,18 +220,20 @@ export const NotificationScreen: React.FC = () => {
     ]);
   };
 
-  const handleNotificationPress = (item: NotificationItem) => {
-    // Mark this one as read
+  const handleNotificationPress = useCallback(async (item: NotificationItem) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
     );
+    if (item.unread) {
+      await notificationMobileService.markNotificationAsRead(item.id);
+    }
 
     if (item.targetScreen && navigation && navigation.navigate) {
       navigation.navigate(item.targetScreen, item.targetParams);
     } else {
       Alert.alert(item.title, item.body);
     }
-  };
+  }, [navigation]);
 
   const filteredList = notifications.filter((item) => {
     if (activeFilter === 'all') return true;
@@ -153,6 +246,13 @@ export const NotificationScreen: React.FC = () => {
     { key: 'chat', label: 'Tin nhắn', count: notifications.filter((n) => n.category === 'chat' && n.unread).length },
     { key: 'promo', label: 'Ưu đãi & Quà' },
   ];
+
+  const renderItem = useCallback(
+    ({ item }: { item: NotificationItem }) => (
+      <NotificationItemRow item={item} onPress={handleNotificationPress} />
+    ),
+    [handleNotificationPress]
+  );
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -262,45 +362,61 @@ export const NotificationScreen: React.FC = () => {
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.itemCard, item.unread && styles.itemCardUnread]}
-              activeOpacity={0.75}
-              onPress={() => handleNotificationPress(item)}
-            >
-              {/* Icon */}
-              <View style={[styles.itemIconBox, { backgroundColor: item.iconBg }]}>
-                <Ionicons name={item.icon} size={22} color={item.iconColor} />
-              </View>
-
-              {/* Text Info */}
-              <View style={styles.itemContent}>
-                <View style={styles.itemHeaderRow}>
-                  <Text style={[styles.itemTitle, item.unread && styles.itemTitleUnread]} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.unread && <View style={styles.unreadDot} />}
-                </View>
-                <Text style={styles.itemBody} numberOfLines={3}>
-                  {item.body}
-                </Text>
-                <View style={styles.itemFooterRow}>
-                  <Text style={styles.itemTime}>{item.time}</Text>
-                  {item.targetScreen && (
-                    <View style={styles.actionArrowRow}>
-                      <Text style={styles.actionArrowText}>Xem chi tiết</Text>
-                      <Ionicons name="chevron-forward" size={13} color="#EA580C" />
-                    </View>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+          }
+          renderItem={renderItem}
         />
       )}
     </View>
   );
 };
+
+interface NotificationRowProps {
+  item: NotificationItem;
+  onPress: (item: NotificationItem) => void;
+}
+
+const NotificationItemRow = React.memo<NotificationRowProps>(({ item, onPress }) => {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.itemCard, item.unread && styles.itemCardUnread]}
+      activeOpacity={0.75}
+      onPress={handlePress}
+    >
+      {/* Icon */}
+      <View style={[styles.itemIconBox, { backgroundColor: item.iconBg }]}>
+        <Ionicons name={item.icon} size={22} color={item.iconColor} />
+      </View>
+
+      {/* Text Info */}
+      <View style={styles.itemContent}>
+        <View style={styles.itemHeaderRow}>
+          <Text style={[styles.itemTitle, item.unread && styles.itemTitleUnread]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          {item.unread && <View style={styles.unreadDot} />}
+        </View>
+        <Text style={styles.itemBody} numberOfLines={3}>
+          {item.body}
+        </Text>
+        <View style={styles.itemFooterRow}>
+          <Text style={styles.itemTime}>{item.time}</Text>
+          {item.targetScreen && (
+            <View style={styles.actionArrowRow}>
+              <Text style={styles.actionArrowText}>Xem chi tiết</Text>
+              <Ionicons name="chevron-forward" size={13} color="#EA580C" />
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default NotificationScreen;
 

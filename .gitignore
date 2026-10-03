@@ -12,6 +12,8 @@ node_modules/
 *firebase-adminsdk*.json
 *firebase-service-account*.json
 firebase-service-account.json
+google-services.json
+GoogleService-Info.plist
 
 
 # Build outputs
@@ -51,3 +53,6 @@ bin/
 bruno-collection/
 backend/bruno-collection/
 
+# Internal Reports & Quality Audit Logs
+report/
+doctor-report*

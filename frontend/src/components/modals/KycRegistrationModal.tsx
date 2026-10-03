@@ -480,13 +480,13 @@ export default function KycRegistrationModal({
               {/* Option 1: Sinh viên (Người mua) */}
               <div
                 onClick={() => !isPending && setSelectedRole('student')}
-                className={`relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3 ${
-                  isPending ? 'cursor-not-allowed' : 'cursor-pointer'
-                } ${
+                className={cn(
+                  'relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3',
+                  isPending ? 'cursor-not-allowed' : 'cursor-pointer',
                   selectedRole === 'student'
                     ? 'border-emerald-500 bg-emerald-50/40 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                )}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
@@ -533,19 +533,22 @@ export default function KycRegistrationModal({
                   if (isPending) return;
                   setSelectedRole('seller');
                 }}
-                className={`relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3 ${
-                  isPending ? 'cursor-not-allowed' : 'cursor-pointer'
-                } ${
+                className={cn(
+                  'relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3',
+                  isPending ? 'cursor-not-allowed' : 'cursor-pointer',
                   selectedRole === 'seller'
                     ? 'border-fpt-orange bg-orange-50/40 shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                )}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      selectedRole === 'seller' ? 'bg-orange-100 text-fpt-orange' : 'bg-slate-100 text-slate-600'
-                    }`}>
+                    <div
+                      className={cn(
+                        'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
+                        selectedRole === 'seller' ? 'bg-orange-100 text-fpt-orange' : 'bg-slate-100 text-slate-600'
+                      )}
+                    >
                       <Store className="h-5 w-5" />
                     </div>
                     <div>

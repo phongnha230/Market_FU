@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CompactHeader from '@/components/layout/CompactHeader';
+import { cn } from '@/lib/utils';
 import Footer from '@/components/Footer';
 import { useUserStore } from '@/stores/userStore';
 import { useProductStore } from '@/stores/productStore';
@@ -45,13 +46,21 @@ import {
   Camera,
   Upload,
   Pencil,
+  Coins,
+  ShieldAlert,
 } from 'lucide-react';
-import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
-import EditProductModal from '@/components/modals/EditProductModal';
-import ChangePasswordModal from '@/components/modals/ChangePasswordModal';
-import QrShareModal from '@/components/modals/QrShareModal';
-import SettingsModal from '@/components/modals/SettingsModal';
-import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
+import dynamic from 'next/dynamic';
+import { UserProfileData } from '@/components/modals/EditProfileModal';
+import ProfileLeftSidebar from '@/components/profile/ProfileLeftSidebar';
+
+const EditProfileModal = dynamic(() => import('@/components/modals/EditProfileModal'), { ssr: false });
+const EditProductModal = dynamic(() => import('@/components/modals/EditProductModal'), { ssr: false });
+const ChangePasswordModal = dynamic(() => import('@/components/modals/ChangePasswordModal'), { ssr: false });
+const QrShareModal = dynamic(() => import('@/components/modals/QrShareModal'), { ssr: false });
+const SettingsModal = dynamic(() => import('@/components/modals/SettingsModal'), { ssr: false });
+const KycRegistrationModal = dynamic(() => import('@/components/modals/KycRegistrationModal'), { ssr: false });
+const CoinHistoryModal = dynamic(() => import('@/components/profile/CoinHistoryModal'), { ssr: false });
+const MyReportsModal = dynamic(() => import('@/components/modals/MyReportsModal'), { ssr: false });
 import { KycType } from '@/stores/kycStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import { useOrderStore } from '@/stores/orderStore';
@@ -75,6 +84,8 @@ export default function ProfilePage() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [isCoinHistoryModalOpen, setIsCoinHistoryModalOpen] = useState(false);
+  const [isMyReportsModalOpen, setIsMyReportsModalOpen] = useState(false);
   const [kycModalRole, setKycModalRole] = useState<KycType>('seller');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -424,16 +435,18 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Email Badge */}
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs text-slate-700 ${
+                  <div className={cn(
+                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs text-slate-700',
                     isEduEmail ? 'bg-emerald-50/50 border-emerald-200/60' : 'bg-slate-50 border-slate-200/70'
-                  }`}>
-                    <Mail className={`h-3.5 w-3.5 shrink-0 ${isEduEmail ? 'text-emerald-600' : 'text-slate-500'}`} />
+                  )}>
+                    <Mail className={cn('h-3.5 w-3.5 shrink-0', isEduEmail ? 'text-emerald-600' : 'text-slate-500')} />
                     <span className="font-mono text-[11px] text-slate-800">{userData.email}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                    <span className={cn(
+                      'text-[10px] font-bold px-1.5 py-0.5 rounded-md',
                       isEduEmail 
                         ? 'text-emerald-700 bg-emerald-100/70' 
                         : 'text-slate-600 bg-slate-200/70'
-                    }`}>
+                    )}>
                       {isEduEmail ? 'FPT SSO' : 'Email cá nhân'}
                     </span>
                   </div>
@@ -540,6 +553,30 @@ export default function ProfilePage() {
                 >
                   <Share2 className="h-3.5 w-3.5 text-slate-500" />
                   <span className="hidden sm:inline">Mã QR</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCoinHistoryModalOpen(true)}
+                  className="gap-1.5 rounded-xl border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900 px-3 py-2 h-auto text-xs font-bold transition cursor-pointer shadow-2xs"
+                  title="Xem lịch sử biến động FPT Coin"
+                >
+                  <Coins className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Sổ cái Xu</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsMyReportsModalOpen(true)}
+                  className="gap-1.5 rounded-xl border-slate-200 bg-white px-3 py-2 h-auto text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition cursor-pointer shadow-2xs"
+                  title="Xem lịch sử các báo cáo vi phạm bạn đã gửi tới BQT"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
+                  <span className="hidden md:inline">Tố cáo của tôi</span>
                 </Button>
               </div>
             </div>
@@ -667,189 +704,14 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           
           {/* === LEFT COLUMN: STUDENT TRUST & BIO (4 COLS) === */}
-          <div className="lg:col-span-4 space-y-5">
-            
-            {/* CARD 1: GIỚI THIỆU SINH VIÊN */}
-            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
-              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-fpt-orange" />
-                <span>Giới thiệu sinh viên</span>
-              </h2>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                {userData.bio}
-              </p>
-
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {['#K17SE', '#HolaDomE', '#PassGiaoTrinh', '#Keyboards'].map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="rounded-lg bg-slate-100 hover:bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition cursor-pointer"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </Card>
-
-            {/* CARD 2: ĐIỂM HẸN HANDOFF QUEN THUỘC */}
-            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-emerald-600" />
-                  <span>Điểm hẹn Handoff quen thuộc</span>
-                </h2>
-                <span className="text-[11px] font-semibold text-slate-400">Hòa Lạc</span>
-              </div>
-
-              <div className="space-y-2.5">
-                {/* Spot 1 */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                  <Building className="h-4 w-4 text-fpt-orange shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <p className="font-bold text-slate-800">Sảnh tòa Alpha</p>
-                    <p className="text-slate-500 text-[11px]">Gần quầy lễ tân hoặc quán cà phê Passio</p>
-                  </div>
-                </div>
-
-                {/* Spot 2 */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                  <Utensils className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <p className="font-bold text-slate-800">Căng-tin KTX Dom E</p>
-                    <p className="text-slate-500 text-[11px]">Khu bàn tròn tầng 1, thuận tiện giờ ăn trưa/tối</p>
-                  </div>
-                </div>
-
-                {/* Spot 3 */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                  <BookOpen className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <p className="font-bold text-slate-800">Thư viện Gamma Hola</p>
-                    <p className="text-slate-500 text-[11px]">Khu vực tự học chung tầng 2 (Yên tĩnh)</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* CARD 3: XÁC THỰC THẺ SINH VIÊN & SELLER */}
-            <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3.5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileCheck className="h-4 w-4 text-fpt-orange" />
-                  <span>Xác thực Thẻ Sinh Viên & Seller</span>
-                </h2>
-                {userData.kycStatus === 'pending' ? (
-                  <Badge variant="warning" className="px-2 py-0.5 text-[10px] font-bold normal-case">
-                    ⏳ Đang chờ BQT duyệt
-                  </Badge>
-                ) : userData.kycStatus === 'approved_seller' ? (
-                  <Badge variant="success" className="px-2 py-0.5 text-[10px] font-bold normal-case">
-                    ● Đã duyệt: Verified Seller
-                  </Badge>
-                ) : userData.kycStatus === 'approved_student' ? (
-                  <Badge className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 border-blue-200 text-blue-700 normal-case">
-                    ● Đã duyệt: Sinh viên FPT
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-bold text-slate-600 normal-case">
-                    Chưa xác thực
-                  </Badge>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {userData.kycStatus === 'pending'
-                  ? 'Hồ sơ thẻ sinh viên của bạn đã gửi lên Ban Quản Trị và đang được đối soát tự động với hệ thống FAP SSO.'
-                  : userData.kycStatus === 'approved_seller'
-                  ? 'Tài khoản đã xác thực thẻ sinh viên và được cấp quyền Người bán uy tín (Verified Seller). Quyền đăng bán không giới hạn.'
-                  : userData.kycStatus === 'approved_student'
-                  ? 'Tài khoản đã xác thực thẻ SV chính quy (Người mua). Nâng cấp hồ sơ để mở quyền đăng bán đồ cũ.'
-                  : 'Xác thực thẻ sinh viên để mở khóa huy hiệu chính hãng và quyền đăng bán đồ cũ trên FPT 5Campus.'}
-              </p>
-
-              <div className="rounded-xl bg-slate-50 p-3 space-y-1.5 text-xs border border-slate-100">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Vai trò tài khoản:</span>
-                  <span className="font-bold text-slate-900">
-                    {userData.kycRole === 'seller' ? '🛍️ Người bán (Seller)' : '🎓 Sinh viên (Người mua)'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Trạng thái thẩm định:</span>
-                  <span
-                    className={`font-bold ${
-                      userData.kycStatus === 'pending'
-                        ? 'text-amber-600'
-                        : userData.kycStatus === 'approved_seller'
-                        ? 'text-emerald-600'
-                        : userData.kycStatus === 'approved_student'
-                        ? 'text-blue-600'
-                        : 'text-slate-500'
-                    }`}
-                  >
-                    {userData.kycStatus === 'pending'
-                      ? 'Chờ BQT kiểm tra'
-                      : userData.kycStatus === 'approved_seller'
-                      ? 'Đã duyệt Seller K17 Hola'
-                      : userData.kycStatus === 'approved_student'
-                      ? 'Đã duyệt Sinh viên FPT'
-                      : 'Chưa nộp thẻ SV'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Quyền đăng bán:</span>
-                  <span className="font-bold text-fpt-orange">
-                    {userData.kycStatus === 'approved_seller' ? 'Không giới hạn tin' : 'Cần duyệt Seller'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setKycModalRole('student');
-                    setIsKycModalOpen(true);
-                  }}
-                  className={`w-full gap-1.5 rounded-xl border py-2 h-auto text-[11px] font-bold transition cursor-pointer ${
-                    isPendingStudent
-                      ? 'border-amber-300 bg-amber-50/70 text-amber-800 hover:bg-amber-100'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {isPendingStudent ? (
-                    <>
-                      <Clock className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Thẻ SV: Chờ duyệt</span>
-                    </>
-                  ) : (
-                    <>
-                      <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>Xác thực SV</span>
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    setKycModalRole('seller');
-                    setIsKycModalOpen(true);
-                  }}
-                  className="w-full gap-1.5 rounded-xl bg-fpt-orange py-2 h-auto text-[11px] font-bold text-white hover:bg-fpt-orange-hover transition cursor-pointer shadow-2xs"
-                >
-                  <Store className="h-3.5 w-3.5" />
-                  <span>Đăng ký Seller</span>
-                </Button>
-              </div>
-            </Card>
-
-          </div>
+          <ProfileLeftSidebar
+            userData={userData}
+            isPendingStudent={isPendingStudent}
+            onOpenKycModal={(role) => {
+              setKycModalRole(role);
+              setIsKycModalOpen(true);
+            }}
+          />
 
           {/* === RIGHT COLUMN: DYNAMIC TABS & CONTENT BASED ON ROLE (8 COLS) === */}
           <div className="lg:col-span-8 space-y-5">
@@ -865,17 +727,19 @@ export default function ProfilePage() {
                     type="button"
                     variant={activeTab === 'selling' ? 'default' : 'outline'}
                     onClick={() => setActiveTab('selling')}
-                    className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                    className={cn(
+                      'gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                       activeTab === 'selling'
                         ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                    )}
                   >
                     <span>Tin đang rao bán</span>
                     <Badge
-                      className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-extrabold',
                         activeTab === 'selling' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
+                      )}
                     >
                       {sellingItems.length}
                     </Badge>
@@ -885,17 +749,19 @@ export default function ProfilePage() {
                     type="button"
                     variant={activeTab === 'reviews' ? 'default' : 'outline'}
                     onClick={() => setActiveTab('reviews')}
-                    className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                    className={cn(
+                      'gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                       activeTab === 'reviews'
                         ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                    )}
                   >
                     <span>Đánh giá cộng đồng</span>
                     <Badge
-                      className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-extrabold',
                         activeTab === 'reviews' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
+                      )}
                     >
                       {userReviews.length}
                     </Badge>
@@ -905,17 +771,19 @@ export default function ProfilePage() {
                     type="button"
                     variant={activeTab === 'sold' ? 'default' : 'outline'}
                     onClick={() => setActiveTab('sold')}
-                    className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                    className={cn(
+                      'gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                       activeTab === 'sold'
                         ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                    )}
                   >
                     <span>Lịch sử đã bán</span>
                     <Badge
-                      className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-extrabold',
                         activeTab === 'sold' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
+                      )}
                     >
                       {soldItems.length}
                     </Badge>
@@ -989,13 +857,14 @@ export default function ProfilePage() {
 
                                 {/* Status badge (PENDING_APPROVAL / REJECTED / SOLD / HIDDEN / RESERVED) */}
                                 {prod.status && prod.status !== 'AVAILABLE' && (
-                                  <div className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md ${
+                                  <div className={cn(
+                                    'absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md',
                                     prod.status === 'PENDING_APPROVAL' ? 'bg-amber-600/90' :
                                     prod.status === 'REJECTED' ? 'bg-rose-600/90' :
                                     prod.status === 'SOLD' ? 'bg-slate-800/90' :
                                     prod.status === 'HIDDEN' ? 'bg-zinc-600/90' :
                                     'bg-sky-600/90'
-                                  }`}>
+                                  )}>
                                     {prod.status === 'PENDING_APPROVAL' ? '⏳ Chờ BQT duyệt' :
                                      prod.status === 'REJECTED' ? '🚫 Bị từ chối' :
                                      prod.status === 'SOLD' ? '✓ Đã bán' :
@@ -1362,18 +1231,20 @@ export default function ProfilePage() {
                     type="button"
                     variant={buyerTab === 'orders' ? 'default' : 'outline'}
                     onClick={() => setBuyerTab('orders')}
-                    className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                    className={cn(
+                      'gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                       buyerTab === 'orders'
                         ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                    )}
                   >
                     <ShoppingBag className="h-4 w-4" />
                     <span>Đơn mua gần đây</span>
                     <Badge
-                      className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-extrabold',
                         buyerTab === 'orders' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
+                      )}
                     >
                       {orders.length}
                     </Badge>
@@ -1383,18 +1254,20 @@ export default function ProfilePage() {
                     type="button"
                     variant={buyerTab === 'favorites' ? 'default' : 'outline'}
                     onClick={() => setBuyerTab('favorites')}
-                    className={`gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0 ${
+                    className={cn(
+                      'gap-2 rounded-xl px-4 sm:px-5 py-2.5 h-auto text-xs sm:text-sm font-bold transition cursor-pointer shrink-0',
                       buyerTab === 'favorites'
                         ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange-hover'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                    )}
                   >
                     <Heart className="h-4 w-4" />
                     <span>Mục yêu thích & Đã lưu</span>
                     <Badge
-                      className={`px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-extrabold',
                         buyerTab === 'favorites' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
+                      )}
                     >
                       {favorites.length}
                     </Badge>
@@ -1596,6 +1469,16 @@ export default function ProfilePage() {
         onClose={() => setIsKycModalOpen(false)}
         defaultRole={kycModalRole}
         onShowToast={(msg, type) => showToast(msg)}
+      />
+
+      <CoinHistoryModal
+        isOpen={isCoinHistoryModalOpen}
+        onClose={() => setIsCoinHistoryModalOpen(false)}
+      />
+
+      <MyReportsModal
+        isOpen={isMyReportsModalOpen}
+        onClose={() => setIsMyReportsModalOpen(false)}
       />
 
       {/* 5. FLOATING TOAST */}

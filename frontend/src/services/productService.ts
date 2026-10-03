@@ -1,6 +1,6 @@
 import { apiClient, ApiResponse } from './apiClient';
 import { ProductItem, ProductDetail } from '@/types/product';
-import { adaptBackendProduct, adaptBackendProductDetail } from '@/lib/adapters';
+import { adaptBackendProduct, adaptBackendProductDetail, BackendProductRaw } from '@/lib/adapters';
 import { useProductStore } from '@/stores/productStore';
 
 export function stripVietnamese(str: string): string {
@@ -24,11 +24,24 @@ function getLiveLocalProducts(): ProductItem[] {
   return [];
 }
 
+export interface SearchPostsCriteria {
+  keyword?: string;
+  campus?: string;
+  categories?: string[];
+  pricePreset?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  conditions?: string[];
+  sort?: string;
+  page?: number;
+  limit?: number;
+}
+
 export const ProductService = {
   // 1. Lấy toàn bộ danh sách sản phẩm
   async getAllProducts(): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', {
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products', {
         params: { limit: 50 },
       });
       if (response.data.data && response.data.data.length > 0) {
@@ -43,7 +56,7 @@ export const ProductService = {
   // 2. Lấy danh sách sản phẩm nổi bật
   async getFeaturedProducts(): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', {
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products', {
         params: { limit: 8, sortBy: 'newest' },
       });
       if (response.data.data && response.data.data.length > 0) {
@@ -62,7 +75,7 @@ export const ProductService = {
   // 3. Lấy danh sách tin đăng mới nhất
   async getLatestProducts(): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', {
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products', {
         params: { limit: 12, sortBy: 'newest' },
       });
       if (response.data.data && response.data.data.length > 0) {
@@ -76,21 +89,10 @@ export const ProductService = {
   },
 
   // 4. Tìm kiếm & Lọc sản phẩm theo tiêu chí đa chiều (Backend Meilisearch & MongoDB Index)
-  async searchPosts(criteria?: {
-    keyword?: string;
-    campus?: string;
-    categories?: string[];
-    pricePreset?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    conditions?: string[];
-    sort?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async searchPosts(criteria?: SearchPostsCriteria): Promise<{
     items: ProductItem[];
     total: number;
-    meta?: any;
+    meta?: Record<string, unknown>;
   }> {
     try {
       const campusMap: Record<string, string> = {
@@ -101,7 +103,7 @@ export const ProductService = {
         ct: 'CT',
       };
 
-      const params: Record<string, any> = {
+      const params: Record<string, string | number> = {
         page: criteria?.page || 1,
         limit: criteria?.limit || 20,
       };
@@ -119,13 +121,13 @@ export const ProductService = {
       if (criteria?.sort === 'price-asc') params.sortBy = 'price_asc';
       if (criteria?.sort === 'price-desc') params.sortBy = 'price_desc';
 
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', { params });
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products', { params });
       if (response.data.data) {
         const items = response.data.data.map(adaptBackendProduct);
         return {
           items,
-          total: response.data.meta?.total || items.length,
-          meta: response.data.meta,
+          total: (response.data.meta as { total?: number })?.total || items.length,
+          meta: response.data.meta as Record<string, unknown>,
         };
       }
     } catch {
@@ -165,7 +167,7 @@ export const ProductService = {
   // 5. Lấy chi tiết bài đăng theo ID
   async getPostById(id: string): Promise<ProductDetail | null> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>(`/products/${id}`);
+      const response = await apiClient.get<ApiResponse<BackendProductRaw>>(`/products/${id}`);
       if (response.data.data) {
         return adaptBackendProductDetail(response.data.data);
       }
@@ -189,7 +191,7 @@ export const ProductService = {
 
   // 6. Đăng bài mới (Bắt buộc xác thực KYC sinh viên theo quy tắc hệ thống)
   async createProduct(formData: FormData): Promise<ProductItem> {
-    const response = await apiClient.post<ApiResponse<any>>('/products', formData, {
+    const response = await apiClient.post<ApiResponse<BackendProductRaw>>('/products', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -198,14 +200,14 @@ export const ProductService = {
   },
 
   // 7. Chỉnh sửa thông tin bài viết (JSON - cho các trường không cần upload ảnh mới)
-  async updateProduct(id: string, payload: any): Promise<ProductItem> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/${id}`, payload);
+  async updateProduct(id: string, payload: Partial<BackendProductRaw>): Promise<ProductItem> {
+    const response = await apiClient.patch<ApiResponse<BackendProductRaw>>(`/products/${id}`, payload);
     return adaptBackendProduct(response.data.data);
   },
 
   // 7b. Chỉnh sửa bài viết với ảnh mới (multipart/form-data)
   async updateProductWithForm(id: string, formData: FormData): Promise<ProductItem> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/${id}`, formData, {
+    const response = await apiClient.patch<ApiResponse<BackendProductRaw>>(`/products/${id}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return adaptBackendProduct(response.data.data);
@@ -214,7 +216,7 @@ export const ProductService = {
   // 7c. Lấy danh sách sản phẩm của người dùng hiện tại (authenticated)
   async getMyProducts(): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products/me');
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products/me');
       if (response.data.data && response.data.data.length > 0) {
         return response.data.data.map(adaptBackendProduct);
       }
@@ -226,33 +228,33 @@ export const ProductService = {
   },
 
   // 8. Đổi trạng thái bài đăng (AVAILABLE, RESERVED, SOLD, HIDDEN)
-  async updateProductStatus(id: string, status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN'): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/${id}/status`, { status });
+  async updateProductStatus(id: string, status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN'): Promise<BackendProductRaw> {
+    const response = await apiClient.patch<ApiResponse<BackendProductRaw>>(`/products/${id}/status`, { status });
     return response.data.data;
   },
 
   // 9. Gia hạn tin đăng thêm 30 ngày
-  async renewProduct(id: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(`/products/${id}/renew`);
+  async renewProduct(id: string): Promise<BackendProductRaw> {
+    const response = await apiClient.post<ApiResponse<BackendProductRaw>>(`/products/${id}/renew`);
     return response.data.data;
   },
 
   // 10. Đẩy tin nổi bật (Boost bằng Xu: BUMP -100 Xu, PIN_24H -300 Xu)
-  async boostProduct(id: string, type: 'BUMP' | 'PIN_24H' = 'BUMP'): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(`/products/${id}/boost`, { type });
+  async boostProduct(id: string, type: 'BUMP' | 'PIN_24H' = 'BUMP'): Promise<BackendProductRaw> {
+    const response = await apiClient.post<ApiResponse<BackendProductRaw>>(`/products/${id}/boost`, { type });
     return response.data.data;
   },
 
   // 11. Lưu / Bỏ lưu tin yêu thích (Wishlist)
-  async toggleFavorite(id: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(`/products/${id}/favorite`);
+  async toggleFavorite(id: string): Promise<{ isFavorited?: boolean }> {
+    const response = await apiClient.post<ApiResponse<{ isFavorited?: boolean }>>(`/products/${id}/favorite`);
     return response.data.data;
   },
 
   // 12. Lấy danh sách sản phẩm tương tự cùng Campus
   async getSimilarPosts(campus?: string): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', {
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products', {
         params: { limit: 4, campus },
       });
       if (response.data.data && response.data.data.length > 0) {
@@ -272,14 +274,20 @@ export const ProductService = {
     page?: number;
     limit?: number;
   }): Promise<{
-    products: any[];
+    products: BackendProductRaw[];
     pagination: { total: number; page: number; limit: number; totalPages: number };
     counts: { all: number; pending: number; live: number; rejected: number };
   }> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/products/admin/moderation', {
+    const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products/admin/moderation', {
       params,
     });
-    const meta: any = response.data.meta || {};
+    const meta = (response.data.meta || {}) as {
+      total?: number;
+      page?: number;
+      limit?: number;
+      totalPages?: number;
+      counts?: { all: number; pending: number; live: number; rejected: number };
+    };
     const rawProducts = response.data.data || [];
     return {
       products: rawProducts,
@@ -291,22 +299,49 @@ export const ProductService = {
       },
       counts: meta.counts || {
         all: rawProducts.length,
-        pending: rawProducts.filter((p: any) => p.status === 'PENDING_APPROVAL').length,
-        live: rawProducts.filter((p: any) => p.status === 'AVAILABLE').length,
-        rejected: rawProducts.filter((p: any) => p.status === 'REJECTED').length,
+        pending: rawProducts.filter((p) => p.status === 'PENDING_APPROVAL').length,
+        live: rawProducts.filter((p) => p.status === 'AVAILABLE').length,
+        rejected: rawProducts.filter((p) => p.status === 'REJECTED').length,
       },
     };
   },
 
   // 14. [Admin] Phê duyệt tin đăng
-  async approveProduct(id: string): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/approve`);
+  async approveProduct(id: string): Promise<BackendProductRaw> {
+    const response = await apiClient.patch<ApiResponse<BackendProductRaw>>(`/products/admin/${id}/approve`);
     return response.data.data;
   },
 
   // 15. [Admin] Từ chối tin đăng kèm lý do
-  async rejectProduct(id: string, reason: string): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason });
+  async rejectProduct(id: string, reason: string): Promise<BackendProductRaw> {
+    const response = await apiClient.patch<ApiResponse<BackendProductRaw>>(`/products/admin/${id}/reject`, { reason });
     return response.data.data;
+  },
+
+  // 16. Lấy Top từ khóa tìm kiếm hot nhất từ Redis ZSET (GET /api/products/trending/searches)
+  async getTrendingSearches(limit: number = 8): Promise<Array<{ keyword: string; searchCount: number }>> {
+    try {
+      const response = await apiClient.get<ApiResponse<Array<{ keyword: string; searchCount: number }>>>('/products/trending/searches', {
+        params: { limit },
+      });
+      return response.data.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  // 17. Lấy Top sản phẩm hot nhất theo tương tác từ Redis ZSET (GET /api/products/trending/items)
+  async getTrendingItems(limit: number = 8): Promise<ProductItem[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<BackendProductRaw[]>>('/products/trending/items', {
+        params: { limit },
+      });
+      if (response.data.data && response.data.data.length > 0) {
+        return response.data.data.map(adaptBackendProduct);
+      }
+      return [];
+    } catch {
+      return [];
+    }
   },
 };

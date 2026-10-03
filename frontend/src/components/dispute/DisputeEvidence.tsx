@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface DisputeEvidenceProps {
   description: string;
@@ -166,11 +167,12 @@ export default function DisputeEvidence({
           {/* Location 1 */}
           <label
             onClick={() => onDropoffPointChange('library')}
-            className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+            className={cn(
+              'rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3',
               dropoffPoint === 'library'
                 ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
                 : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
+            )}
           >
             <input
               type="radio"
@@ -197,11 +199,12 @@ export default function DisputeEvidence({
           {/* Location 2 */}
           <label
             onClick={() => onDropoffPointChange('meet')}
-            className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+            className={cn(
+              'rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3',
               dropoffPoint === 'meet'
                 ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
                 : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
+            )}
           >
             <input
               type="radio"

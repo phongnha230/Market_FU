@@ -7,11 +7,18 @@ import { ExploreProduct } from '../types/explore.types';
 interface ExploreProductCardProps {
   product: ExploreProduct;
   onPress?: () => void;
+  onSelect?: (id: string) => void;
 }
 
-export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product, onPress }) => {
-  return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={onPress}>
+export const ExploreProductCard: React.FC<ExploreProductCardProps> = React.memo(
+  ({ product, onPress, onSelect }) => {
+    const handlePress = React.useCallback(() => {
+      if (onSelect) onSelect(product.id);
+      else if (onPress) onPress();
+    }, [product.id, onSelect, onPress]);
+
+    return (
+      <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={handlePress}>
       <View style={styles.imageBox}>
         <Image source={product.image} style={styles.image} contentFit="cover" transition={200} />
         <View style={[styles.badge, { backgroundColor: product.badgeColor }]}>
@@ -48,7 +55,7 @@ export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product,
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -60,11 +67,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
     padding: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.04)',
   },
   imageBox: {
     width: 95,

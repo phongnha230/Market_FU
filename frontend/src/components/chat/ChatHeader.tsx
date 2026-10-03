@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Conversation } from '@/types/chat';
 import { ShieldCheck, Info, MoreVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
   conversation: Conversation;
@@ -26,9 +27,10 @@ export default function ChatHeader({
             className="object-cover"
           />
           <span
-            className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white ${
+            className={cn(
+              'absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white',
               conversation.isOnline ? 'bg-emerald-500' : 'bg-slate-400'
-            }`}
+            )}
           />
         </div>
 

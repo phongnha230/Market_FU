@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Filter, MapPin, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type VoucherCategoryTab = 'all' | 'ship' | 'it' | 'dorm' | 'coins';
 
@@ -45,17 +46,19 @@ export default function VoucherFilterBar({
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs',
                 isActive
                   ? 'bg-fpt-orange text-white shadow-xs'
                   : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
-              }`}
+              )}
             >
               <span>{tab.label}</span>
               <span
-                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                className={cn(
+                  'rounded-full px-1.5 py-0.2 text-[10px] font-bold',
                   isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
-                }`}
+                )}
               >
                 {tab.count}
               </span>

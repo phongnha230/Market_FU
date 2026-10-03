@@ -19,6 +19,7 @@ import {
 import { useUserStore } from '@/stores/userStore';
 import { useWalletStore } from '@/stores/walletStore';
 import { profileService } from '@/services/profileService';
+import { cn } from '@/lib/utils';
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -204,22 +205,24 @@ export default function WithdrawalModal({
         <div className="flex border-b border-slate-200 px-6 bg-white">
           <button
             onClick={() => setActiveTab('withdraw')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={cn(
+              'py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer',
               activeTab === 'withdraw'
                 ? 'border-fpt-orange text-fpt-orange'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            )}
           >
             <Send className="h-3.5 w-3.5" />
             Tạo lệnh rút mới
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={cn(
+              'py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer',
               activeTab === 'history'
                 ? 'border-fpt-orange text-fpt-orange'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+            )}
           >
             <History className="h-3.5 w-3.5" />
             Lịch sử rút tiền ({withdrawalHistory.length})

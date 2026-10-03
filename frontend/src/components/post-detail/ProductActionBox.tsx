@@ -17,6 +17,7 @@ import {
 import { ProductDetail } from '@/types/product';
 import ReportModal from '@/components/modals/ReportModal';
 import { useUserStore } from '@/stores/userStore';
+import { cn } from '@/lib/utils';
 
 interface ProductActionBoxProps {
   product: ProductDetail;
@@ -279,16 +280,18 @@ export default function ProductActionBox({
             }
             onToggleFavorite();
           }}
-          className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition active:scale-98 cursor-pointer ${
+          className={cn(
+            'flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition active:scale-98 cursor-pointer',
             isFavorite
               ? 'border-rose-200 bg-rose-50 text-rose-600'
               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-          }`}
+          )}
         >
           <Heart
-            className={`h-4 w-4 ${
+            className={cn(
+              'h-4 w-4',
               isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-400'
-            }`}
+            )}
           />
           <span>{isFavorite ? 'Đã lưu tin' : 'Lưu tin yêu thích'}</span>
         </button>

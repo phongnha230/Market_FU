@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 export type { ProductItem };
 
@@ -88,13 +89,14 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         {/* Status Badges Overlay at bottom of image */}
-        <div className={`absolute ${product.campusTag ? 'bottom-2 left-2.5' : 'top-2.5 left-2.5'} right-10 flex flex-wrap gap-1 z-10`}>
+        <div className={cn('absolute right-10 flex flex-wrap gap-1 z-10', product.campusTag ? 'bottom-2 left-2.5' : 'top-2.5 left-2.5')}>
           {safeBadges.map((badge, idx) => (
             <Badge
               key={idx}
-              className={`rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase shadow-xs ${getBadgeStyle(
-                badge
-              )}`}
+              className={cn(
+                'rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase shadow-xs',
+                getBadgeStyle(badge)
+              )}
             >
               {badge}
             </Badge>
@@ -123,9 +125,10 @@ export default function ProductCard({ product }: ProductCardProps) {
           className="absolute top-2.5 right-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-slate-500 shadow-sm hover:text-rose-500 hover:bg-white transition-all active:scale-90 p-0"
         >
           <Heart
-            className={`h-4 w-4 transition-colors ${
+            className={cn(
+              'h-4 w-4 transition-colors',
               isLiked ? 'fill-rose-500 text-rose-500' : 'text-slate-600'
-            }`}
+            )}
           />
         </Button>
       </div>

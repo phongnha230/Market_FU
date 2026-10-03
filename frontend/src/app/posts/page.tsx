@@ -7,6 +7,7 @@ import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import FilterSidebar from '@/components/FilterSidebar';
 import ProductCard from '@/components/ProductCard';
+import { cn } from '@/lib/utils';
 import {
   Search,
   MapPin,
@@ -371,7 +372,7 @@ function PostsPageContent() {
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
               {/* Input with search icon & clear button */}
               <div className="relative flex-1 flex items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 focus-within:border-fpt-orange focus-within:bg-white transition">
-                <Search className={`h-4 w-4 shrink-0 mr-2 transition-colors ${suggestLoading ? 'text-fpt-orange animate-pulse' : 'text-slate-400'}`} />
+                <Search className={cn('h-4 w-4 shrink-0 mr-2 transition-colors', suggestLoading ? 'text-fpt-orange animate-pulse' : 'text-slate-400')} />
                 <input
                   ref={postsInputRef}
                   type="text"
@@ -416,9 +417,10 @@ function PostsPageContent() {
                   {CAMPUSES.find((c) => c.id === selectedCampus)?.label || 'Tất cả cơ sở'}
                 </span>
                 <ChevronDown
-                  className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${
-                    isCampusOpen ? 'rotate-180 text-fpt-orange' : ''
-                  }`}
+                  className={cn(
+                    'h-3.5 w-3.5 text-slate-400 transition-transform duration-200',
+                    isCampusOpen && 'rotate-180 text-fpt-orange'
+                  )}
                 />
               </button>
 
@@ -441,17 +443,19 @@ function PostsPageContent() {
                             setSelectedCampus(c.id);
                             setIsCampusOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer ${
+                          className={cn(
+                            'w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer',
                             isSelected
                               ? 'bg-orange-50 text-fpt-orange font-semibold shadow-xs'
                               : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                          }`}
+                          )}
                         >
                           <div className="flex items-center gap-2">
                             <span
-                              className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 ${
+                              className={cn(
+                                'w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0',
                                 isSelected ? 'bg-orange-500 text-white font-bold' : 'bg-slate-100 text-slate-600'
-                              }`}
+                              )}
                             >
                               {c.id === 'all' ? '🌐' : '📍'}
                             </span>
@@ -488,11 +492,14 @@ function PostsPageContent() {
                   key={item.id}
                   href={`/posts/${item.id}`}
                   onClick={() => { setSearchKeyword(item.title); setIsSuggestOpen(false); }}
-                  className={`flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition cursor-pointer ${activeSuggestIdx === idx ? 'bg-orange-50' : ''}`}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition cursor-pointer',
+                    activeSuggestIdx === idx && 'bg-orange-50'
+                  )}
                 >
                   <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/60">
                     {item.imageUrl
-                      ? <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+                      ? <img src={item.imageUrl} alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       : <div className="h-full w-full flex items-center justify-center text-slate-300">📦</div>}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -618,22 +625,24 @@ function PostsPageContent() {
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
-                    className={`rounded-lg p-1.5 transition ${
+                    className={cn(
+                      'rounded-lg p-1.5 transition',
                       viewMode === 'grid'
                         ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-400 hover:text-slate-700'
-                    }`}
+                    )}
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode('list')}
-                    className={`rounded-lg p-1.5 transition ${
+                    className={cn(
+                      'rounded-lg p-1.5 transition',
                       viewMode === 'list'
                         ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-400 hover:text-slate-700'
-                    }`}
+                    )}
                   >
                     <List className="h-4 w-4" />
                   </button>

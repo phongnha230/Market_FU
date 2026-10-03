@@ -103,6 +103,44 @@ export const useAdminStore = create<AdminState>()(
       },
 
       login: async (email, password) => {
+        // 1. Thử xác thực trực tiếp qua Backend API
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+          const res = await fetch(`${baseUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (data.success && data.data?.tokens?.accessToken) {
+            const user = data.data.user;
+            if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
+              const name = user.profile?.fullName || user.email.split('@')[0];
+              const profile: AdminProfile = {
+                name,
+                email: user.email,
+                role: user.role === 'SUPER_ADMIN' ? 'superadmin' : 'campus_admin',
+                campus: (user.profile?.campus?.toLowerCase() as AdminCampus) || 'all',
+                avatarInitial: name.charAt(0).toUpperCase() || 'A',
+                permissions: ['posts.approve', 'posts.reject', 'posts.delete', 'reports.resolve', 'users.ban', 'kyc.verify'],
+              };
+              set({ admin: profile, isLoggedIn: true, accessToken: data.data.tokens.accessToken });
+              return {
+                success: true,
+                message: `Chào mừng ${profile.name} đã đăng nhập vào hệ thống quản trị!`,
+              };
+            } else {
+              return {
+                success: false,
+                message: 'Tài khoản này không có quyền truy cập hệ thống quản trị viên (Admin).',
+              };
+            }
+          }
+        } catch {
+          // offline fallback
+        }
+
+        // 2. Fallback cho tài khoản demo offline
         const account = ADMIN_ACCOUNTS.find(
           (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
         );

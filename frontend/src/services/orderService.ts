@@ -1,5 +1,42 @@
 import { apiClient, ApiResponse } from './apiClient';
 
+export interface ReviewItem {
+  id?: string;
+  orderId?: string;
+  reviewerId?: string;
+  revieweeId?: string;
+  rating: number;
+  comment?: string;
+  images?: string[];
+  proofVideoUrl?: string;
+  createdAt?: string;
+  reviewerName?: string;
+  reviewerAvatar?: string;
+}
+
+export interface DisputeInfo {
+  id?: string;
+  reason?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface TrackingStep {
+  title: string;
+  desc: string;
+  time?: string;
+  isCompleted?: boolean;
+}
+
+export interface OrderTrackingInfo {
+  orderCode: string;
+  status: string;
+  shippingPartner?: string;
+  trackingCode?: string;
+  estimatedDelivery?: string;
+  steps?: TrackingStep[];
+}
+
 export interface BackendOrder {
   id: string;
   orderCode: string;
@@ -65,8 +102,8 @@ export interface BackendOrder {
       phoneNumber?: string;
     };
   };
-  reviews?: any[];
-  dispute?: any;
+  reviews?: ReviewItem[];
+  dispute?: DisputeInfo;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,11 +136,11 @@ export const orderService = {
     role?: 'BUYER' | 'SELLER';
     page?: number;
     limit?: number;
-  }): Promise<{ orders: BackendOrder[]; pagination?: any }> {
+  }): Promise<{ orders: BackendOrder[]; pagination?: Record<string, unknown> }> {
     const response = await apiClient.get<ApiResponse<BackendOrder[]>>('/orders', { params });
     return {
       orders: response.data.data || [],
-      pagination: response.data.meta,
+      pagination: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -138,8 +175,8 @@ export const orderService = {
   },
 
   // 5.1. Tra cứu chi tiết tiến trình vận chuyển realtime (GHN/Hub 5 Campus)
-  async getOrderTracking(orderIdOrCode: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/orders/${orderIdOrCode}/tracking`);
+  async getOrderTracking(orderIdOrCode: string): Promise<OrderTrackingInfo> {
+    const response = await apiClient.get<ApiResponse<OrderTrackingInfo>>(`/orders/${orderIdOrCode}/tracking`);
     return response.data.data;
   },
 
@@ -167,30 +204,33 @@ export const orderService = {
     comment?: string;
     images?: string[];
     proofVideoUrl?: string;
-  }): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/reviews', params);
+  }): Promise<ReviewItem> {
+    const response = await apiClient.post<ApiResponse<ReviewItem>>('/reviews', params);
     return response.data.data;
   },
 
   // 8. Lấy đánh giá của đơn hàng
-  async getOrderReviews(orderId: string): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>(`/reviews/order/${orderId}`);
+  async getOrderReviews(orderId: string): Promise<ReviewItem[]> {
+    const response = await apiClient.get<ApiResponse<ReviewItem[]>>(`/reviews/order/${orderId}`);
     return response.data.data || [];
   },
 
   // 8.1. Lấy đánh giá của người dùng để hiển thị trên Hồ sơ (Profile Reviews)
-  async getUserReviews(userId: string): Promise<any[]> {
+  async getUserReviews(userId: string): Promise<ReviewItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>(`/reviews/user/${userId}`);
-      return response.data.data?.reviews || response.data.data || [];
+      const response = await apiClient.get<ApiResponse<{ reviews?: ReviewItem[] } | ReviewItem[]>>(`/reviews/user/${userId}`);
+      if (Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      return response.data.data?.reviews || [];
     } catch {
       return [];
     }
   },
 
   // 9. Kiểm tra trạng thái thanh toán từ Gateway
-  async checkPaymentStatus(orderCode: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/payments/order/${orderCode}/status`);
+  async checkPaymentStatus(orderCode: string): Promise<{ isPaid: boolean; status?: string; paymentMethod?: string; paidAt?: string }> {
+    const response = await apiClient.get<ApiResponse<{ isPaid: boolean; status?: string; paymentMethod?: string; paidAt?: string }>>(`/payments/order/${orderCode}/status`);
     return response.data.data;
   },
 
@@ -206,7 +246,13 @@ export const orderService = {
     transitHub: string;
     trackingSteps: { title: string; desc: string }[];
   }> {
-    const response = await apiClient.get<ApiResponse<any>>('/orders/shipping/estimate', {
+    const response = await apiClient.get<ApiResponse<{
+      shippingFee: number;
+      estimatedDays: string;
+      routeTitle: string;
+      transitHub: string;
+      trackingSteps: { title: string; desc: string }[];
+    }>>('/orders/shipping/estimate', {
       params,
     });
     return response.data.data;

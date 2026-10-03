@@ -16,6 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface OrderCardProps {
   order: OrderItem;
@@ -26,7 +27,7 @@ interface OrderCardProps {
   onOpenAiBot: () => void;
   onOpenQrModal?: (order: OrderItem) => void;
   onOpenPaymentModal?: (order: OrderItem) => void;
-  onCancelOrder?: (orderId: string, orderCode: string) => void;
+  onCancelOrder?: (order: OrderItem) => void;
   onShipOrder?: (order: OrderItem) => void;
 }
 
@@ -57,17 +58,18 @@ export default function OrderCard({
           <span className="font-extrabold text-slate-900">{order.code}</span>
           <Badge
             variant="outline"
-            className={`rounded text-[10px] font-bold px-2 py-0.5 border ${
+            className={cn(
+              'rounded text-[10px] font-bold px-2 py-0.5 border',
               order.type === 'inter-campus'
                 ? 'bg-orange-100 text-fpt-orange border-orange-200'
                 : 'bg-slate-200 text-slate-700 border-slate-300'
-            }`}
+            )}
           >
             {order.typeLabel}
           </Badge>
           <span className="text-slate-400">• {order.timeLabel}</span>
         </div>
-        <div className={`flex items-center gap-1.5 text-xs font-bold ${order.statusColor}`}>
+        <div className={cn('flex items-center gap-1.5 text-xs font-bold', order.statusColor)}>
           {order.status === 'shipping' ? (
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
@@ -148,22 +150,24 @@ export default function OrderCard({
             {order.tracking.steps.map((st, sIdx) => (
               <div key={sIdx} className="flex flex-col items-center">
                 <div
-                  className={`h-2 w-full rounded-full mb-1.5 ${
+                  className={cn(
+                    'h-2 w-full rounded-full mb-1.5',
                     st.status === 'completed'
                       ? 'bg-emerald-500'
                       : st.status === 'current'
                       ? 'bg-fpt-orange animate-pulse'
                       : 'bg-slate-200'
-                  }`}
+                  )}
                 ></div>
                 <span
-                  className={`font-semibold ${
+                  className={cn(
+                    'font-semibold',
                     st.status === 'current'
                       ? 'text-fpt-orange font-bold'
                       : st.status === 'completed'
                       ? 'text-emerald-700'
                       : 'text-slate-400'
-                  }`}
+                  )}
                 >
                   {st.title}
                 </span>
@@ -239,25 +243,30 @@ export default function OrderCard({
         </Button>
 
         {/* 2. Dispute button (Buyer only) */}
-        {!isSellerViewer && (
+        {!isSellerViewer && order.status !== 'cancelled' && (
           <Button
             asChild
             variant="outline"
-            className="h-auto rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
+            className={cn(
+              "h-auto rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5",
+              order.status === 'disputed'
+                ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+            )}
           >
             <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-              <span>Khiếu nại / Trả hàng</span>
+              <AlertTriangle className={cn("h-3.5 w-3.5", order.status === 'disputed' ? "text-amber-600" : "text-rose-600")} />
+              <span>{order.status === 'disputed' ? 'Chi tiết & Rút khiếu nại' : 'Khiếu nại / Trả hàng'}</span>
             </Link>
           </Button>
         )}
 
-        {/* 3. Cancel order button (Buyer only when processing) */}
-        {!isSellerViewer && order.status === 'processing' && onCancelOrder && (
+        {/* 3. Cancel order button (Buyer & Seller when processing) */}
+        {order.status === 'processing' && onCancelOrder && (
           <Button
             type="button"
             variant="outline"
-            onClick={() => onCancelOrder(order.id, order.code)}
+            onClick={() => onCancelOrder(order)}
             className="h-auto rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
           >
             <XCircle className="h-3.5 w-3.5 text-slate-400" />

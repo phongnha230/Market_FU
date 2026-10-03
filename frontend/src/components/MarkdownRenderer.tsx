@@ -4,6 +4,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { cn } from '@/lib/utils';
 
 interface MarkdownRendererProps {
   content: string;
@@ -22,7 +23,10 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
 
   return (
     <div
-      className={`prose prose-slate max-w-none text-xs sm:text-sm text-slate-700 leading-relaxed break-words ${className}`}
+      className={cn(
+        'prose prose-slate max-w-none text-xs sm:text-sm text-slate-700 leading-relaxed break-words',
+        className
+      )}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}

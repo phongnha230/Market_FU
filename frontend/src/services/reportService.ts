@@ -5,6 +5,23 @@ export type ReportStatus = 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED
 export type DisputeStatus = 'PENDING' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+export interface OcrDataResult {
+  studentId?: string;
+  fullName?: string;
+  campus?: string;
+  cohort?: string;
+  major?: string;
+  validUntil?: string;
+  confidence?: number;
+  ocrStudentId?: string;
+  ocrCohort?: string;
+  ocrCampus?: string;
+  ocrFullName?: string;
+  ocrCccdNumber?: string;
+  aiMatchScore?: number;
+  [key: string]: unknown;
+}
+
 export interface BackendReport {
   id: string;
   reporterId: string;
@@ -21,7 +38,7 @@ export interface BackendReport {
     email: string;
     profile?: { fullName: string; campus?: string };
   };
-  targetDetail?: any;
+  targetDetail?: Record<string, unknown>;
 }
 
 export interface BackendDispute {
@@ -40,10 +57,31 @@ export interface BackendDispute {
     buyerId: string;
     sellerId: string;
     status: string;
-    payment?: any;
-    product?: any;
-    buyer?: any;
-    seller?: any;
+    payment?: {
+      totalAmount?: number;
+      price?: number;
+      shippingFee?: number;
+      [key: string]: unknown;
+    };
+    product?: Record<string, unknown>;
+    buyer?: {
+      id?: string;
+      email?: string;
+      profile?: {
+        fullName?: string;
+        avatarUrl?: string;
+        campus?: string;
+      };
+    };
+    seller?: {
+      id?: string;
+      email?: string;
+      profile?: {
+        fullName?: string;
+        avatarUrl?: string;
+        campus?: string;
+      };
+    };
   };
 }
 
@@ -60,7 +98,7 @@ export interface BackendKycVerification {
   cohort?: string | null;
   major?: string | null;
   phoneNumber?: string | null;
-  ocrData?: any;
+  ocrData?: OcrDataResult;
   aiMatchScore?: number;
   status: KycStatus;
   rejectedReason?: string | null;
@@ -72,12 +110,23 @@ export interface BackendKycVerification {
     email: string;
     role: string;
     profile?: {
-      fullName: string;
+      fullName?: string;
       avatarUrl?: string | null;
       campus?: string;
       phoneNumber?: string;
-      bankAccount?: any;
-      kyc?: any;
+      storeName?: string;
+      bankAccount?: {
+        bankName?: string;
+        accountNo?: string;
+        accountName?: string;
+        [key: string]: unknown;
+      };
+      kyc?: {
+        cccdNumber?: string;
+        cccdFrontUrl?: string;
+        cccdBackUrl?: string;
+        [key: string]: unknown;
+      };
     };
   };
 }
@@ -98,14 +147,14 @@ export const reportService = {
 
   async getMyReports(page = 1, limit = 20): Promise<{
     reports: BackendReport[];
-    pagination?: any;
+    pagination?: Record<string, unknown>;
   }> {
     const response = await apiClient.get<ApiResponse<BackendReport[]>>('/reports/me', {
       params: { page, limit },
     });
     return {
       reports: response.data.data || [],
-      pagination: response.data.meta,
+      pagination: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -114,13 +163,13 @@ export const reportService = {
     targetType?: ReportTargetType;
     page?: number;
     limit?: number;
-  }): Promise<{ reports: BackendReport[]; pagination?: any }> {
+  }): Promise<{ reports: BackendReport[]; pagination?: Record<string, unknown> }> {
     const response = await apiClient.get<ApiResponse<BackendReport[]>>('/reports', {
       params,
     });
     return {
       reports: response.data.data || [],
-      pagination: response.data.meta,
+      pagination: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -133,7 +182,7 @@ export const reportService = {
     id: string,
     data: { action: 'BAN_USER' | 'HIDE_PRODUCT' | 'DISMISS'; adminNote?: string }
   ): Promise<{ message: string; report: BackendReport }> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/reports/${id}/resolve`, data);
+    const response = await apiClient.patch<ApiResponse<{ message: string; report: BackendReport }>>(`/reports/${id}/resolve`, data);
     return response.data.data;
   },
 
@@ -153,13 +202,13 @@ export const reportService = {
     status?: DisputeStatus;
     page?: number;
     limit?: number;
-  }): Promise<{ disputes: BackendDispute[]; pagination?: any }> {
+  }): Promise<{ disputes: BackendDispute[]; pagination?: Record<string, unknown> }> {
     const response = await apiClient.get<ApiResponse<BackendDispute[]>>('/reports/disputes', {
       params,
     });
     return {
       disputes: response.data.data || [],
-      pagination: response.data.meta,
+      pagination: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -169,7 +218,7 @@ export const reportService = {
   },
 
   async cancelDispute(id: string, reason?: string): Promise<{ message: string; status: string }> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/reports/disputes/${id}/cancel`, {
+    const response = await apiClient.patch<ApiResponse<{ message: string; status: string }>>(`/reports/disputes/${id}/cancel`, {
       reason,
     });
     return response.data.data;
@@ -179,7 +228,7 @@ export const reportService = {
     id: string,
     data: { decision: 'REFUND_BUYER' | 'PAY_SELLER'; adminNote?: string }
   ): Promise<{ message: string; decision: string }> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/reports/disputes/${id}/resolve`, data);
+    const response = await apiClient.patch<ApiResponse<{ message: string; decision: string }>>(`/reports/disputes/${id}/resolve`, data);
     return response.data.data;
   },
 
@@ -190,14 +239,14 @@ export const reportService = {
     status?: KycStatus;
     page?: number;
     limit?: number;
-  }): Promise<{ verifications: BackendKycVerification[]; pagination?: any }> {
+  }): Promise<{ verifications: BackendKycVerification[]; pagination?: Record<string, unknown> }> {
     const response = await apiClient.get<ApiResponse<BackendKycVerification[]>>(
       '/reports/kyc/verifications',
       { params }
     );
     return {
       verifications: response.data.data || [],
-      pagination: response.data.meta,
+      pagination: response.data.meta as Record<string, unknown>,
     };
   },
 
@@ -205,21 +254,21 @@ export const reportService = {
     id: string,
     bonusCoins = 200
   ): Promise<{ message: string; bonusCoinsAwarded: number }> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/reports/kyc/${id}/approve`, {
+    const response = await apiClient.patch<ApiResponse<{ message: string; bonusCoinsAwarded: number }>>(`/reports/kyc/${id}/approve`, {
       bonusCoins,
     });
     return response.data.data;
   },
 
   async rejectKyc(id: string, reason: string): Promise<{ message: string; reason: string }> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/reports/kyc/${id}/reject`, {
+    const response = await apiClient.patch<ApiResponse<{ message: string; reason: string }>>(`/reports/kyc/${id}/reject`, {
       reason,
     });
     return response.data.data;
   },
 
-  async scanKycWithAi(id: string): Promise<{ kycId: string; ocrData: any; aiMatchScore: number }> {
-    const response = await apiClient.post<ApiResponse<any>>(`/reports/kyc/${id}/ai-scan`);
+  async scanKycWithAi(id: string): Promise<{ kycId: string; ocrData: OcrDataResult; aiMatchScore: number }> {
+    const response = await apiClient.post<ApiResponse<{ kycId: string; ocrData: OcrDataResult; aiMatchScore: number }>>(`/reports/kyc/${id}/ai-scan`);
     return response.data.data;
   },
 

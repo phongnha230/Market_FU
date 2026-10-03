@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import { aiService } from '@/services/aiService';
+import { cn } from '@/lib/utils';
 
 interface ChatMessage {
   id: string;
@@ -470,7 +471,7 @@ export default function AIChatbotWidget() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-2.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={cn('flex gap-2.5', msg.sender === 'user' ? 'justify-end' : 'justify-start')}
               >
                 {msg.sender === 'bot' && (
                   <div className="w-7 h-7 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 mt-0.5 border border-orange-200">
@@ -480,11 +481,12 @@ export default function AIChatbotWidget() {
 
                 <div className="flex flex-col max-w-[82%]">
                   <div
-                    className={`p-3 rounded-2xl leading-relaxed whitespace-pre-line ${
+                    className={cn(
+                      'p-3 rounded-2xl leading-relaxed whitespace-pre-line',
                       msg.sender === 'user'
                         ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-br-xs shadow-md shadow-orange-500/15'
                         : 'bg-white border border-slate-200/90 text-slate-800 rounded-bl-xs shadow-xs'
-                    }`}
+                    )}
                   >
                     {msg.text}
 
@@ -546,9 +548,7 @@ export default function AIChatbotWidget() {
                     )}
                   </div>
                   <span
-                    className={`text-[10px] text-slate-400 mt-1 px-1 ${
-                      msg.sender === 'user' ? 'text-right' : 'text-left'
-                    }`}
+                    className={cn('text-[10px] text-slate-400 mt-1 px-1', msg.sender === 'user' ? 'text-right' : 'text-left')}
                   >
                     {msg.timestamp}
                   </span>

@@ -57,6 +57,7 @@ interface UserState {
   setKycStatus: (status: UserProfile['kycStatus'], role?: 'student' | 'seller', appId?: string, rejectionReason?: string) => void;
   changePassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
   addCoins: (amount: number) => void;
+  deductCoins: (amount: number) => void;
   saveVoucher: (id: string, voucherData?: { id: string; title: string; code: string; discount: number; expiry: string }) => void;
   checkInDaily: () => { success: boolean; coinsAdded: number };
   claimQuestCoins: (questId: string, amount: number) => { success: boolean; amount: number };
@@ -295,6 +296,10 @@ export const useUserStore = create<UserState>()(
           import('@/stores/walletStore').then(({ useWalletStore }) => {
             useWalletStore.setState({ campusCoins: newBalance });
           }).catch(() => {});
+        },
+
+        deductCoins: (amount) => {
+          get().addCoins(-Math.abs(amount));
         },
 
         saveVoucher: (id, voucherData) => {

@@ -38,6 +38,16 @@ export default function NotificationsPage() {
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
   const deleteNotification = useNotificationStore((state) => state.deleteNotification);
   const clearAll = useNotificationStore((state) => state.clearAll);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+  const initSocketListeners = useNotificationStore((state) => state.initSocketListeners);
+
+  React.useEffect(() => {
+    fetchNotifications();
+    const cleanup = initSocketListeners();
+    return () => {
+      cleanup?.();
+    };
+  }, [fetchNotifications, initSocketListeners]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

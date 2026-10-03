@@ -18,6 +18,7 @@ import {
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { orderService } from '@/services/orderService';
 import { socketClient } from '@/services/socketClient';
+import { cn } from '@/lib/utils';
 
 interface OrderPaymentModalProps {
   isOpen: boolean;
@@ -198,11 +199,12 @@ export default function OrderPaymentModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('vietqr')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={cn(
+                  'flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer',
                   activeTab === 'vietqr'
                     ? 'bg-white text-fpt-orange shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                )}
               >
                 <QrCode className="h-4 w-4" />
                 <span>VietQR Napas247</span>
@@ -211,11 +213,12 @@ export default function OrderPaymentModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('payos')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={cn(
+                  'flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer',
                   activeTab === 'payos'
                     ? 'bg-white text-blue-600 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                )}
               >
                 <CreditCard className="h-4 w-4" />
                 <span>PayOS Gateway</span>

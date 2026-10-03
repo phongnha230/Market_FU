@@ -14,6 +14,7 @@ import {
   Avatar,
   AvatarFallback,
 } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
@@ -231,24 +232,26 @@ function OrderSuccessContent() {
 
         {/* 1. TOP CELEBRATION / PAYMENT STATUS BANNER */}
         <Card
-          className={`mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs ${
+          className={cn(
+            'mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs',
             isPaid
               ? 'border-emerald-200/80 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 text-white'
               : paymentMethod === 'vietqr'
               ? 'border-amber-200/80 bg-gradient-to-br from-amber-500 via-orange-600 to-slate-900 text-white'
               : 'border-orange-200/80 bg-gradient-to-br from-fpt-orange via-amber-600 to-slate-900 text-white'
-          }`}
+          )}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-start sm:items-center gap-4">
               <div
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md ${
+                className={cn(
+                  'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md',
                   isPaid
                     ? 'bg-white text-emerald-600'
                     : paymentMethod === 'vietqr'
                     ? 'bg-white text-amber-600'
                     : 'bg-white text-fpt-orange'
-                }`}
+                )}
               >
                 {isPaid ? (
                   <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />

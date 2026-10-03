@@ -156,13 +156,17 @@ class SocketClient {
     conversationId: string;
     text?: string;
     type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
+    messageType?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
     mediaUrl?: string;
     offerPrice?: number;
     meetupLocation?: string;
   }) {
     const socket = this.getSocket();
     if (socket && socket.connected) {
-      socket.emit('send_message', payload);
+      socket.emit('send_message', {
+        ...payload,
+        messageType: payload.messageType || payload.type || 'TEXT',
+      });
     }
   }
 

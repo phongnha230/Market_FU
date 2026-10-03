@@ -1,6 +1,135 @@
 import { ProductItem, ProductDetail, Seller } from '@/types/product';
 import { UserProfile } from '@/stores/userStore';
 
+export interface BackendImageObject {
+  imageUrl?: string;
+  url?: string;
+  src?: string;
+}
+
+export type RawImageInput = string | BackendImageObject | null | undefined;
+
+export interface BackendSellerRaw {
+  id?: string;
+  userId?: string;
+  _id?: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  phone?: string;
+  avatarUrl?: string;
+  verified?: boolean;
+  cohort?: string;
+  reviewCount?: number;
+  dealCount?: number;
+  reputationScore?: number;
+  profile?: {
+    fullName?: string;
+    campus?: string;
+    isKycVerified?: boolean;
+    avatarUrl?: string;
+    reputationScore?: number;
+    email?: string;
+    phoneNumber?: string;
+  };
+  studentVerification?: {
+    studentId?: string;
+    status?: string;
+  };
+}
+
+export interface BackendProductRaw {
+  id?: string;
+  _id?: string;
+  sellerId?: string;
+  title?: string;
+  price?: number | string;
+  originalPrice?: number | string;
+  imageUrl?: string;
+  images?: (string | BackendImageObject)[];
+  imageUrls?: (string | BackendImageObject)[];
+  galleryImages?: (string | BackendImageObject)[];
+  campus?: string;
+  campusTag?: string;
+  badges?: string[];
+  location?: string;
+  meetupLocation?: string;
+  createdAt?: string | Date;
+  seller?: BackendSellerRaw;
+  category?: string | { id?: string; name?: string };
+  categoryId?: string;
+  categoryType?: string;
+  hashtags?: string[];
+  condition?: string;
+  quantity?: number;
+  allowShipping?: boolean;
+  viewCount?: number;
+  viewsCount?: number;
+  status?: ProductItem['status'];
+  rejectionReason?: string;
+  approvedAt?: string;
+  isBoosted?: boolean;
+  description?: string;
+}
+
+export interface BackendUserRaw {
+  id?: string;
+  userId?: string;
+  email?: string;
+  fullName?: string;
+  campus?: string;
+  campusCoins?: number;
+  reputationScore?: number;
+  studentId?: string;
+  avatarUrl?: string;
+  role?: UserProfile['role'];
+  cohort?: string;
+  major?: string;
+  dorm?: string;
+  phone?: string;
+  phoneNumber?: string;
+  bio?: string;
+  profile?: {
+    id?: string;
+    userId?: string;
+    fullName?: string;
+    email?: string;
+    campus?: string;
+    dorm?: string;
+    phone?: string;
+    phoneNumber?: string;
+    bio?: string;
+    avatarUrl?: string;
+    campusCoins?: number;
+    reputationScore?: number;
+    studentId?: string;
+    cohort?: string;
+    major?: string;
+    kyc?: {
+      status?: string;
+      type?: string;
+      id?: string;
+      studentId?: string;
+      rejectedReason?: string;
+    };
+  };
+  studentVerification?: {
+    status?: string;
+    type?: string;
+    id?: string;
+    studentId?: string;
+    rejectedReason?: string;
+  };
+  kyc?: {
+    status?: string;
+    type?: string;
+    id?: string;
+    studentId?: string;
+    rejectedReason?: string;
+  };
+}
+
 export function formatCondition(condition?: string): string {
   switch (condition) {
     case 'NEW_100':
@@ -52,7 +181,7 @@ export function formatTimeAgo(dateStr?: string | Date): string {
   return date.toLocaleDateString('vi-VN');
 }
 
-export function extractImageUrl(img: any): string {
+export function extractImageUrl(img: RawImageInput): string {
   if (!img) return '';
   let url = '';
   if (typeof img === 'string') {
@@ -75,7 +204,7 @@ const FALLBACK_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1544716278-ca5
 /**
  * Adapter: Chuyển đổi đối tượng Product từ Backend sang ProductItem chuẩn của Frontend
  */
-export function adaptBackendProduct(item: any): ProductItem {
+export function adaptBackendProduct(item: BackendProductRaw): ProductItem {
   if (!item) {
     throw new Error('Product data is missing');
   }
@@ -115,7 +244,7 @@ export function adaptBackendProduct(item: any): ProductItem {
   const allImages = imageUrls.length > 0 ? imageUrls : [primaryImage];
 
   return {
-    id: item.id || item._id,
+    id: item.id || item._id || '',
     sellerId,
     title: item.title || 'Sản phẩm không có tên',
     price: Number(item.price) || 0,
@@ -145,7 +274,7 @@ export function adaptBackendProduct(item: any): ProductItem {
 /**
  * Adapter: Chuyển đổi chi tiết sản phẩm từ Backend sang ProductDetail của Frontend
  */
-export function adaptBackendProductDetail(item: any): ProductDetail {
+export function adaptBackendProductDetail(item: BackendProductRaw): ProductDetail {
   const base = adaptBackendProduct(item);
   const rawImages = Array.isArray(item.images)
     ? item.images
@@ -187,7 +316,7 @@ export function adaptBackendProductDetail(item: any): ProductDetail {
 /**
  * Adapter: Chuyển đổi thông tin User từ Backend sang UserProfile của Frontend
  */
-export function adaptBackendUser(user: any): UserProfile {
+export function adaptBackendUser(user: BackendUserRaw): UserProfile {
   if (!user) {
     throw new Error('User data is missing');
   }
@@ -225,7 +354,7 @@ export function adaptBackendUser(user: any): UserProfile {
   const derivedMajor = profile.major || '';
 
   return {
-    id: user.userId || user.id || profile.userId || profile.id,
+    id: user.userId || user.id || profile.userId || profile.id || '',
     name: profile.fullName || user.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
     studentId,
     cohort: derivedCohort,

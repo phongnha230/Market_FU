@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface HeroSearchProps {
   onSearch?: (query: string, campus: string, category: string) => void;
@@ -26,13 +27,13 @@ interface HeroSearchProps {
 
 import { CAMPUSES, CATEGORIES, HOT_TAGS } from '@/constants/marketplace';
 import { useProductStore } from '@/stores/productStore';
+import { ProductService } from '@/services/productService';
 
 const campusOptions = CAMPUSES;
 const categoryOptions = [
   { id: 'all', label: 'Tất cả danh mục' },
   ...CATEGORIES.map((c) => ({ id: c.id, label: c.label || c.name })),
 ];
-const trendingTags = HOT_TAGS.slice(0, 5);
 
 import { useRouter } from 'next/navigation';
 
@@ -49,6 +50,26 @@ export default function HeroSearch({
   const [keyword, setKeyword] = useState('');
   const [campus, setCampus] = useState(initialCampus);
   const [category, setCategory] = useState('all');
+  const [trendingKeywords, setTrendingKeywords] = useState<string[]>(HOT_TAGS.slice(0, 5));
+
+  // Tải từ khóa xu hướng hot nhất từ Redis ZSET
+  useEffect(() => {
+    let isMounted = true;
+    ProductService.getTrendingSearches(6)
+      .then((data) => {
+        if (!isMounted || !data || data.length === 0) return;
+        const keywords = data
+          .map((item: any) => (typeof item === 'string' ? item : item.keyword))
+          .filter(Boolean);
+        if (keywords.length > 0) {
+          setTrendingKeywords(keywords);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Custom Dropdown states & refs
   const [isCampusOpen, setIsCampusOpen] = useState(false);
@@ -249,7 +270,12 @@ export default function HeroSearch({
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x divide-slate-100 gap-1">
             {/* 1. Keyword search input */}
             <div className="flex flex-1 items-center gap-3 px-3 py-2.5">
-              <Search className={`h-5 w-5 shrink-0 transition-colors ${suggestLoading ? 'text-fpt-orange animate-pulse' : 'text-slate-400'}`} />
+              <Search
+                className={cn(
+                  'h-5 w-5 shrink-0 transition-colors',
+                  suggestLoading ? 'text-fpt-orange animate-pulse' : 'text-slate-400'
+                )}
+              />
               <Input
                 ref={inputRef}
                 type="text"
@@ -298,9 +324,10 @@ export default function HeroSearch({
                   </span>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ml-1 ${
-                    isCampusOpen ? 'rotate-180 text-fpt-orange' : ''
-                  }`}
+                  className={cn(
+                    'h-4 w-4 text-slate-400 transition-transform duration-200 ml-1',
+                    isCampusOpen && 'rotate-180 text-fpt-orange'
+                  )}
                 />
               </button>
 
@@ -324,19 +351,21 @@ export default function HeroSearch({
                             setCampus(opt.id);
                             setIsCampusOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
+                          className={cn(
+                            'w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer',
                             isSelected
                               ? 'bg-orange-50/90 text-fpt-orange font-semibold shadow-xs'
                               : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                          }`}
+                          )}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${
+                              className={cn(
+                                'w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0',
                                 isSelected
                                   ? 'bg-orange-500 text-white font-bold'
                                   : 'bg-slate-100 text-slate-600'
-                              }`}
+                              )}
                             >
                               {opt.id === 'all' ? '🌐' : '📍'}
                             </span>
@@ -395,9 +424,10 @@ export default function HeroSearch({
                   </span>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ml-1 ${
-                    isCategoryOpen ? 'rotate-180 text-fpt-orange' : ''
-                  }`}
+                  className={cn(
+                    'h-4 w-4 text-slate-400 transition-transform duration-200 ml-1',
+                    isCategoryOpen && 'rotate-180 text-fpt-orange'
+                  )}
                 />
               </button>
 
@@ -418,19 +448,21 @@ export default function HeroSearch({
                         setCategory('all');
                         setIsCategoryOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
+                      className={cn(
+                        'w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer',
                         category === 'all'
                           ? 'bg-orange-50/90 text-fpt-orange font-semibold shadow-xs'
                           : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
+                      )}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${
+                          className={cn(
+                            'w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0',
                             category === 'all'
                               ? 'bg-orange-500 text-white font-bold'
                               : 'bg-slate-100 text-slate-600'
-                          }`}
+                          )}
                         >
                           <Layers className="h-4 w-4" />
                         </span>
@@ -454,19 +486,21 @@ export default function HeroSearch({
                             setCategory(cat.id);
                             setIsCategoryOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
+                          className={cn(
+                            'w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer',
                             isSelected
                               ? 'bg-orange-50/90 text-fpt-orange font-semibold shadow-xs'
                               : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                          }`}
+                          )}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${
+                              className={cn(
+                                'w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0',
                                 isSelected
                                   ? 'bg-orange-500 text-white font-bold'
                                   : `${cat.bgColor} ${cat.color}`
-                              }`}
+                              )}
                             >
                               <IconComp className="h-4 w-4" />
                             </span>
@@ -542,12 +576,21 @@ export default function HeroSearch({
                     key={item.id}
                     href={`/posts/${item.id}`}
                     onClick={() => { saveRecentSearch(keyword); setIsSuggestOpen(false); }}
-                    className={`flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition cursor-pointer ${activeSuggestIdx === idx ? 'bg-orange-50' : ''}`}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition cursor-pointer',
+                      activeSuggestIdx === idx && 'bg-orange-50'
+                    )}
                   >
                     {/* Thumbnail */}
                     <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/60">
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-slate-300 text-lg">📦</div>
                       )}
@@ -598,7 +641,7 @@ export default function HeroSearch({
             XU HƯỚNG HOT:
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
-            {trendingTags.map((tag) => (
+            {trendingKeywords.map((tag) => (
               <Button
                 key={tag}
                 type="button"
@@ -607,7 +650,7 @@ export default function HeroSearch({
                 onClick={() => handleTagClick(tag)}
                 className="rounded-full border-slate-200 bg-white/80 px-3 py-1 h-auto text-xs font-medium text-slate-600 hover:border-fpt-orange/40 hover:bg-orange-50 hover:text-fpt-orange"
               >
-                {tag}
+                {tag.startsWith('#') ? tag : `#${tag}`}
               </Button>
             ))}
           </div>

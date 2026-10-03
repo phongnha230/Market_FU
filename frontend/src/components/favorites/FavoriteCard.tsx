@@ -12,6 +12,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AvatarFallback } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface FavoriteCardProps {
   item: FavoriteItem;
@@ -36,11 +37,12 @@ export default function FavoriteCard({
 
   return (
     <Card
-      className={`group relative flex flex-col rounded-2xl border bg-white shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden py-0 gap-0 ${
+      className={cn(
+        'group relative flex flex-col rounded-2xl border bg-white shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden py-0 gap-0',
         isReserved
           ? 'border-slate-200 bg-slate-50/50'
           : 'border-slate-200/80 hover:border-orange-200'
-      }`}
+      )}
     >
       {/* Product Image Box */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
@@ -49,9 +51,10 @@ export default function FavoriteCard({
           alt={item.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className={`object-cover transition-transform duration-300 group-hover:scale-103 ${
-            isReserved ? 'brightness-75 blur-[1px]' : ''
-          }`}
+          className={cn(
+            'object-cover transition-transform duration-300 group-hover:scale-103',
+            isReserved && 'brightness-75 blur-[1px]'
+          )}
         />
 
         {/* Top-left badges */}
@@ -154,7 +157,7 @@ export default function FavoriteCard({
         {/* Seller Pill */}
         <div className="mt-2.5 flex items-center gap-2 border-t border-slate-100 pt-2.5 text-xs text-slate-600">
           <Avatar className="h-5 w-5 shrink-0">
-            <AvatarFallback className={`${item.seller.avatarColor} text-[10px] font-bold text-white`}>
+            <AvatarFallback className={cn(item.seller.avatarColor, 'text-[10px] font-bold text-white')}>
               {item.seller.initials}
             </AvatarFallback>
           </Avatar>
