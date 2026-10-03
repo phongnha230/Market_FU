@@ -54,11 +54,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F27024',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    boxShadow: '0 4px 8px rgba(242, 112, 36, 0.3)',
   },
   submitText: {
     color: '#FFFFFF',

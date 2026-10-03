@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ListRenderItemInfo } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { PostImageItem } from '../types/post-item.types';
@@ -15,6 +15,35 @@ export const PostImageSection: React.FC<PostImageSectionProps> = ({
   onRemoveImage,
   onAddImage,
 }) => {
+  const handleAddImage = useCallback(() => {
+    if (onAddImage) {
+      onAddImage();
+    } else {
+      Alert.alert('Chọn ảnh', 'Mở thư viện ảnh của thiết bị');
+    }
+  }, [onAddImage]);
+
+  const renderItem = useCallback(
+    ({ item: img }: ListRenderItemInfo<PostImageItem>) => (
+      <View key={img.id} style={styles.imageCard}>
+        <Image source={img.source} style={styles.image} contentFit="cover" />
+        {img.isCover && (
+          <View style={styles.coverBadge}>
+            <Text style={styles.coverBadgeText}>Ảnh bìa</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.removeBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => onRemoveImage(img.id)}
+        >
+          <Ionicons name="close" size={14} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    ),
+    [onRemoveImage]
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -22,35 +51,25 @@ export const PostImageSection: React.FC<PostImageSectionProps> = ({
         <Text style={styles.hint}>Tối thiểu 1 ảnh</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageRow}>
-        <TouchableOpacity
-          style={styles.uploadBox}
-          activeOpacity={0.8}
-          onPress={onAddImage || (() => Alert.alert('Chọn ảnh', 'Mở thư viện ảnh của thiết bị'))}
-        >
-          <Ionicons name="camera" size={26} color="#F27024" />
-          <Text style={styles.uploadText}>Thêm ảnh</Text>
-          <Text style={styles.uploadSub}>Tự động scan AI</Text>
-        </TouchableOpacity>
-
-        {images.map((img) => (
-          <View key={img.id} style={styles.imageCard}>
-            <Image source={img.source} style={styles.image} contentFit="cover" />
-            {img.isCover && (
-              <View style={styles.coverBadge}>
-                <Text style={styles.coverBadgeText}>Ảnh bìa</Text>
-              </View>
-            )}
-            <TouchableOpacity
-              style={styles.removeBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={() => onRemoveImage(img.id)}
-            >
-              <Ionicons name="close" size={14} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </ScrollView>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.imageRow}
+        data={images}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={
+          <TouchableOpacity
+            style={styles.uploadBox}
+            activeOpacity={0.8}
+            onPress={handleAddImage}
+          >
+            <Ionicons name="camera" size={26} color="#F27024" />
+            <Text style={styles.uploadText}>Thêm ảnh</Text>
+            <Text style={styles.uploadSub}>Tự động scan AI</Text>
+          </TouchableOpacity>
+        }
+      />
     </View>
   );
 };

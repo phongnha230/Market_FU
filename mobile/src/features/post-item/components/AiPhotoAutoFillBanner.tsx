@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCategory, PostCondition } from '../types/post-item.types';
@@ -47,17 +47,26 @@ export const AiPhotoAutoFillBanner: React.FC<AiPhotoAutoFillBannerProps> = ({
   onAutoFill,
 }) => {
   const [isScanning, setIsScanning] = useState(false);
-  const [lastPresetIndex, setLastPresetIndex] = useState(0);
+  const presetIndexRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filledSuccess, setFilledSuccess] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleScanAndFill = () => {
     setIsScanning(true);
     setFilledSuccess(false);
 
     // Simulate AI scanning image delay
-    setTimeout(() => {
-      const nextIndex = (lastPresetIndex + 1) % AI_PRESETS.length;
-      setLastPresetIndex(nextIndex);
+    timerRef.current = setTimeout(() => {
+      const nextIndex = (presetIndexRef.current + 1) % AI_PRESETS.length;
+      presetIndexRef.current = nextIndex;
       const chosen = AI_PRESETS[nextIndex];
 
       onAutoFill(chosen);
@@ -129,11 +138,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     borderColor: '#FED7AA',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    boxShadow: '0 3px 6px rgba(234, 88, 12, 0.1)',
   },
   topRow: {
     flexDirection: 'row',

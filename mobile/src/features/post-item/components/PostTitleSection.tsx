@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ListRenderItemInfo } from 'react-native';
 import { TITLE_SUGGESTIONS } from '../constants/post-item.constants';
 
 interface PostTitleSectionProps {
@@ -13,6 +13,19 @@ export const PostTitleSection: React.FC<PostTitleSectionProps> = ({
   onChangeTitle,
   onApplySuggestion,
 }) => {
+  const renderItem = useCallback(
+    ({ item: tag }: ListRenderItemInfo<string>) => (
+      <TouchableOpacity
+        style={styles.chip}
+        activeOpacity={0.7}
+        onPress={() => onApplySuggestion(tag)}
+      >
+        <Text style={styles.chipText}>+ {tag}</Text>
+      </TouchableOpacity>
+    ),
+    [onApplySuggestion]
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Tên món đồ / Tiêu đề tin</Text>
@@ -24,19 +37,15 @@ export const PostTitleSection: React.FC<PostTitleSectionProps> = ({
         style={styles.input}
       />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>
-        <Text style={styles.hint}>Gợi ý nhanh:</Text>
-        {TITLE_SUGGESTIONS.map((tag) => (
-          <TouchableOpacity
-            key={tag}
-            style={styles.chip}
-            activeOpacity={0.7}
-            onPress={() => onApplySuggestion(tag)}
-          >
-            <Text style={styles.chipText}>+ {tag}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={TITLE_SUGGESTIONS}
+        keyExtractor={(item) => item}
+        renderItem={renderItem}
+        ListHeaderComponent={<Text style={styles.hint}>Gợi ý nhanh:</Text>}
+        contentContainerStyle={styles.suggestionRow}
+      />
     </View>
   );
 };
