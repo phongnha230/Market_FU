@@ -5,9 +5,10 @@ import { MissionItem } from '../types/voucher.types';
 
 interface MissionItemCardProps {
   mission: MissionItem;
+  onAction?: (mission: MissionItem) => void;
 }
 
-export const MissionItemCard: React.FC<MissionItemCardProps> = ({ mission }) => {
+export const MissionItemCard: React.FC<MissionItemCardProps> = ({ mission, onAction }) => {
   return (
     <View style={styles.card}>
       <View style={[styles.iconBox, { backgroundColor: mission.iconBg }]}>
@@ -26,7 +27,7 @@ export const MissionItemCard: React.FC<MissionItemCardProps> = ({ mission }) => 
       ) : (
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => Alert.alert('Nhiệm vụ', mission.title)}
+          onPress={() => (onAction ? onAction(mission) : Alert.alert('Nhiệm vụ', mission.title))}
         >
           <Text style={styles.actionText}>{mission.reward}</Text>
         </TouchableOpacity>

@@ -71,7 +71,9 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 
 interface NotificationState {
   notifications: NotificationItem[];
+  isLoading: boolean;
   unreadCount: () => number;
+  fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   addNotification: (item: Omit<NotificationItem, 'id' | 'time' | 'unread'>) => void;
@@ -81,9 +83,39 @@ export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       notifications: INITIAL_NOTIFICATIONS,
+      isLoading: false,
 
       unreadCount: () => {
         return get().notifications.filter((n) => n.unread).length;
+      },
+
+      fetchNotifications: async () => {
+        try {
+          set({ isLoading: true });
+          const { apiClient } = await import('../services/apiClient');
+          const res = await apiClient.get('/notifications');
+          if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
+            set({
+              notifications: res.data.data.map((n: any) => ({
+                id: n.id || n._id,
+                category: n.category || 'system',
+                title: n.title,
+                body: n.body || n.content,
+                time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
+                unread: !n.isRead,
+                icon: n.icon || 'notifications-outline',
+                iconColor: '#EA580C',
+                iconBg: '#FFF7ED',
+                targetScreen: n.targetScreen,
+                targetParams: n.targetParams,
+              })),
+            });
+          }
+        } catch (e: any) {
+          console.log('⚠️ [Backend Notifications offline]:', e?.message);
+        } finally {
+          set({ isLoading: false });
+        }
       },
 
       markAsRead: (id: string) => {
@@ -92,12 +124,20 @@ export const useNotificationStore = create<NotificationState>()(
             n.id === id ? { ...n, unread: false } : n
           ),
         }));
+
+        import('../services/apiClient').then(({ apiClient }) => {
+          apiClient.patch(`/notifications/${id}/read`).catch(() => {});
+        });
       },
 
       markAllAsRead: () => {
         set((state) => ({
           notifications: state.notifications.map((n) => ({ ...n, unread: false })),
         }));
+
+        import('../services/apiClient').then(({ apiClient }) => {
+          apiClient.patch('/notifications/read-all').catch(() => {});
+        });
       },
 
       addNotification: (item) => {

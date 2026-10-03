@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, FlatList, Text, StyleSheet, TouchableOpacity, RefreshControl, ListRenderItemInfo } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,19 +10,36 @@ import VoucherCard from '../components/VoucherCard';
 import MissionItemCard from '../components/MissionItemCard';
 import useVoucher from '../hooks/useVoucher';
 import { useUserStore } from '../../../stores/userStore';
-import { VoucherScreenProps } from '../types/voucher.types';
+import { VoucherScreenProps, VoucherItem } from '../types/voucher.types';
 
 export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { isAuthenticated } = useUserStore();
-  const { activeTab, setActiveTab, vouchers, missions, coins, handleAction } = useVoucher();
+  const {
+    activeTab,
+    setActiveTab,
+    vouchers,
+    missions,
+    coins,
+    handleAction,
+    handleClaimMission,
+    refreshing,
+    onRefresh,
+  } = useVoucher();
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (onGoBack) onGoBack();
     else if (navigation && navigation.canGoBack && navigation.canGoBack()) navigation.goBack();
     else navigation.navigate('MainTabs', { screen: 'Home' });
-  };
+  }, [onGoBack, navigation]);
+
+  const renderVoucherItem = useCallback(
+    ({ item }: ListRenderItemInfo<VoucherItem>) => (
+      <VoucherCard item={item} onAction={handleAction} />
+    ),
+    [handleAction]
+  );
 
   if (!isAuthenticated) {
     return (
@@ -54,26 +71,35 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
       <VoucherHeader onGoBack={handleBack} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <CoinBanner coins={coins} />
-        <VoucherTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Mã giảm giá khả dụng ({vouchers.length})</Text>
-        </View>
-
-        {vouchers.map((item) => (
-          <VoucherCard key={item.id} item={item} onAction={handleAction} />
-        ))}
-
-        <View style={[styles.sectionHeader, { marginTop: 14 }]}>
-          <Text style={styles.sectionTitle}>Nhiệm vụ kiếm thêm FU-Coins</Text>
-        </View>
-
-        {missions.map((m) => (
-          <MissionItemCard key={m.id} mission={m} />
-        ))}
-      </ScrollView>
+      <FlatList
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+        }
+        data={vouchers}
+        keyExtractor={(item) => item.id}
+        renderItem={renderVoucherItem}
+        ListHeaderComponent={
+          <>
+            <CoinBanner coins={coins} />
+            <VoucherTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Mã giảm giá khả dụng ({vouchers.length})</Text>
+            </View>
+          </>
+        }
+        ListFooterComponent={
+          <>
+            <View style={[styles.sectionHeader, { marginTop: 14 }]}>
+              <Text style={styles.sectionTitle}>Nhiệm vụ kiếm thêm FU-Coins</Text>
+            </View>
+            {missions.map((m) => (
+              <MissionItemCard key={m.id} mission={m} onAction={handleClaimMission} />
+            ))}
+          </>
+        }
+      />
     </View>
   );
 };
@@ -102,7 +128,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#FFEDD5',
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -117,18 +143,18 @@ const styles = StyleSheet.create({
   fallbackSubtitle: {
     fontSize: 13,
     color: '#64748B',
+    lineHeight: 20,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   fallbackBtn: {
     backgroundColor: '#EA580C',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   fallbackBtnText: {
     color: '#FFFFFF',
@@ -137,6 +163,7 @@ const styles = StyleSheet.create({
   },
   fallbackBackBtn: {
     paddingVertical: 8,
+    alignItems: 'center',
   },
   fallbackBackText: {
     color: '#64748B',

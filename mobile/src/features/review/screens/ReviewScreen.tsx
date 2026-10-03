@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useOrderStore } from '../../../stores/orderStore';
 
 export const ReviewScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -55,6 +56,18 @@ export const ReviewScreen: React.FC = () => {
   };
 
   const handleSubmitReview = () => {
+    if (orderId) {
+      useOrderStore.getState().markOrderReviewed(orderId);
+      import('../../../services/reviewMobileService').then(({ reviewMobileService }) => {
+        reviewMobileService
+          .createReview({
+            orderId,
+            rating,
+            comment: comment ? `${comment} [${selectedTags.join(', ')}]` : undefined,
+          })
+          .catch(() => {});
+      });
+    }
     Alert.alert(
       '🎉 Cảm ơn bạn đã đánh giá!',
       `Đánh giá ${rating} sao cho ${sellerName} đã được ghi nhận.\n\nBạn được cộng +20 Điểm Uy tín Campus và nhận 1 Voucher nước ép tại Căn tin KTX!`,
@@ -73,27 +86,35 @@ export const ReviewScreen: React.FC = () => {
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Home' });
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Đánh giá đơn hàng</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="home-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        {[
+          {
+            icon: 'arrow-back' as const,
+            size: 24,
+            onPress: () => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              }
+            },
+          },
+          {
+            icon: 'home-outline' as const,
+            size: 22,
+            onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }),
+          },
+        ].map((btn, idx) => (
+          <React.Fragment key={btn.icon}>
+            {idx === 1 && <Text style={styles.headerTitle}>Đánh giá đơn hàng</Text>}
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={btn.onPress}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name={btn.icon} size={btn.size} color="#0F172A" />
+            </TouchableOpacity>
+          </React.Fragment>
+        ))}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -314,11 +335,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 26,
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
   },
   submitBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

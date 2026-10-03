@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, TextInput, TouchableOpacity, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, TextInput, TouchableOpacity, Text, FlatList, StyleSheet, ListRenderItemInfo } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ChatInputBarProps {
@@ -15,21 +15,30 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onSend,
   quickReplies,
 }) => {
+  const renderChip = useCallback(
+    ({ item: reply }: ListRenderItemInfo<string>) => (
+      <TouchableOpacity
+        style={styles.chip}
+        activeOpacity={0.7}
+        onPress={() => onSend(reply)}
+      >
+        <Text style={styles.chipText}>{reply}</Text>
+      </TouchableOpacity>
+    ),
+    [onSend]
+  );
+
   return (
     <View style={styles.container}>
       {/* Quick reply chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {quickReplies.map((reply) => (
-          <TouchableOpacity
-            key={reply}
-            style={styles.chip}
-            activeOpacity={0.7}
-            onPress={() => onSend(reply)}
-          >
-            <Text style={styles.chipText}>{reply}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <FlatList
+        horizontal
+        data={quickReplies}
+        keyExtractor={(item) => item}
+        renderItem={renderChip}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+      />
 
       {/* Input area */}
       <View style={styles.inputRow}>

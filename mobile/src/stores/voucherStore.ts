@@ -31,17 +31,6 @@ export interface UserVoucher {
   createdAt: string;
 }
 
-interface VoucherState {
-  availableVouchers: Voucher[];
-  myVouchers: UserVoucher[];
-  isLoading: boolean;
-  redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
-  useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
-  getUserVouchersByStatus: (status?: UserVoucherStatus) => UserVoucher[];
-  getAvailableByPartner: (partner?: VoucherPartner) => Voucher[];
-  resetVouchers: () => void;
-}
-
 export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
   {
     id: 'vch-canteen-10k',
@@ -58,34 +47,34 @@ export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
   },
   {
     id: 'vch-passio-15k',
-    title: 'Giảm 15.000đ Passio Coffee Campus',
-    description: 'Áp dụng cho mọi món nước Cà phê sữa, Trà đào hạt sen size L tại quầy Passio trong trường.',
+    title: 'Giảm 15.000đ Cà Phê Passio Hola',
+    description: 'Áp dụng cho mọi loại đồ uống từ 35.000đ tại quầy Passio sảnh Alpha Hola.',
     partner: 'PASSIO',
     partnerLabel: 'Passio Coffee',
     coinCost: 15,
     discountValue: 15000,
-    quantity: 120,
-    imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80',
+    quantity: 40,
+    imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80',
     validDays: 30,
     isActive: true,
   },
   {
     id: 'vch-7eleven-20k',
-    title: 'Phiếu Mua Hàng 20.000đ 7-Eleven KTX',
-    description: 'Giảm trực tiếp khi mua bánh mì, xúc xích nướng, đồ uống giải khát tại 7-Eleven sảnh KTX.',
+    title: 'Phiếu Mua Hàng 7-Eleven 20K',
+    description: 'Áp dụng cho hóa đơn từ 50.000đ tại cửa hàng tiện lợi 7-Eleven cơ sở HCM.',
     partner: 'SEVEN_ELEVEN',
-    partnerLabel: '7-Eleven FPT',
+    partnerLabel: '7-Eleven Campus',
     coinCost: 20,
     discountValue: 20000,
-    quantity: 40,
+    quantity: 30,
     imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
     validDays: 20,
     isActive: true,
   },
   {
     id: 'vch-ship-free',
-    title: 'Miễn Phí Vận Chuyển CampusShip',
-    description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
+    title: 'Miễn Phí Vận Chuyển Liên Campus FPT',
+    description: 'Freeship tối đa 25K cho các đơn gửi đồ qua hệ thống xe bus trung chuyển nội bộ giữa các cơ sở.',
     partner: 'OTHER',
     partnerLabel: 'CampusShip Express',
     coinCost: 25,
@@ -97,46 +86,111 @@ export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
   },
 ];
 
-export const INITIAL_USER_VOUCHERS: UserVoucher[] = [
-  {
-    id: 'uv-1',
-    userId: 'acc_verified',
-    voucherId: 'vch-canteen-10k',
-    voucher: INITIAL_AVAILABLE_VOUCHERS[0],
-    voucherCode: 'FUV-CANT-8921A',
-    status: 'UNUSED',
-    expiredAt: '30/10/2026',
-    createdAt: 'Hôm qua',
-  },
-  {
-    id: 'uv-2',
-    userId: 'acc_verified',
-    voucherId: 'vch-passio-15k',
-    voucher: INITIAL_AVAILABLE_VOUCHERS[1],
-    voucherCode: 'FUV-PASS-9938B',
-    status: 'USED',
-    usedAt: '15:20 - 18/09/2026',
-    expiredAt: '30/10/2026',
-    createdAt: '3 ngày trước',
-  },
-];
+const INITIAL_USER_VOUCHERS_BY_USER: Record<string, UserVoucher[]> = {
+  acc_verified: [
+    {
+      id: 'uv-1',
+      userId: 'acc_verified',
+      voucherId: 'vch-canteen-10k',
+      voucher: INITIAL_AVAILABLE_VOUCHERS[0],
+      voucherCode: 'FUV-CANT-8921A',
+      status: 'UNUSED',
+      expiredAt: '30/10/2026',
+      createdAt: 'Hôm qua',
+    },
+    {
+      id: 'uv-2',
+      userId: 'acc_verified',
+      voucherId: 'vch-passio-15k',
+      voucher: INITIAL_AVAILABLE_VOUCHERS[1],
+      voucherCode: 'FUV-PASS-9938B',
+      status: 'USED',
+      usedAt: '15:20 - 18/09/2026',
+      expiredAt: '30/10/2026',
+      createdAt: '3 ngày trước',
+    },
+  ],
+  acc_seller: [
+    {
+      id: 'uv-s1',
+      userId: 'acc_seller',
+      voucherId: 'vch-ship-free',
+      voucher: INITIAL_AVAILABLE_VOUCHERS[3],
+      voucherCode: 'FUV-SHIP-1284S',
+      status: 'UNUSED',
+      expiredAt: '15/11/2026',
+      createdAt: '2 ngày trước',
+    },
+  ],
+  acc_unverified: [],
+};
+
+interface VoucherState {
+  availableVouchers: Voucher[];
+  myVouchersByUser: Record<string, UserVoucher[]>;
+  myVouchers: UserVoucher[];
+  activeUserId: string | null;
+  isLoading: boolean;
+
+  // Actions
+  setActiveUser: (userId: string | null) => void;
+  fetchVouchers: () => Promise<void>;
+  redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
+  useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
+  getUserVouchersByStatus: (status?: UserVoucherStatus) => UserVoucher[];
+  getAvailableByPartner: (partner?: VoucherPartner) => Voucher[];
+  resetVouchers: () => void;
+}
 
 export const useVoucherStore = create<VoucherState>()(
   persist(
     (set, get) => ({
       availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-      myVouchers: INITIAL_USER_VOUCHERS,
+      myVouchersByUser: INITIAL_USER_VOUCHERS_BY_USER,
+      activeUserId: 'acc_verified',
+      myVouchers: INITIAL_USER_VOUCHERS_BY_USER.acc_verified || [],
       isLoading: false,
 
+      setActiveUser: (userId) => {
+        const { myVouchersByUser } = get();
+        const currentId = userId || 'acc_unverified';
+        const userVouchers = myVouchersByUser[currentId] || [];
+        set({
+          activeUserId: userId,
+          myVouchers: userVouchers,
+        });
+      },
+
+      fetchVouchers: async () => {
+        try {
+          set({ isLoading: true });
+          const { voucherMobileService } = await import('../services/voucherMobileService');
+          const [pub, my] = await Promise.all([
+            voucherMobileService.getVouchers(),
+            voucherMobileService.getMyVouchers(),
+          ]);
+          if (my && my.length > 0) {
+            set({ myVouchers: my });
+          }
+        } catch (e: any) {
+          console.log('⚠️ [Backend vouchers offline]:', e?.message);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
       redeemVoucher: async (voucherId: string) => {
-        const item = get().availableVouchers.find((v) => v.id === voucherId);
+        const { availableVouchers, myVouchersByUser, activeUserId } = get();
+        const currentId = activeUserId || 'acc_unverified';
+        const item = availableVouchers.find((v) => v.id === voucherId);
+
         if (!item) return { success: false, message: 'Voucher không tồn tại' };
         if (item.quantity <= 0) return { success: false, message: 'Voucher đã hết số lượng' };
 
         const randomCode = `FUV-${item.partner.substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
         const newUV: UserVoucher = {
           id: `uv-${Date.now()}`,
-          userId: 'me',
+          userId: currentId,
           voucherId: item.id,
           voucher: item,
           voucherCode: randomCode,
@@ -145,60 +199,90 @@ export const useVoucherStore = create<VoucherState>()(
           createdAt: 'Vừa xong',
         };
 
+        const currentList = myVouchersByUser[currentId] || [];
+        const updatedList = [newUV, ...currentList];
+
         set((state) => ({
           availableVouchers: state.availableVouchers.map((v) =>
             v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
           ),
-          myVouchers: [newUV, ...state.myVouchers],
+          myVouchers: updatedList,
+          myVouchersByUser: {
+            ...myVouchersByUser,
+            [currentId]: updatedList,
+          },
         }));
+
+        import('../services/voucherMobileService').then(({ voucherMobileService }) => {
+          voucherMobileService.redeemVoucher(voucherId).catch(() => {});
+        });
 
         return {
           success: true,
-          message: `Đổi voucher ${item.title} thành công!`,
+          message: `Đổi voucher ${item.title} thành công! Mã: ${randomCode}`,
           voucher: newUV,
         };
       },
 
       useVoucherCode: async (userVoucherIdOrCode: string) => {
-        const target = get().myVouchers.find(
+        const { myVouchersByUser, activeUserId } = get();
+        const currentId = activeUserId || 'acc_unverified';
+        const list = myVouchersByUser[currentId] || [];
+
+        const target = list.find(
           (uv) => uv.id === userVoucherIdOrCode || uv.voucherCode === userVoucherIdOrCode
         );
-        if (!target) return { success: false, message: 'Mã voucher không hợp lệ' };
-        if (target.status === 'USED') return { success: false, message: 'Voucher này đã được sử dụng' };
 
-        set((state) => ({
-          myVouchers: state.myVouchers.map((uv) =>
-            uv.id === target.id
-              ? { ...uv, status: 'USED', usedAt: 'Vừa xong' }
-              : uv
-          ),
-        }));
+        if (!target) return { success: false, message: 'Không tìm thấy voucher' };
+        if (target.status === 'USED') return { success: false, message: 'Voucher này đã được sử dụng trước đó' };
+        if (target.status === 'EXPIRED') return { success: false, message: 'Voucher này đã hết hạn sử dụng' };
 
-        return { success: true, message: 'Áp dụng voucher thành công!' };
+        const updatedList = list.map((uv) =>
+          uv.id === target.id
+            ? {
+                ...uv,
+                status: 'USED' as UserVoucherStatus,
+                usedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+              }
+            : uv
+        );
+
+        set({
+          myVouchers: updatedList,
+          myVouchersByUser: {
+            ...myVouchersByUser,
+            [currentId]: updatedList,
+          },
+        });
+
+        return { success: true, message: 'Áp dụng mã voucher thành công!' };
       },
 
-      getUserVouchersByStatus: (status) => {
-        const list = get().myVouchers;
-        if (!status) return list;
-        return list.filter((v) => v.status === status);
+      getUserVouchersByStatus: (status?: UserVoucherStatus) => {
+        const { myVouchers } = get();
+        if (!status) return myVouchers;
+        return myVouchers.filter((v) => v.status === status);
       },
 
-      getAvailableByPartner: (partner) => {
-        const list = get().availableVouchers;
-        if (!partner) return list;
-        return list.filter((v) => v.partner === partner);
+      getAvailableByPartner: (partner?: VoucherPartner) => {
+        const { availableVouchers } = get();
+        if (!partner) return availableVouchers;
+        return availableVouchers.filter((v) => v.partner === partner);
       },
 
       resetVouchers: () => {
         set({
           availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-          myVouchers: INITIAL_USER_VOUCHERS,
+          myVouchersByUser: INITIAL_USER_VOUCHERS_BY_USER,
+          myVouchers: INITIAL_USER_VOUCHERS_BY_USER.acc_verified || [],
         });
       },
     }),
     {
-      name: 'fu_mobile_voucher_storage',
+      name: 'fu-voucher-storage',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
 );
+
+export default useVoucherStore;

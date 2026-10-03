@@ -20,6 +20,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onGoBack, partnerId }) =
     handleScheduleAppointment,
   } = useChat(partnerId);
 
+  const renderItem = React.useCallback(
+    ({ item }: { item: ChatMessage }) => (
+      <ChatBubble
+        message={item}
+        onScheduleAppointment={handleScheduleAppointment}
+      />
+    ),
+    [handleScheduleAppointment]
+  );
+
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
       <ChatHeader partner={partner} onGoBack={onGoBack} />
@@ -32,12 +42,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onGoBack, partnerId }) =
         <FlatList<ChatMessage>
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <ChatBubble
-              message={item}
-              onScheduleAppointment={handleScheduleAppointment}
-            />
-          )}
+          renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
