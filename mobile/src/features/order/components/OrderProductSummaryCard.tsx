@@ -1,0 +1,85 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+
+interface OrderProductSummaryCardProps {
+  product: {
+    title: string;
+    image: any;
+    sellerName?: string;
+    sellerCampus?: string;
+    priceStr?: string;
+  };
+}
+
+export const OrderProductSummaryCard: React.FC<OrderProductSummaryCardProps> = ({ product }) => {
+  return (
+    <>
+      <Text style={styles.sectionHeader}>THÔNG TIN SẢN PHẨM</Text>
+      <View style={styles.productCard}>
+        <Image
+          source={typeof product.image === 'string' ? { uri: product.image } : product.image}
+          style={styles.productThumb}
+          contentFit="cover"
+        />
+        <View style={styles.productInfo}>
+          <Text style={styles.productTitle} numberOfLines={2}>
+            {product.title}
+          </Text>
+          <Text style={styles.sellerText}>
+            Người bán: {product.sellerName || 'Trần Quân'} ({product.sellerCampus || 'Hòa Lạc'})
+          </Text>
+          <Text style={styles.productPrice}>{product.priceStr || '1.450.000đ'}</Text>
+        </View>
+      </View>
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  sectionHeader: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 4,
+    letterSpacing: 0.5,
+  },
+  productCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  productThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    marginRight: 12,
+  },
+  productInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  productTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+  },
+  sellerText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+  },
+  productPrice: {
+    fontSize: 14.5,
+    fontWeight: '900',
+    color: '#EA580C',
+    marginTop: 4,
+  },
+});
