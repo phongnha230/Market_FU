@@ -56,12 +56,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
     flexDirection: 'row',
-    overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.04)',
     padding: 10,
   },
   imageWrapper: {

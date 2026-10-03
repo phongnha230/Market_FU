@@ -12,6 +12,7 @@ import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { authMobileService } from '../../../services/authMobileService';
 
 export interface ChatAuthProductInfo {
   title?: string;
@@ -47,24 +48,34 @@ export const ContextualChatAuthModal: React.FC<ContextualChatAuthModalProps> = (
   const insets = useSafeAreaInsets();
   const { setAuth } = useAuthStore();
 
-  const handleGoogleLogin = () => {
-    setAuth(
-      {
-        id: 'u_fpt_student',
-        name: 'Nguyễn Văn Quân',
-        studentId: 'HE170234',
-        email: 'quannvhe170234@fpt.edu.vn',
-        campus: 'HÒA LẠC',
-        role: 'BUYER',
-        isKycVerified: true,
-        kycStatus: 'APPROVED',
-        major: 'K17 Kỹ thuật phần mềm (SE)',
-        rating: 5.0,
-        reputationPoints: 100,
-        coins: 50,
-      },
-      'mock_token_google_fpt_sso'
-    );
+  const handleGoogleLogin = async () => {
+    try {
+      const res = await authMobileService.loginWithGoogle(
+        'mock_google_student@fpt.edu.vn',
+        'HOL'
+      );
+      if (res.user && res.token) {
+        setAuth(res.user, res.token);
+      }
+    } catch {
+      setAuth(
+        {
+          id: 'u_fpt_student',
+          name: 'Nguyễn Văn Quân',
+          studentId: 'HE170234',
+          email: 'quannvhe170234@fpt.edu.vn',
+          campus: 'HÒA LẠC',
+          role: 'BUYER',
+          isKycVerified: true,
+          kycStatus: 'APPROVED',
+          major: 'K17 Kỹ thuật phần mềm (SE)',
+          rating: 5.0,
+          reputationPoints: 100,
+          coins: 50,
+        },
+        'mock_token_google_fpt_sso'
+      );
+    }
     if (onLoginSuccess) {
       onLoginSuccess('google');
     } else {

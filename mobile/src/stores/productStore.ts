@@ -20,6 +20,8 @@ export interface ProductItem {
   safePoint?: string;
   allowNegotiate?: boolean;
   campusShipEnabled?: boolean;
+  hashtags?: string[];
+  description?: string;
   createdAt: string;
   viewsCount?: number;
   likesCount?: number;
@@ -44,6 +46,7 @@ const INITIAL_PRODUCTS: ProductItem[] = [
     safePoint: 'Trạm Safe-Point Sảnh Tòa Alpha',
     allowNegotiate: true,
     campusShipEnabled: true,
+    hashtags: ['dell', 'manhinh', 'u2419h', 'gear', 'fpt'],
     createdAt: 'Hôm nay',
     viewsCount: 142,
     likesCount: 18,
@@ -66,6 +69,7 @@ const INITIAL_PRODUCTS: ProductItem[] = [
     safePoint: 'Trạm Safe-Point Sảnh Tòa Alpha',
     allowNegotiate: true,
     campusShipEnabled: false,
+    hashtags: ['akko', 'banphimco', 'gaming', 'switch'],
     createdAt: 'Hôm qua',
     viewsCount: 88,
     likesCount: 12,
@@ -88,14 +92,24 @@ const INITIAL_PRODUCTS: ProductItem[] = [
     safePoint: 'Trạm Safe-Point Sảnh Tòa Alpha',
     allowNegotiate: false,
     campusShipEnabled: true,
+    hashtags: ['logitech', 'g102', 'chuot', 'rgb'],
     createdAt: '3 ngày trước',
     viewsCount: 65,
     likesCount: 7,
   },
 ];
 
+export interface FetchProductsFilter {
+  campus?: string;
+  category?: string;
+  search?: string;
+  hashtag?: string;
+}
+
 interface ProductState {
   products: ProductItem[];
+  isLoading: boolean;
+  fetchProducts: (filter?: string | FetchProductsFilter) => Promise<ProductItem[]>;
   addProduct: (product: Omit<ProductItem, 'id' | 'createdAt' | 'status' | 'viewsCount' | 'likesCount'>) => ProductItem;
   updateProduct: (id: string, partial: Partial<ProductItem>) => void;
   deleteProduct: (id: string) => void;
@@ -106,6 +120,28 @@ export const useProductStore = create<ProductState>()(
   persist(
     (set, get) => ({
       products: INITIAL_PRODUCTS,
+      isLoading: false,
+
+      fetchProducts: async (filter?: string | FetchProductsFilter) => {
+        try {
+          set({ isLoading: true });
+          const { productMobileService } = await import('../services/productMobileService');
+          const params =
+            typeof filter === 'string'
+              ? { campus: filter }
+              : filter || {};
+          const liveProducts = await productMobileService.getProducts(params);
+          if (liveProducts && liveProducts.length > 0) {
+            set({ products: liveProducts });
+            return liveProducts;
+          }
+        } catch (e: any) {
+          console.log('⚠️ [Backend products offline, using local store]:', e?.message);
+        } finally {
+          set({ isLoading: false });
+        }
+        return get().products;
+      },
 
       addProduct: (newProdData) => {
         const newProduct: ProductItem = {
@@ -121,6 +157,23 @@ export const useProductStore = create<ProductState>()(
           products: [newProduct, ...state.products],
         }));
 
+        // Gửi ngầm lên backend nếu có kết nối
+        import('../services/productMobileService').then(({ productMobileService }) => {
+          productMobileService
+            .createProduct({
+              title: newProdData.title,
+              price: newProdData.price,
+              condition: newProdData.condition,
+              category: newProdData.category,
+              images: newProdData.images,
+              campus: newProdData.campus,
+              safePoint: newProdData.safePoint,
+              allowNegotiate: newProdData.allowNegotiate,
+              campusShipEnabled: newProdData.campusShipEnabled,
+            })
+            .catch(() => {});
+        });
+
         return newProduct;
       },
 
@@ -128,6 +181,10 @@ export const useProductStore = create<ProductState>()(
         set((state) => ({
           products: state.products.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         }));
+
+        import('../services/productMobileService').then(({ productMobileService }) => {
+          productMobileService.updateProduct(id, partial as any).catch(() => {});
+        });
       },
 
       deleteProduct: (id) => {

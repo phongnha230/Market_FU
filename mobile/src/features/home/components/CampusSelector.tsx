@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface CampusSelectorProps {
@@ -13,31 +13,36 @@ export const CampusSelector: React.FC<CampusSelectorProps> = ({
   selectedIndex,
   onSelect,
 }) => {
+  const renderItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => {
+      const isActive = selectedIndex === index;
+      return (
+        <TouchableOpacity
+          style={[styles.tab, isActive && styles.activeTab]}
+          activeOpacity={0.8}
+          onPress={() => onSelect(index)}
+        >
+          {isActive && (
+            <Ionicons name="location-sharp" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+          )}
+          <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+            {item}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [selectedIndex, onSelect]
+  );
+
   return (
-    <ScrollView
+    <FlatList
       horizontal
+      data={campuses}
+      keyExtractor={(item) => item}
+      renderItem={renderItem}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
-    >
-      {campuses.map((campus, index) => {
-        const isActive = selectedIndex === index;
-        return (
-          <TouchableOpacity
-            key={campus}
-            style={[styles.tab, isActive && styles.activeTab]}
-            activeOpacity={0.8}
-            onPress={() => onSelect(index)}
-          >
-            {isActive && (
-              <Ionicons name="location-sharp" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-            )}
-            <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-              {campus}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    />
   );
 };
 

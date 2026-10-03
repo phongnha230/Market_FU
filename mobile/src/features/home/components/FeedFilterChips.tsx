@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
 interface FeedFilterChipsProps {
   filters: string[];
@@ -12,28 +12,33 @@ export const FeedFilterChips: React.FC<FeedFilterChipsProps> = ({
   selectedIndex,
   onSelect,
 }) => {
+  const renderItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => {
+      const isActive = selectedIndex === index;
+      return (
+        <TouchableOpacity
+          style={[styles.chip, isActive && styles.activeChip]}
+          activeOpacity={0.8}
+          onPress={() => onSelect(index)}
+        >
+          <Text style={[styles.chipText, isActive && styles.activeChipText]}>
+            {item}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [selectedIndex, onSelect]
+  );
+
   return (
-    <ScrollView
+    <FlatList
       horizontal
+      data={filters}
+      keyExtractor={(item) => item}
+      renderItem={renderItem}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
-    >
-      {filters.map((chip, index) => {
-        const isActive = selectedIndex === index;
-        return (
-          <TouchableOpacity
-            key={chip}
-            style={[styles.chip, isActive && styles.activeChip]}
-            activeOpacity={0.8}
-            onPress={() => onSelect(index)}
-          >
-            <Text style={[styles.chipText, isActive && styles.activeChipText]}>
-              {chip}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    />
   );
 };
 

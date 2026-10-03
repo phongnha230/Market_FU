@@ -22,6 +22,17 @@ const POPULAR_KEYWORDS = [
   'Bình giữ nhiệt FPT',
 ];
 
+const POPULAR_HASHTAGS = [
+  '#vovinam',
+  '#banphimco',
+  '#macbook',
+  '#giaotrinh',
+  '#quatktx',
+  '#chuotgaming',
+  '#freeship',
+  '#giare',
+];
+
 export const SearchSuggestionsDropdown: React.FC<SearchSuggestionsDropdownProps> = ({
   searchText,
   products,
@@ -30,23 +41,30 @@ export const SearchSuggestionsDropdown: React.FC<SearchSuggestionsDropdownProps>
   onClose,
 }) => {
   const query = searchText.trim().toLowerCase();
+  const cleanQuery = query.replace(/^#+/, '');
 
   // Keyword suggestions
   const matchedKeywords = POPULAR_KEYWORDS.filter((k) =>
-    k.toLowerCase().includes(query)
+    k.toLowerCase().includes(cleanQuery)
   ).slice(0, 4);
+
+  // Hashtag suggestions
+  const matchedHashtags = POPULAR_HASHTAGS.filter((tag) =>
+    tag.toLowerCase().includes(cleanQuery)
+  ).slice(0, 6);
 
   // Matched products (up to 4 items)
   const matchedProducts = products
     .filter(
-      (p) =>
-        p.title.toLowerCase().includes(query) ||
-        p.seller.toLowerCase().includes(query) ||
-        p.location.toLowerCase().includes(query)
+      (p: any) =>
+        p.title.toLowerCase().includes(cleanQuery) ||
+        p.seller.toLowerCase().includes(cleanQuery) ||
+        p.location.toLowerCase().includes(cleanQuery) ||
+        (Array.isArray(p.hashtags) && p.hashtags.some((t: string) => t.toLowerCase().includes(cleanQuery)))
     )
     .slice(0, 4);
 
-  if (!query && matchedKeywords.length === 0) {
+  if (!query && matchedKeywords.length === 0 && matchedHashtags.length === 0) {
     return null;
   }
 
@@ -54,7 +72,8 @@ export const SearchSuggestionsDropdown: React.FC<SearchSuggestionsDropdownProps>
     <View style={styles.dropdownContainer}>
       <View style={styles.headerRow}>
         <View style={styles.tagBadge}>
-          <Text style={styles.tagBadgeText}>Gợi ý từ Shopee Campus</Text>
+          <Ionicons name="flash" size={11} color="#EA580C" style={{ marginRight: 3 }} />
+          <Text style={styles.tagBadgeText}>Meilisearch Engine</Text>
         </View>
         {onClose && (
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -64,12 +83,31 @@ export const SearchSuggestionsDropdown: React.FC<SearchSuggestionsDropdownProps>
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.scrollList}>
+        {/* Hashtags section */}
+        {matchedHashtags.length > 0 && (
+          <View style={styles.hashtagSection}>
+            <Text style={styles.hashtagSectionLabel}>Tìm kiếm theo #Hashtag:</Text>
+            <View style={styles.hashtagChipsWrap}>
+              {matchedHashtags.map((tag) => (
+                <TouchableOpacity
+                  key={tag}
+                  style={styles.dropdownHashChip}
+                  onPress={() => onSelectKeyword(tag)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dropdownHashText}>{tag}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Keyword rows */}
         {matchedKeywords.length > 0 && (
           <View style={styles.section}>
-            {matchedKeywords.map((kw, idx) => (
+            {matchedKeywords.map((kw) => (
               <TouchableOpacity
-                key={`kw-${idx}`}
+                key={kw}
                 style={styles.keywordRow}
                 activeOpacity={0.7}
                 onPress={() => onSelectKeyword(kw)}
@@ -78,8 +116,8 @@ export const SearchSuggestionsDropdown: React.FC<SearchSuggestionsDropdownProps>
                   <Ionicons name="search" size={14} color="#EA580C" />
                 </View>
                 <Text style={styles.keywordText} numberOfLines={1}>
-                  <Text style={styles.keywordHighlight}>{query}</Text>
-                  {kw.toLowerCase().startsWith(query) ? kw.slice(query.length) : ` (${kw})`}
+                  <Text style={styles.keywordHighlight}>{cleanQuery}</Text>
+                  {kw.toLowerCase().startsWith(cleanQuery) ? kw.slice(cleanQuery.length) : ` (${kw})`}
                 </Text>
                 <Ionicons name="arrow-forward-outline" size={14} color="#CBD5E1" />
               </TouchableOpacity>
@@ -145,11 +183,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FED7AA',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
+    boxShadow: '0 6px 10px rgba(234, 88, 12, 0.12)',
     maxHeight: 330,
     overflow: 'hidden',
     zIndex: 999,
@@ -291,6 +325,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     marginTop: 6,
+  },
+  hashtagSection: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 6,
+  },
+  hashtagSectionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  hashtagChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  dropdownHashChip: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  dropdownHashText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
   },
 });
 

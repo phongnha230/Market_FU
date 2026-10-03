@@ -7,13 +7,13 @@ interface ProductSpecSectionProps {
   description: string;
 }
 
-export const ProductSpecSection: React.FC<ProductSpecSectionProps> = ({ specs, description }) => {
+export const ProductSpecSection: React.FC<ProductSpecSectionProps> = React.memo(({ specs, description }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Thông số & Tình trạng chi tiết</Text>
       <View style={styles.grid}>
-        {specs.map((item, i) => (
-          <View key={i} style={styles.specBox}>
+        {specs.map((item) => (
+          <View key={item.label} style={styles.specBox}>
             <Text style={styles.specLabel}>{item.label}</Text>
             <Text style={styles.specValue}>{item.value}</Text>
           </View>
@@ -24,7 +24,7 @@ export const ProductSpecSection: React.FC<ProductSpecSectionProps> = ({ specs, d
       <Text style={styles.description}>{description}</Text>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },

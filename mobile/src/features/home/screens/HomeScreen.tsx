@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
 import ProductCard from '../../../components/common/ProductCard';
 import HomeSearchBar from '../components/HomeSearchBar';
@@ -12,6 +12,7 @@ import FeedHeader from '../components/FeedHeader';
 import FeedFilterChips from '../components/FeedFilterChips';
 import VovinamBanner from '../components/VovinamBanner';
 import SafePointWidget from '../components/SafePointWidget';
+import { TrendingSearchesBanner } from '../components/TrendingSearchesBanner';
 import useHomeFeed from '../hooks/useHomeFeed';
 import { useUserStore } from '../../../stores/userStore';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
@@ -23,6 +24,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onPostPress,
 }) => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -43,7 +45,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     categories,
     feedFilters,
     products,
-  } = useHomeFeed();
+  } = useHomeFeed(route.params?.searchKeyword);
 
   // Chặn mở AI Assistant nếu chưa đăng nhập
   const handleOpenAiAssistant = () => {
@@ -83,9 +85,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return (
     <View style={styles.screen}>
       <HomeHeader
-        userName={isAuthenticated && user?.name ? user.name : 'Khách'}
+        userName={isAuthenticated && user?.name ? user.name : 'Bạn'}
         campusName={campuses[selectedCampus] || 'HÒA LẠC'}
-        avatarUrl={user?.avatar || user?.avatarUrl}
+        avatarUrl={isAuthenticated ? (user?.avatar || user?.avatarUrl) : undefined}
+        isAuthenticated={isAuthenticated}
         onNotificationPress={handleOpenNotification}
         onAvatarPress={handleAvatarPress}
       />
@@ -98,6 +101,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             setShowSuggestions(true);
           }}
           onScanPress={handleOpenAiAssistant}
+        />
+
+        {/* Realtime Trending Searches from Redis ZSET */}
+        <TrendingSearchesBanner
+          onSelectKeyword={(kw) => {
+            setSearchText(kw);
+            setShowSuggestions(false);
+          }}
         />
 
         {searchText.trim().length > 0 && showSuggestions && (
@@ -171,7 +182,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             else navigation.navigate('ProductDetail', { productId: 'vovinam-uniform' });
           }}
         />
-        <SafePointWidget />
+        <SafePointWidget onMapPress={() => navigation.navigate('SafePointHubs')} />
         <View style={styles.bottomSpacer} />
       </ScrollView>
 

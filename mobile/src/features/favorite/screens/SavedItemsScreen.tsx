@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useCampusStore } from '../../../stores/useCampusStore';
-import { useFavoriteStore } from '../../../stores/useFavoriteStore';
+import { useKho } from '../../../context/KhoContext';
+import { SavedProductCard } from '../components/SavedProductCard';
+import { SavedItemsEmptyState } from '../components/SavedItemsEmptyState';
+import { SavedItemsTopNav } from '../components/SavedItemsTopNav';
+import { SavedItemsPriceDropBanner } from '../components/SavedItemsPriceDropBanner';
 
 export interface SavedProductItem {
   id: string;
@@ -90,15 +92,39 @@ export interface SavedItemsScreenProps {
 export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { currentCampus } = useCampusStore();
-  const { toggleFavorite } = useFavoriteStore();
+  const { favoriteIds, toggleFavorite, allProducts: storeProducts, currentCampus } = useKho();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPriceAlert, setShowPriceAlert] = useState<boolean>(true);
-  const [products, setProducts] = useState<SavedProductItem[]>(INITIAL_SAVED_PRODUCTS);
   const [sortOrder, setSortOrder] = useState<'newest' | 'price'>('newest');
 
-  const handleToggleLove = (id: string, title: string) => {
+  const products = React.useMemo(() => {
+    const list: SavedProductItem[] = [];
+
+    favoriteIds.forEach((favId) => {
+      const sp = storeProducts.find((p) => p.id === favId);
+      if (sp) {
+        list.push({
+          id: sp.id,
+          title: sp.title,
+          price: sp.price.toLocaleString('vi-VN') + 'đ',
+          locationTag: `${sp.campus} - ${sp.safePoint || 'Safe-Point'}`,
+          statusText: sp.status === 'AVAILABLE' ? 'Còn hàng' : 'Đã bán/hẹn',
+          statusBadge: sp.condition,
+          actionType: 'chat',
+          image: sp.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
+          category: sp.category === 'books' ? 'books' : 'tech',
+        });
+      } else {
+        const initial = INITIAL_SAVED_PRODUCTS.find((p) => p.id === favId);
+        if (initial) list.push(initial);
+      }
+    });
+
+    return list;
+  }, [favoriteIds, storeProducts]);
+
+  const handleToggleLove = useCallback((id: string, title: string) => {
     Alert.alert(
       'Bỏ lưu món đồ',
       `Bạn có muốn bỏ lưu "${title}" khỏi danh sách yêu thích?`,
@@ -108,21 +134,20 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           text: 'Bỏ lưu',
           style: 'destructive',
           onPress: () => {
-            setProducts((prev) => prev.filter((p) => p.id !== id));
             toggleFavorite(id);
           },
         },
       ]
     );
-  };
+  }, [toggleFavorite]);
 
-  const handleProductPress = (p: SavedProductItem) => {
+  const handleProductPress = useCallback((p: SavedProductItem) => {
     if (navigation && navigation.navigate) {
       navigation.navigate('ProductDetail', { productId: p.id });
     }
-  };
+  }, [navigation]);
 
-  const handleActionPress = (p: SavedProductItem) => {
+  const handleActionPress = useCallback((p: SavedProductItem) => {
     if (p.actionType === 'detail') {
       handleProductPress(p);
     } else {
@@ -139,7 +164,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
         });
       }
     }
-  };
+  }, [navigation, handleProductPress]);
 
   const handleSafePointPress = () => {
     Alert.alert(
@@ -149,85 +174,58 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   };
 
   const handleToggleSort = () => {
-    setSortOrder((prev) => (prev === 'newest' ? 'price' : 'newest'));
-    Alert.alert(
-      'Sắp xếp',
-      sortOrder === 'newest' ? 'Đã sắp xếp theo: Giá thấp đến cao' : 'Đã sắp xếp theo: Mới lưu gần nhất'
-    );
+    setSortOrder((prev) => {
+      const next = prev === 'newest' ? 'price' : 'newest';
+      Alert.alert(
+        'Sắp xếp',
+        next === 'price' ? 'Đã sắp xếp theo: Giá thấp đến cao' : 'Đã sắp xếp theo: Mới lưu gần nhất'
+      );
+      return next;
+    });
   };
 
-  const filteredProducts = products.filter((p) => {
-    if (selectedCategory === 'all') return true;
-    return p.category === selectedCategory;
-  });
+  const filteredProducts = React.useMemo(() => {
+    let result = products.filter((p) => {
+      if (selectedCategory === 'all') return true;
+      return p.category === selectedCategory;
+    });
+
+    if (sortOrder === 'price') {
+      result = [...result].sort((a, b) => {
+        const priceA = parseInt(a.price.replace(/\D/g, ''), 10) || 0;
+        const priceB = parseInt(b.price.replace(/\D/g, ''), 10) || 0;
+        return priceA - priceB;
+      });
+    }
+
+    return result;
+  }, [products, selectedCategory, sortOrder]);
 
   return (
     <View style={styles.screen}>
       {/* ═══════════════════════════════════════════════════════════
           1. TOP BAR: Campus + Bell + Avatar
       ═══════════════════════════════════════════════════════════ */}
-      <View style={[styles.topNavBar, { paddingTop: Math.max(insets.top, 10) }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity
-            style={styles.bellBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => {
-              if (navigation && navigation.canGoBack()) {
-                navigation.goBack();
-              } else if (navigation) {
-                navigation.navigate('MainTabs', { screen: 'Home' });
-              }
-            }}
-          >
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.campusChip} activeOpacity={0.8}>
-            <Ionicons name="location-outline" size={14} color="#EA580C" style={{ marginRight: 4 }} />
-            <Text style={styles.campusChipText}>FPT {currentCampus || 'Hòa Lạc'}</Text>
-            <Ionicons name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 3 }} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.topRightIcons}>
-          <TouchableOpacity
-            style={styles.bellBtn}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (navigation) {
-                navigation.navigate('MainTabs', { screen: 'Home' });
-              }
-            }}
-          >
-            <Ionicons name="home-outline" size={20} color="#0F172A" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.bellBtn}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (navigation && navigation.navigate) {
-                navigation.navigate('Notification');
-              }
-            }}
-          >
-            <Ionicons name="notifications-outline" size={20} color="#0F172A" />
-            <View style={styles.bellDot} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.avatarBtn}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (navigation && navigation.navigate) {
-                navigation.navigate('MainTabs', { screen: 'Profile' });
-              }
-            }}
-          >
-            <Ionicons name="person" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <SavedItemsTopNav
+        currentCampus={currentCampus || 'Hòa Lạc'}
+        topInset={insets.top}
+        onBack={() => {
+          if (navigation && navigation.canGoBack()) {
+            navigation.goBack();
+          } else if (navigation) {
+            navigation.navigate('MainTabs', { screen: 'Home' });
+          }
+        }}
+        onHome={() => {
+          if (navigation) navigation.navigate('MainTabs', { screen: 'Home' });
+        }}
+        onNotification={() => {
+          if (navigation && navigation.navigate) navigation.navigate('Notification');
+        }}
+        onProfile={() => {
+          if (navigation && navigation.navigate) navigation.navigate('MainTabs', { screen: 'Profile' });
+        }}
+      />
 
       {/* ═══════════════════════════════════════════════════════════
           2. TITLE ROW: Tin đã lưu + Search + Mới lưu
@@ -253,7 +251,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
             onPress={handleToggleSort}
           >
             <Ionicons name="swap-vertical" size={15} color="#0F172A" style={{ marginRight: 4 }} />
-            <Text style={styles.sortBtnText}>Mới lưu</Text>
+            <Text style={styles.sortBtnText}>{sortOrder === 'newest' ? 'Mới lưu' : 'Giá tăng dần'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -287,33 +285,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
             4. PRICE DROP ALERT BANNER (GIÁ HỜI)
         ═══════════════════════════════════════════════════════════ */}
         {showPriceAlert && (
-          <View style={styles.priceDropBanner}>
-            <View style={styles.priceDropIconCircle}>
-              <MaterialCommunityIcons name="trending-down" size={20} color="#FFFFFF" />
-            </View>
-
-            <View style={styles.priceDropContent}>
-              <View style={styles.priceDropTagRow}>
-                <View style={styles.hotDealTag}>
-                  <Text style={styles.hotDealTagText}>GIÁ HỜI</Text>
-                </View>
-                <Text style={styles.priceDropTime}>Hôm nay</Text>
-              </View>
-              <Text style={styles.priceDropDesc}>
-                <Text style={styles.boldText}>ThinkPad T480</Text> vừa giảm{' '}
-                <Text style={styles.boldOrange}>200.000 đ</Text>{'\n'}(xuống 5.800.000 đ)!
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeAlertBtn}
-              activeOpacity={0.7}
-              onPress={() => setShowPriceAlert(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={16} color="#9A3412" />
-            </TouchableOpacity>
-          </View>
+          <SavedItemsPriceDropBanner onClose={() => setShowPriceAlert(false)} />
         )}
 
         {/* ═══════════════════════════════════════════════════════════
@@ -369,121 +341,23 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
         {/* ═══════════════════════════════════════════════════════════
             7. SAVED PRODUCTS 2-COLUMN GRID
         ═══════════════════════════════════════════════════════════ */}
-        <View style={styles.productsGrid}>
-          {filteredProducts.map((p) => (
-            <TouchableOpacity
-              key={p.id}
-              style={styles.productCard}
-              activeOpacity={0.92}
-              onPress={() => handleProductPress(p)}
-            >
-              {/* Product Image Wrapper */}
-              <View style={styles.imageBox}>
-                <Image source={p.image} style={styles.productImg} contentFit="cover" />
-
-                {/* Discount Badge */}
-                {p.discountBadge && (
-                  <View style={styles.discountBadgeTop}>
-                    <Text style={styles.discountBadgeTopText}>{p.discountBadge}</Text>
-                  </View>
-                )}
-
-                {/* Location Tag */}
-                <View style={styles.locationTagBox}>
-                  <Text style={styles.locationTagText}>{p.locationTag}</Text>
-                </View>
-
-                {/* Heart Button */}
-                <TouchableOpacity
-                  style={styles.heartBtn}
-                  activeOpacity={0.7}
-                  onPress={() => handleToggleLove(p.id, p.title)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons name="heart" size={16} color="#DC2626" />
-                </TouchableOpacity>
-
-                {/* Negotiating Banner */}
-                {p.negotiatingBanner && (
-                  <View style={styles.negotiatingBanner}>
-                    <Text style={styles.negotiatingBannerText}>Đang thương lượng</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Product Info */}
-              <View style={styles.productInfoBox}>
-                <View style={styles.priceRow}>
-                  <Text style={styles.productPrice}>{p.price}</Text>
-                  {p.originalPrice && (
-                    <Text style={styles.originalPrice}>{p.originalPrice}</Text>
-                  )}
-                </View>
-
-                <Text style={styles.productTitle} numberOfLines={2}>
-                  {p.title}
-                </Text>
-
-                {/* Status indicator / Badge */}
-                {p.statusText && (
-                  <View style={styles.stockStatusRow}>
-                    <View style={styles.greenStockDot} />
-                    <Text style={styles.stockStatusText}>{p.statusText}</Text>
-                  </View>
-                )}
-
-                {p.statusBadge && (
-                  <View style={styles.specBadgeRow}>
-                    <View style={styles.specBadge}>
-                      <Text style={styles.specBadgeText}>{p.statusBadge}</Text>
-                    </View>
-                  </View>
-                )}
-
-                {p.interestedCount !== undefined && (
-                  <View style={styles.interestedRow}>
-                    <Ionicons name="chatbubble-outline" size={11} color="#64748B" style={{ marginRight: 3 }} />
-                    <Text style={styles.interestedText}>Có {p.interestedCount} bạn quan tâm</Text>
-                  </View>
-                )}
-
-                {/* Action Button */}
-                {p.actionType === 'chat_now' && (
-                  <TouchableOpacity
-                    style={styles.actionChatNowBtn}
-                    activeOpacity={0.88}
-                    onPress={() => handleActionPress(p)}
-                  >
-                    <Ionicons name="chatbubble-ellipses" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.actionChatNowBtnText}>Nhắn tin ngay</Text>
-                  </TouchableOpacity>
-                )}
-
-                {p.actionType === 'chat' && (
-                  <TouchableOpacity
-                    style={styles.actionChatBtn}
-                    activeOpacity={0.8}
-                    onPress={() => handleActionPress(p)}
-                  >
-                    <Ionicons name="chatbubble-outline" size={13} color="#1E40AF" style={{ marginRight: 4 }} />
-                    <Text style={styles.actionChatBtnText}>Nhắn tin</Text>
-                  </TouchableOpacity>
-                )}
-
-                {p.actionType === 'detail' && (
-                  <TouchableOpacity
-                    style={styles.actionDetailBtn}
-                    activeOpacity={0.8}
-                    onPress={() => handleActionPress(p)}
-                  >
-                    <Ionicons name="eye-outline" size={13} color="#475569" style={{ marginRight: 4 }} />
-                    <Text style={styles.actionDetailBtnText}>Xem chi tiết</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {filteredProducts.length === 0 ? (
+          <SavedItemsEmptyState
+            onExplore={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+          />
+        ) : (
+          <View style={styles.productsGrid}>
+            {filteredProducts.map((p) => (
+              <SavedProductCard
+                key={p.id}
+                product={p}
+                onPress={handleProductPress}
+                onToggleLove={handleToggleLove}
+                onActionPress={handleActionPress}
+              />
+            ))}
+          </View>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════
             8. TIPS BANNER: Mẹo săn đồ KTX giá rẻ
@@ -523,61 +397,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-
-  // 1. Top Nav Bar
-  topNavBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
-  },
-  campusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  campusChipText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  topRightIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  bellBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 5,
-    right: 6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EA580C',
-  },
-  avatarBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#9A3412',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // 2. Title Row
@@ -669,63 +488,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // 4. Price Drop Banner
-  priceDropBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFEDD5',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  priceDropIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EA580C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  priceDropContent: {
-    flex: 1,
-  },
-  priceDropTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  hotDealTag: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  hotDealTagText: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  priceDropTime: {
-    fontSize: 11,
-    color: '#C2410C',
-    fontWeight: '600',
-  },
-  priceDropDesc: {
-    fontSize: 12,
-    color: '#431407',
-    lineHeight: 16.5,
-  },
-  boldText: {
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  closeAlertBtn: {
-    padding: 4,
-  },
-
   // 5. Category Chips Scroll
   categoryChipsScroll: {
     gap: 8,
@@ -798,211 +560,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  productCard: {
-    width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    marginBottom: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
-  },
-  imageBox: {
-    width: '100%',
-    height: 140,
-    position: 'relative',
-    backgroundColor: '#F1F5F9',
-  },
-  productImg: {
-    width: '100%',
-    height: '100%',
-  },
-  discountBadgeTop: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    backgroundColor: '#EA580C',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  discountBadgeTopText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  locationTagBox: {
-    position: 'absolute',
-    bottom: 6,
-    left: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  locationTagText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  heartBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.15,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  negotiatingBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
-    paddingVertical: 4,
-    alignItems: 'center',
-  },
-  negotiatingBannerText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  // Product Info Box
-  productInfoBox: {
-    padding: 10,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-    marginBottom: 3,
-  },
-  productPrice: {
-    fontSize: 14.5,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  originalPrice: {
-    fontSize: 11,
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
-  },
-  productTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 16.5,
-    marginBottom: 6,
-    minHeight: 33,
-  },
-  stockStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  greenStockDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#059669',
-    marginRight: 4,
-  },
-  stockStatusText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  specBadgeRow: {
-    marginBottom: 8,
-  },
-  specBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  specBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  interestedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  interestedText: {
-    fontSize: 10.5,
-    color: '#64748B',
-  },
-
-  // Action Buttons
-  actionChatNowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EA580C',
-    borderRadius: 10,
-    paddingVertical: 7,
-  },
-  actionChatNowBtnText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  actionChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    paddingVertical: 7,
-  },
-  actionChatBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#1E40AF',
-  },
-  actionDetailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingVertical: 7,
-  },
-  actionDetailBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#475569',
   },
 
   // 8. Tips Banner

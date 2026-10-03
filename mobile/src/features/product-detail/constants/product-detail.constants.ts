@@ -34,6 +34,7 @@ export const DEFAULT_PRODUCT_DETAIL: ProductDetailData = {
     name: 'Safe-Handoff Sảnh Tòa Alpha',
     desc: 'Hỗ trợ bàn test cắm máy tính & đo nguồn điện trực tiếp có bảo vệ quan sát.',
   },
+  hashtags: ['akko', 'banphimco', 'silent', 'gaming', 'fpt'],
 };
 
 export const RELATED_PRODUCTS: RelatedProductItem[] = [

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Text } from 'react-native';
+import React from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,10 +10,37 @@ import ProductSpecSection from '../components/ProductSpecSection';
 import ProductSellerSafePoint from '../components/ProductSellerSafePoint';
 import ProductBottomBar from '../components/ProductBottomBar';
 import MakeOfferModal from '../components/MakeOfferModal';
-import ContextualAuthModal from '../components/ContextualAuthModal';
-import ContextualChatAuthModal from '../components/ContextualChatAuthModal';
+import { ReportModal } from '../../report/components/ReportModal';
 import useProductDetail from '../hooks/useProductDetail';
+import { useProductDetailActions } from '../hooks/useProductDetailActions';
 import { ProductDetailScreenProps } from '../types/product-detail.types';
+
+const DemoCampusSwitcherBar: React.FC<{
+  isSameCampus: boolean;
+  onToggle: () => void;
+}> = React.memo(({ isSameCampus, onToggle }) => (
+  <View style={styles.campusModeBar}>
+    <View style={styles.campusModeLeft}>
+      <Ionicons
+        name={isSameCampus ? 'business' : 'airplane'}
+        size={16}
+        color={isSameCampus ? '#059669' : '#7C3AED'}
+      />
+      <Text style={styles.campusModeLabel}>
+        Ngữ cảnh: {isSameCampus ? 'CÙNG CAMPUS (Hòa Lạc)' : 'KHÁC CAMPUS (Đà Nẵng)'}
+      </Text>
+    </View>
+    <TouchableOpacity
+      style={[styles.switchToggleBtn, !isSameCampus && styles.switchToggleBtnActive]}
+      activeOpacity={0.8}
+      onPress={onToggle}
+    >
+      <Text style={styles.switchToggleText}>
+        {isSameCampus ? 'Đổi sang Khác cơ sở ›' : 'Đổi sang Cùng cơ sở ›'}
+      </Text>
+    </TouchableOpacity>
+  </View>
+));
 
 export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   onGoBack,
@@ -25,13 +52,6 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
 
   const activeProductId = productId || route.params?.productId;
 
-  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
-  const [isChatAuthModalVisible, setIsChatAuthModalVisible] = useState(false);
-  const [isOfferModalVisible, setIsOfferModalVisible] = useState(false);
-
-  // Mặc định là cùng campus (Hòa Lạc), có switcher để trải nghiệm cả 2 ngữ cảnh theo yêu cầu
-  const [isSameCampus, setIsSameCampus] = useState(true);
-
   const {
     product,
     currentImageIndex,
@@ -40,106 +60,22 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
     handleToggleFavorite,
   } = useProductDetail(activeProductId);
 
-  const handleBack = () => {
-    if (onGoBack) {
-      onGoBack();
-    } else if (navigation && navigation.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (navigation && navigation.navigate) {
-      navigation.navigate('MainTabs', { screen: 'Home' });
-    }
-  };
-
-  // Mua ngay -> Chuyển vào trang Checkout
-  const handleOpenBuyNow = () => {
-    navigation.navigate('Checkout', {
-      product: {
-        id: product.id,
-        title: product.title,
-        price: parseInt(product.price.replace(/\./g, ''), 10) || 1450000,
-        priceStr: product.price + 'đ',
-        image: product.images[0],
-        sellerName: product.seller.name,
-        sellerMajor: product.seller.major,
-        sellerCampus: isSameCampus ? 'Cơ sở Hòa Lạc' : 'Cơ sở TP.HCM',
-      },
-      isDifferentCampus: !isSameCampus,
-    });
-  };
-
-  // Nhắn tin -> Chuyển vào ChatDetail
-  const handleOpenChat = () => {
-    navigation.navigate('ChatDetail', {
-      partner: {
-        id: product.seller.id,
-        name: product.seller.name,
-        cohort: 'K16 - SE',
-        isOnline: true,
-      },
-      product: {
-        id: product.id,
-        title: product.title,
-        price: product.price + 'đ',
-        image: product.images[0],
-      },
-    });
-  };
-
-  // Submit Trả giá -> Chuyển vào ChatDetail kèm tin nhắn đề xuất giá
-  const handleSubmitOffer = (offeredPrice: number, message: string) => {
-    setIsOfferModalVisible(false);
-    navigation.navigate('ChatDetail', {
-      partner: {
-        id: product.seller.id,
-        name: product.seller.name,
-        cohort: 'K16 - SE',
-        isOnline: true,
-      },
-      product: {
-        id: product.id,
-        title: product.title,
-        price: product.price + 'đ',
-        image: product.images[0],
-      },
-      initialOffer: {
-        offeredPrice,
-        message,
-        originalPrice: parseInt(product.price.replace(/\./g, ''), 10) || 1450000,
-      },
-    });
-  };
+  const actions = useProductDetailActions(product, onGoBack);
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
       <ProductDetailHeader
-        onGoBack={handleBack}
-        onGoHome={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+        onGoBack={actions.handleBack}
+        onGoHome={actions.handleGoHome}
         isSaved={isSaved}
         onToggleSaved={handleToggleFavorite}
+        onOpenReport={actions.handleOpenReport}
       />
 
-      {/* Switcher Demo Cùng Campus / Khác Campus */}
-      <View style={styles.campusModeBar}>
-        <View style={styles.campusModeLeft}>
-          <Ionicons
-            name={isSameCampus ? 'business' : 'airplane'}
-            size={16}
-            color={isSameCampus ? '#059669' : '#7C3AED'}
-          />
-          <Text style={styles.campusModeLabel}>
-            Ngữ cảnh: {isSameCampus ? 'CÙNG CAMPUS (Hòa Lạc)' : 'KHÁC CAMPUS (Đà Nẵng)'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.switchToggleBtn, !isSameCampus && styles.switchToggleBtnActive]}
-          activeOpacity={0.8}
-          onPress={() => setIsSameCampus(!isSameCampus)}
-        >
-          <Text style={styles.switchToggleText}>
-            {isSameCampus ? 'Đổi sang Khác cơ sở ›' : 'Đổi sang Cùng cơ sở ›'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <DemoCampusSwitcherBar
+        isSameCampus={actions.isSameCampus}
+        onToggle={actions.handleToggleSameCampus}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <ProductGallery
@@ -147,7 +83,15 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
           currentIndex={currentImageIndex}
           onIndexChange={setCurrentImageIndex}
         />
-        <ProductInfoCard product={product} />
+        <ProductInfoCard
+          product={product}
+          onPressHashtag={(tag) => {
+            navigation.navigate('MainTabs', {
+              screen: 'Home',
+              params: { searchKeyword: `#${tag}` },
+            });
+          }}
+        />
         <ProductSpecSection specs={product.specs} description={product.description} />
         <ProductSellerSafePoint
           seller={product.seller}
@@ -155,26 +99,41 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         />
       </ScrollView>
 
-      {/* Product Bottom Bar theo ngữ cảnh Campus */}
       <ProductBottomBar
-        isSameCampus={isSameCampus}
-        onChat={handleOpenChat}
-        onMakeOffer={() => setIsOfferModalVisible(true)}
-        onBuyNow={handleOpenBuyNow}
+        isSameCampus={actions.isSameCampus}
+        onChat={actions.handleOpenChat}
+        onMakeOffer={actions.handleOpenOfferModal}
+        onBuyNow={actions.handleOpenBuyNow}
+        isOwnProduct={actions.isOwnProduct}
+        onManageOwnProduct={() =>
+          navigation.navigate('EditListing', {
+            productId: product.id,
+            product,
+          })
+        }
       />
 
-      {/* Modal Trả giá */}
       <MakeOfferModal
-        visible={isOfferModalVisible}
-        onClose={() => setIsOfferModalVisible(false)}
+        visible={actions.isOfferModalVisible}
+        onClose={actions.handleCloseOfferModal}
         originalPrice={parseInt(product.price.replace(/\./g, ''), 10) || 1450000}
         productTitle={product.title}
         sellerName={product.seller.name}
-        onSubmitOffer={handleSubmitOffer}
+        onSubmitOffer={actions.handleSubmitOffer}
+      />
+
+      <ReportModal
+        visible={actions.isReportModalVisible}
+        onClose={actions.handleCloseReport}
+        targetType="PRODUCT"
+        targetId={product.id}
+        targetTitle={product.title}
       />
     </View>
   );
 };
+
+export default ProductDetailScreen;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
@@ -217,5 +176,3 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
 });
-
-export default ProductDetailScreen;

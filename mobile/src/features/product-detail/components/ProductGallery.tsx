@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, FlatList, Dimensions, StyleSheet, NativeSyntheticEvent, NativeScrollEvent, ListRenderItemInfo } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,23 +16,37 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
   currentIndex,
   onIndexChange,
 }) => {
+  const handleMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+      onIndexChange(index);
+    },
+    [onIndexChange]
+  );
+
+  const renderItem = useCallback(({ item: img }: ListRenderItemInfo<any>) => (
+    <View style={styles.slide}>
+      <Image source={img} style={styles.image} contentFit="cover" transition={200} />
+    </View>
+  ), []);
+
+  const keyExtractor = useCallback((img: any, index: number) => {
+    if (typeof img === 'string') return img;
+    if (typeof img === 'number') return `asset-${img}-${index}`;
+    return img?.uri || `img-${index}`;
+  }, []);
+
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-          onIndexChange(index);
-        }}
-      >
-        {images.map((img, i) => (
-          <View key={i} style={styles.slide}>
-            <Image source={img} style={styles.image} contentFit="cover" transition={200} />
-          </View>
-        ))}
-      </ScrollView>
+        data={images}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+      />
 
       {/* Page indicator pill */}
       <View style={styles.indicatorPill}>

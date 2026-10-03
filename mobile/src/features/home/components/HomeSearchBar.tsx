@@ -18,14 +18,25 @@ export const HomeSearchBar: React.FC<HomeSearchBarProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={20} color="#94A3B8" style={styles.searchIcon} />
+        <Ionicons name="search-outline" size={20} color="#EA580C" style={styles.searchIcon} />
         <TextInput
-          placeholder="Tìm giáo trình, laptop, đồ KTX..."
+          placeholder="Tìm kiếm Meilisearch, #hashtag..."
           placeholderTextColor="#94A3B8"
           value={value}
           onChangeText={onChangeText}
           style={styles.searchInput}
+          returnKeyType="search"
         />
+        {value.length > 0 && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => onChangeText('')}
+            style={{ marginRight: 8 }}
+          >
+            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

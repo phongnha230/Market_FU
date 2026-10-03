@@ -35,6 +35,7 @@ export interface ProductDetailData {
     name: string;
     desc: string;
   };
+  hashtags?: string[];
 }
 
 export interface ProductDetailScreenProps {

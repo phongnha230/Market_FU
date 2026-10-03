@@ -8,7 +8,7 @@ interface SafePointWidgetProps {
 
 export const SafePointWidget: React.FC<SafePointWidgetProps> = ({ onMapPress }) => {
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onMapPress}>
       <View style={styles.iconWrapper}>
         <Ionicons name="power" size={18} color="#FFFFFF" />
         <View style={styles.statusDot} />
@@ -22,7 +22,7 @@ export const SafePointWidget: React.FC<SafePointWidgetProps> = ({ onMapPress }) 
           </View>
         </View>
         <Text style={styles.desc}>
-          Bàn test sạc & đo điện Sảnh Alpha có bảo vệ trực
+          Bàn test sạc & đo điện Sảnh Alpha có camera & bảo vệ trực 24/7
         </Text>
       </View>
 
@@ -34,7 +34,7 @@ export const SafePointWidget: React.FC<SafePointWidgetProps> = ({ onMapPress }) 
       >
         <Ionicons name="map-outline" size={18} color="#0F172A" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 

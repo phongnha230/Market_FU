@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { ProductDetailData } from '../types/product-detail.types';
 
 interface ProductSellerSafePointProps {
@@ -12,10 +13,27 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
   seller,
   safePointInfo,
 }) => {
+  const navigation = useNavigation<any>();
+
+  const handleViewShop = () => {
+    navigation.navigate('PublicSellerProfile', {
+      userId: (seller as any).id || (seller as any).userId || 'acc_seller',
+      sellerName: seller.name,
+    });
+  };
+
+  const handleOpenSafePoints = () => {
+    navigation.navigate('SafePointHubs');
+  };
+
   return (
     <View style={styles.container}>
       {/* 1. Seller Profile */}
-      <View style={styles.sellerCard}>
+      <TouchableOpacity
+        style={styles.sellerCard}
+        activeOpacity={0.8}
+        onPress={handleViewShop}
+      >
         <View style={styles.avatar}>
           <Ionicons name="person" size={20} color="#FFFFFF" />
         </View>
@@ -32,21 +50,28 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
             <Text style={styles.sellerSold}> • Đã bán {seller.soldCount} món</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.viewShopBtn}>
+        <TouchableOpacity style={styles.viewShopBtn} onPress={handleViewShop} activeOpacity={0.7}>
           <Text style={styles.viewShopText}>Xem shop</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
       {/* 2. Safe Point Trust Box */}
-      <View style={styles.safePointBox}>
+      <TouchableOpacity
+        style={styles.safePointBox}
+        activeOpacity={0.8}
+        onPress={handleOpenSafePoints}
+      >
         <View style={styles.safeIconCircle}>
           <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" />
         </View>
         <View style={styles.safeContent}>
-          <Text style={styles.safeTitle}>{safePointInfo.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.safeTitle}>{safePointInfo.name}</Text>
+            <Ionicons name="chevron-forward" size={15} color="#059669" />
+          </View>
           <Text style={styles.safeDesc}>{safePointInfo.desc}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 };

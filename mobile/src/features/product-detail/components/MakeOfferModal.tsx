@@ -109,9 +109,9 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               {/* Quick message templates */}
               <Text style={styles.inputLabel}>Lời nhắn kèm theo</Text>
               <View style={styles.msgTemplateRow}>
-                {quickMessages.map((msg, i) => (
+                {quickMessages.map((msg) => (
                   <TouchableOpacity
-                    key={i}
+                    key={msg}
                     style={[styles.msgChip, note === msg && styles.activeMsgChip]}
                     onPress={() => setNote(msg)}
                   >
@@ -236,11 +236,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
   },
   submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

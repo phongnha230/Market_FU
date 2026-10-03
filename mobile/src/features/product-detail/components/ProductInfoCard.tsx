@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ProductDetailData } from '../types/product-detail.types';
 
 interface ProductInfoCardProps {
   product: ProductDetailData;
+  onPressHashtag?: (tag: string) => void;
 }
 
-export const ProductInfoCard: React.FC<ProductInfoCardProps> = ({ product }) => {
+export const ProductInfoCard: React.FC<ProductInfoCardProps> = ({ product, onPressHashtag }) => {
   return (
     <View style={styles.container}>
       <View style={styles.priceRow}>
@@ -29,6 +30,25 @@ export const ProductInfoCard: React.FC<ProductInfoCardProps> = ({ product }) => 
         <Ionicons name="location" size={14} color="#F27024" style={{ marginRight: 4 }} />
         <Text style={styles.locationText}>{product.location}</Text>
       </View>
+
+      {/* Thẻ Hashtags từ khóa tìm kiếm Meilisearch */}
+      {product.hashtags && product.hashtags.length > 0 && (
+        <View style={styles.hashtagContainer}>
+          <Ionicons name="pricetags-outline" size={13} color="#EA580C" style={{ marginTop: 2, marginRight: 6 }} />
+          <View style={styles.hashtagWrap}>
+            {product.hashtags.map((tag) => (
+              <TouchableOpacity
+                key={tag}
+                style={styles.hashtagBadge}
+                onPress={() => onPressHashtag && onPressHashtag(tag)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.hashtagText}>#{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -45,6 +65,33 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '800', color: '#0F172A', lineHeight: 22, marginBottom: 8 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
   locationText: { fontSize: 12, color: '#64748B', fontWeight: '500' },
+  hashtagContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  hashtagWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  hashtagBadge: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 14,
+  },
+  hashtagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
 });
 
 export default ProductInfoCard;

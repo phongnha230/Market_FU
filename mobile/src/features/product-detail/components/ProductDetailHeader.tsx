@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -7,13 +7,15 @@ interface ProductDetailHeaderProps {
   onGoHome?: () => void;
   isSaved: boolean;
   onToggleSaved: () => void;
+  onOpenReport?: () => void;
 }
 
-export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = ({
+export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = memo(({
   onGoBack,
   onGoHome,
   isSaved,
   onToggleSaved,
+  onOpenReport,
 }) => {
   return (
     <View style={styles.header}>
@@ -33,6 +35,16 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = ({
       </View>
 
       <View style={styles.actions}>
+        {onOpenReport && (
+          <TouchableOpacity
+            style={styles.btn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={onOpenReport}
+          >
+            <Ionicons name="flag-outline" size={19} color="#DC2626" />
+          </TouchableOpacity>
+        )}
+
         {onGoHome && (
           <TouchableOpacity
             style={styles.btn}
@@ -65,7 +77,7 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   header: {
@@ -78,7 +90,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  btn: { padding: 4 },
+  btn: { padding: 4, marginLeft: 4 },
   center: { flexDirection: 'row', alignItems: 'center' },
   logoBadge: {
     backgroundColor: '#F27024',

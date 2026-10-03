@@ -7,6 +7,8 @@ interface ProductBottomBarProps {
   onChat: () => void;
   onMakeOffer: () => void;
   onBuyNow: () => void;
+  isOwnProduct?: boolean;
+  onManageOwnProduct?: () => void;
 }
 
 export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
@@ -14,10 +16,24 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
   onChat,
   onMakeOffer,
   onBuyNow,
+  isOwnProduct,
+  onManageOwnProduct,
 }) => {
   return (
     <View style={styles.container}>
-      {isSameCampus ? (
+      {isOwnProduct ? (
+        // SELLER XEM BÀI CỦA CHÍNH MÌNH: Không được mua chính đồ mình tạo ra
+        <View style={styles.ownProductRow}>
+          <TouchableOpacity
+            style={styles.manageOwnBtn}
+            activeOpacity={0.88}
+            onPress={onManageOwnProduct}
+          >
+            <Ionicons name="create-outline" size={19} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.manageOwnBtnText}>Bài đăng của bạn • Chỉnh sửa & Quản lý</Text>
+          </TouchableOpacity>
+        </View>
+      ) : isSameCampus ? (
         // CÙNG CAMPUS: Nút Nhắn tin + Nút Trả giá
         <View style={styles.sameCampusRow}>
           <TouchableOpacity
@@ -67,11 +83,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 8,
+    boxShadow: '0 -3px 6px rgba(0, 0, 0, 0.05)',
   },
   sameCampusRow: {
     flexDirection: 'row',
@@ -102,11 +114,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
   },
   offerButtonText: {
     color: '#FFFFFF',
@@ -135,15 +143,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
   },
   buyNowFullText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '800',
+  },
+  ownProductRow: {
+    width: '100%',
+  },
+  manageOwnBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 6px rgba(15, 23, 42, 0.25)',
+  },
+  manageOwnBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
     fontWeight: '800',
   },
 });
