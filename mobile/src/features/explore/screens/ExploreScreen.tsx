@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, ListRenderItem } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreSearchBar from '../components/ExploreSearchBar';
 import ExploreFilterChips from '../components/ExploreFilterChips';
@@ -7,6 +7,22 @@ import VerificationFilters from '../components/VerificationFilters';
 import ExploreProductCard from '../components/ExploreProductCard';
 import useExplore from '../hooks/useExplore';
 import { ExploreScreenProps, ExploreProduct } from '../types/explore.types';
+
+// Memoized row component to avoid inline callback in renderItem
+interface ExploreRowItemProps {
+  item: ExploreProduct;
+  onPress?: (id: string) => void;
+}
+
+const ExploreRowItem: React.FC<ExploreRowItemProps> = React.memo(({ item, onPress }) => {
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress(item.id);
+    }
+  }, [item.id, onPress]);
+
+  return <ExploreProductCard product={item} onPress={handlePress} />;
+});
 
 export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProductPress }) => {
   const insets = useSafeAreaInsets();
@@ -32,13 +48,29 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProduc
     currentCampus,
   } = useExplore();
 
-  const renderHeader = () => (
+  const handleClearText = useCallback(() => {
+    setSearchText('');
+  }, [setSearchText]);
+
+  const handleToggleVerified = useCallback(() => {
+    setFilterVerified((prev) => !prev);
+  }, [setFilterVerified]);
+
+  const handleToggleSafeHandoff = useCallback(() => {
+    setFilterSafeHandoff((prev) => !prev);
+  }, [setFilterSafeHandoff]);
+
+  const handleToggleTestable = useCallback(() => {
+    setFilterTestable((prev) => !prev);
+  }, [setFilterTestable]);
+
+  const renderHeader = useCallback(() => (
     <View>
       <ExploreSearchBar
         searchText={searchText}
         onChangeText={setSearchText}
         onGoBack={onGoBack}
-        onClearText={() => setSearchText('')}
+        onClearText={handleClearText}
       />
       <ExploreFilterChips
         campusFilters={campusFilters}
@@ -53,11 +85,11 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProduc
       />
       <VerificationFilters
         filterVerified={filterVerified}
-        onToggleVerified={() => setFilterVerified(!filterVerified)}
+        onToggleVerified={handleToggleVerified}
         filterSafeHandoff={filterSafeHandoff}
-        onToggleSafeHandoff={() => setFilterSafeHandoff(!filterSafeHandoff)}
+        onToggleSafeHandoff={handleToggleSafeHandoff}
         filterTestable={filterTestable}
-        onToggleTestable={() => setFilterTestable(!filterTestable)}
+        onToggleTestable={handleToggleTestable}
       />
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsTitle}>
@@ -65,20 +97,44 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ onGoBack, onProduc
         </Text>
       </View>
     </View>
+  ), [
+    searchText,
+    setSearchText,
+    onGoBack,
+    handleClearText,
+    campusFilters,
+    selectedCampus,
+    setSelectedCampus,
+    categoryTabs,
+    selectedCategory,
+    setSelectedCategory,
+    priceRanges,
+    selectedPrice,
+    setSelectedPrice,
+    filterVerified,
+    handleToggleVerified,
+    filterSafeHandoff,
+    handleToggleSafeHandoff,
+    filterTestable,
+    handleToggleTestable,
+    products.length,
+    currentCampus,
+  ]);
+
+  const renderItem: ListRenderItem<ExploreProduct> = useCallback(
+    ({ item }) => <ExploreRowItem item={item} onPress={onProductPress} />,
+    [onProductPress]
   );
+
+  const keyExtractor = useCallback((item: ExploreProduct) => item.id, []);
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>
       <FlatList<ExploreProduct>
         data={products}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         ListHeaderComponent={renderHeader}
-        renderItem={({ item }) => (
-          <ExploreProductCard
-            product={item}
-            onPress={() => onProductPress && onProductPress(item.id)}
-          />
-        )}
+        renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />

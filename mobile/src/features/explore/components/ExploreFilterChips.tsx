@@ -1,11 +1,101 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, FlatList, TouchableOpacity, Text, StyleSheet, ListRenderItem } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   CampusFilterOption,
   CategoryTabOption,
   PriceRangeOption,
 } from '../types/explore.types';
+
+// Memoized Campus Chip Item
+interface CampusChipItemProps {
+  item: CampusFilterOption;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+}
+
+const CampusChipItem: React.FC<CampusChipItemProps> = React.memo(({ item, isActive, onSelect }) => {
+  const handlePress = useCallback(() => {
+    onSelect(item.id);
+  }, [item.id, onSelect]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.campusChip, isActive && styles.campusChipActive]}
+      activeOpacity={0.8}
+      onPress={handlePress}
+    >
+      {item.icon && (
+        <Ionicons
+          name={item.icon as any}
+          size={13}
+          color={isActive ? '#FFFFFF' : '#475569'}
+          style={styles.chipIcon}
+        />
+      )}
+      <Text style={[styles.campusChipText, isActive && styles.campusChipTextActive]}>{item.label}</Text>
+    </TouchableOpacity>
+  );
+});
+
+// Memoized Category Tab Item
+interface CategoryTabItemProps {
+  item: CategoryTabOption;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+}
+
+const CategoryTabItem: React.FC<CategoryTabItemProps> = React.memo(({ item, isActive, onSelect }) => {
+  const handlePress = useCallback(() => {
+    onSelect(item.id);
+  }, [item.id, onSelect]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.catTab, isActive && styles.catTabActive]}
+      activeOpacity={0.8}
+      onPress={handlePress}
+    >
+      <Text style={[styles.catTabText, isActive && styles.catTabTextActive]}>{item.label}</Text>
+      {item.count !== undefined && (
+        <View style={[styles.badge, isActive && styles.badgeActive]}>
+          <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>{item.count}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
+// Memoized Price Chip Item
+interface PriceChipItemProps {
+  item: PriceRangeOption;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+}
+
+const PriceChipItem: React.FC<PriceChipItemProps> = React.memo(({ item, isActive, onSelect }) => {
+  const handlePress = useCallback(() => {
+    onSelect(isActive ? '' : item.id);
+  }, [isActive, item.id, onSelect]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.priceChip, isActive && styles.priceChipActive]}
+      activeOpacity={0.8}
+      onPress={handlePress}
+    >
+      {item.icon && (
+        <Ionicons
+          name={item.icon as any}
+          size={13}
+          color={isActive ? '#FFFFFF' : '#F27024'}
+          style={styles.chipIcon}
+        />
+      )}
+      <Text style={[styles.priceChipText, isActive && styles.priceChipTextActive]}>{item.label}</Text>
+    </TouchableOpacity>
+  );
+});
 
 interface ExploreFilterChipsProps {
   campusFilters: CampusFilterOption[];
@@ -30,65 +120,74 @@ export const ExploreFilterChips: React.FC<ExploreFilterChipsProps> = ({
   selectedPrice,
   onSelectPrice,
 }) => {
+  const renderCampusItem: ListRenderItem<CampusFilterOption> = useCallback(
+    ({ item }) => (
+      <CampusChipItem
+        item={item}
+        isActive={selectedCampus === item.id}
+        onSelect={onSelectCampus}
+      />
+    ),
+    [selectedCampus, onSelectCampus]
+  );
+
+  const renderCategoryItem: ListRenderItem<CategoryTabOption> = useCallback(
+    ({ item }) => (
+      <CategoryTabItem
+        item={item}
+        isActive={selectedCategory === item.id}
+        onSelect={onSelectCategory}
+      />
+    ),
+    [selectedCategory, onSelectCategory]
+  );
+
+  const renderPriceItem: ListRenderItem<PriceRangeOption> = useCallback(
+    ({ item }) => (
+      <PriceChipItem
+        item={item}
+        isActive={selectedPrice === item.id}
+        onSelect={onSelectPrice}
+      />
+    ),
+    [selectedPrice, onSelectPrice]
+  );
+
+  const keyCampus = useCallback((item: CampusFilterOption) => item.id, []);
+  const keyCategory = useCallback((item: CategoryTabOption) => item.id, []);
+  const keyPrice = useCallback((item: PriceRangeOption) => item.id, []);
+
   return (
     <View style={styles.container}>
       {/* 1. Campus Chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {campusFilters.map((c) => {
-          const active = selectedCampus === c.id;
-          return (
-            <TouchableOpacity
-              key={c.id}
-              style={[styles.campusChip, active && styles.campusChipActive]}
-              activeOpacity={0.8}
-              onPress={() => onSelectCampus(c.id)}
-            >
-              {c.icon && <Ionicons name={c.icon as any} size={13} color={active ? '#FFFFFF' : '#475569'} style={{ marginRight: 4 }} />}
-              <Text style={[styles.campusChipText, active && styles.campusChipTextActive]}>{c.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <FlatList<CampusFilterOption>
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={campusFilters}
+        keyExtractor={keyCampus}
+        renderItem={renderCampusItem}
+        contentContainerStyle={styles.row}
+      />
 
       {/* 2. Category Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {categoryTabs.map((tab) => {
-          const active = selectedCategory === tab.id;
-          return (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.catTab, active && styles.catTabActive]}
-              activeOpacity={0.8}
-              onPress={() => onSelectCategory(tab.id)}
-            >
-              <Text style={[styles.catTabText, active && styles.catTabTextActive]}>{tab.label}</Text>
-              {tab.count !== undefined && (
-                <View style={[styles.badge, active && styles.badgeActive]}>
-                  <Text style={[styles.badgeText, active && styles.badgeTextActive]}>{tab.count}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <FlatList<CategoryTabOption>
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={categoryTabs}
+        keyExtractor={keyCategory}
+        renderItem={renderCategoryItem}
+        contentContainerStyle={styles.row}
+      />
 
       {/* 3. Price Chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {priceRanges.map((range) => {
-          const active = selectedPrice === range.id;
-          return (
-            <TouchableOpacity
-              key={range.id}
-              style={[styles.priceChip, active && styles.priceChipActive]}
-              activeOpacity={0.8}
-              onPress={() => onSelectPrice(active ? '' : range.id)}
-            >
-              {range.icon && <Ionicons name={range.icon as any} size={13} color={active ? '#FFFFFF' : '#F27024'} style={{ marginRight: 4 }} />}
-              <Text style={[styles.priceChipText, active && styles.priceChipTextActive]}>{range.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <FlatList<PriceRangeOption>
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={priceRanges}
+        keyExtractor={keyPrice}
+        renderItem={renderPriceItem}
+        contentContainerStyle={styles.row}
+      />
     </View>
   );
 };
@@ -96,6 +195,7 @@ export const ExploreFilterChips: React.FC<ExploreFilterChipsProps> = ({
 const styles = StyleSheet.create({
   container: { marginBottom: 6 },
   row: { paddingHorizontal: 16, marginBottom: 8 },
+  chipIcon: { marginRight: 4 },
   campusChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F1F5F9', marginRight: 8 },
   campusChipActive: { backgroundColor: '#F27024' },
   campusChipText: { fontSize: 11, fontWeight: '700', color: '#475569' },

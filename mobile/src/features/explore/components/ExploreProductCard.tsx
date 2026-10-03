@@ -9,7 +9,7 @@ interface ExploreProductCardProps {
   onPress?: () => void;
 }
 
-export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product, onPress }) => {
+export const ExploreProductCard: React.FC<ExploreProductCardProps> = React.memo(({ product, onPress }) => {
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={onPress}>
       <View style={styles.imageBox}>
@@ -24,7 +24,7 @@ export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product,
           <Text style={styles.price}>{product.price}đ</Text>
           {product.greenTag && (
             <View style={styles.greenTag}>
-              <Ionicons name="shield-checkmark" size={10} color="#059669" style={{ marginRight: 3 }} />
+              <Ionicons name="shield-checkmark" size={10} color="#059669" style={styles.greenTagIcon} />
               <Text style={styles.greenTagText}>{product.greenTag}</Text>
             </View>
           )}
@@ -40,7 +40,7 @@ export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product,
           <Text style={styles.seller}>{product.seller}</Text>
           {product.rating && (
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={10} color="#F59E0B" style={{ marginRight: 2 }} />
+              <Ionicons name="star" size={10} color="#F59E0B" style={styles.starIcon} />
               <Text style={styles.ratingText}>{product.rating}</Text>
             </View>
           )}
@@ -48,7 +48,7 @@ export const ExploreProductCard: React.FC<ExploreProductCardProps> = ({ product,
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -60,11 +60,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
     padding: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
   },
   imageBox: {
     width: 95,
@@ -88,6 +83,7 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   price: { fontSize: 16, fontWeight: '900', color: '#DC2626' },
   greenTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  greenTagIcon: { marginRight: 3 },
   greenTagText: { fontSize: 9.5, fontWeight: '700', color: '#059669' },
   title: { fontSize: 12.5, fontWeight: '700', color: '#0F172A', lineHeight: 17 },
   metaRow: { flexDirection: 'row', alignItems: 'center' },
@@ -95,6 +91,7 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seller: { fontSize: 11, fontWeight: '600', color: '#334155' },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4 },
+  starIcon: { marginRight: 2 },
   ratingText: { fontSize: 9.5, fontWeight: '800', color: '#D97706' },
 });
 

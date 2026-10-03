@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DisputeReason } from '../types/dispute.types';
@@ -18,12 +18,14 @@ export const DisputeReasonSection: React.FC<DisputeReasonSectionProps> = ({
   description,
   onChangeDescription,
 }) => {
+  const selectedSet = useMemo(() => new Set(selectedReasons), [selectedReasons]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Lý do khiếu nại (Chọn ít nhất 1)</Text>
 
       {reasons.map((r) => {
-        const active = selectedReasons.includes(r.id);
+        const active = selectedSet.has(r.id);
         return (
           <TouchableOpacity
             key={r.id}

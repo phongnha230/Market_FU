@@ -1,158 +1,147 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Alert,
   FlatList,
+  ListRenderItem,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NotificationItem, NotificationFilterType } from '../types/notification.types';
+import { INITIAL_NOTIFICATIONS } from '../constants/notification.constants';
+import { NotificationCardItem } from '../components/NotificationCardItem';
 
-export interface NotificationItem {
-  id: string;
-  category: 'all' | 'order' | 'chat' | 'promo' | 'system';
-  title: string;
-  body: string;
-  time: string;
-  unread: boolean;
-  icon: any;
-  iconColor: string;
-  iconBg: string;
-  targetScreen?: string;
-  targetParams?: any;
+interface FilterChipOption {
+  key: NotificationFilterType;
+  label: string;
+  count?: number;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n_1',
-    category: 'order',
-    title: '🛡️ Bảo lãnh Escrow đã kích hoạt',
-    body: 'Người mua đã nạp 480.000đ vào tài khoản bảo chứng Escrow cho đơn hàng #ORD-882194 (Màn hình Dell 24"). Tiền được giữ an toàn, vui lòng hẹn gặp giao hàng tại Safe-Point!',
-    time: '5 phút trước',
-    unread: true,
-    icon: 'shield-checkmark',
-    iconColor: '#059669',
-    iconBg: '#ECFDF5',
-    targetScreen: 'OrderDetail',
-    targetParams: { orderId: 'ORD-882194' },
-  },
-  {
-    id: 'n_2',
-    category: 'chat',
-    title: '💬 Đề xuất giá mới (-50.000đ)',
-    body: 'Trần Minh Quân vừa gửi đề nghị giá 430.000đ cho sản phẩm Bàn phím cơ Akko 3087 của bạn. Hãy bấm để phản hồi ngay!',
-    time: '25 phút trước',
-    unread: true,
-    icon: 'pricetag',
-    iconColor: '#EA580C',
-    iconBg: '#FFF7ED',
-    targetScreen: 'ChatDetail',
-    targetParams: {
-      partner: { id: 'p1', name: 'Trần Minh Quân', cohort: 'K16 - FPT Hola', isOnline: true },
-    },
-  },
-  {
-    id: 'n_3',
-    category: 'order',
-    title: '📍 Nhắc hẹn tại Safe-Point Sảnh Alpha',
-    body: 'Bạn có lịch hẹn giao nhận hàng lúc 16:30 chiều nay tại Bàn test Sảnh Tòa Alpha (Khu vực có Camera 24/7 và nguồn điện 220V).',
-    time: '2 giờ trước',
-    unread: true,
-    icon: 'location',
-    iconColor: '#2563EB',
-    iconBg: '#EFF6FF',
-    targetScreen: 'OrderDetail',
-    targetParams: { orderId: 'ORD-882194' },
-  },
-  {
-    id: 'n_4',
-    category: 'promo',
-    title: '⭐ Cộng +20 Điểm Uy tín Campus',
-    body: 'Người mua đã xác nhận nhận hàng thành công và đánh giá 5 sao! Điểm uy tín của bạn tăng lên 98/100, mở khóa huy hiệu "Người bán tin cậy".',
-    time: 'Hôm qua',
-    unread: false,
-    icon: 'star',
-    iconColor: '#EAB308',
-    iconBg: '#FEFCE8',
-    targetScreen: 'Review',
-    targetParams: { orderId: 'ORD-882194' },
-  },
-  {
-    id: 'n_5',
-    category: 'promo',
-    title: '🎁 Thưởng Voucher Nước KTX mới',
-    body: 'Chúc mừng bạn nhận được 1 Voucher giảm 100% nước uống tại Căn tin KTX Hòa Lạc sau khi hoàn tất giao dịch đồng kiểm an toàn đầu tiên!',
-    time: '2 ngày trước',
-    unread: false,
-    icon: 'gift',
-    iconColor: '#9333EA',
-    iconBg: '#FAF5FF',
-    targetScreen: 'Voucher',
-  },
-  {
-    id: 'n_6',
-    category: 'system',
-    title: '🔔 Nâng cấp Trạm Safe-Point KTX Dom B',
-    body: 'Hệ thống trạm hẹn giao dịch tại Dom B vừa được trang bị thêm ổ cắm sạc nhanh đa năng và camera AI nhận diện khuôn mặt sinh viên.',
-    time: '3 ngày trước',
-    unread: false,
-    icon: 'hardware-chip-outline',
-    iconColor: '#0D9488',
-    iconBg: '#F0FDFA',
-  },
-];
+interface FilterChipItemProps {
+  item: FilterChipOption;
+  isActive: boolean;
+  onSelect: (key: NotificationFilterType) => void;
+}
 
-type FilterType = 'all' | 'order' | 'chat' | 'promo';
+const FilterChipItem: React.FC<FilterChipItemProps> = React.memo(({ item, isActive, onSelect }) => {
+  const handlePress = useCallback(() => {
+    onSelect(item.key);
+  }, [item.key, onSelect]);
+
+  return (
+    <TouchableOpacity
+      style={[styles.filterChip, isActive && styles.filterChipActive]}
+      activeOpacity={0.75}
+      onPress={handlePress}
+    >
+      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+        {item.label}
+      </Text>
+      {item.count !== undefined && item.count > 0 && (
+        <View style={[styles.chipCountBadge, isActive && styles.chipCountBadgeActive]}>
+          <Text style={[styles.chipCountText, isActive && styles.chipCountTextActive]}>
+            {item.count}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
 
 export const NotificationScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<NotificationFilterType>('all');
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => n.unread).length,
+    [notifications]
+  );
 
-  const handleMarkAllRead = () => {
+  const orderUnreadCount = useMemo(
+    () => notifications.filter((n) => n.category === 'order' && n.unread).length,
+    [notifications]
+  );
+
+  const chatUnreadCount = useMemo(
+    () => notifications.filter((n) => n.category === 'chat' && n.unread).length,
+    [notifications]
+  );
+
+  const handleMarkAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
     Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc!');
-  };
+  }, []);
 
-  const handleClearAll = () => {
-    Alert.alert('Xóa thông báo', 'Bạn có chắc chắn muốn xóa toàn bộ danh sách thông báo?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa hết', style: 'destructive', onPress: () => setNotifications([]) },
-    ]);
-  };
+  const handleNotificationPress = useCallback(
+    (item: NotificationItem) => {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
+      );
 
-  const handleNotificationPress = (item: NotificationItem) => {
-    // Mark this one as read
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
-    );
+      if (item.targetScreen && navigation && navigation.navigate) {
+        navigation.navigate(item.targetScreen, item.targetParams);
+      } else {
+        Alert.alert(item.title, item.body);
+      }
+    },
+    [navigation]
+  );
 
-    if (item.targetScreen && navigation && navigation.navigate) {
-      navigation.navigate(item.targetScreen, item.targetParams);
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
     } else {
-      Alert.alert(item.title, item.body);
+      navigation.navigate('MainTabs', { screen: 'Home' });
     }
-  };
+  }, [navigation]);
 
-  const filteredList = notifications.filter((item) => {
-    if (activeFilter === 'all') return true;
-    return item.category === activeFilter;
-  });
+  const handleGoHome = useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  }, [navigation]);
 
-  const filterChips: { key: FilterType; label: string; count?: number }[] = [
-    { key: 'all', label: 'Tất cả' },
-    { key: 'order', label: 'Giao dịch', count: notifications.filter((n) => n.category === 'order' && n.unread).length },
-    { key: 'chat', label: 'Tin nhắn', count: notifications.filter((n) => n.category === 'chat' && n.unread).length },
-    { key: 'promo', label: 'Ưu đãi & Quà' },
-  ];
+  const filteredList = useMemo(() => {
+    if (activeFilter === 'all') return notifications;
+    return notifications.filter((item) => item.category === activeFilter);
+  }, [notifications, activeFilter]);
+
+  const filterChips = useMemo(
+    (): FilterChipOption[] => [
+      { key: 'all', label: 'Tất cả' },
+      { key: 'order', label: 'Giao dịch', count: orderUnreadCount },
+      { key: 'chat', label: 'Tin nhắn', count: chatUnreadCount },
+      { key: 'promo', label: 'Ưu đãi & Quà' },
+    ],
+    [orderUnreadCount, chatUnreadCount]
+  );
+
+  const renderFilterChipItem: ListRenderItem<FilterChipOption> = useCallback(
+    ({ item }) => (
+      <FilterChipItem
+        item={item}
+        isActive={activeFilter === item.key}
+        onSelect={setActiveFilter}
+      />
+    ),
+    [activeFilter, setActiveFilter]
+  );
+
+  const keyFilterChip = useCallback((item: FilterChipOption) => item.key, []);
+
+  const renderItem: ListRenderItem<NotificationItem> = useCallback(
+    ({ item }) => (
+      <NotificationCardItem item={item} onPress={handleNotificationPress} />
+    ),
+    [handleNotificationPress]
+  );
+
+  const keyExtractor = useCallback((item: NotificationItem) => item.id, []);
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -163,13 +152,7 @@ export const NotificationScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.headerBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Home' });
-            }
-          }}
+          onPress={handleBack}
         >
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
@@ -198,7 +181,7 @@ export const NotificationScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+            onPress={handleGoHome}
           >
             <Ionicons name="home-outline" size={22} color="#0F172A" />
           </TouchableOpacity>
@@ -206,33 +189,17 @@ export const NotificationScreen: React.FC = () => {
       </View>
 
       {/* ═══════════════════════════════════════════════════════════
-          FILTER CHIPS ROW
+          FILTER CHIPS ROW (Virtualized FlatList horizontal)
       ═══════════════════════════════════════════════════════════ */}
       <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {filterChips.map((chip) => {
-            const isActive = activeFilter === chip.key;
-            return (
-              <TouchableOpacity
-                key={chip.key}
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                activeOpacity={0.75}
-                onPress={() => setActiveFilter(chip.key)}
-              >
-                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                  {chip.label}
-                </Text>
-                {chip.count !== undefined && chip.count > 0 && (
-                  <View style={[styles.chipCountBadge, isActive && styles.chipCountBadgeActive]}>
-                    <Text style={[styles.chipCountText, isActive && styles.chipCountTextActive]}>
-                      {chip.count}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <FlatList<FilterChipOption>
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={filterChips}
+          keyExtractor={keyFilterChip}
+          renderItem={renderFilterChipItem}
+          contentContainerStyle={styles.filterScroll}
+        />
       </View>
 
       {/* ═══════════════════════════════════════════════════════════
@@ -250,59 +217,24 @@ export const NotificationScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.exploreBtn}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+            onPress={handleGoHome}
           >
-            <Ionicons name="storefront-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Ionicons name="storefront-outline" size={18} color="#FFFFFF" style={styles.storeIcon} />
             <Text style={styles.exploreBtnText}>Khám phá Chợ Campus ngay</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlatList<NotificationItem>
           data={filteredList}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.itemCard, item.unread && styles.itemCardUnread]}
-              activeOpacity={0.75}
-              onPress={() => handleNotificationPress(item)}
-            >
-              {/* Icon */}
-              <View style={[styles.itemIconBox, { backgroundColor: item.iconBg }]}>
-                <Ionicons name={item.icon} size={22} color={item.iconColor} />
-              </View>
-
-              {/* Text Info */}
-              <View style={styles.itemContent}>
-                <View style={styles.itemHeaderRow}>
-                  <Text style={[styles.itemTitle, item.unread && styles.itemTitleUnread]} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.unread && <View style={styles.unreadDot} />}
-                </View>
-                <Text style={styles.itemBody} numberOfLines={3}>
-                  {item.body}
-                </Text>
-                <View style={styles.itemFooterRow}>
-                  <Text style={styles.itemTime}>{item.time}</Text>
-                  {item.targetScreen && (
-                    <View style={styles.actionArrowRow}>
-                      <Text style={styles.actionArrowText}>Xem chi tiết</Text>
-                      <Ionicons name="chevron-forward" size={13} color="#EA580C" />
-                    </View>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
+          renderItem={renderItem}
         />
       )}
     </View>
   );
 };
-
-export default NotificationScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -368,6 +300,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
+    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: '#EA580C',
@@ -401,81 +334,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-  },
-  itemCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  itemCardUnread: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FED7AA',
-    borderLeftWidth: 4,
-    borderLeftColor: '#EA580C',
-  },
-  itemIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  itemContent: {
-    flex: 1,
-  },
-  itemHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  itemTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1E293B',
-    flex: 1,
-  },
-  itemTitleUnread: {
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EA580C',
-    marginLeft: 6,
-  },
-  itemBody: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  itemFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  itemTime: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  actionArrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  actionArrowText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#EA580C',
   },
   emptyContainer: {
     flex: 1,
@@ -513,9 +371,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
   },
+  storeIcon: {
+    marginRight: 6,
+  },
   exploreBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
 });
+
+export default NotificationScreen;
