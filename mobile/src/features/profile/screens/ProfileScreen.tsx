@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +7,11 @@ import ProfileHeaderCard from '../components/ProfileHeaderCard';
 import CampusWalletCard from '../components/CampusWalletCard';
 import OrdersOverviewSection from '../components/OrdersOverviewSection';
 import SettingRow from '../components/SettingRow';
+import { KycRegistrationModal } from '../components/KycRegistrationModal';
+import { WithdrawalModal } from '../components/WithdrawalModal';
+import { EditProfileModal } from '../components/EditProfileModal';
+import { DepositCoinModal } from '../components/DepositCoinModal';
+import { MyReportsModal } from '../../report/components/MyReportsModal';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
 
@@ -16,11 +21,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { user, currentCampus, settingItems, orderStats, handleLogout } = useProfile();
+  const {
+    user,
+    currentCampus,
+    settingItems,
+    orderStats,
+    isRefreshing,
+    onRefresh,
+    handleLogout,
+  } = useProfile();
+
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycRole, setKycRole] = useState<'STUDENT' | 'SELLER'>('STUDENT');
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showMyReportsModal, setShowMyReportsModal] = useState(false);
 
   const handleSettingPress = (id: string) => {
     if (id === 's1') {
-      navigation.navigate('AccountSettings');
+      setShowEditModal(true);
     } else if (id === 's2') {
       if (onNavigateToVoucher) onNavigateToVoucher();
       else navigation.navigate('Voucher');
@@ -69,9 +89,59 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <ProfileHeaderCard user={user} currentCampus={currentCampus} />
-        <CampusWalletCard />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={['#EA580C']}
+            tintColor="#EA580C"
+          />
+        }
+      >
+        <ProfileHeaderCard
+          user={user}
+          currentCampus={currentCampus}
+          onKycPress={(role) => {
+            if (role) setKycRole(role);
+            setShowKycModal(true);
+          }}
+          onEditPress={() => setShowEditModal(true)}
+          onManageListings={() => navigation.navigate('ManageListings')}
+          onSellerDashboard={() => navigation.navigate('SellerDashboard')}
+        />
+
+        {/* Kênh Quản lý Người Bán (Seller Hub) - Chỉ hiển thị cho Seller */}
+        {user?.role === 'SELLER' && (
+          <TouchableOpacity
+            style={styles.sellerHubBanner}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('SellerDashboard')}
+          >
+            <View style={styles.sellerHubLeft}>
+              <View style={styles.sellerHubIconBox}>
+                <Ionicons name="speedometer" size={20} color="#EA580C" />
+              </View>
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.sellerHubTitle}>Kênh Quản Lý Người Bán</Text>
+                  <View style={styles.sellerHubBadge}>
+                    <Text style={styles.sellerHubBadgeText}>HUB</Text>
+                  </View>
+                </View>
+                <Text style={styles.sellerHubSub}>Quản lý doanh thu, kho tin rao, vận đơn FPT Bus</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#EA580C" />
+          </TouchableOpacity>
+        )}
+
+        <CampusWalletCard
+          onWithdrawPress={() => setShowWithdrawModal(true)}
+          onDepositPress={() => setShowDepositModal(true)}
+        />
 
         {/* Thanh Cài đặt nhanh (Settings Bar) */}
         <TouchableOpacity
@@ -91,6 +161,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name="chevron-forward" size={18} color="#EA580C" />
         </TouchableOpacity>
 
+        {/* Lịch sử tố cáo vi phạm */}
+        <TouchableOpacity
+          style={styles.settingsBarCard}
+          activeOpacity={0.8}
+          onPress={() => setShowMyReportsModal(true)}
+        >
+          <View style={styles.settingsBarLeft}>
+            <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
+              <Ionicons name="shield-half" size={20} color="#E11D48" />
+            </View>
+            <View>
+              <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
+              <Text style={styles.settingsBarSub}>Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#E11D48" />
+        </TouchableOpacity>
+
         <OrdersOverviewSection stats={orderStats} onPressStatus={handleOpenOrderList} />
 
         <View style={styles.settingsSection}>
@@ -105,6 +193,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Quick Edit Profile Modal */}
+      <EditProfileModal
+        visible={showEditModal}
+        onClose={() => setShowEditModal(false)}
+      />
+
+      {/* KYC Registration Modal (Student KYC & Seller KYC 2-in-1) */}
+      <KycRegistrationModal
+        visible={showKycModal}
+        initialRole={kycRole}
+        onClose={() => setShowKycModal(false)}
+      />
+
+      {/* Seller Withdrawal Modal */}
+      <WithdrawalModal
+        visible={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+      />
+
+      {/* Deposit Coin / Wallet VietQR Modal */}
+      <DepositCoinModal
+        visible={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userId={user?.id || 'acc_me'}
+      />
+
+      {/* My Reports History Modal */}
+      <MyReportsModal
+        visible={showMyReportsModal}
+        onClose={() => setShowMyReportsModal(false)}
+      />
     </View>
   );
 };
@@ -116,42 +236,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  topBarTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  topBarTitle: { fontSize: 16.5, fontWeight: '800', color: '#0F172A' },
   settingIconBtn: { padding: 4 },
-  scrollContent: { paddingBottom: 85 },
-  settingsBarCard: {
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  sellerHubBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderWidth: 1.5,
+    borderColor: '#FDBA74',
     borderRadius: 14,
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    padding: 12,
+    marginTop: 12,
   },
-  settingsBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingsBarIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+  sellerHubLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sellerHubIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FED7AA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsBarTitle: { fontSize: 13, fontWeight: '800', color: '#9A3412' },
-  settingsBarSub: { fontSize: 11, color: '#C2410C', marginTop: 1 },
-  settingsSection: { backgroundColor: '#FFFFFF', marginTop: 14 },
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A', paddingHorizontal: 16, marginBottom: 4 },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FEE2E2' },
-  logoutText: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
+  sellerHubTitle: { fontSize: 13.5, fontWeight: '800', color: '#9A3412' },
+  sellerHubBadge: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  sellerHubBadgeText: { fontSize: 9, fontWeight: '900', color: '#FFFFFF' },
+  sellerHubSub: { fontSize: 11, color: '#C2410C', marginTop: 2 },
+  settingsBarCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+  },
+  settingsBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  settingsBarIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsBarTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  settingsBarSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  settingsSection: { marginTop: 14 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#475569', marginBottom: 6 },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  logoutText: { fontSize: 13.5, fontWeight: '700', color: '#EF4444' },
 });
 
 export default ProfileScreen;
