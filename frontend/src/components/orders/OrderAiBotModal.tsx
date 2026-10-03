@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Bot, X, ChevronRight, Send, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { useUserStore } from '@/stores/userStore';
-import { cn } from '@/lib/utils';
 
 interface OrderAiBotModalProps {
   isOpen: boolean;
@@ -162,15 +161,14 @@ export default function OrderAiBotModal({
           {messages.map((m) => (
             <div
               key={m.id}
-              className={cn('flex flex-col', m.sender === 'user' ? 'items-end' : 'items-start')}
+              className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
-                className={cn(
-                  'max-w-[85%] rounded-2xl p-3 shadow-xs whitespace-pre-line leading-relaxed',
+                className={`max-w-[85%] rounded-2xl p-3 shadow-xs whitespace-pre-line leading-relaxed ${
                   m.sender === 'user'
                     ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-tr-xs'
                     : 'bg-white text-slate-800 border border-slate-200/80 rounded-tl-xs'
-                )}
+                }`}
               >
                 {m.text}
               </div>

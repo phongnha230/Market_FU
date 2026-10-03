@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
 import { useMarket } from '@/hooks/useMarket';
 import { useVoucherStore, UserVoucher } from '@/stores/voucherStore';
 import { profileService } from '@/services/profileService';
@@ -442,12 +441,11 @@ export default function VouchersPage() {
             <button
               type="button"
               onClick={() => setPageView('store')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 pageView === 'store'
                   ? 'bg-fpt-orange text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              )}
+              }`}
             >
               <Store className="h-4 w-4" />
               <span>Kho Đổi Voucher ({allDisplayVouchers.length})</span>
@@ -463,23 +461,21 @@ export default function VouchersPage() {
                 }
                 setPageView('my_vouchers');
               }}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 pageView === 'my_vouchers'
                   ? 'bg-fpt-orange text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              )}
+              }`}
             >
               <Ticket className="h-4 w-4" />
               <span>Ví Voucher Của Tôi</span>
               {unusedCount > 0 && (
                 <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-black',
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
                     pageView === 'my_vouchers'
                       ? 'bg-white text-orange-600'
                       : 'bg-orange-100 text-orange-700'
-                  )}
+                  }`}
                 >
                   {unusedCount}
                 </span>
@@ -616,19 +612,17 @@ export default function VouchersPage() {
                       key={tab.id}
                       type="button"
                       onClick={() => setMyVouchersFilter(tab.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs',
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs ${
                         isActive
                           ? 'bg-fpt-orange text-white shadow-xs'
                           : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                      )}
+                      }`}
                     >
                       <span>{tab.label}</span>
                       <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.2 text-[10px] font-bold',
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
                           isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
-                        )}
+                        }`}
                       >
                         {tab.count}
                       </span>
@@ -684,14 +678,13 @@ export default function VouchersPage() {
                 return (
                   <div
                     key={uv.id}
-                    className={cn(
-                      'relative rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md flex flex-col justify-between',
+                    className={`relative rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md flex flex-col justify-between ${
                       isUnused
                         ? 'border-orange-200 ring-1 ring-orange-200/50'
                         : isUsed
                         ? 'border-slate-200 opacity-85'
                         : 'border-slate-200 opacity-60'
-                    )}
+                    }`}
                   >
                     <div>
                       {/* Top status */}
@@ -701,14 +694,13 @@ export default function VouchersPage() {
                         </span>
 
                         <span
-                          className={cn(
-                            'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             isUnused
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : isUsed
                               ? 'bg-slate-100 text-slate-600'
                               : 'bg-rose-100 text-rose-700'
-                          )}
+                          }`}
                         >
                           {isUnused ? '🟢 Sẵn sàng dùng' : isUsed ? '✅ Đã sử dụng' : '⏳ Đã hết hạn'}
                         </span>
@@ -758,12 +750,11 @@ export default function VouchersPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedUserVoucher(uv)}
-                        className={cn(
-                          'w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs',
+                        className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
                           isUnused
                             ? 'bg-fpt-orange hover:bg-fpt-orange-hover text-white'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        )}
+                        }`}
                       >
                         <QrCode className="h-4 w-4" />
                         <span>{isUnused ? 'Mở Mã QR & Quét Tại Quầy' : 'Xem Chi Tiết Mã'}</span>

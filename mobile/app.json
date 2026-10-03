@@ -20,27 +20,14 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.fu.secondhandmarket",
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.VIBRATE"
-      ]
+      "package": "com.fu.secondhandmarket"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-asset",
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#F27024",
-          "defaultChannel": "orders_channel"
-        }
-      ]
+      "expo-font"
     ]
   }
 }

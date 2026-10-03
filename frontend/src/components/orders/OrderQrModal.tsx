@@ -18,7 +18,6 @@ import { Button, Badge, Card } from '@/components/ui';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
-import { cn } from '@/lib/utils';
 
 interface OrderQrModalProps {
   isOpen: boolean;
@@ -241,24 +240,22 @@ export default function OrderQrModal({
             <button
               type="button"
               onClick={() => setActiveTab('buyer')}
-              className={cn(
-                'py-2 rounded-lg transition text-center cursor-pointer',
+              className={`py-2 rounded-lg transition text-center cursor-pointer ${
                 activeTab === 'buyer'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
-              )}
+              }`}
             >
               Tôi là Người mua (QR/OTP)
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('seller')}
-              className={cn(
-                'py-2 rounded-lg transition text-center cursor-pointer',
+              className={`py-2 rounded-lg transition text-center cursor-pointer ${
                 activeTab === 'seller'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
-              )}
+              }`}
             >
               Tôi là Người bán (Xác nhận)
             </button>

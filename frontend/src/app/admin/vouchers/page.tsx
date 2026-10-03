@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
-import { cn } from '@/lib/utils';
 import {
   Ticket,
   Plus,
@@ -271,12 +270,11 @@ export default function AdminVouchersPage() {
           <button
             type="button"
             onClick={() => setActiveAdminTab('vouchers')}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer',
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
               activeAdminTab === 'vouchers'
                 ? 'bg-fpt-orange text-white shadow-xs'
                 : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-            )}
+            }`}
           >
             <Ticket className="h-4 w-4" />
             <span>Kho Voucher & Trợ Giá ({vouchers.length})</span>
@@ -284,12 +282,11 @@ export default function AdminVouchersPage() {
           <button
             type="button"
             onClick={() => setActiveAdminTab('quests')}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer',
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
               activeAdminTab === 'quests'
                 ? 'bg-fpt-orange text-white shadow-xs'
                 : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-            )}
+            }`}
           >
             <Coins className="h-4 w-4" />
             <span>Nhiệm Vụ Tích Xu (Campus Quests) ({quests.length})</span>
@@ -316,7 +313,7 @@ export default function AdminVouchersPage() {
                     onClick={loadVouchers}
                     className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                   >
-                    <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                     Làm mới
                   </button>
                   <button
@@ -329,14 +326,14 @@ export default function AdminVouchersPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-3 gap-3">
                 {[
                   { label: 'Tổng Voucher', value: vouchers.length },
                   { label: 'Đang mở đổi', value: activeCount, color: 'text-emerald-600' },
                   { label: 'Tạm ẩn / Hết kho', value: vouchers.length - activeCount, color: 'text-slate-500' },
                 ].map((s) => (
                   <div key={s.label} className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
-                    <div className={cn('text-2xl font-black', s.color || 'text-slate-900')}>{s.value}</div>
+                    <div className={`text-2xl font-black ${s.color || 'text-slate-900'}`}>{s.value}</div>
                     <div className="text-xs text-slate-500 mt-1">{s.label}</div>
                   </div>
                 ))}
@@ -356,12 +353,11 @@ export default function AdminVouchersPage() {
                 <button
                   key={p.value}
                   onClick={() => setSelectedPartner(p.value)}
-                  className={cn(
-                    'rounded-lg px-3 py-1 text-xs font-bold cursor-pointer transition',
+                  className={`rounded-lg px-3 py-1 text-xs font-bold cursor-pointer transition ${
                     selectedPartner === p.value
                       ? 'bg-orange-500 text-white shadow-2xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  )}
+                  }`}
                 >
                   {p.label}
                 </button>
@@ -395,13 +391,12 @@ export default function AdminVouchersPage() {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-bold text-slate-900">{voucher.title}</span>
-                              <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-bold', partnerInfo.color)}>
+                              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${partnerInfo.color}`}>
                                 {partnerInfo.name}
                               </span>
-                              <span className={cn(
-                                'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                 voucher.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                              )}>
+                              }`}>
                                 {voucher.isActive ? 'Đang mở đổi' : 'Đã tạm ẩn'}
                               </span>
                             </div>
@@ -420,12 +415,11 @@ export default function AdminVouchersPage() {
                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                           <button
                             onClick={() => handleToggleActive(voucher)}
-                            className={cn(
-                              'rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer border transition',
+                            className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer border transition ${
                               voucher.isActive
                                 ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
                                 : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                            )}
+                            }`}
                           >
                             {voucher.isActive ? 'Tạm ẩn' : 'Kích hoạt'}
                           </button>
@@ -512,10 +506,9 @@ export default function AdminVouchersPage() {
                             <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold">
                               ID: {quest.id}
                             </span>
-                            <span className={cn(
-                              'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                               quest.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                            )}>
+                            }`}>
                               {quest.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
                             </span>
                           </div>
@@ -587,12 +580,11 @@ export default function AdminVouchersPage() {
                         {/* Status Toggle */}
                         <button
                           onClick={() => handleToggleQuest(quest.id)}
-                          className={cn(
-                            'rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer border transition',
+                          className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer border transition ${
                             quest.isActive
                               ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
                               : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          )}
+                          }`}
                         >
                           {quest.isActive ? 'Tạm dừng' : 'Kích hoạt'}
                         </button>

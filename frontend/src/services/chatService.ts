@@ -97,19 +97,15 @@ export const chatService = {
     payload: {
       text?: string;
       type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
-      messageType?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
       offerPrice?: number;
       meetupLocation?: string;
     },
     file?: File | Blob
   ): Promise<BackendMessage> {
-    const finalType = payload.messageType || payload.type || (file ? 'IMAGE' : 'TEXT');
     if (file) {
       const formData = new FormData();
       if (payload.text) formData.append('text', payload.text);
-      formData.append('type', finalType);
-      formData.append('messageType', finalType);
-      formData.append('image', file);
+      formData.append('type', payload.type || 'IMAGE');
       formData.append('file', file);
       if (payload.offerPrice) formData.append('offerPrice', payload.offerPrice.toString());
       if (payload.meetupLocation) formData.append('meetupLocation', payload.meetupLocation);
@@ -126,10 +122,7 @@ export const chatService = {
 
     const response = await apiClient.post<ApiResponse<BackendMessage>>(
       `/chats/conversations/${conversationId}/messages`,
-      {
-        ...payload,
-        messageType: finalType,
-      }
+      payload
     );
     return response.data.data;
   },

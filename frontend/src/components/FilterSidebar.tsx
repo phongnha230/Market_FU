@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ProductItem } from '@/types/product';
-import { cn } from '@/lib/utils';
 
 interface FilterSidebarProps {
   products?: ProductItem[];
@@ -217,12 +216,11 @@ export default function FilterSidebar({
             return (
               <label
                 key={camp.id}
-                className={cn(
-                  'flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs cursor-pointer transition',
+                className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs cursor-pointer transition ${
                   isChecked
                     ? 'bg-orange-50/80 text-fpt-orange font-semibold'
                     : 'text-slate-700 hover:bg-slate-50'
-                )}
+                }`}
               >
                 <span>{camp.label}</span>
                 <input
@@ -261,7 +259,7 @@ export default function FilterSidebar({
                     onChange={() => toggleCategory(cat.id)}
                     className="h-3.5 w-3.5 rounded text-fpt-orange focus:ring-fpt-orange accent-fpt-orange"
                   />
-                  <span className={cn(isChecked && 'font-semibold text-slate-900')}>
+                  <span className={isChecked ? 'font-semibold text-slate-900' : ''}>
                     {cat.label}
                   </span>
                 </div>
@@ -294,12 +292,11 @@ export default function FilterSidebar({
                 variant={isSelected ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => handlePricePresetClick(preset.id)}
-                className={cn(
-                  'rounded-lg py-1.5 px-2 h-auto text-xs font-medium transition',
+                className={`rounded-lg py-1.5 px-2 h-auto text-xs font-medium transition ${
                   isSelected
                     ? 'bg-orange-100 text-fpt-orange font-bold border border-orange-300 hover:bg-orange-100'
                     : 'border-transparent bg-slate-100/80 text-slate-700 hover:bg-slate-200/70 shadow-none'
-                )}
+                }`}
               >
                 {preset.label}
               </Button>
@@ -354,13 +351,13 @@ export default function FilterSidebar({
                   className="h-3.5 w-3.5 rounded text-fpt-orange focus:ring-fpt-orange accent-fpt-orange"
                 />
                 <span
-                  className={cn(
+                  className={`${
                     cond.highlight
                       ? 'text-rose-600 font-semibold'
                       : isChecked
                       ? 'font-semibold text-slate-900'
                       : 'text-slate-700'
-                  )}
+                  }`}
                 >
                   {cond.label}
                 </span>
@@ -392,7 +389,7 @@ export default function FilterSidebar({
                   onChange={() => toggleLocation(loc.id)}
                   className="h-3.5 w-3.5 rounded text-fpt-orange focus:ring-fpt-orange accent-fpt-orange"
                 />
-                <span className={cn(isChecked && 'font-semibold text-slate-900')}>
+                <span className={isChecked ? 'font-semibold text-slate-900' : ''}>
                   {loc.label}
                 </span>
               </label>

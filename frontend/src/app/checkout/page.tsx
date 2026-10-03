@@ -11,7 +11,6 @@ import { useUserStore } from '@/stores/userStore';
 import { ProductService } from '@/services/productService';
 import { orderService } from '@/services/orderService';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
-import { cn } from '@/lib/utils';
 import {
   ChevronRight,
   ShieldCheck,
@@ -76,7 +75,6 @@ function CheckoutContent() {
   const productId = searchParams.get('productId') || searchParams.get('id');
 
   // Product state
-  const [isLoadingProduct, setIsLoadingProduct] = useState<boolean>(Boolean(productId));
   const [productData, setProductData] = useState<{
     id: string;
     sellerId?: string;
@@ -139,28 +137,23 @@ function CheckoutContent() {
   useEffect(() => {
     let isMounted = true;
     if (productId) {
-      setIsLoadingProduct(true);
-      ProductService.getPostById(productId)
-        .then((post) => {
-          if (!isMounted || !post) return;
-          setProductData({
-            id: post.id,
-            sellerId: post.sellerId || post.seller?.id,
-            sellerEmail: post.seller?.email,
-            title: post.title,
-            price: post.price,
-            imageUrl: post.imageUrl || '/products/monitor-dell-24.jpg',
-            campus: post.location || 'HCM',
-            conditionBadge: post.badges?.[0] || 'Like New',
-            description: post.description || post.title,
-            sellerName: post.seller?.name || 'Sinh viên FPT',
-            sellerCohort: post.seller?.cohort || 'FPT Student',
-            sellerTrust: post.seller?.dealCount ? Math.min(99, 85 + post.seller.dealCount * 2) : 95,
-          });
-        })
-        .finally(() => {
-          if (isMounted) setIsLoadingProduct(false);
+      ProductService.getPostById(productId).then((post) => {
+        if (!isMounted || !post) return;
+        setProductData({
+          id: post.id,
+          sellerId: post.sellerId || post.seller?.id,
+          sellerEmail: post.seller?.email,
+          title: post.title,
+          price: post.price,
+          imageUrl: post.imageUrl || '/products/monitor-dell-24.jpg',
+          campus: post.location || 'HCM',
+          conditionBadge: post.badges?.[0] || 'Like New',
+          description: post.description || post.title,
+          sellerName: post.seller?.name || 'Sinh viên FPT',
+          sellerCohort: post.seller?.cohort || 'FPT Student',
+          sellerTrust: post.seller?.dealCount ? Math.min(99, 85 + post.seller.dealCount * 2) : 95,
         });
+      });
     }
     return () => {
       isMounted = false;
@@ -370,10 +363,10 @@ function CheckoutContent() {
           {/* LEFT COLUMN: SECTIONS (8 COLS) */}
           <div className="lg:col-span-8 space-y-6">
             {/* SECTION 1: VẬN CHUYỂN / SAFE-HANDOFF */}
-            <div className={cn('rounded-2xl border bg-white p-5 sm:p-6 shadow-xs', isMeetup ? 'border-emerald-200' : 'border-orange-100')}>
+            <div className={`rounded-2xl border bg-white p-5 sm:p-6 shadow-xs ${isMeetup ? 'border-emerald-200' : 'border-orange-100'}`}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className={cn('rounded-xl p-2 text-white shrink-0 shadow-xs', isMeetup ? 'bg-emerald-600' : 'bg-fpt-orange')}>
+                  <div className={`rounded-xl p-2 text-white shrink-0 shadow-xs ${isMeetup ? 'bg-emerald-600' : 'bg-fpt-orange'}`}>
                     {isMeetup ? <ShieldCheck className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
                   </div>
                   <div>
@@ -387,8 +380,8 @@ function CheckoutContent() {
                     </p>
                   </div>
                 </div>
-                <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border self-start sm:self-auto', isMeetup ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')}>
-                  <span className={cn('h-2 w-2 rounded-full', isMeetup ? 'bg-emerald-600' : 'bg-emerald-500')}></span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border self-start sm:self-auto ${isMeetup ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                  <span className={`h-2 w-2 rounded-full ${isMeetup ? 'bg-emerald-600' : 'bg-emerald-500'}`}></span>
                   {transitHub}
                 </span>
               </div>
@@ -541,73 +534,58 @@ function CheckoutContent() {
                 <span className="text-xs text-slate-500 font-medium">1 sản phẩm được bảo đảm</span>
               </div>
 
-              {isLoadingProduct ? (
-                <div className="mt-4 flex flex-col sm:flex-row items-start gap-4 animate-pulse">
-                  <div className="h-28 w-28 rounded-xl bg-slate-200 shrink-0" />
-                  <div className="flex-1 space-y-2.5 w-full">
-                    <div className="flex gap-2">
-                      <div className="h-4 w-16 bg-slate-200 rounded" />
-                      <div className="h-4 w-24 bg-slate-200 rounded" />
-                    </div>
-                    <div className="h-5 w-3/4 bg-slate-200 rounded" />
-                    <div className="h-3 w-full bg-slate-200 rounded" />
-                    <div className="h-4 w-1/3 bg-slate-200 rounded mt-4" />
+              <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
+                <div className="relative h-28 w-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                  <Image
+                    src={productData.imageUrl}
+                    alt={productData.title}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute top-1.5 left-1.5 rounded bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    {originCode} ➔ {destinationCode}
                   </div>
                 </div>
-              ) : (
-                <div className="mt-4 flex flex-col sm:flex-row items-start gap-4">
-                  <div className="relative h-28 w-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                    <Image
-                      src={productData.imageUrl}
-                      alt={productData.title}
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute top-1.5 left-1.5 rounded bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                      {originCode} ➔ {destinationCode}
-                    </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                      {productData.conditionBadge}
+                    </span>
+                    <span className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5">
+                      Sinh viên FPT Pass
+                    </span>
+                    <span className="text-[11px] text-slate-400">Escrow bảo hộ 48h</span>
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
-                        {productData.conditionBadge}
-                      </span>
-                      <span className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5">
-                        Sinh viên FPT Pass
-                      </span>
-                      <span className="text-[11px] text-slate-400">Escrow bảo hộ 48h</span>
-                    </div>
+                  <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                    {productData.title}
+                  </h3>
 
-                    <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                      {productData.title}
-                    </h3>
+                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                    {productData.description}
+                  </p>
 
-                    <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                      {productData.description}
-                    </p>
+                  <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
+                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                      🛡️ Bao test 48h nhận
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                      📦 Được đồng kiểm hộp
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                      🔄 Hoàn tiền nếu lỗi
+                    </span>
+                  </div>
 
-                    <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
-                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                        🛡️ Bao test 48h nhận
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                        📦 Được đồng kiểm hộp
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                        🔄 Hoàn tiền nếu lỗi
-                      </span>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-baseline justify-between">
-                      <span className="text-xs text-slate-500">Đơn giá niêm yết:</span>
-                      <span className="text-base font-extrabold text-slate-900">
-                        {productData.price.toLocaleString('vi-VN')} đ
-                      </span>
-                    </div>
+                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-baseline justify-between">
+                    <span className="text-xs text-slate-500">Đơn giá niêm yết:</span>
+                    <span className="text-base font-extrabold text-slate-900">
+                      {productData.price.toLocaleString('vi-VN')} đ
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* SECTION 4: PHƯƠNG THỨC THANH TOÁN */}
@@ -632,12 +610,11 @@ function CheckoutContent() {
                 {/* OPTION 1: VIETQR NAPAS247 (PAYOS GATEWAY) - KHUYÊN DÙNG */}
                 <div
                   onClick={() => setPaymentMethod('payos')}
-                  className={cn(
-                    'rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer',
+                  className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
                     paymentMethod === 'payos'
                       ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15 shadow-xs'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
-                  )}
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -715,12 +692,11 @@ function CheckoutContent() {
                 {/* OPTION 2: COD / CASH */}
                 <div
                   onClick={() => setPaymentMethod('cod')}
-                  className={cn(
-                    'rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer',
+                  className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
                     paymentMethod === 'cod'
                       ? 'border-fpt-orange bg-orange-50/20 ring-2 ring-fpt-orange/15 shadow-xs'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
-                  )}
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -778,7 +754,7 @@ function CheckoutContent() {
                     {isMeetup ? 'Phí bàn giao Safe-Handoff' : `Phí ship liên campus (${originCode} ➔ ${destinationCode})`}
                     <HelpCircle className="h-3 w-3 text-slate-400" />
                   </span>
-                  <span className={cn('font-bold', isMeetup ? 'text-emerald-600' : 'text-slate-800')}>
+                  <span className={`font-bold ${isMeetup ? 'text-emerald-600' : 'text-slate-800'}`}>
                     {isMeetup ? '0 đ' : `${shippingFee.toLocaleString('vi-VN')} đ`}
                   </span>
                 </div>
@@ -866,12 +842,11 @@ function CheckoutContent() {
                   type="button"
                   disabled={isSubmitting || isOwner}
                   onClick={handleConfirmOrder}
-                  className={cn(
-                    'w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-extrabold text-white shadow-md transition-all active:scale-98',
+                  className={`w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-extrabold text-white shadow-md transition-all active:scale-98 ${
                     isOwner
                       ? 'bg-slate-400 cursor-not-allowed shadow-none'
                       : 'bg-fpt-orange hover:bg-fpt-orange-hover hover:shadow-lg shadow-orange-500/25 cursor-pointer disabled:opacity-50'
-                  )}
+                  }`}
                 >
                   <Lock className="h-4 w-4" />
                   <span>

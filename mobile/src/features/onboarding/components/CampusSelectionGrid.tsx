@@ -7,7 +7,7 @@ export interface CampusItem {
   sub: string;
 }
 
-const ONBOARDING_CAMPUSES: CampusItem[] = [
+export const ONBOARDING_CAMPUSES: CampusItem[] = [
   { id: 'hn', name: 'Hà Nội', sub: 'Hola Campus' },
   { id: 'hcm', name: 'TP.HCM', sub: 'Khu CNC' },
   { id: 'dn', name: 'Đà Nẵng', sub: 'FPT City' },

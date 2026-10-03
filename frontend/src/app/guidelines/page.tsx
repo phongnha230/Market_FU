@@ -1,9 +1,9 @@
-import React from 'react';
-import type { Metadata } from 'next';
+'use client';
+
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import FaqAccordion from '@/components/guidelines/FaqAccordion';
 import {
   ShieldCheck,
   BookOpen,
@@ -14,18 +14,14 @@ import {
   HelpCircle,
   ArrowRight,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Lock,
   Scale,
   FileText,
   BadgeCheck,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-export const metadata: Metadata = {
-  title: 'Quy Tắc Giao Dịch & Cẩm Nang Mua Bán An Toàn | FPT Market',
-  description: 'Bộ quy chuẩn bảo vệ quyền lợi sinh viên Đại học FPT tại cả 5 phân hiệu: Hòa Lạc, TP.HCM, Đà Nẵng, Cần Thơ và Quy Nhơn.',
-};
 
 const FAQS = [
   {
@@ -51,6 +47,8 @@ const FAQS = [
 ];
 
 export default function GuidelinesPage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       <Navbar />
@@ -156,7 +154,7 @@ export default function GuidelinesPage() {
                   className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:shadow-md transition space-y-3 relative group"
                 >
                   <div className="flex items-center justify-between">
-                    <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center border', st.color)}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center border ${st.color}`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <span className="text-2xl font-black text-slate-200 group-hover:text-fpt-orange transition font-mono">
@@ -326,7 +324,32 @@ export default function GuidelinesPage() {
             </p>
           </div>
 
-          <FaqAccordion items={FAQS} />
+          <div className="max-w-3xl mx-auto divide-y divide-slate-100">
+            {FAQS.map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div key={idx} className="py-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between text-left gap-4 font-bold text-xs sm:text-sm text-slate-900 hover:text-fpt-orange transition cursor-pointer"
+                  >
+                    <span>{faq.q}</span>
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+                  {isOpen && (
+                    <p className="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed pr-6 animate-in fade-in duration-200">
+                      {faq.a}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </section>
       </main>
 

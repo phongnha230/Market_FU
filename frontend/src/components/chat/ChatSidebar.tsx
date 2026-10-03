@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   MessageSquare,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ChatSidebarProps {
   conversations: Conversation[];
@@ -147,12 +146,11 @@ export default function ChatSidebar({
                   key={tab.id}
                   type="button"
                   onClick={() => onFilterChange(tab.id)}
-                  className={cn(
-                    'rounded-lg px-2.5 py-1 transition cursor-pointer shrink-0 text-[11px]',
+                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer shrink-0 text-[11px] ${
                     isActive
                       ? 'bg-slate-900 text-white font-bold'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  )}
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -178,10 +176,9 @@ export default function ChatSidebar({
               <div
                 key={conv.id}
               onClick={() => onSelectConv(conv.id)}
-              className={cn(
-                'relative flex items-start gap-3 p-3.5 border-b border-slate-100 transition cursor-pointer hover:bg-slate-50',
+              className={`relative flex items-start gap-3 p-3.5 border-b border-slate-100 transition cursor-pointer hover:bg-slate-50 ${
                 isSelected ? 'bg-orange-50/60' : 'bg-white'
-              )}
+              }`}
             >
               {/* Active Indicator Bar - Always visible on selected conversation */}
               {isSelected && (

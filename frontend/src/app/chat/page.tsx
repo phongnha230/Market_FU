@@ -186,37 +186,34 @@ function ChatContent() {
 
     setInputText('');
 
-    // Simulate auto reply only for mock/demo conversations (conv-1, demo-*, etc.)
-    const isMockConv = activeConv.id.startsWith('conv-') || activeConv.id.startsWith('demo-');
-    if (isMockConv) {
-      setTimeout(() => {
-        const autoReplies = [
-          'Okie bạn nha! Mình đã note lại lịch.',
-          'Nhất trí nhé bạn, có gì tới sảnh alo mình!',
-          'Được luôn, mình đang mang đồ theo người đây.',
-        ];
-        const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
-        const replyMsg: ChatMessage = {
-          id: `msg-${Date.now() + 1}`,
-          sender: 'other',
-          text: replyText,
-          time: `${now.getHours().toString().padStart(2, '0')}:${(now.getMinutes() + 1).toString().padStart(2, '0')}`,
-        };
+    // Simulate auto reply after 1.8 seconds
+    setTimeout(() => {
+      const autoReplies = [
+        'Okie bạn nha! Mình đã note lại lịch.',
+        'Nhất trí nhé bạn, có gì tới sảnh alo mình!',
+        'Được luôn, mình đang mang đồ theo người đây.',
+      ];
+      const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
+      const replyMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        sender: 'other',
+        text: replyText,
+        time: `${now.getHours().toString().padStart(2, '0')}:${(now.getMinutes() + 1).toString().padStart(2, '0')}`,
+      };
 
-        setConversations((prev) =>
-          prev.map((c) => {
-            if (c.id === activeConv.id) {
-              return {
-                ...c,
-                lastMessage: `${c.name.split(' ')[0]}: ${replyText}`,
-                messages: [...c.messages, replyMsg],
-              };
-            }
-            return c;
-          })
-        );
-      }, 1800);
-    }
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === activeConv.id) {
+            return {
+              ...c,
+              lastMessage: `${c.name.split(' ')[0]}: ${replyText}`,
+              messages: [...c.messages, replyMsg],
+            };
+          }
+          return c;
+        })
+      );
+    }, 1800);
   };
 
   const quickChips = [

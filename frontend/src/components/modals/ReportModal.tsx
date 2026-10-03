@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { X, Flag, AlertTriangle, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 import { reportService, ReportTargetType } from '@/services/reportService';
-import { cn } from '@/lib/utils';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -104,12 +103,11 @@ export default function ReportModal({
               {REPORT_REASONS.map((r) => (
                 <label
                   key={r}
-                  className={cn(
-                    'flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition',
+                  className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
                     selectedReason === r
                       ? 'border-rose-300 bg-rose-50/50 ring-1 ring-rose-200'
                       : 'border-slate-200 hover:bg-slate-50'
-                  )}
+                  }`}
                 >
                   <input
                     type="radio"

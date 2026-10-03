@@ -6,26 +6,14 @@ import { prisma } from '../config/prisma';
 import { ENV } from '../config/env';
 
 // Schema xác thực dữ liệu gửi qua socket (B2-4 Fix: Chặn tin nhắn quá dài, URL phishing, sai kiểu dữ liệu)
-const socketSendMessageSchema = z.preprocess(
-  (data: any) => {
-    if (data && typeof data === 'object') {
-      const type = data.messageType || data.type;
-      return {
-        ...data,
-        messageType: type || 'TEXT',
-      };
-    }
-    return data;
-  },
-  z.object({
-    conversationId: z.string().min(1, 'conversationId không được để trống'),
-    text: z.string().max(2000, 'Tin nhắn không được vượt quá 2000 ký tự').optional(),
-    messageType: z.enum(['TEXT', 'IMAGE', 'OFFER_PRICE', 'MEETUP_LOCATION']).default('TEXT'),
-    offerPrice: z.coerce.number().positive('Giá đề xuất mặc cả phải lớn hơn 0 VNĐ').optional(),
-    meetupLocation: z.string().max(255, 'Địa điểm hẹn không được vượt quá 255 ký tự').optional(),
-    mediaUrl: z.string().url('Đường dẫn ảnh/media không đúng định dạng URL').optional(),
-  })
-);
+const socketSendMessageSchema = z.object({
+  conversationId: z.string().min(1, 'conversationId không được để trống'),
+  text: z.string().max(2000, 'Tin nhắn không được vượt quá 2000 ký tự').optional(),
+  messageType: z.enum(['TEXT', 'IMAGE', 'OFFER_PRICE', 'MEETUP_LOCATION']).default('TEXT'),
+  offerPrice: z.coerce.number().positive('Giá đề xuất mặc cả phải lớn hơn 0 VNĐ').optional(),
+  meetupLocation: z.string().max(255, 'Địa điểm hẹn không được vượt quá 255 ký tự').optional(),
+  mediaUrl: z.string().url('Đường dẫn ảnh/media không đúng định dạng URL').optional(),
+});
 
 export interface AuthenticatedSocket extends Socket {
   data: {

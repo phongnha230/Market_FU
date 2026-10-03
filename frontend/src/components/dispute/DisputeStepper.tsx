@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { cn } from '@/lib/utils';
 
 interface DisputeStepperProps {
   currentStep?: number;
@@ -23,24 +22,22 @@ export default function DisputeStepper({ currentStep = 1 }: DisputeStepperProps)
           return (
             <div
               key={step.number}
-              className={cn('flex flex-col items-center', !isActive && 'opacity-70')}
+              className={`flex flex-col items-center ${isActive ? '' : 'opacity-70'}`}
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <div
-                  className={cn(
-                    'h-7 w-7 rounded-full font-bold text-xs flex items-center justify-center',
+                  className={`h-7 w-7 rounded-full font-bold text-xs flex items-center justify-center ${
                     isActive
                       ? 'bg-fpt-orange text-white font-extrabold shadow-xs'
                       : 'bg-slate-200 text-slate-700'
-                  )}
+                  }`}
                 >
                   {step.number}
                 </div>
                 <span
-                  className={cn(
-                    'text-xs sm:text-sm font-bold',
+                  className={`text-xs sm:text-sm font-bold ${
                     isActive ? 'text-fpt-orange font-extrabold' : 'text-slate-700'
-                  )}
+                  }`}
                 >
                   {step.title}
                 </span>

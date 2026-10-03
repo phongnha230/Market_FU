@@ -1,16 +1,9 @@
 'use client';
 
 import React from 'react';
-import dynamic from 'next/dynamic';
 import { MarketProvider } from '@/context/MarketContext';
-
-const AIChatbotWidget = dynamic(() => import('@/components/chat/AIChatbotWidget'), {
-  ssr: false,
-});
-
-const SessionExpiredModal = dynamic(() => import('@/components/modals/SessionExpiredModal'), {
-  ssr: false,
-});
+import AIChatbotWidget from '@/components/chat/AIChatbotWidget';
+import SessionExpiredModal from '@/components/modals/SessionExpiredModal';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (

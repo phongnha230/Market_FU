@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
-import { cn } from '@/lib/utils';
 import {
   Users,
   ShieldCheck,
@@ -232,7 +231,7 @@ export default function AdminUsersPage() {
                 Giám sát hồ sơ 5 cơ sở trường Đại học FPT, xác thực danh tính thẻ sinh viên và điều phối chỉ số Trust Score bảo vệ giao dịch P2P nội bộ.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
                 <Star className="h-4 w-4" />
                 Quy tắc Trust Score
@@ -249,14 +248,14 @@ export default function AdminUsersPage() {
           </div>
 
           {/* Stats */}
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { icon: <Users className="h-5 w-5 text-fpt-orange" />, label: 'Sinh viên tham gia sàn', value: totalStudents.toLocaleString('vi-VN'), sub: '', color: 'bg-orange-50 border-orange-100' },
               { icon: <ShieldCheck className="h-5 w-5 text-blue-500" />, label: 'Đã KYC Thẻ & SSO FPT', value: kycVerifiedCount.toLocaleString('vi-VN'), sub: '', color: 'bg-blue-50 border-blue-100' },
               { icon: <AlertTriangle className="h-5 w-5 text-red-500" />, label: 'Tài khoản cảnh báo / khóa', value: warningCount.toLocaleString('vi-VN'), sub: '', color: 'bg-red-50 border-red-100' },
               { icon: <Star className="h-5 w-5 text-purple-500" />, label: 'Trust Score trung bình', value: `${avgTrustScore}/100`, sub: 'Điểm', color: 'bg-purple-50 border-purple-100' },
             ].map((s) => (
-              <div key={s.label} className={cn('rounded-xl border p-4', s.color)}>
+              <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
                 {s.icon}
                 <div className="text-xl font-black text-slate-900 mt-2">{s.value}</div>
                 <div className="text-[11px] font-semibold text-slate-600 mt-0.5">{s.label}</div>
@@ -296,7 +295,7 @@ export default function AdminUsersPage() {
             { label: 'Bị báo cáo 7 ngày qua', active: true },
             { label: 'Top 1% Tín nhiệm Campus', active: false },
           ].map((f) => (
-            <button key={f.label} className={cn('rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer transition', f.active ? 'bg-fpt-orange text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300')}>
+            <button key={f.label} className={`rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer transition ${f.active ? 'bg-fpt-orange text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'}`}>
               {f.label}
             </button>
           ))}
@@ -305,19 +304,17 @@ export default function AdminUsersPage() {
 
         {/* User Table */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[880px]">
-              {/* Table header */}
-              <div className="grid grid-cols-12 gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 text-[11px] font-extrabold text-slate-500">
-                <div className="col-span-3">SINH VIÊN & CƠ SỞ</div>
-                <div className="col-span-2">XÁC THỰC IDENTITY</div>
-                <div className="col-span-2">GIAO DỊCH & CHAT</div>
-                <div className="col-span-3">CHỈ SỐ TRUST SCORE</div>
-                <div className="col-span-1">NHẬT KÝ VI PHẠM</div>
-                <div className="col-span-1 text-right">HÀNH ĐỘNG</div>
-              </div>
+          {/* Table header */}
+          <div className="grid grid-cols-12 gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 text-[11px] font-extrabold text-slate-500">
+            <div className="col-span-3">SINH VIÊN & CƠ SỞ</div>
+            <div className="col-span-2">XÁC THỰC IDENTITY</div>
+            <div className="col-span-2">GIAO DỊCH & CHAT</div>
+            <div className="col-span-3">CHỈ SỐ TRUST SCORE</div>
+            <div className="col-span-1">NHẬT KÝ VI PHẠM</div>
+            <div className="col-span-1 text-right">HÀNH ĐỘ</div>
+          </div>
 
-              <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100">
             {filteredStudents.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400">
                 {loading ? 'Đang đồng bộ dữ liệu sinh viên FPT...' : 'Chưa có sinh viên nào trong danh sách.'}
@@ -326,11 +323,11 @@ export default function AdminUsersPage() {
               filteredStudents.map((sv) => (
               <div
                 key={sv.mssv}
-                className={cn('grid grid-cols-12 gap-2 items-start px-4 py-3.5 hover:bg-slate-50/50 transition', sv.violations > 0 && 'bg-red-50/20')}
+                className={`grid grid-cols-12 gap-2 items-start px-4 py-3.5 hover:bg-slate-50/50 transition ${sv.violations > 0 ? 'bg-red-50/20' : ''}`}
               >
                 {/* Student Info */}
                 <div className="col-span-3 flex items-start gap-2.5">
-                  <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white mt-0.5', sv.trust >= 90 ? 'bg-cyan-500' : sv.trust >= 80 ? 'bg-yellow-500' : sv.trust >= 60 ? 'bg-amber-500' : 'bg-red-500')}>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white mt-0.5 ${sv.trust >= 90 ? 'bg-cyan-500' : sv.trust >= 80 ? 'bg-yellow-500' : sv.trust >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}>
                     {sv.name.charAt(0)}
                   </div>
                   <div className="min-w-0">
@@ -345,11 +342,11 @@ export default function AdminUsersPage() {
 
                 {/* Identity */}
                 <div className="col-span-2 space-y-1">
-                  <div className={cn('flex items-center gap-1 text-[10px] font-bold rounded-lg px-2 py-0.5 w-fit', sv.kyc === 'verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                  <div className={`flex items-center gap-1 text-[10px] font-bold rounded-lg px-2 py-0.5 w-fit ${sv.kyc === 'verified' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                     {sv.kyc === 'verified' ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                     {sv.kyc === 'verified' ? 'Thẻ SV Verified' : 'Chờ xác minh lại thẻ'}
                   </div>
-                  <div className={cn('flex items-center gap-1 text-[10px] font-medium rounded-lg px-2 py-0.5 w-fit', sv.sso === 'ok' ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-600')}>
+                  <div className={`flex items-center gap-1 text-[10px] font-medium rounded-lg px-2 py-0.5 w-fit ${sv.sso === 'ok' ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-600'}`}>
                     {sv.sso === 'ok' ? '✓ SSO Mail Edu OK' : '✗ SSO Edu không hợp lệ'}
                   </div>
                 </div>
@@ -366,27 +363,27 @@ export default function AdminUsersPage() {
                 <div className="col-span-3">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-black text-slate-900">{sv.trust} / 100</span>
-                    <span className={cn('rounded-lg border px-2 py-0.5 text-[10px] font-extrabold', sv.trustColor)}>
+                    <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-extrabold ${sv.trustColor}`}>
                       {sv.trustLabel}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                     <div
-                      className={cn('h-2 rounded-full transition-all', getTrustBarColor(sv.trust))}
+                      className={`h-2 rounded-full transition-all ${getTrustBarColor(sv.trust)}`}
                       style={{ width: `${sv.trust}%` }}
                     />
                   </div>
-                  <div className={cn('text-[10px] mt-1 font-medium', sv.trust >= 80 ? 'text-emerald-600' : sv.trust >= 60 ? 'text-amber-600' : 'text-red-600')}>
+                  <div className={`text-[10px] mt-1 font-medium ${sv.trust >= 80 ? 'text-emerald-600' : sv.trust >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
                     {sv.trust >= 80 ? '✓ Cực kỳ uy tín • Safe Trader' : sv.trust >= 60 ? '⚡ Thành viên tích cực' : '⚠ Nguy cơ cao • Đã hạn chế đăng tin'}
                   </div>
                 </div>
 
                 {/* Violations */}
                 <div className="col-span-1">
-                  <div className={cn('text-xs font-bold', sv.violations > 0 ? 'text-red-600' : 'text-emerald-600')}>
+                  <div className={`text-xs font-bold ${sv.violations > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                     {sv.violations > 0 ? `⚠ ${sv.violations} khiếu nại vi phạm` : '✓ 0 khiếu nại'}
                   </div>
-                  <div className={cn('text-[10px] mt-0.5', sv.violationColor)}>{sv.violationNote}</div>
+                  <div className={`text-[10px] mt-0.5 ${sv.violationColor}`}>{sv.violationNote}</div>
                 </div>
 
                 {/* Actions */}
@@ -396,7 +393,7 @@ export default function AdminUsersPage() {
                   </button>
                   <button
                     onClick={() => handleToggleLock(sv.mssv)}
-                    className={cn('rounded-lg p-1.5 cursor-pointer hover:bg-slate-100', sv.violations > 0 ? 'text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-slate-700')}
+                    className={`rounded-lg p-1.5 cursor-pointer hover:bg-slate-100 ${sv.violations > 0 ? 'text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-slate-700'}`}
                     title={sv.violations > 0 ? 'Gỡ khóa tài khoản' : 'Khóa tài khoản cảnh báo'}
                   >
                     <Lock className="h-4 w-4" />
@@ -405,8 +402,6 @@ export default function AdminUsersPage() {
               </div>
             ))
           )}
-              </div>
-            </div>
           </div>
 
           {/* Pagination */}
@@ -414,7 +409,7 @@ export default function AdminUsersPage() {
             <span className="text-xs text-slate-500">Hiển thị {filteredStudents.length} trên {totalStudents} kết quả sinh viên FPT</span>
             <div className="flex items-center gap-1">
               {[1].map((p, i) => (
-                <button key={i} className={cn('w-8 h-8 rounded-lg text-xs font-bold cursor-pointer', p === 1 ? 'bg-fpt-orange text-white' : 'text-slate-600 hover:bg-slate-100')}>
+                <button key={i} className={`w-8 h-8 rounded-lg text-xs font-bold cursor-pointer ${p === 1 ? 'bg-fpt-orange text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                   {p}
                 </button>
               ))}

@@ -39,7 +39,6 @@ export const initMeilisearch = async (): Promise<boolean> => {
         'condition',
         'price',
         'status',
-        'hashtags',
       ],
       sortableAttributes: [
         'price',
@@ -159,7 +158,6 @@ export interface SearchProductFilterOptions {
   minPrice?: number;
   maxPrice?: number;
   status?: string;
-  hashtag?: string;
   sortBy?: 'newest' | 'price_asc' | 'price_desc' | 'views';
   page?: number;
   limit?: number;
@@ -172,7 +170,7 @@ export interface MeiliSearchResult {
 }
 
 /**
- * Tìm kiếm sản phẩm thông minh qua Meilisearch (Tiếng Việt không dấu + Chịu lỗi chính tả + Hashtag)
+ * Tìm kiếm sản phẩm thông minh qua Meilisearch (Tiếng Việt không dấu + Chịu lỗi chính tả)
  * Trả về null nếu Meilisearch offline (để service tự động fallback sang MongoDB)
  */
 export const searchProductsMeili = async (
@@ -182,7 +180,7 @@ export const searchProductsMeili = async (
   if (!isAvailable) return null;
 
   try {
-    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, hashtag, sortBy = 'newest', page = 1, limit = 20 } = options;
+    const { campus, categoryId, categoryType, condition, minPrice, maxPrice, sortBy = 'newest', page = 1, limit = 20 } = options;
     const filterParts: string[] = ['status = "AVAILABLE"'];
 
     if (campus) filterParts.push(`campus = "${campus}"`);
@@ -191,12 +189,6 @@ export const searchProductsMeili = async (
     if (condition) filterParts.push(`condition = "${condition}"`);
     if (minPrice !== undefined) filterParts.push(`price >= ${minPrice}`);
     if (maxPrice !== undefined) filterParts.push(`price <= ${maxPrice}`);
-    if (hashtag) {
-      const cleanTag = hashtag.toLowerCase().replace(/^#/, '').trim();
-      if (cleanTag) {
-        filterParts.push(`hashtags = "${cleanTag}"`);
-      }
-    }
 
     let sortParam: string[] = ['createdAt:desc'];
     if (sortBy === 'price_asc') sortParam = ['price:asc'];
@@ -204,10 +196,8 @@ export const searchProductsMeili = async (
     if (sortBy === 'views') sortParam = ['viewsCount:desc'];
 
     const offset = (page - 1) * limit;
-    // Chuẩn hóa nếu người dùng gõ có ký tự '#' phía trước (vd: #vovinam -> vovinam)
-    const normalizedQuery = query.startsWith('#') ? query.replace(/^#+/, '').trim() : query.trim();
 
-    const response = await meiliClient.index<MeiliProductDocument>('products').search(normalizedQuery, {
+    const response = await meiliClient.index<MeiliProductDocument>('products').search(query, {
       filter: filterParts.join(' AND '),
       sort: sortParam,
       limit,

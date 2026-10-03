@@ -14,7 +14,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import OtpVerificationStep from './OtpVerificationStep';
-import { cn } from '@/lib/utils';
 
 interface ForgotPasswordFormProps {
   onSwitchToLogin: () => void;
@@ -157,12 +156,11 @@ export default function ForgotPasswordForm({
               </span>
               {newPassword.length > 0 && (
                 <span
-                  className={cn(
-                    'text-[11px] font-extrabold px-2 py-0.5 rounded-full',
+                  className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
                     isStrongPassword
                       ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
                       : 'bg-rose-100 text-rose-700 border border-rose-300'
-                  )}
+                  }`}
                 >
                   {isStrongPassword ? '✓ Đạt chuẩn' : '⚠ Chưa đủ điều kiện'}
                 </span>
@@ -171,92 +169,84 @@ export default function ForgotPasswordForm({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
               <div
-                className={cn(
-                  'flex items-center gap-1.5',
+                className={`flex items-center gap-1.5 ${
                   hasMinLen
                     ? 'text-emerald-700 font-semibold'
                     : newPassword.length > 0
                     ? 'text-rose-600 font-medium'
                     : 'text-slate-500'
-                )}
+                }`}
               >
                 {hasMinLen ? (
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 ) : (
                   <AlertCircle
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0',
+                    className={`h-3.5 w-3.5 shrink-0 ${
                       newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                    )}
+                    }`}
                   />
                 )}
                 <span>Tối thiểu 8 ký tự</span>
               </div>
 
               <div
-                className={cn(
-                  'flex items-center gap-1.5',
+                className={`flex items-center gap-1.5 ${
                   hasUpper
                     ? 'text-emerald-700 font-semibold'
                     : newPassword.length > 0
                     ? 'text-rose-600 font-medium'
                     : 'text-slate-500'
-                )}
+                }`}
               >
                 {hasUpper ? (
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 ) : (
                   <AlertCircle
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0',
+                    className={`h-3.5 w-3.5 shrink-0 ${
                       newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                    )}
+                    }`}
                   />
                 )}
                 <span>Ít nhất 1 chữ in hoa (A-Z)</span>
               </div>
 
               <div
-                className={cn(
-                  'flex items-center gap-1.5',
+                className={`flex items-center gap-1.5 ${
                   hasNumber
                     ? 'text-emerald-700 font-semibold'
                     : newPassword.length > 0
                     ? 'text-rose-600 font-medium'
                     : 'text-slate-500'
-                )}
+                }`}
               >
                 {hasNumber ? (
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 ) : (
                   <AlertCircle
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0',
+                    className={`h-3.5 w-3.5 shrink-0 ${
                       newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                    )}
+                    }`}
                   />
                 )}
                 <span>Ít nhất 1 chữ số (0-9)</span>
               </div>
 
               <div
-                className={cn(
-                  'flex items-center gap-1.5',
+                className={`flex items-center gap-1.5 ${
                   hasSpecial
                     ? 'text-emerald-700 font-semibold'
                     : newPassword.length > 0
                     ? 'text-rose-600 font-medium'
                     : 'text-slate-500'
-                )}
+                }`}
               >
                 {hasSpecial ? (
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 ) : (
                   <AlertCircle
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0',
+                    className={`h-3.5 w-3.5 shrink-0 ${
                       newPassword.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                    )}
+                    }`}
                   />
                 )}
                 <span>1 ký tự đặc biệt (!@#$%^...)</span>

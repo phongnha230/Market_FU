@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mail, ArrowLeft, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useCountdown } from '@/hooks/useCountdown';
-import { cn } from '@/lib/utils';
 
 interface OtpVerificationStepProps {
   targetEmail: string;
@@ -208,7 +207,7 @@ export default function OtpVerificationStep({
                 disabled={isResending}
                 className="inline-flex items-center gap-1.5 font-bold text-fpt-orange hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <RefreshCw className={cn('h-3.5 w-3.5', isResending && 'animate-spin')} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isResending ? 'animate-spin' : ''}`} />
                 <span>{isResending ? 'Đang gửi lại mã...' : 'Gửi lại mã OTP qua email'}</span>
               </button>
               <div className="text-[10px] text-slate-400">

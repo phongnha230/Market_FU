@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
-import { cn } from '@/lib/utils';
 import { useDisputeStore } from '@/stores/disputeStore';
 import { reportService } from '@/services/reportService';
 import {
@@ -81,7 +80,6 @@ export default function AdminReportsPage() {
     try {
       const res = await resolveDisputeByAdmin(disputeId, action, noteText);
       showToast(res.message);
-      fetchDisputes();
     } catch {
       showToast('Có lỗi xảy ra khi xử lý khiếu nại. Vui lòng thử lại!');
     } finally {
@@ -99,10 +97,7 @@ export default function AdminReportsPage() {
         DISMISS: 'Đã bỏ qua báo cáo vi phạm',
       };
       showToast(actionLabels[action]);
-      setReports((prev) => prev.filter((r) => r.id !== reportId));
-      loadReportsAndHubs();
     } catch {
-      setReports((prev) => prev.filter((r) => r.id !== reportId));
       showToast(`Đã xử lý ${action} đối với báo cáo #${reportId}.`);
     } finally {
       setIsProcessing(null);
@@ -183,24 +178,22 @@ export default function AdminReportsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveTab('disputes')}
-                    className={cn(
-                      'rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer',
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                       activeTab === 'disputes'
                         ? 'bg-fpt-orange text-white shadow-xs'
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                    )}
+                    }`}
                   >
                     ⚖️ Khiếu nại Tranh chấp ({disputes.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('reports')}
-                    className={cn(
-                      'rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer',
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                       activeTab === 'reports'
                         ? 'bg-fpt-orange text-white shadow-xs'
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                    )}
+                    }`}
                   >
                     🚨 Báo cáo Vi phạm ({reports.length})
                   </button>
@@ -224,14 +217,13 @@ export default function AdminReportsPage() {
                                 {d.orderCode}
                               </span>
                               <span
-                                className={cn(
-                                  'rounded-full text-[10px] font-extrabold px-2.5 py-0.5',
+                                className={`rounded-full text-[10px] font-extrabold px-2.5 py-0.5 ${
                                   d.status === 'PENDING'
                                     ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                     : d.status === 'REFUNDED'
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                     : 'bg-rose-100 text-rose-800 border border-rose-200'
-                                )}
+                                }`}
                               >
                                 {d.status === 'PENDING' ? '⏳ ĐANG CHỜ PHÂN XỬ' : d.status === 'REFUNDED' ? '✓ ĐÃ HOÀN TIỀN' : '✗ ĐÃ BÁC BỎ'}
                               </span>
@@ -279,12 +271,12 @@ export default function AdminReportsPage() {
 
                         {/* Action Buttons for Pending Dispute */}
                         {d.status === 'PENDING' && (
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
+                          <div className="flex items-center justify-end gap-2 pt-1">
                             <button
                               type="button"
                               disabled={isProcessing === d.id}
                               onClick={() => handleResolveDispute(d.id, 'REJECT')}
-                              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 sm:py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[40px]"
+                              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                             >
                               <DollarSign className="h-3.5 w-3.5 text-slate-500" />
                               <span>Bác đơn & Trả tiền Người bán</span>
@@ -294,7 +286,7 @@ export default function AdminReportsPage() {
                               type="button"
                               disabled={isProcessing === d.id}
                               onClick={() => handleResolveDispute(d.id, 'REFUND')}
-                              className="rounded-xl bg-emerald-600 px-4 py-2.5 sm:py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[40px]"
+                              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               <span>Chấp thuận Hoàn tiền Người mua</span>
@@ -322,12 +314,11 @@ export default function AdminReportsPage() {
                             <div className="flex items-center gap-2 flex-wrap mb-1.5">
                               <span className="text-[11px] font-extrabold text-slate-500">#{r.id.slice(-6).toUpperCase()}</span>
                               <span
-                                className={cn(
-                                  'rounded-full text-[10px] font-extrabold px-2 py-0.5',
+                                className={`rounded-full text-[10px] font-extrabold px-2 py-0.5 ${
                                   r.status === 'PENDING'
                                     ? 'bg-red-100 text-red-700'
                                     : 'bg-emerald-100 text-emerald-700'
-                                )}
+                                }`}
                               >
                                 {r.targetType === 'PRODUCT' ? 'Báo cáo Tin đăng' : 'Báo cáo Người dùng'}
                               </span>
@@ -345,7 +336,7 @@ export default function AdminReportsPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 text-[11px]">
+                        <div className="grid grid-cols-2 gap-3 mb-3 text-[11px]">
                           <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5">
                             <span className="text-slate-400">Người báo cáo: </span>
                             <span className="font-bold text-slate-800">
@@ -361,12 +352,12 @@ export default function AdminReportsPage() {
                         </div>
 
                         {r.status === 'PENDING' && (
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
                             <button
                               type="button"
                               disabled={isProcessing === r.id}
                               onClick={() => handleResolveReport(r.id, 'DISMISS')}
-                              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer text-center"
+                              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                             >
                               Bỏ qua
                             </button>
@@ -374,7 +365,7 @@ export default function AdminReportsPage() {
                               type="button"
                               disabled={isProcessing === r.id}
                               onClick={() => handleResolveReport(r.id, 'HIDE_PRODUCT')}
-                              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer text-center"
+                              className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
                             >
                               Ẩn bài đăng
                             </button>
@@ -382,7 +373,7 @@ export default function AdminReportsPage() {
                               type="button"
                               disabled={isProcessing === r.id}
                               onClick={() => handleResolveReport(r.id, 'BAN_USER')}
-                              className="rounded-xl bg-red-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer text-center"
+                              className="rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition cursor-pointer"
                             >
                               Khóa tài khoản sinh viên
                             </button>
@@ -445,10 +436,9 @@ export default function AdminReportsPage() {
                           {hub.campus} • {hub.cameras || 'Camera HD'} • {hub.operatingHours || '07:30 - 21:00'}
                         </div>
                       </div>
-                      <span className={cn(
-                        'rounded text-[10px] font-bold px-2 py-0.5',
+                      <span className={`rounded text-[10px] font-bold px-2 py-0.5 ${
                         hub.isOperating ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                      )}>
+                      }`}>
                         {hub.isOperating ? 'Trực tuyến' : 'Tạm dừng'}
                       </span>
                     </div>

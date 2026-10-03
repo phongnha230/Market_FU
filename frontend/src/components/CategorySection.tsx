@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useProductStore } from '@/stores/productStore';
 import { categoryService } from '@/services/categoryService';
-import { cn } from '@/lib/utils';
 
 // Từ khóa phân loại chuẩn để đếm chính xác sản phẩm thực tế theo danh mục
 const CAT_KEYWORDS: Record<string, string[]> = {
@@ -133,19 +132,12 @@ export default function CategorySection() {
                 className="group block h-full focus:outline-none"
               >
                 <Card
-                  className={cn(
-                    'relative flex flex-col justify-between h-full rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-md',
-                    cat.borderColor
-                  )}
+                  className={`relative flex flex-col justify-between h-full rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-md ${cat.borderColor}`}
                 >
                   <div>
                     {/* Category Icon */}
                     <div
-                      className={cn(
-                        'inline-flex h-10 w-10 items-center justify-center rounded-xl mb-3 group-hover:scale-105 transition-transform',
-                        cat.bgColor,
-                        cat.color
-                      )}
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${cat.bgColor} ${cat.color} mb-3 group-hover:scale-105 transition-transform`}
                     >
                       <Icon className="h-5 w-5" />
                     </div>

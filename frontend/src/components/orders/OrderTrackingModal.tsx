@@ -5,7 +5,6 @@ import { OrderItem } from '@/stores/orderStore';
 import { X, Truck, CheckCircle2, Clock, MapPin, Package, Phone } from 'lucide-react';
 import { orderService } from '@/services/orderService';
 import { Badge } from '@/components/ui';
-import { cn } from '@/lib/utils';
 
 interface OrderTrackingModalProps {
   order: OrderItem | null;
@@ -130,21 +129,19 @@ export default function OrderTrackingModal({
               <div key={idx} className="flex items-start gap-3 relative">
                 {idx < steps.length - 1 && (
                   <div
-                    className={cn(
-                      'absolute left-[7px] top-[18px] w-0.5 h-[calc(100%+6px)]',
+                    className={`absolute left-[7px] top-[18px] w-0.5 h-[calc(100%+6px)] ${
                       isCompleted ? 'bg-emerald-500' : 'bg-slate-200'
-                    )}
+                    }`}
                   />
                 )}
                 <div
-                  className={cn(
-                    'h-4 w-4 rounded-full mt-0.5 shrink-0 z-10 flex items-center justify-center',
+                  className={`h-4 w-4 rounded-full mt-0.5 shrink-0 z-10 flex items-center justify-center ${
                     isCompleted
                       ? 'bg-emerald-500 text-white'
                       : isCurrent
                       ? 'bg-fpt-orange text-white ring-4 ring-orange-100 animate-pulse'
                       : 'bg-slate-200'
-                  )}
+                  }`}
                 >
                   {isCompleted ? (
                     <CheckCircle2 className="h-3 w-3" />
@@ -156,14 +153,13 @@ export default function OrderTrackingModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
                     <div
-                      className={cn(
-                        'font-bold text-xs',
+                      className={`font-bold text-xs ${
                         isCurrent
                           ? 'text-fpt-orange'
                           : isCompleted
                           ? 'text-slate-900'
                           : 'text-slate-400'
-                      )}
+                      }`}
                     >
                       {st.title}
                     </div>

@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Sparkles, Coins, ShieldCheck, Truck, Award, Calendar, ChevronRight, Info } from 'lucide-react';
 import CompactHeader from '@/components/layout/CompactHeader';
 import { useUserStore } from '@/stores/userStore';
-import { cn } from '@/lib/utils';
 
 interface VoucherHeroBannerProps {
   coins: number;
@@ -139,12 +138,11 @@ export default function VoucherHeroBanner({
                 type="button"
                 onClick={onCheckIn}
                 disabled={dailyCheckedIn}
-                className={cn(
-                  'w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs sm:text-sm font-bold transition-all shadow-xs',
+                className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs sm:text-sm font-bold transition-all shadow-xs ${
                   dailyCheckedIn
                     ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 cursor-default'
                     : 'bg-orange-50/80 border border-fpt-orange/60 text-fpt-orange hover:bg-fpt-orange hover:text-white cursor-pointer active:scale-98'
-                )}
+                }`}
               >
                 <Calendar className="h-4 w-4" />
                 {dailyCheckedIn ? (

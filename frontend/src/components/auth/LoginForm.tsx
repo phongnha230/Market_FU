@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
 
 // Official Google 4-Color Icon SVG
 export function GoogleIcon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -145,10 +144,9 @@ export default function LoginForm({
       <div className="w-full flex flex-col items-center min-h-[44px]">
         <div
           ref={googleBtnRef}
-          className={cn(
-            'w-full flex justify-center [&>div]:w-full [&_iframe]:w-full! [&_iframe]:max-w-[420px]',
+          className={`w-full flex justify-center [&>div]:w-full [&_iframe]:w-full! [&_iframe]:max-w-[420px] ${
             isGsiRendered ? 'block' : 'hidden'
-          )}
+          }`}
         />
 
         {!isGsiRendered && (
@@ -213,12 +211,11 @@ export default function LoginForm({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="se172819@fe.edu.vn hoặc SE172819, gmail..."
               required
-              className={cn(
-                'w-full rounded-xl border p-3 pr-10 h-auto text-xs sm:text-sm text-slate-800 outline-none transition',
+              className={`w-full rounded-xl border p-3 pr-10 h-auto text-xs sm:text-sm text-slate-800 outline-none transition ${
                 demoState === 'error'
                   ? 'border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500'
                   : 'border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-100 focus-visible:border-fpt-orange'
-              )}
+              }`}
             />
             {email.length >= 3 && (
               <CheckCircle2 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
@@ -242,12 +239,11 @@ export default function LoginForm({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className={cn(
-                'w-full rounded-xl border p-3 pr-10 h-auto text-xs sm:text-sm text-slate-800 outline-none transition',
+              className={`w-full rounded-xl border p-3 pr-10 h-auto text-xs sm:text-sm text-slate-800 outline-none transition ${
                 demoState === 'error'
                   ? 'border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500'
                   : 'border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-100 focus-visible:border-fpt-orange'
-              )}
+              }`}
             />
             <Button
               type="button"

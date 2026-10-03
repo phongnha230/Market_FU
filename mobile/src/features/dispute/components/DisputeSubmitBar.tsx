@@ -38,7 +38,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 3px 6px rgba(220, 38, 38, 0.25)',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   btnText: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '800' },
 });

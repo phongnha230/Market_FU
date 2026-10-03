@@ -58,31 +58,11 @@ export interface MarketContextType {
 const MarketContext = createContext<MarketContextType | undefined>(undefined);
 
 export function MarketProvider({ children }: { children: ReactNode }) {
-  // Atomic Store Selectors (Chỉ subscribe đúng phần dữ liệu cần thiết)
-  const user = useUserStore((s) => s.user);
-  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
-  const login = useUserStore((s) => s.login);
-  const logout = useUserStore((s) => s.logout);
-  const updateProfile = useUserStore((s) => s.updateProfile);
-  const changePassword = useUserStore((s) => s.changePassword);
-  const addCoins = useUserStore((s) => s.addCoins);
-  const saveVoucher = useUserStore((s) => s.saveVoucher);
-  const checkInDaily = useUserStore((s) => s.checkInDaily);
-  const claimQuestCoins = useUserStore((s) => s.claimQuestCoins);
-
-  const products = useProductStore((s) => s.products);
-  const addProduct = useProductStore((s) => s.addProduct);
-  const getProductById = useProductStore((s) => s.getProductById);
-
-  const orders = useOrderStore((s) => s.orders);
-  const createOrder = useOrderStore((s) => s.createOrder);
-  const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
-  const markOrderReviewed = useOrderStore((s) => s.markOrderReviewed);
-  const getOrder = useOrderStore((s) => s.getOrder);
-
-  const favorites = useFavoriteStore((s) => s.favorites);
-  const toggleFavorite = useFavoriteStore((s) => s.toggleFavorite);
-  const isFavorite = useFavoriteStore((s) => s.isFavorite);
+  // Stores
+  const userStore = useUserStore();
+  const productStore = useProductStore();
+  const orderStore = useOrderStore();
+  const favoriteStore = useFavoriteStore();
 
   // Toast
   const { toastMessage, toastType, showToast, hideToast } = useToast();
@@ -90,77 +70,46 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   // Active Campus
   const [currentCampus, setCampus] = useState<string>('hola');
 
-  // useMemo giữ ổn định context reference, chống re-render toàn app khi state không đổi
-  const value = React.useMemo<MarketContextType>(
-    () => ({
-      // User
-      user,
-      isLoggedIn,
-      login,
-      logout,
-      updateProfile,
-      changePassword,
-      addCoins,
-      saveVoucher,
-      checkInDaily,
-      claimQuestCoins,
+  const value: MarketContextType = {
+    // User
+    user: userStore.user,
+    isLoggedIn: userStore.isLoggedIn,
+    login: userStore.login,
+    logout: userStore.logout,
+    updateProfile: userStore.updateProfile,
+    changePassword: userStore.changePassword,
+    addCoins: userStore.addCoins,
+    saveVoucher: userStore.saveVoucher,
+    checkInDaily: userStore.checkInDaily,
+    claimQuestCoins: userStore.claimQuestCoins,
 
-      // Products
-      products,
-      addProduct,
-      getProductById,
+    // Products
+    products: productStore.products,
+    addProduct: productStore.addProduct,
+    getProductById: productStore.getProductById,
 
-      // Orders
-      orders,
-      createOrder,
-      updateOrderStatus,
-      markOrderReviewed,
-      getOrder,
+    // Orders
+    orders: orderStore.orders,
+    createOrder: orderStore.createOrder,
+    updateOrderStatus: orderStore.updateOrderStatus,
+    markOrderReviewed: orderStore.markOrderReviewed,
+    getOrder: orderStore.getOrder,
 
-      // Favorites
-      favorites,
-      toggleFavorite,
-      isFavorite,
+    // Favorites
+    favorites: favoriteStore.favorites,
+    toggleFavorite: favoriteStore.toggleFavorite,
+    isFavorite: favoriteStore.isFavorite,
 
-      // Campus
-      currentCampus,
-      setCampus,
+    // Campus
+    currentCampus,
+    setCampus,
 
-      // Toast
-      showToast,
-      hideToast,
-      toastMessage,
-      toastType,
-    }),
-    [
-      user,
-      isLoggedIn,
-      login,
-      logout,
-      updateProfile,
-      changePassword,
-      addCoins,
-      saveVoucher,
-      checkInDaily,
-      claimQuestCoins,
-      products,
-      addProduct,
-      getProductById,
-      orders,
-      createOrder,
-      updateOrderStatus,
-      markOrderReviewed,
-      getOrder,
-      favorites,
-      toggleFavorite,
-      isFavorite,
-      currentCampus,
-      showToast,
-      hideToast,
-      toastMessage,
-      toastType,
-    ]
-  );
+    // Toast
+    showToast,
+    hideToast,
+    toastMessage,
+    toastType,
+  };
 
   return (
     <MarketContext.Provider value={value}>

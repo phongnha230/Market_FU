@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { View, FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   CampusFilterOption,
@@ -30,109 +30,65 @@ export const ExploreFilterChips: React.FC<ExploreFilterChipsProps> = ({
   selectedPrice,
   onSelectPrice,
 }) => {
-  const renderCampusItem = useCallback(
-    ({ item }: { item: CampusFilterOption }) => {
-      const active = selectedCampus === item.id;
-      return (
-        <TouchableOpacity
-          key={item.id}
-          style={[styles.campusChip, active && styles.campusChipActive]}
-          activeOpacity={0.8}
-          onPress={() => onSelectCampus(item.id)}
-        >
-          {item.icon && (
-            <Ionicons
-              name={item.icon as any}
-              size={13}
-              color={active ? '#FFFFFF' : '#475569'}
-              style={{ marginRight: 4 }}
-            />
-          )}
-          <Text style={[styles.campusChipText, active && styles.campusChipTextActive]}>{item.label}</Text>
-        </TouchableOpacity>
-      );
-    },
-    [selectedCampus, onSelectCampus]
-  );
-
-  const renderCategoryItem = useCallback(
-    ({ item }: { item: CategoryTabOption }) => {
-      const active = selectedCategory === item.id;
-      return (
-        <TouchableOpacity
-          key={item.id}
-          style={[styles.catTab, active && styles.catTabActive]}
-          activeOpacity={0.8}
-          onPress={() => onSelectCategory(item.id)}
-        >
-          <Text style={[styles.catTabText, active && styles.catTabTextActive]}>{item.label}</Text>
-          {item.count !== undefined && (
-            <View style={[styles.badge, active && styles.badgeActive]}>
-              <Text style={[styles.badgeText, active && styles.badgeTextActive]}>{item.count}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    },
-    [selectedCategory, onSelectCategory]
-  );
-
-  const renderPriceItem = useCallback(
-    ({ item }: { item: PriceRangeOption }) => {
-      const active = selectedPrice === item.id;
-      return (
-        <TouchableOpacity
-          key={item.id}
-          style={[styles.priceChip, active && styles.priceChipActive]}
-          activeOpacity={0.8}
-          onPress={() => onSelectPrice(active ? '' : item.id)}
-        >
-          {item.icon && (
-            <Ionicons
-              name={item.icon as any}
-              size={13}
-              color={active ? '#FFFFFF' : '#F27024'}
-              style={{ marginRight: 4 }}
-            />
-          )}
-          <Text style={[styles.priceChipText, active && styles.priceChipTextActive]}>{item.label}</Text>
-        </TouchableOpacity>
-      );
-    },
-    [selectedPrice, onSelectPrice]
-  );
-
   return (
     <View style={styles.container}>
       {/* 1. Campus Chips */}
-      <FlatList
-        horizontal
-        data={campusFilters}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCampusItem}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        {campusFilters.map((c) => {
+          const active = selectedCampus === c.id;
+          return (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.campusChip, active && styles.campusChipActive]}
+              activeOpacity={0.8}
+              onPress={() => onSelectCampus(c.id)}
+            >
+              {c.icon && <Ionicons name={c.icon as any} size={13} color={active ? '#FFFFFF' : '#475569'} style={{ marginRight: 4 }} />}
+              <Text style={[styles.campusChipText, active && styles.campusChipTextActive]}>{c.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* 2. Category Tabs */}
-      <FlatList
-        horizontal
-        data={categoryTabs}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCategoryItem}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        {categoryTabs.map((tab) => {
+          const active = selectedCategory === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.catTab, active && styles.catTabActive]}
+              activeOpacity={0.8}
+              onPress={() => onSelectCategory(tab.id)}
+            >
+              <Text style={[styles.catTabText, active && styles.catTabTextActive]}>{tab.label}</Text>
+              {tab.count !== undefined && (
+                <View style={[styles.badge, active && styles.badgeActive]}>
+                  <Text style={[styles.badgeText, active && styles.badgeTextActive]}>{tab.count}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* 3. Price Chips */}
-      <FlatList
-        horizontal
-        data={priceRanges}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPriceItem}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+        {priceRanges.map((range) => {
+          const active = selectedPrice === range.id;
+          return (
+            <TouchableOpacity
+              key={range.id}
+              style={[styles.priceChip, active && styles.priceChipActive]}
+              activeOpacity={0.8}
+              onPress={() => onSelectPrice(active ? '' : range.id)}
+            >
+              {range.icon && <Ionicons name={range.icon as any} size={13} color={active ? '#FFFFFF' : '#F27024'} style={{ marginRight: 4 }} />}
+              <Text style={[styles.priceChipText, active && styles.priceChipTextActive]}>{range.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 };

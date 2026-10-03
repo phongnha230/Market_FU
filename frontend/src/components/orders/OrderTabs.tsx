@@ -3,7 +3,6 @@
 import React from 'react';
 import { Button, Badge, Card } from '@/components/ui';
 import { Lock } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface OrderTabsProps {
   activeMainTab: 'buying' | 'selling' | 'listings' | 'handoff';
@@ -46,21 +45,19 @@ export default function OrderTabs({
         <Button
           type="button"
           onClick={() => onMainTabChange('buying')}
-          className={cn(
-            'h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer',
+          className={`h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
             activeMainTab === 'buying'
               ? 'bg-fpt-orange text-white shadow-sm hover:bg-fpt-orange/90'
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
-          )}
+          }`}
         >
           <span>Đơn mua của tôi</span>
           <Badge
-            className={cn(
-              'rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal',
+            className={`rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal ${
               activeMainTab === 'buying'
                 ? 'bg-white/20 text-white hover:bg-white/20'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-100'
-            )}
+            }`}
           >
             {ordersCount}
           </Badge>
@@ -69,24 +66,22 @@ export default function OrderTabs({
         <Button
           type="button"
           onClick={() => onMainTabChange('selling')}
-          className={cn(
-            'h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer',
+          className={`h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
             activeMainTab === 'selling'
               ? 'bg-fpt-orange text-white shadow-sm hover:bg-fpt-orange/90'
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
-          )}
+          }`}
         >
           {!isSeller && <Lock className="h-3 w-3 text-amber-500" />}
           <span>Đơn bán cần gửi</span>
           <Badge
-            className={cn(
-              'rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal',
+            className={`rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal ${
               !isSeller
                 ? 'bg-amber-100 text-amber-800'
                 : activeMainTab === 'selling'
                 ? 'bg-white/20 text-white hover:bg-white/20'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-100'
-            )}
+            }`}
           >
             {!isSeller ? 'Seller' : sellingCount}
           </Badge>
@@ -95,24 +90,22 @@ export default function OrderTabs({
         <Button
           type="button"
           onClick={() => onMainTabChange('listings')}
-          className={cn(
-            'h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer',
+          className={`h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
             activeMainTab === 'listings'
               ? 'bg-fpt-orange text-white shadow-sm hover:bg-fpt-orange/90'
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
-          )}
+          }`}
         >
           {!isSeller && <Lock className="h-3 w-3 text-amber-500" />}
           <span>Tin đăng rao bán</span>
           <Badge
-            className={cn(
-              'rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal',
+            className={`rounded-full px-1.5 py-0.2 text-[11px] border-none font-normal ${
               !isSeller
                 ? 'bg-amber-100 text-amber-800'
                 : activeMainTab === 'listings'
                 ? 'bg-white/20 text-white hover:bg-white/20'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-100'
-            )}
+            }`}
           >
             {!isSeller ? 'Seller' : listingsCount}
           </Badge>
@@ -121,12 +114,11 @@ export default function OrderTabs({
         <Button
           type="button"
           onClick={() => onMainTabChange('handoff')}
-          className={cn(
-            'h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer',
+          className={`h-auto rounded-xl px-4 py-2.5 transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
             activeMainTab === 'handoff'
               ? 'bg-fpt-orange text-white shadow-sm hover:bg-fpt-orange/90'
               : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
-          )}
+          }`}
         >
           <span>Lịch hẹn Safe-Handoff</span>
           <Badge className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[11px] text-slate-700 border-none font-normal hover:bg-slate-100">
@@ -154,12 +146,11 @@ export default function OrderTabs({
                 key={tab.id}
                 type="button"
                 onClick={() => onProgressFilterChange(tab.id)}
-                className={cn(
-                  'h-auto rounded-full px-3 py-1.5 text-xs font-semibold transition cursor-pointer shrink-0',
+                className={`h-auto rounded-full px-3 py-1.5 text-xs font-semibold transition cursor-pointer shrink-0 ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
                     : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none'
-                )}
+                }`}
               >
                 {tab.label}
               </Button>

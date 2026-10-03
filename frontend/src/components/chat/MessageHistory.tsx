@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
 import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface MessageHistoryProps {
   messages: ChatMessage[];
@@ -124,7 +123,7 @@ export default function MessageHistory({
           return (
             <div
               key={msg.id}
-              className={cn('flex items-end gap-2', isMe ? 'justify-end' : 'justify-start')}
+              className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {!isMe && (
                 <div className="relative h-7 w-7 rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 mb-1">
@@ -139,12 +138,11 @@ export default function MessageHistory({
 
               <div className="max-w-[80%] sm:max-w-[65%] space-y-1">
                 <div
-                  className={cn(
-                    'rounded-2xl p-3 text-xs sm:text-sm leading-relaxed shadow-xs',
+                  className={`rounded-2xl p-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
                     isMe
                       ? 'bg-fpt-orange text-white rounded-br-xs font-medium'
                       : 'bg-white border border-slate-200/90 text-slate-800 rounded-bl-xs'
-                  )}
+                  }`}
                 >
                   <p>{msg.text}</p>
 
@@ -166,7 +164,9 @@ export default function MessageHistory({
                 </div>
 
                 <div
-                  className={cn('flex items-center gap-1 text-[10px] text-slate-400 px-1', isMe ? 'justify-end' : 'justify-start')}
+                  className={`flex items-center gap-1 text-[10px] text-slate-400 px-1 ${
+                    isMe ? 'justify-end' : 'justify-start'
+                  }`}
                 >
                   <span>{msg.time}</span>
                   {isMe && <CheckCheck className="h-3 w-3 text-emerald-500" />}

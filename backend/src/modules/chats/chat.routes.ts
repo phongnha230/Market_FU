@@ -17,24 +17,10 @@ router.get('/conversations', chatController.getUserConversations);
 // 3. Lấy lịch sử tin nhắn của cuộc trò chuyện
 router.get('/conversations/:id/messages', chatController.getMessages);
 
-// 4. Gửi tin nhắn mới (hỗ trợ đính kèm ảnh qua field 'image' hoặc 'file')
-const chatUploadHandler = (req: any, res: any, next: any) => {
-  uploadImage.fields([
-    { name: 'image', maxCount: 1 },
-    { name: 'file', maxCount: 1 },
-  ])(req, res, (err: any) => {
-    if (err) return next(err);
-    if (req.files) {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      req.file = files['image']?.[0] || files['file']?.[0];
-    }
-    next();
-  });
-};
-
+// 4. Gửi tin nhắn mới (hỗ trợ đính kèm ảnh)
 router.post(
   '/conversations/:id/messages',
-  chatUploadHandler,
+  uploadImage.single('image'),
   chatController.sendMessage
 );
 

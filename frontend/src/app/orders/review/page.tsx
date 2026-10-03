@@ -26,7 +26,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AvatarFallback, Progress } from '@/components/ui';
-import { cn } from '@/lib/utils';
 
 function ReviewContent() {
   const router = useRouter();
@@ -91,8 +90,8 @@ function ReviewContent() {
         router.push('/orders');
       }, 1200);
     } catch (err: any) {
-      const errorCode = err?.code || err?.response?.data?.errorCode;
-      const message = err?.message || err?.response?.data?.message || 'Có lỗi xảy ra khi gửi đánh giá!';
+      const errorCode = err?.response?.data?.errorCode;
+      const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi đánh giá!';
       if (errorCode === 'ALREADY_REVIEWED') {
         markOrderReviewed(orderCode);
         showToast('ℹ️ Bạn đã gửi đánh giá cho đơn hàng này rồi.');
@@ -333,12 +332,11 @@ function ReviewContent() {
                         className="p-1 hover:scale-110 transition cursor-pointer"
                       >
                         <Star
-                          className={cn(
-                            'h-8 w-8 sm:h-9 sm:w-9',
+                          className={`h-8 w-8 sm:h-9 sm:w-9 ${
                             star <= rating
                               ? 'text-fpt-orange fill-fpt-orange'
                               : 'text-slate-300'
-                          )}
+                          }`}
                         />
                       </button>
                     ))}
@@ -359,12 +357,11 @@ function ReviewContent() {
                           key={tag.id}
                           type="button"
                           onClick={() => handleToggleTag(tag.id)}
-                          className={cn(
-                            'h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5',
+                          className={`h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                             isSelected
                               ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange/90'
                               : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 shadow-none'
-                          )}
+                          }`}
                         >
                           <span>{isSelected ? '✓' : '+'}</span>
                           <span>{tag.label}</span>
@@ -488,16 +485,14 @@ function ReviewContent() {
                     <button
                       type="button"
                       onClick={() => setIsAnonymous(!isAnonymous)}
-                      className={cn(
-                        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                         isAnonymous ? 'bg-fpt-orange' : 'bg-slate-300'
-                      )}
+                      }`}
                     >
                       <span
-                        className={cn(
-                          'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                           isAnonymous ? 'translate-x-5' : 'translate-x-0'
-                        )}
+                        }`}
                       />
                     </button>
                   </div>

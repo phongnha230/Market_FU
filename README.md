@@ -169,9 +169,7 @@ fu-student-secondhand-market/
 
 ---
 
-## 5. CƠ CHẾ XÁC THỰC DANH TÍNH & QUY CHẾ PHÂN QUYỀN BÁN HÀNG (STRICT SELLER POLICY)
-
-Nhằm loại bỏ triệt để tình trạng lừa đảo cọc, hàng giả mạo và bảo vệ an toàn tuyệt đối cho sinh viên 5 Campus, hệ thống áp dụng cơ chế phân quyền nghiêm ngặt: **Sinh viên thông thường chỉ có quyền MUA, tuyệt đối KHÔNG ĐƯỢC BÁN khi chưa hoàn tất hồ sơ Seller Onboarding**.
+## 5. CƠ CHẾ XÁC THỰC THẺ SINH VIÊN & PHÂN TẦNG NGƯỜI BÁN
 
 ```text
                ┌──────────────────────────────────────────────────┐
@@ -181,47 +179,23 @@ Nhằm loại bỏ triệt để tình trạng lừa đảo cọc, hàng giả m
                                         │
                     ┌───────────────────┴───────────────────┐
                     ▼                                       ▼
-        [CẤP 1: TÀI KHOẢN VÃNG LAI]           [CẤP 2: SINH VIÊN XÁC THỰC (BUYER)]
-        (Role: UNVERIFIED)                    (Role: BUYER - Đã nộp Thẻ Sinh Viên)
+         [CẤP 1: TÀI KHOẢN THƯỜNG]                [CẤP 2: SINH VIÊN XÁC THỰC]
+         (Chưa nộp Thẻ sinh viên)                 (Đã tải ảnh Thẻ SV & Admin/Mod duyệt)
                     │                                       │
-        - Xem danh sách sản phẩm              ┌─────────────┴─────────────┐
-        - Không được chat P2P                 ▼                           ▼
-        - Không được đặt mua             QUYỀN MUA HÀNG:             QUYỀN BÁN HÀNG:
-        - Không được bán                 - Nhắn tin P2P              ⛔ BỊ KHÓA HOÀN TOÀN
-                                         - Đặt mua Escrow 48h        - Không được vào /create-post
-                                         - Quét QR Safe-Handoff      - Không có tab Đơn bán
-                                         - Đánh giá nhận Xu (+200)   (Muốn bán phải sang Cấp 3)
-                                                                          │
-                                                                          ▼
-                                                         [CẤP 3: NGƯỜI BÁN XÁC THỰC (SELLER)]
-                                                         (Role: SELLER / ADMIN)
-                                                         - Điều kiện: Nộp Thẻ SV + CCCD 2 mặt
-                                                           + STK ngân hàng chính chủ nhận tiền
-                                                         - Được Ban Quản Trị thẩm định duyệt
-                                                                          │
-                                                         ┌────────────────┴────────────────┐
-                                                         ▼                                 ▼
-                                                    QUYỀN BÁN HÀNG:                  QUẢN LÝ ĐƠN HÀNG:
-                                                    - Mở khóa /create-post           - Tab "Đơn bán cần gửi"
-                                                    - Đăng bài bằng AI Vision        - Nhận tiền bảo chứng Escrow
-                                                    - Đăng bài thủ công 5 bước       - Đóng gói chuẩn FPT KTX
-                                                    - Huy hiệu Seller Uy Tín         - Xuất mã vận đơn GHN/GHTK
+     ┌──────────────┴──────────────┐                        │
+     ▼                             ▼                        │
+Mua/Xem hàng:                 Đăng bán:                     │
+Không giới hạn           - Tối đa 2-3 tin/tháng             │
+                         - Giới hạn giá trị (< 500k)        │
+                         - Cảnh báo: "Chưa xác minh"        │
+                                                            ▼
+                                                       Đăng bán:
+                                                       - Đăng bài không giới hạn
+                                                       - Tích xanh "Sinh viên FPT - MSSV: [Mã]"
+                                                       - Ưu tiên hiển thị trên bảng tin
 ```
 
-### Bảng so sánh quyền hạn chi tiết giữa các cấp tài khoản:
-
-| Tính năng / Quyền hạn | Chưa xác thực (`UNVERIFIED`) | Sinh viên mua (`BUYER`) | Người bán duyệt (`SELLER`) |
-| :--- | :---: | :---: | :---: |
-| **Xem bảng tin, tìm kiếm Meilisearch** | ✅ Có | ✅ Có | ✅ Có |
-| **Nhắn tin trao đổi P2P & trả giá** | ❌ Chặn | ✅ Có | ✅ Có |
-| **Đặt hàng Escrow & Safe-Handoff** | ❌ Chặn | ✅ Có | ✅ Có |
-| **Đăng bài bán đồ (`/create-post`)** | ❌ **Cấm tuyệt đối** | ❌ **Cấm (Bắt buộc nâng cấp)** | ✅ **Không giới hạn** |
-| **Quản lý đơn bán cần gửi (`/orders`)** | ❌ Bị khóa | ❌ Bị khóa (Hiện form KYC) | ✅ **Mở toàn quyền** |
-| **Nhận tiền giải ngân từ Quỹ Escrow** | ❌ Không | ❌ Không | ✅ **Về STK chính chủ** |
-| **Tạo vận đơn GHN liên campus** | ❌ Không | ❌ Không | ✅ **Tự động sinh mã** |
-
 ---
-
 
 ## 6. ĐẶC TẢ DANH MỤC SẢN PHẨM CỐT LÕI
 
@@ -234,30 +208,21 @@ Nhằm loại bỏ triệt để tình trạng lừa đảo cọc, hàng giả m
 
 ---
 
-## 7. QUY TRÌNH ĐĂNG BÁN ĐỒ (DÀNH RIÊNG CHO VERIFIED SELLER)
-
-> **Lưu ý quan trọng**: Chỉ tài khoản có vai trò **`SELLER`** (hoặc `ADMIN`) mới có quyền truy cập trang `/create-post`. Nếu tài khoản sinh viên thông thường (`BUYER`) truy cập, hệ thống tự động kích hoạt **Màn hình khóa bảo vệ (Non-Seller Guard)** kèm modal hướng dẫn nộp hồ sơ nâng cấp Người Bán.
+## 7. QUY TRÌNH ĐĂNG BÁN ĐỒ (AI QUICK POST & 5 BƯỚC ĐĂNG CHUẨN)
 
 ```text
                                   BẤM NÚT "+" ĐĂNG BÀI
                                            │
-                     ┌─────────────────────┴─────────────────────┐
-                     ▼                                           ▼
-       [TÀI KHOẢN SINH VIÊN (BUYER)]                 [TÀI KHOẢN NGƯỜI BÁN (SELLER)]
-       - Bị chặn bởi Non-Seller Guard                - Mở form đăng bài đầy đủ
-       - Bấm: "Đăng ký mở Seller ngay"               - Lựa chọn 1 trong 2 phương thức:
-       - Nộp Thẻ SV + CCCD + STK Ngân hàng                        │
-       - Chờ BQT duyệt cấp quyền SELLER              ┌────────────┴────────────┐
-                                                     ▼                         ▼
-                                       [CÁCH 1: AI QUICK POST]    [CÁCH 2: FORM 5 BƯỚC]
-                                       - Tải 1 ảnh sản phẩm       - Tự điền chi tiết
-                                       - Gemini Vision tự động    - Chọn Safe-Point campus
-                                         điền form trong 3s       - Bật Ship GHN liên cơ sở
-                                       - Người bán bấm ĐĂNG       - Duyệt qua AI lọc từ cấm
+         ┌─────────────────────────────────┴─────────────────────────────────┐
+         ▼                                                                   ▼
+ [CÁCH 1: ĐĂNG SIÊU TỐC BẰNG AI (10 GIÂY)]                       [CÁCH 2: ĐĂNG THỦ CÔNG CHI TIẾT]
+ - Chụp 1 ảnh (Quạt, Nồi cơm, Sách, Bàn...)                      - Người bán tự điền Form 5 bước
+ - AI Vision tự đọc & nhận diện món đồ                           - Tuỳ chỉnh chi tiết theo ý muốn
+ - AI tự điền: Tiêu đề, Danh mục, Giá gợi ý, Mô tả
+ - Người bán chỉ cần bấm: "XÁC NHẬN ĐĂNG"
 ```
 
 ---
-
 
 ## 8. PHÂN HỆ TIN NHẮN THỜI GIAN THỰC & PHÍM TẮT MUA BÁN (P2P CHAT)
 

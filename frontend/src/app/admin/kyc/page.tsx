@@ -3,12 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
-import dynamic from 'next/dynamic';
 import { useKycStore, KycApplication, KycType, KycStatus } from '@/stores/kycStore';
-import { cn } from '@/lib/utils';
-
-const KycRejectModal = dynamic(() => import('@/components/admin/kyc/KycRejectModal'), { ssr: false });
-const KycLightboxModal = dynamic(() => import('@/components/admin/kyc/KycLightboxModal'), { ssr: false });
 import { useUserStore } from '@/stores/userStore';
 import {
   ShieldCheck,
@@ -33,7 +28,6 @@ import {
   ExternalLink,
   Loader2,
   Sparkles,
-  X,
 } from 'lucide-react';
 
 function AdminUserAvatar({
@@ -69,10 +63,7 @@ function AdminUserAvatar({
   if (!src || error) {
     return (
       <div
-        className={cn(
-          'relative rounded-full flex items-center justify-center font-black bg-gradient-to-br from-orange-400 to-amber-500 text-white shrink-0 shadow-2xs select-none',
-          sizeClasses
-        )}
+        className={`relative ${sizeClasses} rounded-full flex items-center justify-center font-black bg-gradient-to-br from-orange-400 to-amber-500 text-white shrink-0 shadow-2xs select-none`}
       >
         {initials}
       </div>
@@ -81,16 +72,11 @@ function AdminUserAvatar({
 
   return (
     <div
-      className={cn(
-        'relative rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs',
-        sizeClasses
-      )}
+      className={`relative ${sizeClasses} rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs`}
     >
       <img
         src={src}
         alt={name}
-        loading="lazy"
-        decoding="async"
         className="w-full h-full object-cover"
         onError={() => setError(true)}
       />
@@ -119,9 +105,7 @@ function CardImagePreview({
         <img
           src={src}
           alt={alt}
-          loading="lazy"
-          decoding="async"
-          className={cn('w-full h-full object-cover', onClick && 'cursor-zoom-in hover:opacity-90 transition')}
+          className={`w-full h-full object-cover ${onClick ? 'cursor-zoom-in hover:opacity-90 transition' : ''}`}
           onError={() => setError(true)}
           onClick={() => onClick?.(src)}
         />
@@ -234,17 +218,8 @@ export default function AdminKycPage() {
 
   const [selectedId, setSelectedId] = useState<string>(filteredApps[0]?.id || applications[0]?.id || '');
 
-  const handleSelectApp = (appId: string) => {
-    setSelectedId(appId);
-    if (typeof window !== 'undefined' && window.innerWidth < 1280) {
-      setTimeout(() => {
-        document.getElementById('admin-kyc-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 60);
-    }
-  };
-
-  // Keep selected app in sync (prefer current filtered list so approval auto-advances to next pending item)
-  const currentApp = filteredApps.find((a) => a.id === selectedId) || filteredApps[0] || applications.find((a) => a.id === selectedId) || applications[0];
+  // Keep selected app in sync
+  const currentApp = applications.find((a) => a.id === selectedId) || filteredApps[0] || applications[0];
 
   // Stats
   const totalPendingStudent = applications.filter((a) => a.type === 'student' && a.status === 'pending').length;
@@ -253,11 +228,10 @@ export default function AdminKycPage() {
 
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectTargetApp, setRejectTargetApp] = useState<KycApplication | null>(null);
+  const [rejectReason, setRejectReason] = useState('Ảnh chụp thẻ bị mờ hoặc lóa sáng, không đọc rõ mã số SV');
+  const [rejectNote, setRejectNote] = useState('');
 
   const handleApprove = async (app: KycApplication) => {
-    const remaining = filteredApps.filter((a) => a.id !== app.id);
-    const nextApp = remaining[0];
-
     await approveApplication(app.id, 'SuperAdmin BQT');
     if (user.studentId === app.studentId || user.email === app.email) {
       setKycStatus(app.type === 'seller' ? 'approved_seller' : 'approved_student', app.type, app.id);
@@ -271,26 +245,31 @@ export default function AdminKycPage() {
         app.type === 'seller' ? 'Verified Seller' : 'Sinh viên FPT'
       } cho ${app.fullName} (${app.studentId})!`
     );
-
-    if (nextApp) {
-      setSelectedId(nextApp.id);
-    }
   };
 
   const openRejectModal = (app: KycApplication) => {
     setRejectTargetApp(app);
+    setRejectReason('Ảnh chụp thẻ bị mờ hoặc lóa sáng, không đọc rõ mã số SV');
+    setRejectNote('Vui lòng chụp lại ảnh thẻ góc thẳng, đủ ánh sáng và thấy rõ mã số sinh viên để BQT kiểm tra.');
     setIsRejectModalOpen(true);
   };
 
+  const confirmReject = async () => {
+    if (!rejectTargetApp) return;
+    const finalReason = rejectNote.trim() ? `${rejectReason}. Ghi chú: ${rejectNote.trim()}` : rejectReason;
+    await rejectApplication(rejectTargetApp.id, finalReason);
+    if (user.studentId === rejectTargetApp.studentId || user.email === rejectTargetApp.email) {
+      setKycStatus('rejected', rejectTargetApp.type, rejectTargetApp.id, finalReason);
+    }
+    showToast(`❌ Đã từ chối và gửi email/thông báo kèm lý do tới ${rejectTargetApp.fullName} (${rejectTargetApp.email}).`);
+    setIsRejectModalOpen(false);
+    setRejectTargetApp(null);
+  };
+
   const handleRequestReupload = (app: KycApplication) => {
-    const remaining = filteredApps.filter((a) => a.id !== app.id);
-    const nextApp = remaining[0];
     const reason = 'Ảnh chụp thẻ bị mờ hoặc lóa đèn, vui lòng chụp lại góc thẳng rõ mã vạch';
     requestReupload(app.id, reason);
     showToast(`📸 Đã gửi yêu cầu chụp lại ảnh thẻ cho sinh viên ${app.fullName}.`);
-    if (nextApp) {
-      setSelectedId(nextApp.id);
-    }
   };
 
   return (
@@ -379,7 +358,7 @@ export default function AdminKycPage() {
         {/* 2 MỤC XÉT DUYỆT RIÊNG BIỆT: SELLER VS SINH VIÊN */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Primary 2-Mode Tabs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-2xs w-full sm:w-auto">
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
             <button
               type="button"
               onClick={() => {
@@ -387,20 +366,18 @@ export default function AdminKycPage() {
                 const first = applications.find((a) => a.type === 'student');
                 if (first) setSelectedId(first.id);
               }}
-              className={cn(
-                'flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer',
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
                 activeTypeTab === 'student'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               <GraduationCap className="h-4 w-4" />
               <span>1. Xét duyệt Sinh viên (Người mua)</span>
               <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   activeTypeTab === 'student' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
-                )}
+                }`}
               >
                 {applications.filter((a) => a.type === 'student').length}
               </span>
@@ -413,20 +390,18 @@ export default function AdminKycPage() {
                 const first = applications.find((a) => a.type === 'seller');
                 if (first) setSelectedId(first.id);
               }}
-              className={cn(
-                'flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer',
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition cursor-pointer ${
                 activeTypeTab === 'seller'
                   ? 'bg-fpt-orange text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               <Store className="h-4 w-4" />
               <span>2. Xét duyệt Người bán (Seller)</span>
               <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   activeTypeTab === 'seller' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-600'
-                )}
+                }`}
               >
                 {applications.filter((a) => a.type === 'seller').length}
               </span>
@@ -445,12 +420,11 @@ export default function AdminKycPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setStatusFilter(tab.id as any)}
-                className={cn(
-                  'px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0',
+                className={`px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0 ${
                   statusFilter === tab.id
                     ? 'bg-slate-900 text-white font-extrabold'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}
+                }`}
               >
                 {tab.label}
               </button>
@@ -507,19 +481,17 @@ export default function AdminKycPage() {
                   return (
                     <div
                       key={app.id}
-                      onClick={() => handleSelectApp(app.id)}
-                      className={cn(
-                        'p-4 transition cursor-pointer hover:bg-slate-50 relative',
+                      onClick={() => setSelectedId(app.id)}
+                      className={`p-4 transition cursor-pointer hover:bg-slate-50 relative ${
                         isSelected ? (app.type === 'seller' ? 'bg-orange-50/60' : 'bg-blue-50/60') : 'bg-white'
-                      )}
+                      }`}
                     >
                       {/* Selected Left Bar */}
                       {isSelected && (
                         <span
-                          className={cn(
-                            'absolute left-0 top-0 bottom-0 w-1 rounded-r',
+                          className={`absolute left-0 top-0 bottom-0 w-1 rounded-r ${
                             app.type === 'seller' ? 'bg-fpt-orange' : 'bg-blue-600'
-                          )}
+                          }`}
                         />
                       )}
 
@@ -536,8 +508,7 @@ export default function AdminKycPage() {
                               {app.fullName}
                             </h4>
                             <span
-                              className={cn(
-                                'rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0',
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0 ${
                                 app.status === 'approved'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : app.status === 'reupload_required'
@@ -545,7 +516,7 @@ export default function AdminKycPage() {
                                   : app.status === 'rejected'
                                   ? 'bg-rose-100 text-rose-800'
                                   : 'bg-orange-100 text-fpt-orange'
-                              )}
+                              }`}
                             >
                               {app.status === 'approved'
                                 ? 'Đã duyệt ✓'
@@ -598,7 +569,7 @@ export default function AdminKycPage() {
           </div>
 
           {/* RIGHT DETAIL: REVIEW & APPROVAL PANEL (7 COLS) */}
-          <div id="admin-kyc-detail-panel" className="xl:col-span-7 rounded-3xl border border-slate-200 bg-white shadow-xs overflow-hidden flex flex-col min-h-[550px] xl:h-[740px] scroll-mt-20">
+          <div className="xl:col-span-7 rounded-3xl border border-slate-200 bg-white shadow-xs overflow-hidden flex flex-col h-[740px]">
             {currentApp ? (
               <>
                 {/* Detail Header */}
@@ -613,12 +584,11 @@ export default function AdminKycPage() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-base sm:text-lg font-black text-slate-900">{currentApp.fullName}</h3>
                         <span
-                          className={cn(
-                            'rounded-full px-2.5 py-0.5 text-[10px] font-extrabold',
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
                             currentApp.type === 'seller'
                               ? 'bg-orange-100 text-fpt-orange border border-orange-200'
                               : 'bg-blue-100 text-blue-700 border border-blue-200'
-                          )}
+                          }`}
                         >
                           {currentApp.type === 'seller' ? '🛍️ Đăng ký Seller' : '🎓 Xác thực Sinh viên'}
                         </span>
@@ -630,7 +600,7 @@ export default function AdminKycPage() {
                         <span>•</span>
                         <span>{currentApp.major}</span>
                         {currentApp.type === 'seller' && (
-                           <>
+                          <>
                             <span>•</span>
                             <span className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-[11px]">
                               Số CCCD: {currentApp.citizenId || (currentApp.ocrData?.ocrCccdNumber ? `${currentApp.ocrData.ocrCccdNumber}` : 'Chưa cung cấp')}
@@ -653,20 +623,6 @@ export default function AdminKycPage() {
                         <span>Chưa quét AI</span>
                       </span>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          window.scrollTo({ top: 350, behavior: 'smooth' });
-                        }
-                      }}
-                      className="xl:hidden p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer text-xs font-bold flex items-center gap-1"
-                      title="Lên danh sách hồ sơ"
-                    >
-                      <X className="h-4 w-4" />
-                      <span className="text-[10px]">Đóng</span>
-                    </button>
                   </div>
                 </div>
 
@@ -791,12 +747,11 @@ export default function AdminKycPage() {
                         type="button"
                         disabled={isAiScanning}
                         onClick={() => handleTriggerAiScan(currentApp)}
-                        className={cn(
-                          'inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer',
+                        className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
                           isAiScanning
                             ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                             : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
-                        )}
+                        }`}
                       >
                         {isAiScanning ? (
                           <>
@@ -911,7 +866,7 @@ export default function AdminKycPage() {
                                       <td className="px-3.5 py-2 font-mono font-bold text-indigo-900 tracking-wider">
                                         {registeredCccd || currentApp.citizenId || '—'}
                                       </td>
-                                      <td className={cn('px-3.5 py-2 text-right font-bold', isCccdMatch ? 'text-emerald-600' : 'text-rose-600')}>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isCccdMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
                                         {isCccdMatch ? '✓ Khớp 12 số' : ocrCccd ? '⚠️ Lệch số CCCD' : '— Không đọc được'}
                                       </td>
                                     </tr>
@@ -919,7 +874,7 @@ export default function AdminKycPage() {
                                       <td className="px-3.5 py-2 font-semibold text-slate-700">Họ và tên công dân</td>
                                       <td className="px-3.5 py-2 text-slate-900 font-bold">{ocrName ? ocrName.toUpperCase() : '—'}</td>
                                       <td className="px-3.5 py-2 text-slate-900 font-bold">{registeredName.toUpperCase()}</td>
-                                      <td className={cn('px-3.5 py-2 text-right font-bold', isNameMatch ? 'text-emerald-600' : 'text-rose-600')}>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isNameMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
                                         {isNameMatch ? '✓ Khớp họ tên' : ocrName ? '⚠️ Lệch họ tên' : '— Không đọc được'}
                                       </td>
                                     </tr>
@@ -933,7 +888,7 @@ export default function AdminKycPage() {
                                       <td className="px-3.5 py-2 text-slate-900 font-bold">
                                         Chủ TK: <strong className="text-indigo-900">{bankHolderName || 'Chưa cung cấp'}</strong>
                                       </td>
-                                      <td className={cn('px-3.5 py-2 text-right font-bold', isBankMatch ? 'text-emerald-600' : 'text-amber-600')}>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${isBankMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
                                         {isBankMatch ? '✓ Chính chủ tài khoản' : '⚠️ Lệch tên chủ TK'}
                                       </td>
                                     </tr>
@@ -967,7 +922,7 @@ export default function AdminKycPage() {
                                           <span className="text-emerald-700 font-bold">✓ Còn hạn sử dụng</span>
                                         )}
                                       </td>
-                                      <td className={cn('px-3.5 py-2 text-right font-bold', ocr.isExpired ? 'text-rose-600' : 'text-emerald-600')}>
+                                      <td className={`px-3.5 py-2 text-right font-bold ${ocr.isExpired ? 'text-rose-600' : 'text-emerald-600'}`}>
                                         {ocr.isExpired ? 'Hết hạn' : 'Hợp lệ'}
                                       </td>
                                     </tr>
@@ -995,7 +950,7 @@ export default function AdminKycPage() {
                                     <td className="px-3.5 py-2 font-semibold text-slate-700">Họ và tên</td>
                                     <td className="px-3.5 py-2 text-slate-600 font-medium">{ocrName.toUpperCase()}</td>
                                     <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.fullName.toUpperCase()}</td>
-                                    <td className={cn('px-3.5 py-2 text-right font-bold', isNameMatch ? 'text-emerald-600' : 'text-rose-600')}>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isNameMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
                                       {isNameMatch ? '✓ Khớp' : ocrName === '—' ? '— Không đọc được' : '⚠️ Lệch họ tên'}
                                     </td>
                                   </tr>
@@ -1003,7 +958,7 @@ export default function AdminKycPage() {
                                     <td className="px-3.5 py-2 font-semibold text-slate-700">Mã số sinh viên</td>
                                     <td className="px-3.5 py-2 font-mono text-slate-600 font-bold">{ocrId}</td>
                                     <td className="px-3.5 py-2 font-mono font-bold text-slate-900">{currentApp.studentId}</td>
-                                    <td className={cn('px-3.5 py-2 text-right font-bold', isIdMatch ? 'text-emerald-600' : 'text-rose-600')}>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isIdMatch ? 'text-emerald-600' : 'text-rose-600'}`}>
                                       {isIdMatch ? '✓ Khớp' : ocrId === '—' ? '— Không đọc được' : '⚠️ Lệch MSSV'}
                                     </td>
                                   </tr>
@@ -1017,7 +972,7 @@ export default function AdminKycPage() {
                                     <td className="px-3.5 py-2 font-semibold text-slate-700">Cơ sở Campus</td>
                                     <td className="px-3.5 py-2 text-slate-700 font-semibold">{ocrCampus}</td>
                                     <td className="px-3.5 py-2 text-slate-900 font-bold">{currentApp.campus}</td>
-                                    <td className={cn('px-3.5 py-2 text-right font-bold', isCampusMatch ? 'text-emerald-600' : ocrCampus === '—' ? 'text-slate-400' : 'text-amber-600')}>
+                                    <td className={`px-3.5 py-2 text-right font-bold ${isCampusMatch ? 'text-emerald-600' : ocrCampus === '—' ? 'text-slate-400' : 'text-amber-600'}`}>
                                       {isCampusMatch ? '✓ Đúng cơ sở' : ocrCampus === '—' ? '— N/A' : '⚠️ Khác cơ sở'}
                                     </td>
                                   </tr>
@@ -1093,16 +1048,10 @@ export default function AdminKycPage() {
                               : 'Đánh giá AI Vision & Chống Gian Lận Thẻ Học Đường'}
                           </span>
                         </div>
-                        <span
-                          className={cn(
-                            'rounded-full text-white text-[10px] font-extrabold px-2.5 py-0.5',
-                            (currentApp.aiMatchScore || 0) >= 80
-                              ? 'bg-emerald-600'
-                              : (currentApp.aiMatchScore || 0) >= 50
-                              ? 'bg-amber-500'
-                              : 'bg-rose-500'
-                          )}
-                        >
+                        <span className={`rounded-full text-white text-[10px] font-extrabold px-2.5 py-0.5 ${
+                          (currentApp.aiMatchScore || 0) >= 80 ? 'bg-emerald-600' :
+                          (currentApp.aiMatchScore || 0) >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                        }`}>
                           Độ tin cậy: {currentApp.aiMatchScore || 0}%
                         </span>
                       </div>
@@ -1210,30 +1159,96 @@ export default function AdminKycPage() {
       </div>
 
       {/* Rejection / Reason & Note Modal */}
-      <KycRejectModal
-        isOpen={isRejectModalOpen}
-        app={rejectTargetApp}
-        onClose={() => {
-          setIsRejectModalOpen(false);
-          setRejectTargetApp(null);
-        }}
-        onConfirm={async (reason, note) => {
-          if (!rejectTargetApp) return;
-          const remaining = filteredApps.filter((a) => a.id !== rejectTargetApp.id);
-          const nextApp = remaining[0];
-          const finalReason = note.trim() ? `${reason}. Ghi chú: ${note.trim()}` : reason;
-          await rejectApplication(rejectTargetApp.id, finalReason);
-          if (user.studentId === rejectTargetApp.studentId || user.email === rejectTargetApp.email) {
-            setKycStatus('rejected', rejectTargetApp.type, rejectTargetApp.id, finalReason);
-          }
-          showToast(`❌ Đã từ chối và gửi email/thông báo kèm lý do tới ${rejectTargetApp.fullName} (${rejectTargetApp.email}).`);
-          setIsRejectModalOpen(false);
-          setRejectTargetApp(null);
-          if (nextApp) {
-            setSelectedId(nextApp.id);
-          }
-        }}
-      />
+      {isRejectModalOpen && rejectTargetApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Từ chối thẩm định & Báo cáo lý do</h3>
+                  <p className="text-xs text-slate-500">
+                    Sinh viên: <strong>{rejectTargetApp.fullName}</strong> ({rejectTargetApp.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-700 block">
+                Chọn lý do phổ biến (Gửi qua email & thông báo in-app):
+              </label>
+              <div className="space-y-1.5">
+                {[
+                  'Ảnh chụp thẻ bị mờ hoặc lóa sáng, không đọc rõ mã số SV',
+                  'Mã số sinh viên (MSSV) trên thẻ không khớp với thông tin đăng ký',
+                  'Thẻ sinh viên đã hết hạn hoặc không thuộc hệ đào tạo FPT University',
+                  'Cần bổ sung rõ nét cả 2 mặt trước và mặt sau của thẻ sinh viên',
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setRejectReason(item)}
+                    className={`w-full text-left p-2.5 rounded-xl border text-xs transition cursor-pointer flex items-center justify-between ${
+                      rejectReason === item
+                        ? 'border-rose-500 bg-rose-50/60 font-bold text-rose-900'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span>{item}</span>
+                    {rejectReason === item && <Check className="h-3.5 w-3.5 text-rose-600 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Ghi chú bổ sung từ Admin (hướng dẫn sinh viên cần bổ sung gì):
+                </label>
+                <textarea
+                  value={rejectNote}
+                  onChange={(e) => setRejectNote(e.target.value)}
+                  placeholder="Ví dụ: Vui lòng chụp lại ảnh thẻ không bị bóng lóa đèn trần, để rõ góc và số thẻ..."
+                  className="w-full h-20 rounded-xl border border-slate-200 p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                />
+              </div>
+
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-800 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                <span>
+                  Hệ thống sẽ tự động gửi email báo cáo chi tiết đến <strong>{rejectTargetApp.email}</strong> và gửi thông báo Notification trên ứng dụng để sinh viên biết và bổ sung lại hồ sơ.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 text-xs font-black text-white hover:bg-rose-700 transition cursor-pointer shadow-sm active:scale-95"
+              >
+                Xác nhận từ chối & Gửi thông báo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toastMsg && (
@@ -1242,12 +1257,29 @@ export default function AdminKycPage() {
           <span>{toastMsg}</span>
         </div>
       )}
-
       {/* Image Lightbox / Zoom Overlay */}
-      <KycLightboxModal
-        imageUrl={lightboxUrl}
-        onClose={() => setLightboxUrl(null)}
-      />
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out animate-in fade-in duration-150"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+            <img
+              src={lightboxUrl}
+              alt="Phóng to ảnh thẻ"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border-2 border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white text-lg hover:bg-black/80 transition cursor-pointer shadow-lg"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </AdminLayoutShell>
   );
 }

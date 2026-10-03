@@ -164,34 +164,31 @@ export default function Navbar({
           <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 text-sm font-semibold whitespace-nowrap">
             <Link
               href="/"
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl transition-all',
+              className={`px-3.5 py-1.5 rounded-xl transition-all ${
                 activeTab === 'home'
                   ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               Trang chủ
             </Link>
             <Link
               href="/posts"
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl transition-all',
+              className={`px-3.5 py-1.5 rounded-xl transition-all ${
                 activeTab === 'explore'
                   ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               Khám phá
             </Link>
             <Link
               href="/vouchers"
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5',
+              className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
                 activeTab === 'vouchers'
                   ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               <span>Ưu đãi & Săn Xu</span>
               <span className="rounded-full bg-orange-100 text-fpt-orange px-1.5 py-0.2 text-[10px] font-extrabold">
@@ -200,12 +197,11 @@ export default function Navbar({
             </Link>
             <Link
               href="/favorites"
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5',
+              className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
                 activeTab === 'favorites'
                   ? 'text-fpt-orange bg-orange-50 font-bold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
+              }`}
             >
               <span>Yêu thích</span>
               {mountedFavoritesCount > 0 && (
@@ -254,12 +250,11 @@ export default function Navbar({
             asChild
             variant="ghost"
             title={`Tin nhắn (${mountedUnreadMessages} mới)`}
-            className={cn(
-              'relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer',
+            className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
               activeTab === 'chat'
                 ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            )}
+            }`}
           >
             <Link href="/chat">
               <MessageSquare className="h-4.5 w-4.5" />
@@ -312,12 +307,11 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className={cn(
-                  'flex items-center gap-2 rounded-full border p-1 pr-3 transition-all cursor-pointer',
+                className={`flex items-center gap-2 rounded-full border p-1 pr-3 transition-all cursor-pointer ${
                   isUserMenuOpen
                     ? 'border-fpt-orange bg-orange-50/70 shadow-xs ring-2 ring-orange-100'
                     : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50 shadow-2xs'
-                )}
+                }`}
               >
                 <Avatar size="sm" className="h-7 w-7 ring-1 ring-slate-200/80">
                   <AvatarImage src={userData.avatarUrl} alt={userData.name} />
@@ -333,10 +327,7 @@ export default function Navbar({
                     {userData.cohort || (isVerifiedStudent ? 'FPT Student' : 'Chưa xác thực SV')}
                   </span>
                 </div>
-                <ChevronDown className={cn(
-                  'h-3.5 w-3.5 text-slate-400 transition-transform duration-200',
-                  isUserMenuOpen && 'rotate-180 text-fpt-orange'
-                )} />
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180 text-fpt-orange' : ''}`} />
               </button>
 
               {/* Dropdown Menu Card */}

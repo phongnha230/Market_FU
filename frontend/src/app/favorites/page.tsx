@@ -21,7 +21,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
-import { cn } from '@/lib/utils';
 
 export default function FavoritesPage() {
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
@@ -291,24 +290,22 @@ export default function FavoritesPage() {
                 <button
                   type="button"
                   onClick={() => setCurrentPage(1)}
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition cursor-pointer',
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition cursor-pointer ${
                     currentPage === 1
                       ? 'bg-fpt-orange text-white shadow-xs'
                       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  )}
+                  }`}
                 >
                   1
                 </button>
                 <button
                   type="button"
                   onClick={() => setCurrentPage(2)}
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition cursor-pointer',
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition cursor-pointer ${
                     currentPage === 2
                       ? 'bg-fpt-orange text-white shadow-xs'
                       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  )}
+                  }`}
                 >
                   2
                 </button>

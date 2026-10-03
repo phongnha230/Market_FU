@@ -15,7 +15,6 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export interface RegisterData {
   fullName: string;
@@ -189,19 +188,13 @@ export default function RegisterForm({
                 placeholder="HE172819"
                 required
                 maxLength={10}
-                className={cn(
-                  'w-full rounded-xl border bg-white p-2.5 pl-9 text-xs sm:text-sm font-mono font-bold text-slate-800 uppercase outline-none transition',
+                className={`w-full rounded-xl border bg-white p-2.5 pl-9 text-xs sm:text-sm font-mono font-bold text-slate-800 uppercase outline-none transition ${
                   isStudentIdError
                     ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500 ring-2 ring-rose-200'
                     : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                )}
+                }`}
               />
-              <GraduationCap
-                className={cn(
-                  'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4',
-                  isStudentIdError ? 'text-rose-500' : 'text-slate-400'
-                )}
-              />
+              <GraduationCap className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isStudentIdError ? 'text-rose-500' : 'text-slate-400'}`} />
             </div>
             {isStudentIdError ? (
               <p className="text-[11px] text-rose-600 font-semibold mt-1">
@@ -259,12 +252,11 @@ export default function RegisterForm({
                 }}
                 placeholder="anv.se17@fe.edu.vn hoặc gmail..."
                 required
-                className={cn(
-                  'w-full rounded-xl border bg-white p-2.5 pr-8 text-xs sm:text-sm text-slate-800 outline-none transition',
+                className={`w-full rounded-xl border bg-white p-2.5 pr-8 text-xs sm:text-sm text-slate-800 outline-none transition ${
                   isEmailError
                     ? 'border-rose-400 bg-rose-50/40 focus:border-rose-500 ring-2 ring-rose-200'
                     : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                )}
+                }`}
               />
               {isValidEmail && !isEmailError && (
                 <CheckCircle2 className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
@@ -332,12 +324,11 @@ export default function RegisterForm({
             </span>
             {password.length > 0 && (
               <span
-                className={cn(
-                  'text-[11px] font-extrabold px-2 py-0.5 rounded-full',
+                className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
                   isStrongPassword
                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
                     : 'bg-rose-100 text-rose-700 border border-rose-300'
-                )}
+                }`}
               >
                 {isStrongPassword ? '✓ Đạt chuẩn' : '⚠ Chưa đủ điều kiện'}
               </span>
@@ -346,92 +337,84 @@ export default function RegisterForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
             <div
-              className={cn(
-                'flex items-center gap-1.5',
+              className={`flex items-center gap-1.5 ${
                 hasMinLen
                   ? 'text-emerald-700 font-semibold'
                   : password.length > 0
                   ? 'text-rose-600 font-medium'
                   : 'text-slate-500'
-              )}
+              }`}
             >
               {hasMinLen ? (
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               ) : (
                 <AlertCircle
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0',
+                  className={`h-3.5 w-3.5 shrink-0 ${
                     password.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                  )}
+                  }`}
                 />
               )}
               <span>Tối thiểu 8 ký tự</span>
             </div>
 
             <div
-              className={cn(
-                'flex items-center gap-1.5',
+              className={`flex items-center gap-1.5 ${
                 hasUpper
                   ? 'text-emerald-700 font-semibold'
                   : password.length > 0
                   ? 'text-rose-600 font-medium'
                   : 'text-slate-500'
-              )}
+              }`}
             >
               {hasUpper ? (
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               ) : (
                 <AlertCircle
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0',
+                  className={`h-3.5 w-3.5 shrink-0 ${
                     password.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                  )}
+                  }`}
                 />
               )}
               <span>Ít nhất 1 chữ in hoa (A-Z)</span>
             </div>
 
             <div
-              className={cn(
-                'flex items-center gap-1.5',
+              className={`flex items-center gap-1.5 ${
                 hasNumber
                   ? 'text-emerald-700 font-semibold'
                   : password.length > 0
                   ? 'text-rose-600 font-medium'
                   : 'text-slate-500'
-              )}
+              }`}
             >
               {hasNumber ? (
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               ) : (
                 <AlertCircle
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0',
+                  className={`h-3.5 w-3.5 shrink-0 ${
                     password.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                  )}
+                  }`}
                 />
               )}
               <span>Ít nhất 1 chữ số (0-9)</span>
             </div>
 
             <div
-              className={cn(
-                'flex items-center gap-1.5',
+              className={`flex items-center gap-1.5 ${
                 hasSpecial
                   ? 'text-emerald-700 font-semibold'
                   : password.length > 0
                   ? 'text-rose-600 font-medium'
                   : 'text-slate-500'
-              )}
+              }`}
             >
               {hasSpecial ? (
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
               ) : (
                 <AlertCircle
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0',
+                  className={`h-3.5 w-3.5 shrink-0 ${
                     password.length > 0 ? 'text-rose-500' : 'text-slate-400'
-                  )}
+                  }`}
                 />
               )}
               <span>1 ký tự đặc biệt (!@#$%^...)</span>
@@ -488,12 +471,11 @@ export default function RegisterForm({
                 placeholder="Nhập 5 ký tự..."
                 maxLength={5}
                 required
-                className={cn(
-                  'w-full rounded-xl border bg-white p-2.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-slate-800 uppercase outline-none transition',
+                className={`w-full rounded-xl border bg-white p-2.5 text-xs sm:text-sm font-mono font-bold tracking-wider text-slate-800 uppercase outline-none transition ${
                   captchaError
                     ? 'border-rose-400 bg-rose-50/50 focus:border-rose-500'
                     : 'border-slate-200 focus:border-fpt-orange focus:ring-2 focus:ring-orange-100'
-                )}
+                }`}
               />
             </div>
           </div>

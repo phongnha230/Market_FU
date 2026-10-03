@@ -11,7 +11,6 @@ import {
   Sparkles,
   CheckCircle2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ProductGalleryProps {
   galleryImages: Array<{ src: string; alt: string }>;
@@ -105,12 +104,11 @@ export default function ProductGallery({
                 key={idx}
                 type="button"
                 onClick={() => onSelectImage(idx)}
-                className={cn(
-                  'group relative h-20 w-24 sm:h-24 sm:w-28 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer',
+                className={`group relative h-20 w-24 sm:h-24 sm:w-28 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
                   isActive
                     ? 'border-fpt-orange shadow-md scale-[1.02] ring-2 ring-orange-200'
                     : 'border-slate-200/80 hover:border-slate-300 opacity-75 hover:opacity-100'
-                )}
+                }`}
               >
                 <Image
                   src={thumbSrc}

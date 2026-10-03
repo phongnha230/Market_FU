@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Search, ChevronDown, ArrowUpDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface FavoriteFilterBarProps {
   searchQuery: string;
@@ -88,12 +87,11 @@ export default function FavoriteFilterBar({
             key={cat.id}
             type="button"
             onClick={() => onCategoryChange(cat.id)}
-            className={cn(
-              'rounded-full px-3.5 py-1.5 transition cursor-pointer shrink-0',
+            className={`rounded-full px-3.5 py-1.5 transition cursor-pointer shrink-0 ${
               selectedCategory === cat.id
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            )}
+            }`}
           >
             {cat.label}
           </button>

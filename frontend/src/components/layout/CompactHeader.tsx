@@ -19,7 +19,6 @@ import {
 import { useUserStore } from '@/stores/userStore';
 import { useFavoriteStore } from '@/stores/favoriteStore';
 import { useChatStore } from '@/stores/chatStore';
-import { cn } from '@/lib/utils';
 
 export interface BreadcrumbItem {
   label: string;
@@ -107,12 +106,11 @@ export default function CompactHeader({
         {/* Quick Nav Pills */}
         <Link
           href="/posts"
-          className={cn(
-            'px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0',
+          className={`px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
             activeTab === 'explore'
               ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
               : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-          )}
+          }`}
         >
           <Search className="h-3.5 w-3.5" />
           <span>Khám phá</span>
@@ -120,12 +118,11 @@ export default function CompactHeader({
 
         <Link
           href="/vouchers"
-          className={cn(
-            'px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0',
+          className={`px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
             activeTab === 'vouchers'
               ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
               : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-          )}
+          }`}
         >
           <Ticket className="h-3.5 w-3.5" />
           <span>Ưu đãi & Xu</span>
@@ -133,12 +130,11 @@ export default function CompactHeader({
 
         <Link
           href="/chat"
-          className={cn(
-            'relative px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0',
+          className={`relative px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
             activeTab === 'chat'
               ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
               : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-          )}
+          }`}
         >
           <MessageSquare className="h-3.5 w-3.5" />
           <span>Tin nhắn</span>
@@ -151,12 +147,11 @@ export default function CompactHeader({
 
         <Link
           href="/favorites"
-          className={cn(
-            'px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0',
+          className={`px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
             activeTab === 'favorites'
               ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
               : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-          )}
+          }`}
         >
           <Heart className="h-3.5 w-3.5" />
           <span>Yêu thích</span>

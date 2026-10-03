@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { FavoriteItem } from '@/stores/favoriteStore';
 import { X, Send, MapPin, Bell } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface FavoriteModalsProps {
   chattingItem: FavoriteItem | null;
@@ -62,10 +61,7 @@ export default function FavoriteModals({
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-slate-50/80">
               <div className="flex items-center gap-2.5">
                 <div
-                  className={cn(
-                    'h-8 w-8 rounded-full text-xs font-bold text-white flex items-center justify-center',
-                    chattingItem.seller.avatarColor
-                  )}
+                  className={`h-8 w-8 rounded-full ${chattingItem.seller.avatarColor} text-xs font-bold text-white flex items-center justify-center`}
                 >
                   {chattingItem.seller.initials}
                 </div>
@@ -186,10 +182,7 @@ export default function FavoriteModals({
 
               <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
                 <div
-                  className={cn(
-                    'h-8 w-8 rounded-full text-xs font-bold text-white flex items-center justify-center',
-                    previewItem.seller.avatarColor
-                  )}
+                  className={`h-8 w-8 rounded-full ${previewItem.seller.avatarColor} text-xs font-bold text-white flex items-center justify-center`}
                 >
                   {previewItem.seller.initials}
                 </div>

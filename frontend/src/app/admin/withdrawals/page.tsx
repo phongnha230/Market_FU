@@ -23,7 +23,6 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
-import { cn } from '@/lib/utils';
 
 interface WithdrawalItem {
   id: string;
@@ -219,7 +218,7 @@ export default function AdminWithdrawalsPage() {
             onClick={fetchWithdrawals}
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5 self-start cursor-pointer shadow-2xs"
           >
-            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Làm mới</span>
           </button>
         </div>
@@ -280,12 +279,11 @@ export default function AdminWithdrawalsPage() {
               <button
                 key={tab.key}
                 onClick={() => setFilterStatus(tab.key)}
-                className={cn(
-                  'rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer whitespace-nowrap',
+                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                   filterStatus === tab.key
                     ? 'bg-fpt-orange text-white shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100'
-                )}
+                }`}
               >
                 {tab.label}
               </button>
@@ -319,7 +317,7 @@ export default function AdminWithdrawalsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-xs">
+              <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-3.5 px-4">Sinh viên yêu cầu</th>
@@ -476,8 +474,6 @@ export default function AdminWithdrawalsPage() {
               <img
                 src={`https://img.vietqr.io/image/${encodeURIComponent(selectedForQr.bankAccount.bankName.split(' ')[0])}-${selectedForQr.bankAccount.accountNo}-compact2.png?amount=${selectedForQr.amount}&addInfo=GIAINGAN%20FU&accountName=${encodeURIComponent(selectedForQr.bankAccount.accountName)}`}
                 alt="VietQR Chuyển tiền"
-                loading="lazy"
-                decoding="async"
                 className="w-56 h-56 rounded-lg object-contain bg-white"
               />
             </div>
