@@ -4,39 +4,101 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
+interface PolicyLinkItem {
+  id: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  title: string;
+  alertTitle: string;
+  alertDesc: string;
+}
+
+const POLICY_LINKS: PolicyLinkItem[] = [
+  {
+    id: 'rules',
+    icon: 'newspaper-outline',
+    iconColor: '#0284C7',
+    title: 'Quy chế hoạt động Chợ Sinh viên',
+    alertTitle: 'Quy chế cộng đồng',
+    alertDesc: 'Nghiêm cấm buôn bán hàng cấm, vũ khí, tài liệu thi cử lộ đề, vi phạm bản quyền. Mọi giao dịch gian lận sẽ bị xử lý kỷ luật sinh viên FPT.',
+  },
+  {
+    id: 'privacy',
+    icon: 'lock-closed-outline',
+    iconColor: '#059669',
+    title: 'Chính sách bảo vệ quyền riêng tư',
+    alertTitle: 'Chính sách bảo mật',
+    alertDesc: 'Dữ liệu MSSV và thông tin cá nhân của bạn được mã hóa an toàn theo tiêu chuẩn Edu-Security của Tập đoàn FPT.',
+  },
+  {
+    id: 'escrow',
+    icon: 'shield-outline',
+    iconColor: '#EA580C',
+    title: 'Điều khoản ký quỹ an toàn Escrow',
+    alertTitle: 'Điều khoản Escrow',
+    alertDesc: 'Số tiền đặt cọc được giữ trung gian đến khi người mua nhận hàng tại Safe-Point và xác nhận trong vòng 24 giờ.',
+  },
+];
+
+const HeaderActionBtn: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  size?: number;
+  onPress: () => void;
+}> = React.memo(({ icon, size = 24, onPress }) => (
+  <TouchableOpacity
+    style={styles.backBtn}
+    onPress={onPress}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <Ionicons name={icon} size={size} color="#0F172A" />
+  </TouchableOpacity>
+));
+
+const PolicyRowItem: React.FC<{
+  item: PolicyLinkItem;
+  onPress: (item: PolicyLinkItem) => void;
+}> = React.memo(({ item, onPress }) => {
+  const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
+  return (
+    <TouchableOpacity
+      style={styles.rowItem}
+      activeOpacity={0.7}
+      onPress={handlePress}
+    >
+      <Ionicons name={item.icon} size={20} color={item.iconColor} />
+      <Text style={styles.rowTitle}>{item.title}</Text>
+      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+    </TouchableOpacity>
+  );
+});
+
 export const AboutScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
-  const openUrl = (url: string) => {
-    Linking.openURL(url).catch(() => Alert.alert('Lỗi', 'Không thể mở liên kết'));
-  };
+  const handleBack = React.useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs', { screen: 'Profile' });
+    }
+  }, [navigation]);
+
+  const handleGoHome = React.useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  }, [navigation]);
+
+  const handlePressPolicy = React.useCallback((item: PolicyLinkItem) => {
+    Alert.alert(item.alertTitle, item.alertDesc);
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Profile' });
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderActionBtn icon="arrow-back" size={24} onPress={handleBack} />
         <Text style={styles.headerTitle}>Về Market FU</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="home-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderActionBtn icon="home-outline" size={22} onPress={handleGoHome} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -67,54 +129,12 @@ export const AboutScreen: React.FC = () => {
         {/* Legal & Policy Links */}
         <Text style={styles.sectionHeader}>ĐIỀU KHOẢN & PHÁP LÝ</Text>
         <View style={styles.cardGroup}>
-          <TouchableOpacity
-            style={styles.rowItem}
-            activeOpacity={0.7}
-            onPress={() =>
-              Alert.alert(
-                'Quy chế cộng đồng',
-                'Nghiêm cấm buôn bán hàng cấm, vũ khí, tài liệu thi cử lộ đề, vi phạm bản quyền. Mọi giao dịch gian lận sẽ bị xử lý kỷ luật sinh viên FPT.'
-              )
-            }
-          >
-            <Ionicons name="newspaper-outline" size={20} color="#0284C7" />
-            <Text style={styles.rowTitle}>Quy chế hoạt động Chợ Sinh viên</Text>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.rowItem}
-            activeOpacity={0.7}
-            onPress={() =>
-              Alert.alert(
-                'Chính sách bảo mật',
-                'Dữ liệu MSSV và thông tin cá nhân của bạn được mã hóa an toàn theo tiêu chuẩn Edu-Security của Tập đoàn FPT.'
-              )
-            }
-          >
-            <Ionicons name="lock-closed-outline" size={20} color="#059669" />
-            <Text style={styles.rowTitle}>Chính sách bảo vệ quyền riêng tư</Text>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.rowItem}
-            activeOpacity={0.7}
-            onPress={() =>
-              Alert.alert(
-                'Điều khoản Escrow',
-                'Số tiền đặt cọc được giữ trung gian đến khi người mua nhận hàng tại Safe-Point và xác nhận trong vòng 24 giờ.'
-              )
-            }
-          >
-            <Ionicons name="shield-outline" size={20} color="#EA580C" />
-            <Text style={styles.rowTitle}>Điều khoản ký quỹ an toàn Escrow</Text>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-          </TouchableOpacity>
+          {POLICY_LINKS.map((item, index) => (
+            <React.Fragment key={item.id}>
+              {index > 0 && <View style={styles.divider} />}
+              <PolicyRowItem item={item} onPress={handlePressPolicy} />
+            </React.Fragment>
+          ))}
         </View>
 
         {/* Copyright */}

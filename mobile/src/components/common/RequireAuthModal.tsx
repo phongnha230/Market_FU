@@ -21,7 +21,62 @@ export interface RequireAuthModalProps {
   message?: string;
 }
 
-export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
+interface RequireAuthModalModeConfig {
+  defaultTitle: string;
+  defaultMessage: string;
+  icon: React.ReactNode;
+  iconCircleStyleKey: 'iconCircleAuth' | 'iconCircleKyc' | 'iconCircleSeller';
+  primaryBtnStyleKey: 'primaryBtnAuth' | 'primaryBtnKyc' | 'primaryBtnSeller';
+  primaryBtnText: string;
+  features: string[];
+}
+
+const MODE_CONFIGS: Record<'auth' | 'seller' | 'kyc', RequireAuthModalModeConfig> = {
+  auth: {
+    defaultTitle: 'Yêu cầu đăng nhập tài khoản',
+    defaultMessage:
+      'Chức năng này chỉ dành cho thành viên Market FU. Bạn vui lòng đăng nhập tài khoản Sinh viên FPT để trải nghiệm đầy đủ các tính năng!',
+    icon: <Ionicons name="lock-closed" size={32} color="#EA580C" />,
+    iconCircleStyleKey: 'iconCircleAuth',
+    primaryBtnStyleKey: 'primaryBtnAuth',
+    primaryBtnText: 'Đăng nhập ngay',
+    features: [
+      'Chat & Trả giá trực tiếp với người bán qua Safe-Point',
+      'Bảo vệ tiền 100% trong quỹ tạm giữ Escrow',
+      'Đổi voucher đồ ăn Canteen, Passio Coffee',
+    ],
+  },
+  seller: {
+    defaultTitle: 'Chỉ dành cho Người Bán (Seller)',
+    defaultMessage:
+      'Theo quy định chợ Market FU, chỉ tài khoản có vai trò Người Bán (Seller) mới được quyền đăng bán sản phẩm và quản lý kho hàng. Tài khoản Người Mua (Buyer) chỉ có quyền xem, trả giá và đặt mua.',
+    icon: <MaterialCommunityIcons name="storefront" size={34} color="#4338CA" />,
+    iconCircleStyleKey: 'iconCircleSeller',
+    primaryBtnStyleKey: 'primaryBtnSeller',
+    primaryBtnText: 'Xem quyền Seller',
+    features: [
+      'Quyền mở gian hàng và đăng bán đồ không giới hạn',
+      'Quản lý kho hàng, đơn đặt cọc và quỹ bảo hộ Escrow',
+      'Huy hiệu TOP SELLER uy tín toàn hệ thống 5 Campus',
+    ],
+  },
+  kyc: {
+    defaultTitle: 'Yêu cầu xác thực Sinh viên FPT',
+    defaultMessage:
+      'Theo quy định chợ Market FU, bạn cần xác thực Thẻ Sinh Viên FPT để trải nghiệm các đặc quyền Campus.',
+    icon: <Ionicons name="shield-checkmark" size={32} color="#2563EB" />,
+    iconCircleStyleKey: 'iconCircleKyc',
+    primaryBtnStyleKey: 'primaryBtnKyc',
+    primaryBtnText: 'Xác thực ngay',
+    features: [
+      'Chat & Trả giá trực tiếp với người bán qua Safe-Point',
+      'Bảo vệ tiền 100% trong quỹ tạm giữ Escrow',
+      'Đổi voucher đồ ăn Canteen, Passio Coffee',
+    ],
+  },
+};
+
+export const RequireAuthModal: React.FC<RequireAuthModalProps> = React.memo(({
   visible,
   onClose,
   onNavigateLogin,
@@ -31,20 +86,20 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
   message,
 }) => {
   const insets = useSafeAreaInsets();
+  const config = MODE_CONFIGS[mode] || MODE_CONFIGS.auth;
 
-  const isSeller = mode === 'seller';
-  const isKyc = mode === 'kyc';
-
-  let defaultTitle = 'Yêu cầu đăng nhập tài khoản';
-  let defaultMessage = 'Chức năng này chỉ dành cho thành viên Market FU. Bạn vui lòng đăng nhập tài khoản Sinh viên FPT để trải nghiệm đầy đủ các tính năng!';
-
-  if (isSeller) {
-    defaultTitle = 'Chỉ dành cho Người Bán (Seller)';
-    defaultMessage = 'Theo quy định chợ Market FU, chỉ tài khoản có vai trò Người Bán (Seller) mới được quyền đăng bán sản phẩm và quản lý kho hàng. Tài khoản Người Mua (Buyer) chỉ có quyền xem, trả giá và đặt mua.';
-  } else if (isKyc) {
-    defaultTitle = 'Yêu cầu xác thực Sinh viên FPT';
-    defaultMessage = 'Theo quy định chợ Market FU, bạn cần xác thực Thẻ Sinh Viên FPT để trải nghiệm các đặc quyền Campus.';
-  }
+  const handlePrimaryPress = () => {
+    onClose();
+    if (mode === 'seller' || mode === 'kyc') {
+      if (onNavigateKyc) {
+        onNavigateKyc();
+        return;
+      }
+    }
+    if (onNavigateLogin) {
+      onNavigateLogin();
+    }
+  };
 
   return (
     <Modal
@@ -56,55 +111,22 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        
+
         <View style={[styles.dialogCard, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
-          <View
-            style={[
-              styles.iconCircle,
-              isSeller
-                ? styles.iconCircleSeller
-                : isKyc
-                ? styles.iconCircleKyc
-                : styles.iconCircleAuth,
-            ]}
-          >
-            {isSeller ? (
-              <MaterialCommunityIcons name="storefront" size={34} color="#4338CA" />
-            ) : isKyc ? (
-              <Ionicons name="shield-checkmark" size={32} color="#2563EB" />
-            ) : (
-              <Ionicons name="lock-closed" size={32} color="#EA580C" />
-            )}
+          <View style={[styles.iconCircle, styles[config.iconCircleStyleKey]]}>
+            {config.icon}
           </View>
 
-          <Text style={styles.titleText}>{title || defaultTitle}</Text>
-          <Text style={styles.messageText}>{message || defaultMessage}</Text>
+          <Text style={styles.titleText}>{title || config.defaultTitle}</Text>
+          <Text style={styles.messageText}>{message || config.defaultMessage}</Text>
 
           <View style={styles.featureBox}>
-            <View style={styles.featureRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
-              <Text style={styles.featureText}>
-                {isSeller
-                  ? 'Quyền mở gian hàng và đăng bán đồ không giới hạn'
-                  : 'Chat & Trả giá trực tiếp với người bán qua Safe-Point'}
-              </Text>
-            </View>
-            <View style={[styles.featureRow, { marginTop: 6 }]}>
-              <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
-              <Text style={styles.featureText}>
-                {isSeller
-                  ? 'Quản lý kho hàng, đơn đặt cọc và quỹ bảo hộ Escrow'
-                  : 'Bảo vệ tiền 100% trong quỹ tạm giữ Escrow'}
-              </Text>
-            </View>
-            <View style={[styles.featureRow, { marginTop: 6 }]}>
-              <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
-              <Text style={styles.featureText}>
-                {isSeller
-                  ? 'Huy hiệu TOP SELLER uy tín toàn hệ thống 5 Campus'
-                  : 'Đổi voucher đồ ăn Canteen, Passio Coffee'}
-              </Text>
-            </View>
+            {config.features.map((featureText, idx) => (
+              <View key={featureText} style={[styles.featureRow, idx > 0 && { marginTop: 6 }]}>
+                <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                <Text style={styles.featureText}>{featureText}</Text>
+              </View>
+            ))}
           </View>
 
           <View style={styles.actionRow}>
@@ -117,28 +139,12 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.primaryBtn,
-                isSeller
-                  ? styles.primaryBtnSeller
-                  : isKyc
-                  ? styles.primaryBtnKyc
-                  : styles.primaryBtnAuth,
-              ]}
-              onPress={() => {
-                onClose();
-                if (isSeller && onNavigateKyc) {
-                  onNavigateKyc();
-                } else if (isKyc && onNavigateKyc) {
-                  onNavigateKyc();
-                } else if (onNavigateLogin) {
-                  onNavigateLogin();
-                }
-              }}
+              style={[styles.primaryBtn, styles[config.primaryBtnStyleKey]]}
+              onPress={handlePrimaryPress}
               activeOpacity={0.85}
             >
               <Text style={styles.primaryBtnText}>
-                {isSeller ? 'Xem quyền Seller' : isKyc ? 'Xác thực ngay' : 'Đăng nhập ngay'}
+                {config.primaryBtnText}
               </Text>
             </TouchableOpacity>
           </View>
@@ -146,7 +152,7 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = ({
       </View>
     </Modal>
   );
-};
+});
 
 export default RequireAuthModal;
 

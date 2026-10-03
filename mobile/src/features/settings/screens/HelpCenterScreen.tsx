@@ -47,6 +47,20 @@ const FAQS: FaqItem[] = [
   },
 ];
 
+const HeaderNavBtn: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  size?: number;
+  onPress: () => void;
+}> = React.memo(({ icon, size = 24, onPress }) => (
+  <TouchableOpacity
+    style={styles.backBtn}
+    onPress={onPress}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <Ionicons name={icon} size={size} color="#0F172A" />
+  </TouchableOpacity>
+));
+
 export const HelpCenterScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -66,31 +80,25 @@ export const HelpCenterScreen: React.FC = () => {
     ]);
   };
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs', { screen: 'Profile' });
+    }
+  };
+
+  const handleGoHome = () => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Profile' });
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderNavBtn icon="arrow-back" size={24} onPress={handleBack} />
         <Text style={styles.headerTitle}>Trợ giúp & Hỗ trợ SV</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="home-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderNavBtn icon="home-outline" size={22} onPress={handleGoHome} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -203,11 +211,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginTop: 14,
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    boxShadow: '0 4px 8px rgba(234, 88, 12, 0.25)',
   },
   heroTitle: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
   heroSub: { fontSize: 12, color: 'rgba(255, 255, 255, 0.9)', marginTop: 4, lineHeight: 18 },

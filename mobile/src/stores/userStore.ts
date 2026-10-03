@@ -2,8 +2,26 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { accountStorage, UserProfile, AccountRecord } from '../services/accountStorage';
+import { authMobileService } from '../services/authMobileService';
+import { useFavoriteStore } from './useFavoriteStore';
+import { useOrderStore } from './orderStore';
+import { useVoucherStore } from './voucherStore';
+import { useKycStore } from './kycStore';
+import { useWalletStore } from './walletStore';
 
 export type { UserProfile, AccountRecord };
+
+const syncUserToStores = (userId: string | null) => {
+  try {
+    useFavoriteStore.getState().setActiveUser(userId);
+    useOrderStore.getState().setActiveUser(userId);
+    useVoucherStore.getState().setActiveUser(userId);
+    useKycStore.getState().setActiveUser(userId);
+    useWalletStore.getState().setActiveUser(userId);
+  } catch (e) {
+    // Non-blocking sync error prevention
+  }
+};
 
 export type RoleSelectType = 'UNVERIFIED' | 'VERIFIED' | 'SELLER' | 'UNVERIFIED_STUDENT' | 'VERIFIED_STUDENT' | 'TOP_SELLER';
 
@@ -58,6 +76,32 @@ export const useUserStore = create<UserState>()(
       login: async (identifier: string, password?: string) => {
         try {
           set({ isLoading: true });
+
+          // 1. Thử đăng nhập trực tiếp qua Backend API trước
+          try {
+            const backendRes = await authMobileService.login({
+              email: identifier,
+              password: password || '123456',
+            });
+            if (backendRes.user && backendRes.token) {
+              set({
+                user: backendRes.user,
+                token: backendRes.token,
+                isAuthenticated: true,
+              });
+              syncUserToStores(backendRes.user.id);
+              await get().loadRegisteredAccounts();
+              return {
+                success: true,
+                message: 'Đăng nhập thành công qua Backend API!',
+                user: backendRes.user,
+              };
+            }
+          } catch (apiErr: any) {
+            console.log('⚠️ [Backend Auth API Unreachable/Offline, falling back to local accounts]:', apiErr?.message);
+          }
+
+          // 2. Fallback ngoại tuyến qua local accountStorage
           const loggedUser = await accountStorage.loginAccount(identifier, password);
           if (!loggedUser) {
             return {
@@ -71,10 +115,11 @@ export const useUserStore = create<UserState>()(
             token,
             isAuthenticated: true,
           });
+          syncUserToStores(loggedUser.id);
           await get().loadRegisteredAccounts();
           return {
             success: true,
-            message: 'Đăng nhập thành công!',
+            message: 'Đăng nhập thành công (Chế độ Local/Offline)!',
             user: loggedUser,
           };
         } catch (error: any) {
@@ -102,6 +147,7 @@ export const useUserStore = create<UserState>()(
             token,
             isAuthenticated: true,
           });
+          syncUserToStores(testUser.id);
           await get().loadRegisteredAccounts();
           return {
             success: true,
@@ -124,6 +170,48 @@ export const useUserStore = create<UserState>()(
           const effectiveName = userData.fullName || userData.name || 'Sinh viên FPT';
           const effectivePassword = userData.password || password;
 
+          // 1. Thử đăng ký trực tiếp qua Backend API
+          try {
+            const backendRes = await authMobileService.register({
+              fullName: effectiveName,
+              email: userData.email,
+              password: effectivePassword,
+              studentId: userData.studentId,
+              campus: userData.campus,
+            });
+            if (backendRes.user && backendRes.token) {
+              set({
+                user: backendRes.user,
+                token: backendRes.token,
+                isAuthenticated: true,
+              });
+              syncUserToStores(backendRes.user.id);
+              await accountStorage.registerAccount(
+                {
+                  name: effectiveName,
+                  studentId: userData.studentId,
+                  email: userData.email,
+                  campus: userData.campus,
+                  phone: userData.phone,
+                  major: userData.major,
+                  roomNumber: userData.roomNumber || userData.dormRoom,
+                  dormRoom: userData.dormRoom || userData.roomNumber,
+                  bio: userData.bio,
+                },
+                effectivePassword
+              );
+              await get().loadRegisteredAccounts();
+              return {
+                success: true,
+                message: 'Đăng ký tài khoản thành công qua Backend API!',
+                user: backendRes.user,
+              };
+            }
+          } catch (apiErr: any) {
+            console.log('⚠️ [Backend Register Unreachable, fallback local]:', apiErr?.message);
+          }
+
+          // 2. Fallback lưu trữ offline
           const newUser = await accountStorage.registerAccount(
             {
               name: effectiveName,
@@ -145,10 +233,11 @@ export const useUserStore = create<UserState>()(
             token,
             isAuthenticated: true,
           });
+          syncUserToStores(newUser.id);
           await get().loadRegisteredAccounts();
           return {
             success: true,
-            message: 'Đăng ký tài khoản thành công!',
+            message: 'Đăng ký tài khoản thành công (Offline)!',
             user: newUser,
           };
         } catch (error: any) {
@@ -177,6 +266,7 @@ export const useUserStore = create<UserState>()(
 
           // Cập nhật session hiện tại
           set({ user: updatedUser });
+          syncUserToStores(updatedUser.id);
           await get().loadRegisteredAccounts();
           return {
             success: true,
@@ -196,6 +286,9 @@ export const useUserStore = create<UserState>()(
       // Backward-compatible methods
       setAuth: (user: UserProfile, token: string) => {
         set({ user, token, isAuthenticated: !!token });
+        if (user && user.id) {
+          syncUserToStores(user.id);
+        }
       },
 
       updateUser: (partial: Partial<UserProfile>) => {
@@ -203,11 +296,14 @@ export const useUserStore = create<UserState>()(
         if (currentUser) {
           const updated = { ...currentUser, ...partial };
           set({ user: updated });
+          syncUserToStores(updated.id);
           accountStorage.updateUserAccount(currentUser.id, partial).catch(() => {});
         }
       },
 
       logout: () => {
+        authMobileService.logout().catch(() => {});
+        syncUserToStores(null);
         set({
           user: null,
           token: null,

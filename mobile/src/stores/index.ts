@@ -7,3 +7,4 @@ export * from './notificationStore';
 export * from './voucherStore';
 export * from './useCampusStore';
 export * from './useFavoriteStore';
+export * from './walletStore';

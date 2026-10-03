@@ -3,8 +3,10 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 export type MainTabsParamList = {
   Home: undefined;
   Chat: undefined;
-  PostItem: undefined;
-  MyListings: undefined;
+  PostItem?: undefined;
+  MyListings?: undefined;
+  Orders?: undefined;
+  Voucher?: undefined;
   Profile: undefined;
   Explore?: undefined;
   AiAssistant?: undefined;
@@ -34,6 +36,26 @@ export type RootStackParamList = {
 
   // New Routes
   Checkout: { product?: any; isDifferentCampus?: boolean } | undefined;
+  CheckoutSuccess:
+    | {
+        orderCode: string;
+        totalAmount: number;
+        product?: any;
+        safePoint?: string;
+        buyerName?: string;
+        handshakeOtp?: string;
+        timeSlot?: string;
+        isDifferentCampus?: boolean;
+        fromCampus?: string;
+        toCampus?: string;
+      }
+    | undefined;
+  EditListing:
+    | {
+        productId?: string;
+        product?: any;
+      }
+    | undefined;
   OrderList: undefined;
   OrderDetail:
     | {
@@ -68,4 +90,33 @@ export type RootStackParamList = {
   HelpCenter: undefined;
   About: undefined;
   Notification: undefined;
+  SellerDashboard: undefined;
+  InterCampusTransaction:
+    | {
+        orderId?: string;
+        order?: any;
+        product?: any;
+        fromCampus?: string;
+        toCampus?: string;
+      }
+    | undefined;
+  PublicSellerProfile:
+    | {
+        userId?: string;
+        sellerName?: string;
+      }
+    | undefined;
+  SafePointHubs:
+    | {
+        selectedCampus?: string;
+      }
+    | undefined;
+  CoinHistory: undefined;
+  WithdrawalHistory: undefined;
+  Explore:
+    | {
+        searchKeyword?: string;
+        category?: string;
+      }
+    | undefined;
 };

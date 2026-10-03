@@ -3,6 +3,21 @@ import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { requestNotificationPermission } from '../../../services/notificationMobileService';
+
+const HeaderNavBtn: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  size?: number;
+  onPress: () => void;
+}> = React.memo(({ icon, size = 24, onPress }) => (
+  <TouchableOpacity
+    style={styles.backBtn}
+    onPress={onPress}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <Ionicons name={icon} size={size} color="#0F172A" />
+  </TouchableOpacity>
+));
 
 export const NotificationSettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -15,6 +30,16 @@ export const NotificationSettingsScreen: React.FC = () => {
   const [voucherPromos, setVoucherPromos] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrateEnabled, setVibrateEnabled] = useState(true);
+
+  const handleToggleMasterPush = async (val: boolean) => {
+    setPushEnabled(val);
+    if (val) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        setPushEnabled(false);
+      }
+    }
+  };
 
   const renderSwitchRow = (
     icon: any,
@@ -42,31 +67,33 @@ export const NotificationSettingsScreen: React.FC = () => {
     </View>
   );
 
+  const handleBack = React.useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs', { screen: 'Profile' });
+    }
+  }, [navigation]);
+
+  const handleGoHome = React.useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Profile' });
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderNavBtn
+          icon="arrow-back"
+          size={24}
+          onPress={handleBack}
+        />
         <Text style={styles.headerTitle}>Cài đặt thông báo</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="home-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <HeaderNavBtn
+          icon="home-outline"
+          size={22}
+          onPress={handleGoHome}
+        />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -78,7 +105,7 @@ export const NotificationSettingsScreen: React.FC = () => {
           </View>
           <Switch
             value={pushEnabled}
-            onValueChange={setPushEnabled}
+            onValueChange={handleToggleMasterPush}
             thumbColor={pushEnabled ? '#F27024' : '#F1F5F9'}
             trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
           />
@@ -180,11 +207,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderWidth: 1,
     borderColor: '#FED7AA',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(234, 88, 12, 0.06)',
   },
   masterTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   masterDesc: { fontSize: 11.5, color: '#64748B', marginTop: 2 },

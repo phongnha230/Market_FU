@@ -2,41 +2,50 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
-import ProductDetailScreen from '../screens/ProductDetailScreen';
-import DisputeScreen from '../screens/DisputeScreen';
-import VoucherScreen from '../screens/VoucherScreen';
-import Onboarding1Screen from '../screens/Onboarding1Screen';
-import Onboarding2Screen from '../screens/Onboarding2Screen';
-import Onboarding3Screen from '../screens/Onboarding3Screen';
-import ContextualAuthScreen from '../screens/ContextualAuthScreen';
-import ContextualChatAuthScreen from '../screens/ContextualChatAuthScreen';
-import LoginScreen from '../screens/LoginScreen';
-import ManageListingsScreen from '../screens/ManageListingsScreen';
-import AiAssistantScreen from '../screens/AiAssistantScreen';
-import SavedItemsScreen from '../screens/SavedItemsScreen';
-
-// New Screens
-import CheckoutScreen from '../screens/CheckoutScreen';
-import OrderListScreen from '../screens/OrderListScreen';
-import OrderDetailScreen from '../screens/OrderDetailScreen';
-import ReviewScreen from '../screens/ReviewScreen';
-import ChatListScreen from '../screens/ChatListScreen';
-import ChatDetailScreen from '../screens/ChatDetailScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import AccountSettingsScreen from '../screens/AccountSettingsScreen';
-import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
-import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
-import HelpCenterScreen from '../screens/HelpCenterScreen';
-import AboutScreen from '../screens/AboutScreen';
-import NotificationScreen from '../screens/NotificationScreen';
-
+import {
+  Onboarding1Screen,
+  Onboarding2Screen,
+  Onboarding3Screen,
+  LoginScreen,
+  ManageListingsScreen,
+  SavedItemsScreen,
+  AiAssistantScreen,
+  ProductDetailScreen,
+  ContextualAuthScreen,
+  ContextualChatAuthScreen,
+  DisputeScreen,
+  VoucherScreen,
+  CheckoutScreen,
+  CheckoutSuccessScreen,
+  EditListingScreen,
+  OrderListScreen,
+  OrderDetailScreen,
+  ReviewScreen,
+  ChatListScreen,
+  ChatDetailScreen,
+  SettingsScreen,
+  AccountSettingsScreen,
+  NotificationSettingsScreen,
+  PrivacySettingsScreen,
+  HelpCenterScreen,
+  AboutScreen,
+  NotificationScreen,
+  SellerDashboardScreen,
+  InterCampusTransactionScreen,
+  PublicSellerProfileScreen,
+  SafePointHubsScreen,
+  CoinHistoryScreen,
+  WithdrawalHistoryScreen,
+  ExploreScreen,
+} from '../screens';
 import { RootStackParamList } from './types';
+import { navigationRef } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator = () => {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Onboarding1"
         screenOptions={{
@@ -68,6 +77,8 @@ export const RootNavigator = () => {
 
         {/* New Connected Screens */}
         <Stack.Screen name="Checkout" component={CheckoutScreen as any} />
+        <Stack.Screen name="CheckoutSuccess" component={CheckoutSuccessScreen as any} />
+        <Stack.Screen name="EditListing" component={EditListingScreen as any} />
         <Stack.Screen name="OrderList" component={OrderListScreen as any} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen as any} />
         <Stack.Screen name="Review" component={ReviewScreen as any} />
@@ -80,6 +91,13 @@ export const RootNavigator = () => {
         <Stack.Screen name="HelpCenter" component={HelpCenterScreen as any} />
         <Stack.Screen name="About" component={AboutScreen as any} />
         <Stack.Screen name="Notification" component={NotificationScreen as any} />
+        <Stack.Screen name="SellerDashboard" component={SellerDashboardScreen as any} />
+        <Stack.Screen name="InterCampusTransaction" component={InterCampusTransactionScreen as any} />
+        <Stack.Screen name="PublicSellerProfile" component={PublicSellerProfileScreen as any} />
+        <Stack.Screen name="SafePointHubs" component={SafePointHubsScreen as any} />
+        <Stack.Screen name="CoinHistory" component={CoinHistoryScreen as any} />
+        <Stack.Screen name="WithdrawalHistory" component={WithdrawalHistoryScreen as any} />
+        <Stack.Screen name="Explore" component={ExploreScreen as any} />
       </Stack.Navigator>
     </NavigationContainer>
   );

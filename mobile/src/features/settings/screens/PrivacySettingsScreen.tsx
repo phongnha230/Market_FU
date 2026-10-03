@@ -4,6 +4,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
+const PrivacyHeaderNavBtn: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  size?: number;
+  onPress: () => void;
+}> = React.memo(({ icon, size = 24, onPress }) => (
+  <TouchableOpacity
+    style={styles.backBtn}
+    onPress={onPress}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <Ionicons name={icon} size={size} color="#0F172A" />
+  </TouchableOpacity>
+));
+
 export const PrivacySettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -26,31 +40,33 @@ export const PrivacySettingsScreen: React.FC = () => {
     Alert.alert('Danh sách chặn', 'Hiện tại bạn chưa chặn sinh viên nào.');
   };
 
+  const handleBack = React.useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs', { screen: 'Profile' });
+    }
+  }, [navigation]);
+
+  const handleGoHome = React.useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.navigate('MainTabs', { screen: 'Profile' });
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
+        <PrivacyHeaderNavBtn
+          icon="arrow-back"
+          size={24}
+          onPress={handleBack}
+        />
         <Text style={styles.headerTitle}>Quyền riêng tư & An toàn</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="home-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <PrivacyHeaderNavBtn
+          icon="home-outline"
+          size={22}
+          onPress={handleGoHome}
+        />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
