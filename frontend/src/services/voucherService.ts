@@ -54,15 +54,15 @@ export const voucherService = {
       params,
     });
     return {
-      vouchers: response.data.data || [],
-      pagination: response.data.meta,
+      vouchers: response.data?.data || [],
+      pagination: response.data?.meta,
     };
   },
 
   // 2. Chi tiết 1 voucher
   async getVoucherById(id: string): Promise<BackendVoucher> {
     const response = await apiClient.get<ApiResponse<BackendVoucher>>(`/vouchers/${id}`);
-    return response.data.data;
+    return response.data?.data;
   },
 
   // 3. Đổi Xu lấy Voucher (Tạo bản ghi UserVoucher)

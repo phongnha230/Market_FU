@@ -52,8 +52,8 @@ export const safehandoffService = {
       params,
     });
     return {
-      hubs: res.data.data || [],
-      stats: (res.data.meta as unknown as HubStats) || { total: 0, operating: 0, maintenance: 0 },
+      hubs: res.data?.data || [],
+      stats: (res.data?.meta as unknown as HubStats) || { total: 0, operating: 0, maintenance: 0 },
     };
   },
 
@@ -62,7 +62,7 @@ export const safehandoffService = {
    */
   async getHubById(id: string): Promise<SafeHandoffHubItem> {
     const res = await apiClient.get<ApiResponse<SafeHandoffHubItem>>(`/safe-handoff/${id}`);
-    return res.data.data;
+    return res.data?.data;
   },
 
   /**

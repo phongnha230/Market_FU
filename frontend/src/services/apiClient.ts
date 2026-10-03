@@ -149,7 +149,19 @@ apiClient.interceptors.response.use(
 
 export function extractApiError(error: any): ApiError {
   if (error?.response?.data?.error) {
+    if (typeof error.response.data.error === 'string') {
+      return {
+        code: 'API_ERROR',
+        message: error.response.data.error,
+      };
+    }
     return error.response.data.error;
+  }
+  if (error?.response?.data?.message) {
+    return {
+      code: error?.response?.data?.code || 'API_ERROR',
+      message: error.response.data.message,
+    };
   }
   if (error?.message) {
     return {
