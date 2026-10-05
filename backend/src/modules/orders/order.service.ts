@@ -61,7 +61,7 @@ export class OrderService {
    * 1. Tạo đơn hàng mới (MEETUP hoặc SHIP_COD)
    */
   async createOrder(buyerId: string, input: CreateOrderInput) {
-    const { productId, orderType, coinsUsed = 0, deliveryNote, paymentMethod = 'VIETQR', shipping } = input;
+    const { productId, orderType, coinsUsed = 0, deliveryNote, paymentMethod = 'VIETQR', shipping, agreedPrice } = input;
 
     // B5-REDIS: Thu thập Distributed Lock trên sản phẩm để ngăn chặn Race Condition (2 người cùng tranh mua 1 món đồ độc bản)
     const lock = await acquireLock(`lock:product:${productId}`, 6000);
@@ -145,12 +145,39 @@ export class OrderService {
     });
     const shippingFee = shippingCalc.shippingFee;
 
+    // B3-NEGOTIATION: Kiểm tra nếu đơn hàng có áp dụng giá thương lượng (agreedPrice) được người bán chấp thuận trong Chat
+    let finalProductPrice = product.price;
+    if (agreedPrice && agreedPrice > 0 && agreedPrice < product.price) {
+      try {
+        const verifiedOffer = await prisma.message.findFirst({
+          where: {
+            conversation: {
+              productId,
+              buyerId,
+            },
+            OR: [
+              { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
+              { senderId: product.sellerId, text: { contains: '[OFFER_ACCEPTED]' } },
+              { senderId: buyerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
+            ],
+          },
+        });
+
+        if (verifiedOffer) {
+          finalProductPrice = agreedPrice;
+        }
+      } catch (checkErr) {
+        console.warn('⚠️ Lỗi kiểm tra offer trong chat, sử dụng giá agreedPrice nếu hợp lệ:', checkErr);
+        finalProductPrice = agreedPrice;
+      }
+    }
+
     // B3-10: 1 FPT Coin = 1.000 VNĐ. Task 3.3 mục 2: giảm TỐI ĐA 10% giá trị món đồ
-    const maxDiscountByRate = Math.floor(product.price * 0.1);
-    const maxCoinDiscount = Math.min(coinsUsed * 1000, maxDiscountByRate, product.price);
+    const maxDiscountByRate = Math.floor(finalProductPrice * 0.1);
+    const maxCoinDiscount = Math.min(coinsUsed * 1000, maxDiscountByRate, finalProductPrice);
     const actualCoinsUsed = Math.floor(maxCoinDiscount / 1000);
     const coinDiscount = actualCoinsUsed * 1000;
-    const totalAmount = Math.max(0, product.price + shippingFee - coinDiscount);
+    const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount);
 
     // 4. Sinh mã định danh giao dịch độc nhất
     const timestampStr = Date.now().toString().slice(-6);
@@ -262,7 +289,7 @@ export class OrderService {
           status: 'PENDING',
           warrantyHours: orderType === 'SHIP_COD' ? 48 : 24,
           payment: {
-            price: product.price,
+            price: finalProductPrice,
             shippingFee,
             coinsUsed: actualCoinsUsed,
             coinDiscount,
@@ -745,6 +772,32 @@ export class OrderService {
       ? new Date(now.getTime() + 48 * 60 * 60 * 1000) // 48 giờ vàng bao test KTX
       : order.warrantyEndsAt;
 
+    let finalPartner = input.shippingPartner || currentShipping.shippingPartner || 'GHN';
+    let finalTrackingCode = trackingCode || currentShipping.trackingCode;
+
+    // Tích hợp trực tiếp với GHN Logistics API v2 khi Seller bấm chuyển đơn sang SHIPPING
+    if (status === 'SHIPPING' && ghnService.isConfigured() && finalPartner.toUpperCase().includes('GHN')) {
+      try {
+        const ghnResult = await ghnService.createShippingOrder({
+          orderCode: order.orderCode,
+          fromCampus: order.product.campus,
+          toCampus: (currentShipping as any).destinationCampus || order.product.campus,
+          receiverName: currentShipping.receiverName,
+          receiverPhone: currentShipping.receiverPhone,
+          receiverAddress: currentShipping.shippingAddress,
+          productTitle: order.product.title,
+          codAmount: order.payment.totalAmount,
+        });
+
+        if (ghnResult?.trackingCode) {
+          finalTrackingCode = ghnResult.trackingCode;
+          console.log(`✅ [GHN API STAGING] Đã đẩy đơn hàng #${order.orderCode} sang GHN thành công! Mã vận đơn GHN: ${finalTrackingCode}`);
+        }
+      } catch (ghnErr: any) {
+        console.warn('⚠️ [GHN API] Lỗi khi gọi GHN API Staging, tiếp tục sử dụng mã vận đơn dự phòng:', ghnErr?.message || ghnErr);
+      }
+    }
+
     // B3-9: Khi DELIVERED, đồng bộ sản phẩm sang SOLD trong cùng transaction
     const updated = await prisma.$transaction(async (tx) => {
       if (isDelivered) {
@@ -764,8 +817,8 @@ export class OrderService {
             : order.payment,
           shipping: {
             ...currentShipping,
-            shippingPartner: input.shippingPartner || currentShipping.shippingPartner,
-            trackingCode: trackingCode || currentShipping.trackingCode,
+            shippingPartner: finalPartner,
+            trackingCode: finalTrackingCode,
             deliveredAt: isDelivered ? now : currentShipping.deliveredAt,
           },
         },

@@ -22,8 +22,8 @@ const startServer = async () => {
   startBlindReviewRevealCron();
   startEscrowAutoReleaseCron();
 
-  server.listen(ENV.PORT, () => {
-    console.log(`🚀 Server running on port ${ENV.PORT}`);
+  server.listen(Number(ENV.PORT), '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${ENV.PORT} (0.0.0.0)`);
   });
 };
 

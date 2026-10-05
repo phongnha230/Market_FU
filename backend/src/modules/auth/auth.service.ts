@@ -8,6 +8,7 @@ import { sendOtpEmail, sendPasswordResetOtpEmail } from '../../config/mail';
 import { generateTokens, verifyRefreshToken, RefreshTokenPayload } from '../../utils/token';
 import { AppError } from '../../middlewares/error.middleware';
 import { getCache, setCache, delCache } from '../../config/redis';
+import { logger } from '../../config/logger';
 import {
   RegisterInput,
   SendRegisterOtpInput,
@@ -488,13 +489,21 @@ export class AuthService {
           picture: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
         };
       } else {
+        const allowedAudiences = [
+          ENV.GOOGLE_CLIENT_ID,
+          ENV.GOOGLE_ANDROID_CLIENT_ID,
+          '286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com',
+          '286340231733-qgivinnpgkh481i8ghvsp021cbo53eir.apps.googleusercontent.com',
+          '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com',
+        ].filter(Boolean) as string[];
         const ticket = await googleClient.verifyIdToken({
           idToken: input.idToken,
-          audience: ENV.GOOGLE_CLIENT_ID,
+          audience: allowedAudiences,
         });
         payload = ticket.getPayload();
       }
-    } catch (err) {
+    } catch (err: any) {
+      logger.error('Google verifyIdToken failed:', err?.message || err);
       throw new AppError('Google ID Token không hợp lệ hoặc đã hết hạn', 401, 'INVALID_GOOGLE_TOKEN');
     }
 
@@ -505,8 +514,8 @@ export class AuthService {
     const email = payload.email;
     const emailLower = email.toLowerCase().trim();
     const isEduEmail = emailLower.endsWith('@fpt.edu.vn') || emailLower.endsWith('@fe.edu.vn');
-    const initialRole = isEduEmail ? 'BUYER' : 'UNVERIFIED';
-    const fullName = payload.name || 'Sinh viên FPT';
+    const initialRole = 'BUYER';
+    const fullName = payload.name || email.split('@')[0] || 'Người dùng Google';
     const avatarUrl = payload.picture || undefined;
 
     let user = await prisma.user.findUnique({

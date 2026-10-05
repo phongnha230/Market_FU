@@ -7,6 +7,7 @@ export const createOrderSchema = z
       errorMap: () => ({ message: 'orderType phải là MEETUP hoặc SHIP_COD' }),
     }),
     coinsUsed: z.coerce.number().int().min(0, 'Số xu sử dụng không được âm').default(0),
+    agreedPrice: z.coerce.number().int().positive('Giá chốt phải lớn hơn 0').optional(),
     deliveryNote: z.string().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
     paymentMethod: z.enum(['VIETQR', 'PAYOS_WEB', 'CASH']).default('VIETQR'),
     shipping: z

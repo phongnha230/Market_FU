@@ -12,10 +12,13 @@ export type BackendPaymentMethod = 'VIETQR' | 'PAYOS_WEB' | 'CASH';
 /**
  * Chuyển đổi tên Campus từ hiển thị UI sang Enum chuẩn của Backend
  */
-export const toBackendCampus = (campus?: string | null): BackendCampus => {
-  if (!campus) return 'HOL';
+export const toBackendCampus = (campus?: string | null): BackendCampus | undefined => {
+  if (!campus) return undefined;
   const c = campus.trim().toUpperCase();
 
+  if (c === 'ALL' || c.includes('TẤT CẢ') || c.includes('TAT CA') || c.includes('TOÀN QUỐC')) {
+    return undefined;
+  }
   if (c === 'HOL' || c.includes('HÒA LẠC') || c.includes('HOA LAC') || c.includes('HÀ NỘI') || c.includes('HA NOI')) {
     return 'HOL';
   }
@@ -32,7 +35,7 @@ export const toBackendCampus = (campus?: string | null): BackendCampus => {
     return 'CT';
   }
 
-  return 'HOL';
+  return undefined;
 };
 
 /**

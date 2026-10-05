@@ -22,12 +22,13 @@ const envSchema = z.object({
 
   // 3. JWT Authentication (Access Token 15m & Refresh Token xoay vòng 30d)
   JWT_SECRET: z.string().min(32, 'JWT_SECRET không được để trống và phải tối thiểu 32 ký tự'),
-  JWT_EXPIRES_IN: z.string().default('15m'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET không được để trống và phải tối thiểu 32 ký tự'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
-  // 4. Google OAuth (Đăng nhập sinh viên @fpt.edu.vn)
+  // 4. Google OAuth (Đăng nhập sinh viên @fpt.edu.vn & Mobile)
   GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_ANDROID_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
 
   // 5. Google reCAPTCHA v2 / v3 (Chống bot spam đăng ký)

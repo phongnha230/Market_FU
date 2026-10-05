@@ -230,9 +230,10 @@ export class ProductService {
     return sanitizeProductSeller(product);
   }
 
-  // 2. Danh sách sản phẩm kèm Bộ lọc đa chiều & Phân trang Skip-Limit
   async getProducts(query: QueryProductInput) {
-    const { campus, categoryId, category, categoryType: queryCatType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy, page, limit } = query as any;
+    const { campus, categoryId, category, categoryType: queryCatType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy } = query as any;
+    const page = Math.max(1, Number((query as any).page) || 1);
+    const limit = Math.max(1, Math.min(100, Number((query as any).limit) || 20));
     const skip = (page - 1) * limit;
 
     // Xác định categoryType từ categoryType, category hoặc categoryId
