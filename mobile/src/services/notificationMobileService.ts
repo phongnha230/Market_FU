@@ -1,20 +1,35 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { navigate } from '../navigation/navigationRef';
 import { useAuthStore } from '../stores/useAuthStore';
 import apiClient, { ApiResponse } from './apiClient';
 
+// Helper để load expo-notifications an toàn, tránh crash trên Expo Go Android SDK 53+
+function getNotificationsModule(): any | null {
+  try {
+    // Tránh top-level throw trên Expo Go SDK 53+
+    const mod = require('expo-notifications');
+    return mod;
+  } catch (err: any) {
+    return null;
+  }
+}
+
+const Notifications = getNotificationsModule();
+
 // Cấu hình hiển thị notification banner (Heads-up) ngay cả khi app đang mở (Foreground)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {}
+}
 
 export const NOTIFICATION_CHANNELS = {
   ORDERS: 'orders_channel',
@@ -23,43 +38,82 @@ export const NOTIFICATION_CHANNELS = {
 } as const;
 
 /**
+ * 0. Phát thông báo Heads-up trực tiếp lên thanh trạng thái / Header điện thoại
+ */
+export async function displayLocalPushNotification(params: {
+  title: string;
+  body: string;
+  data?: any;
+  channelId?: string;
+}) {
+  try {
+    const { useNotificationStore } = await import('../stores/notificationStore');
+    if (!useNotificationStore.getState().pushPermissionGranted) {
+      return; // Người dùng chưa đồng ý nhận thông báo -> Không phát
+    }
+  } catch {}
+
+  if (Notifications && typeof Notifications.scheduleNotificationAsync === 'function') {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: params.title,
+          body: params.body,
+          data: params.data || {},
+          sound: 'default',
+          priority: Notifications.AndroidNotificationPriority?.MAX ?? 'max',
+          vibrate: [0, 250, 250, 250],
+        },
+        trigger: null,
+      });
+    } catch (e: any) {
+      console.log('ℹ️ [Local Notification skipped]:', e?.message);
+    }
+  }
+}
+
+/**
  * 1. Khởi tạo Kênh thông báo Android (Notification Channels)
  * Bắt buộc từ Android 8.0 (Oreo) trở lên để thông báo hiện trên thanh Header/Status Bar
  */
 export async function setupAndroidNotificationChannels() {
-  if (Platform.OS === 'android') {
-    // Kênh 1: Đơn hàng, giao dịch Escrow, Safe-Point, GHN (Ưu tiên Cao nhất - MAX: Thò banner trên đỉnh màn hình)
-    await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.ORDERS, {
-      name: 'Đơn hàng & Giao dịch Safe-Point',
-      description: 'Thông báo đơn mua mới, tiền Escrow, hẹn gặp bàn giao tại Safe-Point',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#F27024',
-      sound: 'default',
-      enableVibrate: true,
-      showBadge: true,
-    });
+  if (Platform.OS === 'android' && Notifications && typeof Notifications.setNotificationChannelAsync === 'function') {
+    try {
+      // Kênh 1: Đơn hàng, giao dịch Escrow, Safe-Point, GHN
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.ORDERS, {
+        name: 'Đơn hàng & Giao dịch Safe-Point',
+        description: 'Thông báo đơn mua mới, tiền Escrow, hẹn gặp bàn giao tại Safe-Point',
+        importance: Notifications.AndroidImportance?.MAX ?? 5,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#F27024',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
 
-    // Kênh 2: Tin nhắn Chat chợ sinh viên (Ưu tiên HIGH: Bật popup và chuông)
-    await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.CHAT, {
-      name: 'Tin nhắn Chợ sinh viên',
-      description: 'Tin nhắn trao đổi, trả giá giáo trình và đồ dùng phòng trọ',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 200, 100, 200],
-      lightColor: '#3B82F6',
-      sound: 'default',
-      enableVibrate: true,
-      showBadge: true,
-    });
+      // Kênh 2: Tin nhắn Chat chợ sinh viên
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.CHAT, {
+        name: 'Tin nhắn Chợ sinh viên',
+        description: 'Tin nhắn trao đổi, trả giá giáo trình và đồ dùng phòng trọ',
+        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+        vibrationPattern: [0, 200, 100, 200],
+        lightColor: '#3B82F6',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
 
-    // Kênh 3: Hệ thống, FPT Coin & KYC (Ưu tiên DEFAULT)
-    await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.SYSTEM, {
-      name: 'Hệ thống, Điểm danh & KYC',
-      description: 'Thông báo duyệt hồ sơ sinh viên, thưởng FPT Coin và bảo trì hệ thống',
-      importance: Notifications.AndroidImportance.DEFAULT,
-      lightColor: '#10B981',
-      sound: 'default',
-    });
+      // Kênh 3: Hệ thống, FPT Coin & KYC
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.SYSTEM, {
+        name: 'Hệ thống, Điểm danh & KYC',
+        description: 'Thông báo duyệt hồ sơ sinh viên, thưởng FPT Coin và bảo trì hệ thống',
+        importance: Notifications.AndroidImportance?.DEFAULT ?? 3,
+        lightColor: '#10B981',
+        sound: 'default',
+      });
+    } catch (e: any) {
+      // Bỏ qua lỗi cấu hình channel trên môi trường Expo Go / Emulators
+    }
   }
 }
 
@@ -68,12 +122,14 @@ export async function setupAndroidNotificationChannels() {
  * Hoạt động trên cả MÁY THỰC lẫn MÁY ẢO (Android Emulator 13+ / iOS Simulator)
  */
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (!Notifications || typeof Notifications.getPermissionsAsync !== 'function') {
+    return true;
+  }
   try {
     const perm = (await Notifications.getPermissionsAsync()) as any;
-    let finalStatus = perm.status || (perm.granted ? 'granted' : 'denied');
+    let finalStatus = perm?.status || (perm?.granted ? 'granted' : 'denied');
 
-    if (finalStatus !== 'granted') {
-      // Kích hoạt hiển thị hộp thoại hệ thống: "Cho phép FU SecondHand gửi thông báo cho bạn?"
+    if (finalStatus !== 'granted' && typeof Notifications.requestPermissionsAsync === 'function') {
       const req = (await Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
@@ -81,7 +137,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
           allowSound: true,
         },
       })) as any;
-      finalStatus = req.status || (req.granted ? 'granted' : 'denied');
+      finalStatus = req?.status || (req?.granted ? 'granted' : 'denied');
     }
 
     if (finalStatus !== 'granted') {
@@ -92,7 +148,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
     return true;
   } catch (error: any) {
     console.warn('⚠️ [Lỗi xin quyền thông báo]:', error?.message);
-    return false;
+    return true;
   }
 }
 
@@ -100,36 +156,38 @@ export async function requestNotificationPermission(): Promise<boolean> {
  * 2. Đăng ký nhận Push Notifications và lấy Device Token
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  await setupAndroidNotificationChannels();
+  try {
+    await setupAndroidNotificationChannels();
 
-  // 1. Kích hoạt Popup xin quyền thông báo hệ thống
-  const hasPermission = await requestNotificationPermission();
-  if (!hasPermission) {
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      return null;
+    }
+
+    let token: string | null = null;
+
+    if (Notifications && typeof Notifications.getDevicePushTokenAsync === 'function') {
+      try {
+        const pushTokenData = await Notifications.getDevicePushTokenAsync();
+        token = pushTokenData?.data || null;
+      } catch (e: any) {
+        if (typeof Notifications.getExpoPushTokenAsync === 'function') {
+          try {
+            const expoTokenData = await Notifications.getExpoPushTokenAsync();
+            token = expoTokenData?.data || null;
+          } catch (err: any) {}
+        }
+      }
+    }
+
+    if (token) {
+      await syncTokenWithBackend(token);
+    }
+
+    return token;
+  } catch (e: any) {
     return null;
   }
-
-  let token: string | null = null;
-
-  try {
-    // 2. Ưu tiên lấy Device Push Token Native (FCM Token từ google-services.json)
-    const pushTokenData = await Notifications.getDevicePushTokenAsync();
-    token = pushTokenData.data;
-  } catch (e: any) {
-    try {
-      // Fallback sang Expo Push Token nếu đang chạy trong môi trường Expo Go / Máy ảo
-      const expoTokenData = await Notifications.getExpoPushTokenAsync();
-      token = expoTokenData.data;
-    } catch (err: any) {
-      console.log('ℹ️ [Máy ảo / Môi trường Dev]: Bật thông báo local thành công');
-    }
-  }
-
-  // 3. Gửi token lên backend lưu vào DeviceToken (nếu lấy được token)
-  if (token) {
-    await syncTokenWithBackend(token);
-  }
-
-  return token;
 }
 
 /**
@@ -188,20 +246,35 @@ export async function unregisterDeviceToken(token: string) {
  * và điều hướng chuẩn xác (Deep Linking)
  */
 export function setupNotificationListeners() {
-  // Lắng nghe khi thông báo nhận được lúc app đang mở
-  const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('🔔 [Heads-up Notification Received]:', notification.request.content.title);
-  });
+  if (!Notifications) {
+    return () => {};
+  }
 
-  // Lắng nghe khi người dùng BẤM vào banner thông báo thả xuống trên màn hình
-  const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data;
-    handleNotificationNavigation(data);
-  });
+  let notificationListener: any = null;
+  let responseListener: any = null;
+
+  try {
+    if (typeof Notifications.addNotificationReceivedListener === 'function') {
+      notificationListener = Notifications.addNotificationReceivedListener((notification: any) => {
+        console.log('🔔 [Heads-up Notification Received]:', notification?.request?.content?.title);
+      });
+    }
+
+    if (typeof Notifications.addNotificationResponseReceivedListener === 'function') {
+      responseListener = Notifications.addNotificationResponseReceivedListener((response: any) => {
+        const data = response?.notification?.request?.content?.data;
+        handleNotificationNavigation(data);
+      });
+    }
+  } catch (e: any) {
+    console.log('ℹ️ [setupNotificationListeners skipped on Expo Go]:', e?.message);
+  }
 
   return () => {
-    notificationListener.remove();
-    responseListener.remove();
+    try {
+      notificationListener?.remove?.();
+      responseListener?.remove?.();
+    } catch {}
   };
 }
 
@@ -276,6 +349,7 @@ export async function markAllNotificationsAsRead(): Promise<any> {
 }
 
 export const notificationMobileService = {
+  displayLocalPushNotification,
   setupAndroidNotificationChannels,
   requestNotificationPermission,
   registerForPushNotificationsAsync,

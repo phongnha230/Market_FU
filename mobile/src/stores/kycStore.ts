@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserStore } from './userStore';
+
+const getUserStore = () => {
+  try {
+    const { useUserStore } = require('./userStore');
+    return useUserStore;
+  } catch {
+    return null;
+  }
+};
 
 export type KycStatus = 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
 export type KycType = 'STUDENT' | 'SELLER';
@@ -19,41 +27,7 @@ export interface KycRecord {
   rejectedReason: string | null;
 }
 
-const INITIAL_KYC_BY_USER: Record<string, KycRecord> = {
-  acc_unverified: {
-    status: 'NONE',
-    type: 'STUDENT',
-    studentId: '',
-    cardImageUrl: null,
-    submittedAt: null,
-    verifiedAt: null,
-    rejectedReason: null,
-  },
-  acc_verified: {
-    status: 'APPROVED',
-    type: 'STUDENT',
-    studentId: 'SE172819',
-    studentName: 'Trần Minh Quân',
-    campus: 'HÒA LẠC',
-    major: 'Kỹ thuật phần mềm (SE)',
-    cardImageUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80',
-    submittedAt: '10/09/2026',
-    verifiedAt: '11/09/2026',
-    rejectedReason: null,
-  },
-  acc_seller: {
-    status: 'APPROVED',
-    type: 'SELLER',
-    studentId: 'SE161204',
-    studentName: 'Đặng Thùy Dương',
-    campus: 'HÒA LẠC',
-    major: 'An toàn thông tin (IA)',
-    cardImageUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80',
-    submittedAt: '01/09/2026',
-    verifiedAt: '02/09/2026',
-    rejectedReason: null,
-  },
-};
+const INITIAL_KYC_BY_USER: Record<string, KycRecord> = {};
 
 interface KycState {
   kycByUser: Record<string, KycRecord>;
@@ -83,11 +57,11 @@ interface KycState {
 export const useKycStore = create<KycState>()(
   persist(
     (set, get) => ({
-      kycByUser: INITIAL_KYC_BY_USER,
-      activeUserId: 'acc_verified',
-      status: 'APPROVED',
+      kycByUser: {},
+      activeUserId: null,
+      status: 'NONE',
       type: 'STUDENT',
-      studentId: 'SE172819',
+      studentId: '',
       cardImageUrl: null,
       submittedAt: null,
       verifiedAt: null,
@@ -95,7 +69,7 @@ export const useKycStore = create<KycState>()(
 
       setActiveUser: (userId) => {
         const { kycByUser } = get();
-        const currentId = userId || 'acc_unverified';
+        const currentId = userId || 'anonymous';
         const rec = kycByUser[currentId] || {
           status: 'NONE',
           type: 'STUDENT',
@@ -120,7 +94,7 @@ export const useKycStore = create<KycState>()(
 
       submitKyc: async (studentId, cardImageUrl, type = 'STUDENT', extra) => {
         const { kycByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const now = new Date().toISOString();
 
         const updatedRecord: KycRecord = {
@@ -150,8 +124,8 @@ export const useKycStore = create<KycState>()(
         });
 
         // Cập nhật trạng thái người dùng trong userStore
-        const userStore = useUserStore.getState();
-        if (userStore.user) {
+        const userStore = getUserStore()?.getState();
+        if (userStore?.user) {
           await userStore.updateUserProfile({
             kycStatus: 'PENDING',
             studentId,
@@ -163,7 +137,7 @@ export const useKycStore = create<KycState>()(
           profileMobileService
             .submitKyc({
               studentId,
-              fullName: extra?.studentName || userStore.user?.name || 'Sinh viên FPT',
+              fullName: extra?.studentName || userStore?.user?.name || 'Sinh viên FPT',
               cardImageUri: cardImageUrl || undefined,
             })
             .catch(() => {});
@@ -172,7 +146,7 @@ export const useKycStore = create<KycState>()(
 
       simulateApproveKyc: async () => {
         const { kycByUser, activeUserId, type, studentId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const now = new Date().toISOString();
 
         const currentRec = kycByUser[currentId];
@@ -191,8 +165,8 @@ export const useKycStore = create<KycState>()(
           },
         });
 
-        const userStore = useUserStore.getState();
-        if (userStore.user) {
+        const userStore = getUserStore()?.getState();
+        if (userStore?.user) {
           await userStore.updateUserProfile({
             isKycVerified: true,
             kycStatus: 'APPROVED',
@@ -205,7 +179,7 @@ export const useKycStore = create<KycState>()(
 
       resetKyc: () => {
         const { kycByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
 
         const resetRec: KycRecord = {
           status: 'NONE',

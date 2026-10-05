@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { authMobileService } from '../../../services/authMobileService';
 
+import { useNavigation } from '@react-navigation/native';
+
 export interface ChatAuthProductInfo {
   title?: string;
   price?: string;
@@ -31,81 +33,48 @@ export interface ContextualChatAuthModalProps {
 }
 
 const DEFAULT_PRODUCT: ChatAuthProductInfo = {
-  title: 'Bàn phím cơ Akko 3087 v2 Silent Switch',
-  price: '550.000đ',
-  location: 'Hola Campus Dom B',
-  image: require('../../../../assets/products/keyboard-akko.jpg'),
+  title: 'Sản phẩm trao đổi',
+  price: 'Liên hệ',
+  location: 'Khuôn viên FPT',
 };
 
 export const ContextualChatAuthModal: React.FC<ContextualChatAuthModalProps> = ({
   visible,
   onClose,
   onLoginSuccess,
-  sellerName = 'Nguyễn Văn An',
-  sellerCohort = 'K16',
+  sellerName = 'Người bán FPT',
+  sellerCohort = 'Sinh viên FPT',
   product = DEFAULT_PRODUCT,
 }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { setAuth } = useAuthStore();
 
   const handleGoogleLogin = async () => {
     try {
       const res = await authMobileService.loginWithGoogle(
-        'mock_google_student@fpt.edu.vn',
+        'student@fpt.edu.vn',
         'HOL'
       );
       if (res.user && res.token) {
         setAuth(res.user, res.token);
+        if (onLoginSuccess) {
+          onLoginSuccess('google');
+        } else {
+          onClose();
+        }
+        return;
       }
     } catch {
-      setAuth(
-        {
-          id: 'u_fpt_student',
-          name: 'Nguyễn Văn Quân',
-          studentId: 'HE170234',
-          email: 'quannvhe170234@fpt.edu.vn',
-          campus: 'HÒA LẠC',
-          role: 'BUYER',
-          isKycVerified: true,
-          kycStatus: 'APPROVED',
-          major: 'K17 Kỹ thuật phần mềm (SE)',
-          rating: 5.0,
-          reputationPoints: 100,
-          coins: 50,
-        },
-        'mock_token_google_fpt_sso'
-      );
-    }
-    if (onLoginSuccess) {
-      onLoginSuccess('google');
-    } else {
+      // Chuyển hướng sang màn hình đăng nhập chính thức
       onClose();
+      navigation.navigate('Login');
     }
   };
 
   const handleFapLogin = () => {
-    setAuth(
-      {
-        id: 'u_fpt_fap',
-        name: 'Nguyễn Văn Quân',
-        studentId: 'HE170234',
-        email: 'quannvhe170234@fpt.edu.vn',
-        campus: 'HÒA LẠC',
-        role: 'BUYER',
-        isKycVerified: true,
-        kycStatus: 'APPROVED',
-        major: 'K17 Kỹ thuật phần mềm (SE)',
-        rating: 5.0,
-        reputationPoints: 100,
-        coins: 50,
-      },
-      'mock_token_fap_mssv'
-    );
-    if (onLoginSuccess) {
-      onLoginSuccess('fap');
-    } else {
-      onClose();
-    }
+    onClose();
+    navigation.navigate('Login');
   };
 
   const displayTitle = product.title || DEFAULT_PRODUCT.title!;

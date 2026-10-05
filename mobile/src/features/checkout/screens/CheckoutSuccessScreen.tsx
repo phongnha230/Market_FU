@@ -19,20 +19,20 @@ export const CheckoutSuccessScreen: React.FC = () => {
   const route = useRoute<any>();
 
   const {
-    orderCode = 'ORD-88392-HL',
-    totalAmount = 1850000,
+    orderCode = '',
+    totalAmount = 0,
     product = {
-      title: 'Màn hình Dell 24" UltraSharp U2419H',
-      sellerName: 'Đặng Thùy Dương',
-      sellerCohort: 'K16 - Hola Tech Store',
-      image: require('../../../../assets/products/monitor-dell-24.jpg'),
+      title: 'Đơn hàng mới',
+      sellerName: 'Người bán FPT',
+      sellerCohort: '',
+      image: undefined,
     },
-    safePoint = 'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
-    handshakeOtp = '7381',
-    timeSlot = 'Hôm nay: 16:30 - 17:30',
+    safePoint = 'Trạm Safe-Point Campus',
+    handshakeOtp = '----',
+    timeSlot = 'Hôm nay',
     isDifferentCampus = false,
-    fromCampus = 'Hòa Lạc',
-    toCampus = 'Đà Nẵng',
+    fromCampus = 'Cơ sở gửi',
+    toCampus = 'Cơ sở nhận',
   } = route.params || {};
 
   const [copiedOtp, setCopiedOtp] = useState(false);

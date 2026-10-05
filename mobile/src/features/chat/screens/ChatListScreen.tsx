@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   TextInput,
   StyleSheet,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
+import { useChatStore } from '../../../stores/chatStore';
+import { socketMobileService } from '../../../services/socketMobileService';
 
 interface ConversationItem {
   id: string;
@@ -29,75 +32,37 @@ interface ConversationItem {
   isSafePointVerified?: boolean;
 }
 
-const MOCK_CONVERSATIONS: ConversationItem[] = [
-  {
-    id: 'c1',
-    name: 'Hoàng Anh (K16 SE)',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    cohort: 'K16 - Kỹ thuật phần mềm',
-    isOnline: true,
-    productTitle: 'Bàn phím cơ Akko 3087 v2 Silent',
-    productPrice: '480.000đ',
-    productImage: require('../../../../assets/products/keyboard-akko.jpg'),
-    lastMessage: 'Em qua sảnh Alpha lấy luôn chiều nay, fix em chút nhé anh!',
-    lastTime: 'Vừa xong',
-    unreadCount: 1,
-    type: 'buy',
-    isSafePointVerified: true,
-  },
-  {
-    id: 'c2',
-    name: 'Minh Thư (K18 MKT)',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    cohort: 'K18 - Quản trị kinh doanh',
-    isOnline: true,
-    productTitle: 'Võ phục Vovinam FPT size M',
-    productPrice: '120.000đ',
-    productImage: require('../../../../assets/products/vovinam-uniform.jpg'),
-    lastMessage: 'Bạn ơi áo còn mới không ạ? Mình ở KTX Dom B qua thử được không?',
-    lastTime: '15 phút',
-    unreadCount: 2,
-    type: 'sell',
-    isSafePointVerified: true,
-  },
-  {
-    id: 'c3',
-    name: 'Trọng Phúc (K17 IA - Đà Nẵng)',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    cohort: 'K17 - An toàn thông tin',
-    isOnline: false,
-    productTitle: 'Màn hình Dell 24" UltraSharp',
-    productPrice: '1.450.000đ',
-    productImage: require('../../../../assets/products/monitor-dell-24.jpg'),
-    lastMessage: 'Hàng đã gửi xe FPT Bus tuyến Đà Nẵng - Hà Nội rồi nhé bạn!',
-    lastTime: '10:45',
-    unreadCount: 0,
-    type: 'buy',
-    isSafePointVerified: true,
-  },
-  {
-    id: 'c4',
-    name: 'Ban Quản trị Safe-Point FPT',
-    avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-    cohort: 'Hệ thống Quản lý Ký túc xá',
-    isOnline: true,
-    productTitle: 'Đơn hàng Escrow #SP-9912',
-    productPrice: '350.000đ',
-    productImage: require('../../../../assets/products/books-mas291.jpg'),
-    lastMessage: 'Mã hẹn bàn giao trạm camera sảnh Alpha đã kích hoạt thành công.',
-    lastTime: 'Hôm qua',
-    unreadCount: 0,
-    type: 'system',
-    isSafePointVerified: true,
-  },
-];
-
 export const ChatListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { isAuthenticated } = useUserStore();
+  const { conversations, fetchConversations, isLoading } = useChatStore();
+
   const [activeTab, setActiveTab] = useState<'all' | 'buy' | 'sell' | 'unread'>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConversations().catch(() => {});
+    }
+  }, [isAuthenticated, fetchConversations]);
+
+  // Lắng nghe socket khi có tin nhắn mới thì tải lại danh sách
+  useEffect(() => {
+    const unsub = socketMobileService.onNewMessageNotification(() => {
+      fetchConversations().catch(() => {});
+    });
+    return () => {
+      unsub();
+    };
+  }, [fetchConversations]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchConversations().catch(() => {});
+    setRefreshing(false);
+  }, [fetchConversations]);
 
   const handleBack = () => {
     if (navigation && navigation.canGoBack && navigation.canGoBack()) navigation.goBack();
@@ -131,7 +96,24 @@ export const ChatListScreen: React.FC = () => {
     );
   }
 
-  const filteredList = MOCK_CONVERSATIONS.filter((item) => {
+  // Chuyển đổi dữ liệu từ ChatStore
+  const mappedList: ConversationItem[] = (conversations || []).map((c) => ({
+    id: c.id,
+    name: c.partnerName || 'Sinh viên FPT',
+    avatar: c.partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    cohort: c.partnerCohort || 'FPT Campus',
+    isOnline: !!c.isOnline,
+    productTitle: c.productTitle || 'Món đồ Campus',
+    productPrice: typeof c.productPrice === 'number' ? `${c.productPrice.toLocaleString('vi-VN')}đ` : 'Thỏa thuận',
+    productImage: c.productImage || require('../../../../assets/products/keyboard-akko.jpg'),
+    lastMessage: c.lastMessage || 'Bắt đầu cuộc trò chuyện',
+    lastTime: c.lastTime ? (c.lastTime.includes(':') ? c.lastTime : new Date(c.lastTime).toLocaleDateString('vi-VN')) : 'Gần đây',
+    unreadCount: c.unreadCount || 0,
+    type: 'buy',
+    isSafePointVerified: true,
+  }));
+
+  const filteredList = mappedList.filter((item) => {
     const matchSearch =
       item.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       item.productTitle.toLowerCase().includes(searchKeyword.toLowerCase()) ||
@@ -147,6 +129,7 @@ export const ChatListScreen: React.FC = () => {
 
   const handleOpenConversation = (item: ConversationItem) => {
     navigation.navigate('ChatDetail', {
+      conversationId: item.id,
       partner: {
         id: item.id,
         name: item.name,
@@ -287,6 +270,9 @@ export const ChatListScreen: React.FC = () => {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing || isLoading} onRefresh={onRefresh} colors={['#EA580C']} />
+        }
         ItemSeparatorComponent={() => <View style={styles.divider} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>

@@ -7,7 +7,10 @@ import { useKycStore } from '../../../stores/kycStore';
 import { profileMobileService } from '../../../services/profileMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 
+import { useNavigation } from '@react-navigation/native';
+
 export const useProfile = () => {
+  const navigation = useNavigation<any>();
   const { user, logout, updateUserProfile } = useAuthStore();
   const { currentCampus } = useCampusStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,7 +90,16 @@ export const useProfile = () => {
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
       { text: 'Hủy', style: 'cancel' },
-      { text: 'Đăng xuất', style: 'destructive', onPress: logout },
+      {
+        text: 'Đăng xuất',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          if (navigation?.navigate) {
+            navigation.navigate('Login');
+          }
+        },
+      },
     ]);
   };
 

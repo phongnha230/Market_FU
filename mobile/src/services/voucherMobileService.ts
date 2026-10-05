@@ -19,7 +19,7 @@ export function adaptBackendVoucher(v: any): UserVoucher {
 
   return {
     id: v.id || v._id,
-    userId: v.userId || 'acc_verified',
+    userId: v.userId || '',
     voucherId,
     voucherCode: v.code || v.voucherCode || `FUV-${Math.floor(1000 + Math.random() * 9000)}`,
     status: v.status === 'USED' || v.isUsed ? 'USED' : 'UNUSED',
@@ -79,6 +79,16 @@ export const voucherMobileService = {
   async redeemVoucher(voucherId: string): Promise<UserVoucher> {
     const res = await apiClient.post<ApiResponse<any>>(`/vouchers/${voucherId}/redeem`);
     return adaptBackendVoucher(res.data.data);
+  },
+
+  /**
+   * Quét mã / Áp dụng sử dụng Voucher
+   */
+  async useVoucher(voucherCode: string): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>('/vouchers/use', {
+      voucherCode: voucherCode.trim(),
+    });
+    return res.data?.data;
   },
 };
 

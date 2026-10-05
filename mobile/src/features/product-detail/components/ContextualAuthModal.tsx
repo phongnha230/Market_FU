@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { authMobileService } from '../../../services/authMobileService';
 
+import { useNavigation } from '@react-navigation/native';
+
 export interface ContextualProductInfo {
   title?: string;
   price?: string;
@@ -30,11 +32,10 @@ export interface ContextualAuthModalProps {
 }
 
 const DEFAULT_PRODUCT: ContextualProductInfo = {
-  title: 'Màn hình di động Full HD 15.6 inch',
-  price: '1.200.000đ',
-  sellerName: 'Nguyễn Văn An',
-  sellerLocation: 'K16 SE - KTX Tòa E Hola',
-  image: require('../../../../assets/products/monitor-dell-24.jpg'),
+  title: 'Sản phẩm chợ FPT',
+  price: 'Liên hệ',
+  sellerName: 'Người bán FPT',
+  sellerLocation: 'Cơ sở FPT',
 };
 
 export const ContextualAuthModal: React.FC<ContextualAuthModalProps> = ({
@@ -44,68 +45,34 @@ export const ContextualAuthModal: React.FC<ContextualAuthModalProps> = ({
   product = DEFAULT_PRODUCT,
 }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { setAuth } = useAuthStore();
 
   const handleGoogleLogin = async () => {
     try {
       const res = await authMobileService.loginWithGoogle(
-        'mock_google_student@fpt.edu.vn',
+        'student@fpt.edu.vn',
         'HOL'
       );
       if (res.user && res.token) {
         setAuth(res.user, res.token);
+        if (onLoginSuccess) {
+          onLoginSuccess('google');
+        } else {
+          onClose();
+        }
+        return;
       }
     } catch {
-      // Giả lập xác thực SSO Google email FPT thành công
-      setAuth(
-        {
-          id: 'u_fpt_student',
-          name: 'Nguyễn Văn Quân',
-          studentId: 'HE170234',
-          email: 'quannvhe170234@fpt.edu.vn',
-          campus: 'HÒA LẠC',
-          role: 'BUYER',
-          isKycVerified: true,
-          kycStatus: 'APPROVED',
-          major: 'K17 Kỹ thuật phần mềm (SE)',
-          rating: 5.0,
-          reputationPoints: 100,
-          coins: 50,
-        },
-        'mock_token_google_fpt_sso'
-      );
-    }
-    if (onLoginSuccess) {
-      onLoginSuccess('google');
-    } else {
+      // Chuyển hướng sang màn hình đăng nhập chính thức
       onClose();
+      navigation.navigate('Login');
     }
   };
 
   const handleFapLogin = () => {
-    // Giả lập đăng nhập FAP / MSSV thành công
-    setAuth(
-      {
-        id: 'u_fpt_fap',
-        name: 'Nguyễn Văn Quân',
-        studentId: 'HE170234',
-        email: 'quannvhe170234@fpt.edu.vn',
-        campus: 'HÒA LẠC',
-        role: 'BUYER',
-        isKycVerified: true,
-        kycStatus: 'APPROVED',
-        major: 'K17 Kỹ thuật phần mềm (SE)',
-        rating: 5.0,
-        reputationPoints: 100,
-        coins: 50,
-      },
-      'mock_token_fap_mssv'
-    );
-    if (onLoginSuccess) {
-      onLoginSuccess('fap');
-    } else {
-      onClose();
-    }
+    onClose();
+    navigation.navigate('Login');
   };
 
   const displayTitle = product.title || DEFAULT_PRODUCT.title!;

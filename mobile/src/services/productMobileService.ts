@@ -23,11 +23,11 @@ export interface CreateProductPayload {
 }
 
 export function adaptBackendProductToMobile(item: any): ProductItem {
-  const sellerId = item.sellerId || item.seller?.id || item.seller?.userId || 'acc_seller';
+  const sellerId = item.sellerId || item.seller?.id || item.seller?.userId || '';
   const sellerName =
     item.seller?.profile?.fullName || item.seller?.fullName || item.sellerName || 'Sinh viên FPT';
   const sellerCohort =
-    item.seller?.profile?.cohort || item.sellerCohort || 'K17 - FPT University';
+    item.seller?.profile?.cohort || item.sellerCohort || '';
   const sellerRating = item.seller?.profile?.reputationScore
     ? Math.min(5.0, Number((item.seller.profile.reputationScore / 20).toFixed(1)))
     : item.sellerRating || 5.0;
@@ -40,7 +40,7 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
   } else if (item.imageUrl) {
     rawImages = [item.imageUrl];
   } else {
-    rawImages = [require('../../../assets/products/monitor-dell-24.jpg')];
+    rawImages = [require('../../assets/products/monitor-dell-24.jpg')];
   }
 
   return {
@@ -139,7 +139,7 @@ export const productMobileService = {
    * Đăng tin bán sản phẩm mới lên sàn (Chuẩn hóa Enum Campus, Condition, Category & Hashtags)
    */
   async createProduct(payload: CreateProductPayload): Promise<ProductItem> {
-    const backendCampus = toBackendCampus(payload.campus);
+    const backendCampus = toBackendCampus(payload.campus) || 'HOL';
     const backendCondition = toBackendCondition(payload.condition);
     const backendCategory = toBackendCategory(payload.category);
 
@@ -197,6 +197,21 @@ export const productMobileService = {
   async toggleFavorite(productId: string): Promise<{ isFavorited: boolean }> {
     const res = await apiClient.post<ApiResponse<any>>(`/products/${productId}/favorite`);
     return res.data?.data || { isFavorited: true };
+  },
+
+  /**
+   * Lấy danh sách sản phẩm yêu thích của tôi từ Backend
+   */
+  async getMyFavorites(): Promise<ProductItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<any[]>>('/products/favorites/me');
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data.map(adaptBackendProductToMobile);
+      }
+    } catch (e: any) {
+      console.log('⚠️ [Backend getMyFavorites offline]:', e?.message);
+    }
+    return [];
   },
 
   /**

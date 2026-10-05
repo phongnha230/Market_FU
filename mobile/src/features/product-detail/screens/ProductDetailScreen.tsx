@@ -15,33 +15,6 @@ import useProductDetail from '../hooks/useProductDetail';
 import { useProductDetailActions } from '../hooks/useProductDetailActions';
 import { ProductDetailScreenProps } from '../types/product-detail.types';
 
-const DemoCampusSwitcherBar: React.FC<{
-  isSameCampus: boolean;
-  onToggle: () => void;
-}> = React.memo(({ isSameCampus, onToggle }) => (
-  <View style={styles.campusModeBar}>
-    <View style={styles.campusModeLeft}>
-      <Ionicons
-        name={isSameCampus ? 'business' : 'airplane'}
-        size={16}
-        color={isSameCampus ? '#059669' : '#7C3AED'}
-      />
-      <Text style={styles.campusModeLabel}>
-        Ngữ cảnh: {isSameCampus ? 'CÙNG CAMPUS (Hòa Lạc)' : 'KHÁC CAMPUS (Đà Nẵng)'}
-      </Text>
-    </View>
-    <TouchableOpacity
-      style={[styles.switchToggleBtn, !isSameCampus && styles.switchToggleBtnActive]}
-      activeOpacity={0.8}
-      onPress={onToggle}
-    >
-      <Text style={styles.switchToggleText}>
-        {isSameCampus ? 'Đổi sang Khác cơ sở ›' : 'Đổi sang Cùng cơ sở ›'}
-      </Text>
-    </TouchableOpacity>
-  </View>
-));
-
 export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   onGoBack,
   productId,
@@ -70,11 +43,6 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         isSaved={isSaved}
         onToggleSaved={handleToggleFavorite}
         onOpenReport={actions.handleOpenReport}
-      />
-
-      <DemoCampusSwitcherBar
-        isSameCampus={actions.isSameCampus}
-        onToggle={actions.handleToggleSameCampus}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -138,41 +106,4 @@ export default ProductDetailScreen;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   scrollContent: { paddingBottom: 20 },
-  campusModeBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  campusModeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  campusModeLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  switchToggleBtn: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  switchToggleBtnActive: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#DDD6FE',
-  },
-  switchToggleText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
 });

@@ -13,6 +13,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore } from '../../../stores/orderStore';
 import { orderMobileService } from '../../../services/orderMobileService';
+import { socketMobileService } from '../../../services/socketMobileService';
 import { OrderStatusTimeline } from '../components/OrderStatusTimeline';
 import { OrderSafePointQrCard } from '../components/OrderSafePointQrCard';
 import { OrderActionButtons } from '../components/OrderActionButtons';
@@ -37,18 +38,18 @@ export const OrderDetailScreen: React.FC = () => {
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const orderId = route.params?.orderId || 'ORD-882194';
+  const orderId = route.params?.orderId || '';
   const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
 
   const product = useMemo(() => {
     return route.params?.product || {
-      title: matchedOrder?.productTitle || 'Màn hình Dell 24" UltraSharp U2419H',
-      price: matchedOrder?.price || 1450000,
-      priceStr: matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + 'đ' : '1.450.000đ',
-      image: matchedOrder?.productImage || require('../../../../assets/products/monitor-dell-24.jpg'),
-      sellerName: matchedOrder?.sellerName || 'Đặng Thùy Dương',
-      sellerCohort: matchedOrder?.sellerCohort || 'K16 - SE',
-      sellerCampus: matchedOrder?.sellerCampus || 'Hòa Lạc',
+      title: matchedOrder?.productTitle || 'Sản phẩm giao dịch',
+      price: matchedOrder?.price || 0,
+      priceStr: matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + 'đ' : '0đ',
+      image: matchedOrder?.productImage,
+      sellerName: matchedOrder?.sellerName || 'Người bán FPT',
+      sellerCohort: matchedOrder?.sellerCohort || '',
+      sellerCampus: matchedOrder?.sellerCampus || 'Campus FPT',
     };
   }, [route.params?.product, matchedOrder]);
 
@@ -79,10 +80,35 @@ export const OrderDetailScreen: React.FC = () => {
         })
         .catch(() => {});
     }
+
+    const unsubPaid = socketMobileService.onOrderPaid((d) => {
+      if (d.orderId === orderId || d.orderCode === orderId) {
+        setOrderStatus('escrow_holding');
+        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã thanh toán Escrow', '#EA580C', '#FFF7ED');
+      }
+    });
+
+    const unsubComp = socketMobileService.onOrderCompleted((d) => {
+      if (d.orderId === orderId || d.orderCode === orderId) {
+        setOrderStatus('completed');
+        updateOrderStatus(orderId, 'COMPLETED', '✅ Giao dịch hoàn tất', '#059669', '#DCFCE7');
+      }
+    });
+
+    const unsubCancel = socketMobileService.onOrderCancelled((d) => {
+      if (d.orderId === orderId || d.orderCode === orderId) {
+        setOrderStatus('cancelled');
+        updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã bị hủy', '#DC2626', '#FEF2F2');
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubPaid();
+      unsubComp();
+      unsubCancel();
     };
-  }, [orderId]);
+  }, [orderId, updateOrderStatus]);
 
   const safePoint = matchedOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const isSeller = user?.role === 'SELLER' || user?.id === matchedOrder?.sellerId;

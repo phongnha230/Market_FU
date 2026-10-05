@@ -70,15 +70,35 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
         hashtags: p.hashtags,
       }));
     }
-    return GRID_PRODUCTS;
+    return [];
   }, [storeProducts, currentCampus]);
 
   const filteredProducts = useMemo(() => {
-    if (!searchText.trim()) return combinedProducts;
+    let list = combinedProducts;
+
+    if (selectedFilter === 1) {
+      // Gần bạn / Safe-point
+      list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom'));
+    } else if (selectedFilter === 2) {
+      // Đồ KTX
+      list = list.filter((p: any) =>
+        (p.hashtags && p.hashtags.some((t: string) => t.toLowerCase().includes('ktx') || t.toLowerCase().includes('dorm'))) ||
+        p.title.toLowerCase().includes('ktx') ||
+        p.location.toLowerCase().includes('dom')
+      );
+    } else if (selectedFilter === 3) {
+      // Pass rẻ (< 100k)
+      list = list.filter((p) => {
+        const numPrice = parseInt(p.price.replace(/[^\d]/g, ''), 10) || 0;
+        return numPrice <= 100000;
+      });
+    }
+
+    if (!searchText.trim()) return list;
     const term = searchText.toLowerCase().trim();
     const cleanTerm = term.replace(/^#+/, '');
 
-    return combinedProducts.filter((p: any) => {
+    return list.filter((p: any) => {
       const matchTitle = p.title.toLowerCase().includes(cleanTerm);
       const matchSeller = p.seller.toLowerCase().includes(cleanTerm);
       const matchLocation = p.location.toLowerCase().includes(cleanTerm);
@@ -88,7 +108,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
 
       return matchTitle || matchSeller || matchLocation || matchHashtags;
     });
-  }, [searchText, combinedProducts]);
+  }, [searchText, combinedProducts, selectedFilter]);
 
   return {
     selectedCampus: selectedCampusIndex,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface CheckoutBottomBarProps {
@@ -7,6 +7,7 @@ interface CheckoutBottomBarProps {
   selectedPayment: 'vietqr' | 'fptpay' | 'cash';
   onConfirmPayment: () => void;
   formatCurrency: (val: number) => string;
+  isSubmitting?: boolean;
 }
 
 export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
@@ -14,6 +15,7 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
   selectedPayment,
   onConfirmPayment,
   formatCurrency,
+  isSubmitting = false,
 }) => {
   return (
     <View style={styles.bottomBar}>
@@ -22,18 +24,25 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
         <Text style={styles.bottomTotalPrice}>{formatCurrency(totalAmount)}</Text>
       </View>
       <TouchableOpacity
-        style={styles.payBtn}
+        style={[styles.payBtn, isSubmitting && { opacity: 0.75 }]}
         activeOpacity={0.88}
+        disabled={isSubmitting}
         onPress={onConfirmPayment}
       >
-        <Ionicons
-          name={selectedPayment === 'cash' ? 'calendar-outline' : 'shield-checkmark'}
-          size={18}
-          color="#FFFFFF"
-          style={{ marginRight: 6 }}
-        />
+        {isSubmitting ? (
+          <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
+        ) : (
+          <Ionicons
+            name={selectedPayment === 'cash' ? 'calendar-outline' : 'shield-checkmark'}
+            size={18}
+            color="#FFFFFF"
+            style={{ marginRight: 6 }}
+          />
+        )}
         <Text style={styles.payBtnText}>
-          {selectedPayment === 'vietqr'
+          {isSubmitting
+            ? 'Đang kết nối Escrow...'
+            : selectedPayment === 'vietqr'
             ? 'Quét mã VietQR Escrow'
             : selectedPayment === 'fptpay'
             ? 'Thanh toán Ví FPT Pay'

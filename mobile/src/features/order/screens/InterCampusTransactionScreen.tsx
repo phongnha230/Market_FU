@@ -48,8 +48,8 @@ const createInterCampusSteps = (
   {
     step: 3,
     title: 'Vận chuyển chuyên tuyến FPT Bus',
-    desc: 'Hàng đã được xếp lên xe buýt FPT Bus tuyến liên campus (Biển số 29B-512.44). Tài xế phụ trách: Chú Tuấn (0982.345.xxx).',
-    time: currentStep > 3 ? 'Đã hoàn thành' : 'Dự kiến đến 17:30 chiều nay',
+    desc: 'Hàng đã được xếp lên xe buýt FPT Bus chuyên tuyến liên campus. Lộ trình vận chuyển đang được theo dõi và giám sát liên tục.',
+    time: currentStep > 3 ? 'Đã hoàn thành' : 'Đang di chuyển',
     completed: currentStep > 3,
     active: currentStep === 3,
     badge: currentStep > 3 ? 'ĐÃ ĐẾN NƠI' : 'ĐANG TRÊN XE FPT BUS 🚌',
@@ -60,7 +60,7 @@ const createInterCampusSteps = (
     step: 4,
     title: 'Nhập kho Trạm Safe-Point Cơ sở Nhận',
     desc: `Xe buýt cập bến, hàng được lưu vào tủ an ninh thông minh tại ${toSafePoint}. Thông báo Notification gửi tới người mua.`,
-    time: currentStep > 4 ? 'Đã hoàn thành' : 'Dự kiến 17:45 chiều nay',
+    time: currentStep > 4 ? 'Đã hoàn thành' : 'Chờ cập bến',
     completed: currentStep > 4,
     active: currentStep === 4,
     badge: currentStep > 4 ? 'ĐÃ VÀO KHO' : 'CHỜ CẬP BẾN',
@@ -71,7 +71,7 @@ const createInterCampusSteps = (
     step: 5,
     title: 'Người mua nhận hàng & Giải ngân',
     desc: 'Người mua quét mã QR mở hòm kiểm tra trước camera đối chứng 24/7. Hài lòng bấm xác nhận giải ngân ví Escrow.',
-    time: currentStep === 5 ? 'Đã hoàn tất' : 'Tối nay',
+    time: currentStep === 5 ? 'Đã hoàn tất' : 'Chờ nhận hàng',
     completed: currentStep >= 5,
     active: currentStep === 5,
     badge: currentStep >= 5 ? 'ĐÃ HOÀN TẤT' : 'BẢO VỆ 24H SAU NHẬN',
@@ -85,19 +85,19 @@ export const InterCampusTransactionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const orderId = route.params?.orderId || 'IC-FPTBUS-99214';
-  const fromCampus = route.params?.fromCampus || 'Hòa Lạc (Hà Nội)';
-  const toCampus = route.params?.toCampus || 'TP. Hồ Chí Minh';
+  const orderId = route.params?.orderId || '';
+  const fromCampus = route.params?.fromCampus || 'Cơ sở gửi';
+  const toCampus = route.params?.toCampus || 'Cơ sở nhận';
 
   const product = route.params?.product || {
-    title: 'Màn hình Dell 24" UltraSharp U2419H',
-    price: 1450000,
-    priceStr: '1.450.000 đ',
-    image: require('../../../../assets/products/monitor-dell-24.jpg'),
-    sellerName: 'Nguyễn Văn Nam (K16 - SE)',
-    buyerName: 'Trần Tuấn Minh (K17 - IA)',
-    fromSafePoint: 'Sảnh Tòa Alpha (Hòa Lạc)',
-    toSafePoint: 'Sảnh Tòa Innovation (TP.HCM)',
+    title: 'Giao dịch liên campus',
+    price: 0,
+    priceStr: '0 đ',
+    image: undefined,
+    sellerName: 'Người bán FPT',
+    buyerName: 'Người mua FPT',
+    fromSafePoint: fromCampus,
+    toSafePoint: toCampus,
   };
 
   const [currentStep, setCurrentStep] = useState<number>(3); // Bước 3: Đang trung chuyển FPT Bus

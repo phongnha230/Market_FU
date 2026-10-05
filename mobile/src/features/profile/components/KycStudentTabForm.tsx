@@ -19,7 +19,6 @@ interface KycStudentTabFormProps {
   studentBackCard: string | null;
   setStudentBackCard: (val: string) => void;
   onPickImage: (setter: (uri: string) => void, title: string) => void;
-  onUseDemoCards: () => void;
 }
 
 export const KycStudentTabForm: React.FC<KycStudentTabFormProps> = React.memo(({
@@ -36,7 +35,6 @@ export const KycStudentTabForm: React.FC<KycStudentTabFormProps> = React.memo(({
   studentBackCard,
   setStudentBackCard,
   onPickImage,
-  onUseDemoCards,
 }) => {
   return (
     <View>
@@ -152,16 +150,6 @@ export const KycStudentTabForm: React.FC<KycStudentTabFormProps> = React.memo(({
           )}
         </View>
       </View>
-
-      {/* Quick demo cards button */}
-      <TouchableOpacity
-        style={styles.demoFillBtn}
-        onPress={onUseDemoCards}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="sparkles" size={14} color="#EA580C" />
-        <Text style={styles.demoFillText}>Nạp thẻ sinh viên demo mẫu để thử nghiệm nhanh</Text>
-      </TouchableOpacity>
     </View>
   );
 });
@@ -285,24 +273,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  demoFillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  demoFillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#EA580C',
   },
 });

@@ -24,11 +24,6 @@ interface KycRegistrationModalProps {
   onSuccess?: () => void;
 }
 
-const SAMPLE_STUDENT_CARD_FRONT = 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80';
-const SAMPLE_STUDENT_CARD_BACK = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80';
-const SAMPLE_CITIZEN_FRONT = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80';
-const SAMPLE_CITIZEN_BACK = 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80';
-
 const showImagePickerAlert = (
   title: string,
   targetSetter: (uri: string) => void
@@ -81,7 +76,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   onSuccess,
 }) => {
   const { user, updateUserProfile } = useUserStore();
-  const { status, studentId: existingMssv, submitKyc, simulateApproveKyc } = useKycStore();
+  const { status, studentId: existingMssv, submitKyc } = useKycStore();
 
   const [activeTab, setActiveTab] = useState<KycType>(() => initialRole || (user?.isKycVerified ? 'SELLER' : 'STUDENT'));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,21 +126,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
     showImagePickerAlert(title, targetSetter);
   }, []);
 
-  const handleUseDemoStudentCards = useCallback(() => {
-    setStudentFrontCard(SAMPLE_STUDENT_CARD_FRONT);
-    setStudentBackCard(SAMPLE_STUDENT_CARD_BACK);
-    setStudentId((prev) => prev || 'SE180293');
-    Alert.alert('Ảnh mẫu đã sẵn sàng', 'Đã nạp 2 ảnh Thẻ sinh viên FPT demo chuẩn.');
-  }, []);
-
-  const handleUseDemoSellerCards = useCallback(() => {
-    setCitizenFrontCard(SAMPLE_CITIZEN_FRONT);
-    setCitizenBackCard(SAMPLE_CITIZEN_BACK);
-    setBankAccount((prev) => prev || '0987654321');
-    if (fullName) setBankAccountName(fullName.toUpperCase());
-    Alert.alert('Dữ liệu mẫu đã sẵn sàng', 'Đã nạp ảnh CCCD và số tài khoản demo.');
-  }, [fullName]);
-
   const handleSubmit = useCallback(async () => {
     if (!studentId.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập Mã số sinh viên FPT (MSSV).');
@@ -174,9 +154,9 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      const chosenImage = activeTab === 'STUDENT'
-        ? (studentFrontCard || SAMPLE_STUDENT_CARD_FRONT)
-        : (citizenFrontCard || studentFrontCard || SAMPLE_CITIZEN_FRONT);
+      const chosenImage = (activeTab === 'STUDENT'
+        ? studentFrontCard
+        : (citizenFrontCard || studentFrontCard)) || '';
 
       await submitKyc(studentId.trim().toUpperCase(), chosenImage, activeTab, {
         studentName: fullName,
@@ -185,6 +165,22 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
       });
 
       if (activeTab === 'SELLER') {
+        try {
+          const { profileMobileService } = await import('../../../services/profileMobileService');
+          await profileMobileService.submitSellerOnboarding({
+            fullName: fullName.trim(),
+            studentId: studentId.trim().toUpperCase(),
+            phoneNumber: user?.phone || '0901234567',
+            campus,
+            bankName,
+            accountNo: bankAccount.trim(),
+            accountName: bankAccountName.trim().toUpperCase() || fullName.toUpperCase(),
+            cardImageUri: chosenImage || undefined,
+          });
+        } catch (err: any) {
+          console.log('⚠️ [submitSellerOnboarding error/fallback]:', err?.message);
+        }
+
         await updateUserProfile({
           bankAccount: {
             bankName,
@@ -199,7 +195,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
         '🎉 Gửi hồ sơ thành công!',
         activeTab === 'SELLER'
           ? 'Hồ sơ đăng ký Người Bán đã được gửi. Admin Campus sẽ phê duyệt trong vòng 2-4 giờ.'
-          : 'Hồ sơ xác thực sinh viên FPT đã được tiếp nhận. Bạn có thể sử dụng nút Thử nghiệm duyệt nhanh để kiểm tra.'
+          : 'Hồ sơ xác thực sinh viên FPT đã được tiếp nhận. Admin Campus sẽ phê duyệt trong vòng 2-4 giờ.'
       );
       if (onSuccess) onSuccess();
       onClose();
@@ -226,34 +222,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
     onSuccess,
     onClose,
   ]);
-
-  const handleInstantApprove = useCallback(async () => {
-    setIsSubmitting(true);
-    try {
-      await simulateApproveKyc();
-
-      if (activeTab === 'SELLER') {
-        await updateUserProfile({
-          role: 'SELLER',
-          avatarBadge: 'TOP_SELLER',
-          bankAccount: {
-            bankName,
-            accountNo: bankAccount.trim() || '0987654321',
-            accountName: bankAccountName.trim().toUpperCase() || fullName.toUpperCase(),
-          },
-        });
-      }
-
-      Alert.alert(
-        '✅ Đã phê duyệt KYC thành công (Demo)',
-        `Tài khoản đã nâng cấp thành công vai trò ${activeTab === 'SELLER' ? 'TOP SELLER ⭐' : 'Sinh viên FPT Đã KYC ✓'}.`
-      );
-      if (onSuccess) onSuccess();
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [simulateApproveKyc, activeTab, updateUserProfile, bankName, bankAccount, bankAccountName, fullName, onSuccess, onClose]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -286,7 +254,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 studentBackCard={studentBackCard}
                 setStudentBackCard={setStudentBackCard}
                 onPickImage={pickImage}
-                onUseDemoCards={handleUseDemoStudentCards}
               />
             ) : (
               <KycSellerTabForm
@@ -309,7 +276,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 showBankPicker={showBankPicker}
                 setShowBankPicker={setShowBankPicker}
                 onPickImage={pickImage}
-                onUseDemoCards={handleUseDemoSellerCards}
               />
             )}
           </ScrollView>
@@ -318,7 +284,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
             isPending={status === 'PENDING'}
             isSubmitting={isSubmitting}
             activeTab={activeTab}
-            onInstantApprove={handleInstantApprove}
             onSubmit={handleSubmit}
           />
         </View>

@@ -43,6 +43,34 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     status = 'ESCROW_PAID';
   } else if (backendStatus === 'SHIPPING') {
     status = 'HANDOVER_CONFIRMED';
+  } else if (backendStatus === 'CANCELLED') {
+    status = 'CANCELLED';
+  }
+
+  let statusColor = '#D97706';
+  let statusBg = '#FFFBEB';
+  let statusLabel = '📦 Chờ giao nhận tại Safe-Point';
+
+  if (status === 'COMPLETED') {
+    statusColor = '#059669';
+    statusBg = '#ECFDF5';
+    statusLabel = '✅ Giao dịch hoàn tất';
+  } else if (status === 'ESCROW_PAID') {
+    statusColor = '#EA580C';
+    statusBg = '#FFF7ED';
+    statusLabel = '🛡️ Đã cọc Escrow - Chờ bàn giao tại Safe-Point';
+  } else if (status === 'HANDOVER_CONFIRMED') {
+    statusColor = '#2563EB';
+    statusBg = '#EFF6FF';
+    statusLabel = '🚚 Đang luân chuyển trên tuyến FPT Bus';
+  } else if (status === 'CANCELLED') {
+    statusColor = '#64748B';
+    statusBg = '#F1F5F9';
+    statusLabel = '❌ Đơn hàng đã hủy';
+  } else if (status === 'DISPUTED') {
+    statusColor = '#DC2626';
+    statusBg = '#FEF2F2';
+    statusLabel = '⚠️ Đang mở khiếu nại (Bảo lưu Escrow)';
   }
 
   // 4-digit OTP fallback
@@ -59,43 +87,39 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   return {
     id: item.id || item._id,
     orderNumber: item.orderCode || item.code || `ORD-${String(item.id || '').slice(-6)}`,
-    productId: item.productId || product.id || 'prod_dell_24',
+    productId: item.productId || product.id || '',
     productTitle: product.title || item.productTitle || 'Sản phẩm giao dịch',
     price: Number(item.payment?.price ?? totalAmount),
     totalAmount,
     productImage:
       (Array.isArray(product.images) && product.images[0]?.imageUrl) ||
+      (Array.isArray(product.images) && typeof product.images[0] === 'string' && product.images[0]) ||
       product.images?.[0] ||
       product.imageUrl ||
-      require('../../../assets/products/monitor-dell-24.jpg'),
-    sellerId: item.sellerId || item.seller?.id || 'acc_seller',
+      require('../../assets/products/monitor-dell-24.jpg'),
+    sellerId: item.sellerId || item.seller?.id || '',
     sellerName:
       item.seller?.profile?.fullName || item.seller?.fullName || item.sellerName || 'Người bán FPT',
-    sellerCohort: item.seller?.profile?.cohort || 'K16 - FPT University',
+    sellerCohort: item.seller?.profile?.cohort || '',
     sellerCampus: fromBackendCampus(item.seller?.profile?.campus || 'HOL'),
-    buyerId: item.buyerId || item.buyer?.id || 'acc_verified',
+    buyerId: item.buyerId || item.buyer?.id || '',
     buyerName:
       item.buyer?.profile?.fullName || item.buyer?.fullName || item.buyerName || 'Người mua FPT',
-    buyerCohort: item.buyer?.profile?.cohort || 'K17 - FPT Hola',
+    buyerCohort: item.buyer?.profile?.cohort || '',
     buyerCampus: friendlyCampus,
     status,
-    statusLabel:
-      item.statusLabel ||
-      (status === 'COMPLETED'
-        ? '✅ Giao dịch hoàn tất'
-        : status === 'ESCROW_PAID'
-        ? '🛡️ Đã cọc Escrow - Chờ bàn giao tại Safe-Point'
-        : status === 'HANDOVER_CONFIRMED'
-        ? '🚚 Đang luân chuyển trên tuyến FPT Bus'
-        : '📦 Chờ giao nhận tại Safe-Point'),
+    statusLabel: item.statusLabel || statusLabel,
+    statusColor: item.statusColor || statusColor,
+    statusBg: item.statusBg || statusBg,
     safePoint:
       item.shipping?.shippingAddress ||
       item.meetupLocation ||
+      product.meetupLocation ||
       item.safePointLocation ||
       'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
     timeSlot: item.timeSlot || 'Hôm nay: 16:30 - 17:30',
     handshakeOtp: validOtp,
-    createdAt: item.createdAt || new Date().toISOString(),
+    createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay',
     isReviewed: Boolean(item.isReviewed || (Array.isArray(item.reviews) && item.reviews.length > 0)),
   };
 }

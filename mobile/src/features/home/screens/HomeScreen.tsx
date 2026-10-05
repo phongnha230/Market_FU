@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
 import ProductCard from '../../../components/common/ProductCard';
@@ -15,6 +16,7 @@ import SafePointWidget from '../components/SafePointWidget';
 import { TrendingSearchesBanner } from '../components/TrendingSearchesBanner';
 import useHomeFeed from '../hooks/useHomeFeed';
 import { useUserStore } from '../../../stores/userStore';
+import { useNotificationStore } from '../../../stores/notificationStore';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
 import { HomeScreenProps } from '../types/home.types';
 
@@ -26,6 +28,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
+  const unreadNotificationCount = useNotificationStore((state) => state.notifications.filter((n) => n.unread).length);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
   // Modal chặn truy cập
@@ -82,15 +85,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     navigation.navigate('MainTabs', { screen: 'Profile' });
   };
 
+  const handleNextCampus = () => {
+    const nextIdx = (selectedCampus + 1) % campuses.length;
+    setSelectedCampus(nextIdx);
+  };
+
   return (
     <View style={styles.screen}>
       <HomeHeader
         userName={isAuthenticated && user?.name ? user.name : 'Bạn'}
-        campusName={campuses[selectedCampus] || 'HÒA LẠC'}
+        campusName={campuses[selectedCampus] || 'TẤT CẢ'}
         avatarUrl={isAuthenticated ? (user?.avatar || user?.avatarUrl) : undefined}
         isAuthenticated={isAuthenticated}
+        unreadNotificationCount={unreadNotificationCount}
         onNotificationPress={handleOpenNotification}
         onAvatarPress={handleAvatarPress}
+        onCampusChangePress={handleNextCampus}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -159,22 +169,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           }}
         />
 
-        <KycBanner />
+        {!user?.isKycVerified && (
+          <KycBanner
+            onPress={() => {
+              if (!isAuthenticated) {
+                setAuthModalMode('auth');
+                setAuthModalTitle('Yêu cầu xác thực KYC');
+                setAuthModalMessage('Vui lòng đăng nhập tài khoản FPT để hoàn tất định danh sinh viên (KYC).');
+                setAuthModalVisible(true);
+              } else {
+                navigation.navigate('MainTabs', { screen: 'Profile' });
+              }
+            }}
+          />
+        )}
         <FeedHeader />
         <FeedFilterChips filters={feedFilters} selectedIndex={selectedFilter} onSelect={setSelectedFilter} />
 
-        <View style={styles.productGrid}>
-          {products.map((item) => (
-            <ProductCard
-              key={item.id}
-              {...item}
-              onPress={() => {
-                if (onProductPress) onProductPress(item.id);
-                else navigation.navigate('ProductDetail', { productId: item.id });
-              }}
-            />
-          ))}
-        </View>
+        {products.length === 0 ? (
+          <View style={styles.emptyFeedContainer}>
+            <Ionicons name="cube-outline" size={44} color="#CBD5E1" />
+            <Text style={styles.emptyFeedTitle}>Chưa có món đồ nào ở cơ sở này</Text>
+            <Text style={styles.emptyFeedSub}>Hãy chọn cơ sở "TẤT CẢ" hoặc chuyển sang cơ sở khác để khám phá thêm đồ sinh viên pass lại nhé!</Text>
+          </View>
+        ) : (
+          <View style={styles.productGrid}>
+            {products.map((item) => (
+              <ProductCard
+                key={item.id}
+                {...item}
+                onPress={() => {
+                  if (onProductPress) onProductPress(item.id);
+                  else navigation.navigate('ProductDetail', { productId: item.id });
+                }}
+              />
+            ))}
+          </View>
+        )}
 
         <VovinamBanner
           onPress={() => {
@@ -208,6 +239,25 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+  },
+  emptyFeedContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  emptyFeedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 12,
+  },
+  emptyFeedSub: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
   bottomSpacer: { height: 30 },
 });

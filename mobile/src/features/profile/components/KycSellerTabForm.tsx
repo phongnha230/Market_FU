@@ -25,7 +25,6 @@ interface KycSellerTabFormProps {
   showBankPicker: boolean;
   setShowBankPicker: (val: boolean) => void;
   onPickImage: (setter: (uri: string) => void, title: string) => void;
-  onUseDemoCards: () => void;
 }
 
 interface KycPhotoUploadSlotProps {
@@ -86,7 +85,6 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
   showBankPicker,
   setShowBankPicker,
   onPickImage,
-  onUseDemoCards,
 }) => {
   return (
     <View>
@@ -217,16 +215,6 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
           uploadText="Chụp mặt sau"
         />
       </View>
-
-      {/* Demo Seller cards */}
-      <TouchableOpacity
-        style={styles.demoFillBtn}
-        onPress={onUseDemoCards}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="sparkles" size={14} color="#EA580C" />
-        <Text style={styles.demoFillText}>Nạp giấy tờ mẫu CCCD & STK để thử nghiệm</Text>
-      </TouchableOpacity>
 
       {/* Safe Point Pledge */}
       <TouchableOpacity
@@ -381,25 +369,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  demoFillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  demoFillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#EA580C',
   },
   pledgeBox: {
     flexDirection: 'row',

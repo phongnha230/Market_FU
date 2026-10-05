@@ -26,12 +26,8 @@ export const ReviewScreen: React.FC = () => {
     route.params?.productImage || require('../../../../assets/products/monitor-dell-24.jpg');
 
   const [rating, setRating] = useState<number>(5);
-  const [comment, setComment] = useState('Sản phẩm đúng như mô tả, người bán giao đúng giờ hẹn ở sảnh Alpha rất nhiệt tình!');
-  const [selectedTags, setSelectedTags] = useState<string[]>([
-    'Đúng như mô tả',
-    'Đúng giờ hẹn Safe-Point',
-    'Người bán thân thiện',
-  ]);
+  const [comment, setComment] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const ratingLabels: { [key: number]: string } = {
     1: 'Rất tệ 😡',

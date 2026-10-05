@@ -31,99 +31,9 @@ export interface UserVoucher {
   createdAt: string;
 }
 
-export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
-  {
-    id: 'vch-canteen-10k',
-    title: 'Voucher Cơm Căn Tin 10.000đ',
-    description: 'Áp dụng cho mọi suất cơm trưa/tối tại Căng-tin Tòa Gamma (Hola) và Canteen Q.9 (HCM).',
-    partner: 'CANTEEN',
-    partnerLabel: 'Căn Tin FPT',
-    coinCost: 10,
-    discountValue: 10000,
-    quantity: 85,
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
-    validDays: 14,
-    isActive: true,
-  },
-  {
-    id: 'vch-passio-15k',
-    title: 'Giảm 15.000đ Cà Phê Passio Hola',
-    description: 'Áp dụng cho mọi loại đồ uống từ 35.000đ tại quầy Passio sảnh Alpha Hola.',
-    partner: 'PASSIO',
-    partnerLabel: 'Passio Coffee',
-    coinCost: 15,
-    discountValue: 15000,
-    quantity: 40,
-    imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80',
-    validDays: 30,
-    isActive: true,
-  },
-  {
-    id: 'vch-7eleven-20k',
-    title: 'Phiếu Mua Hàng 7-Eleven 20K',
-    description: 'Áp dụng cho hóa đơn từ 50.000đ tại cửa hàng tiện lợi 7-Eleven cơ sở HCM.',
-    partner: 'SEVEN_ELEVEN',
-    partnerLabel: '7-Eleven Campus',
-    coinCost: 20,
-    discountValue: 20000,
-    quantity: 30,
-    imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
-    validDays: 20,
-    isActive: true,
-  },
-  {
-    id: 'vch-ship-free',
-    title: 'Miễn Phí Vận Chuyển Liên Campus FPT',
-    description: 'Freeship tối đa 25K cho các đơn gửi đồ qua hệ thống xe bus trung chuyển nội bộ giữa các cơ sở.',
-    partner: 'OTHER',
-    partnerLabel: 'CampusShip Express',
-    coinCost: 25,
-    discountValue: 25000,
-    quantity: 200,
-    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
-    validDays: 45,
-    isActive: true,
-  },
-];
+export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [];
 
-const INITIAL_USER_VOUCHERS_BY_USER: Record<string, UserVoucher[]> = {
-  acc_verified: [
-    {
-      id: 'uv-1',
-      userId: 'acc_verified',
-      voucherId: 'vch-canteen-10k',
-      voucher: INITIAL_AVAILABLE_VOUCHERS[0],
-      voucherCode: 'FUV-CANT-8921A',
-      status: 'UNUSED',
-      expiredAt: '30/10/2026',
-      createdAt: 'Hôm qua',
-    },
-    {
-      id: 'uv-2',
-      userId: 'acc_verified',
-      voucherId: 'vch-passio-15k',
-      voucher: INITIAL_AVAILABLE_VOUCHERS[1],
-      voucherCode: 'FUV-PASS-9938B',
-      status: 'USED',
-      usedAt: '15:20 - 18/09/2026',
-      expiredAt: '30/10/2026',
-      createdAt: '3 ngày trước',
-    },
-  ],
-  acc_seller: [
-    {
-      id: 'uv-s1',
-      userId: 'acc_seller',
-      voucherId: 'vch-ship-free',
-      voucher: INITIAL_AVAILABLE_VOUCHERS[3],
-      voucherCode: 'FUV-SHIP-1284S',
-      status: 'UNUSED',
-      expiredAt: '15/11/2026',
-      createdAt: '2 ngày trước',
-    },
-  ],
-  acc_unverified: [],
-};
+const INITIAL_USER_VOUCHERS_BY_USER: Record<string, UserVoucher[]> = {};
 
 interface VoucherState {
   availableVouchers: Voucher[];
@@ -145,15 +55,15 @@ interface VoucherState {
 export const useVoucherStore = create<VoucherState>()(
   persist(
     (set, get) => ({
-      availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-      myVouchersByUser: INITIAL_USER_VOUCHERS_BY_USER,
-      activeUserId: 'acc_verified',
-      myVouchers: INITIAL_USER_VOUCHERS_BY_USER.acc_verified || [],
+      availableVouchers: [],
+      myVouchersByUser: {},
+      activeUserId: null,
+      myVouchers: [],
       isLoading: false,
 
       setActiveUser: (userId) => {
         const { myVouchersByUser } = get();
-        const currentId = userId || 'acc_unverified';
+        const currentId = userId || 'anonymous';
         const userVouchers = myVouchersByUser[currentId] || [];
         set({
           activeUserId: userId,
@@ -181,7 +91,7 @@ export const useVoucherStore = create<VoucherState>()(
 
       redeemVoucher: async (voucherId: string) => {
         const { availableVouchers, myVouchersByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const item = availableVouchers.find((v) => v.id === voucherId);
 
         if (!item) return { success: false, message: 'Voucher không tồn tại' };
@@ -226,7 +136,7 @@ export const useVoucherStore = create<VoucherState>()(
 
       useVoucherCode: async (userVoucherIdOrCode: string) => {
         const { myVouchersByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const list = myVouchersByUser[currentId] || [];
 
         const target = list.find(
@@ -255,6 +165,11 @@ export const useVoucherStore = create<VoucherState>()(
           },
         });
 
+        // Bắn ngầm lên backend vô hiệu hóa voucher code trên server
+        import('../services/voucherMobileService').then(({ voucherMobileService }) => {
+          voucherMobileService.useVoucher(target.voucherCode).catch(() => {});
+        });
+
         return { success: true, message: 'Áp dụng mã voucher thành công!' };
       },
 
@@ -272,9 +187,9 @@ export const useVoucherStore = create<VoucherState>()(
 
       resetVouchers: () => {
         set({
-          availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
-          myVouchersByUser: INITIAL_USER_VOUCHERS_BY_USER,
-          myVouchers: INITIAL_USER_VOUCHERS_BY_USER.acc_verified || [],
+          availableVouchers: [],
+          myVouchersByUser: {},
+          myVouchers: [],
         });
       },
     }),

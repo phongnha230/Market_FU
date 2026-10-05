@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { socketMobileService } from '../../../services/socketMobileService';
+import { paymentMobileService } from '../../../services/paymentMobileService';
 
 interface MobileVietQRModalProps {
   visible: boolean;
@@ -93,17 +94,31 @@ export const MobileVietQRModal: React.FC<MobileVietQRModalProps> = ({
     }
   };
 
-  // Nút kiểm tra thủ công hoặc mô phỏng thanh toán thành công (dành cho demo / dev)
-  const handleManualCheck = () => {
-    setIsChecking(true);
-    setTimeout(() => {
-      setIsChecking(false);
+  // Nút kiểm tra trạng thái thanh toán từ máy chủ
+  const handleManualCheck = async () => {
+    try {
+      setIsChecking(true);
+      const res = await paymentMobileService.checkPaymentStatus(orderCode);
+      if (res.isPaid) {
+        Alert.alert(
+          '🎉 Khớp lệnh thanh toán thành công!',
+          `Đã xác nhận khoản cọc Escrow ${totalAmount.toLocaleString('vi-VN')}đ cho đơn #${orderCode}.`,
+          [{ text: 'Tiếp tục', onPress: onPaymentSuccess }]
+        );
+      } else {
+        Alert.alert(
+          'Chưa nhận được thanh toán',
+          'Hệ thống đang chờ giao dịch chuyển khoản từ ngân hàng của bạn. Vui lòng thử lại sau giây lát hoặc đợi thông báo tự động.'
+        );
+      }
+    } catch {
       Alert.alert(
-        '🎉 Khớp lệnh thanh toán thành công!',
-        `Đã xác nhận khoản cọc Escrow ${totalAmount.toLocaleString('vi-VN')}đ cho đơn #${orderCode}.`,
-        [{ text: 'Tiếp tục', onPress: onPaymentSuccess }]
+        'Chưa nhận được thanh toán',
+        'Chưa phát hiện giao dịch thành công. Vui lòng kiểm tra lại nội dung chuyển khoản.'
       );
-    }, 1200);
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (

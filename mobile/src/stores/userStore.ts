@@ -18,6 +18,12 @@ const syncUserToStores = (userId: string | null) => {
     useVoucherStore.getState().setActiveUser(userId);
     useKycStore.getState().setActiveUser(userId);
     useWalletStore.getState().setActiveUser(userId);
+
+    // Đồng bộ tức thời danh sách đơn hàng & sản phẩm từ Backend
+    useOrderStore.getState().fetchOrders().catch(() => {});
+    import('./productStore').then(({ useProductStore }) => {
+      useProductStore.getState().fetchProducts().catch(() => {});
+    });
   } catch (e) {
     // Non-blocking sync error prevention
   }
@@ -28,6 +34,7 @@ export type RoleSelectType = 'UNVERIFIED' | 'VERIFIED' | 'SELLER' | 'UNVERIFIED_
 interface UserState {
   user: UserProfile | null;
   token: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   registeredAccounts: AccountRecord[];
@@ -53,7 +60,7 @@ interface UserState {
     password?: string
   ) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   updateUserProfile: (partial: Partial<UserProfile>) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
-  setAuth: (user: UserProfile, token: string) => void;
+  setAuth: (user: UserProfile, token: string, refreshToken?: string) => void;
   updateUser: (partial: Partial<UserProfile>) => void; // alias backward compat
   logout: () => void;
 }
@@ -63,6 +70,7 @@ export const useUserStore = create<UserState>()(
     (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       registeredAccounts: [],
@@ -136,10 +144,43 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isLoading: true });
           let targetRole: 'UNVERIFIED' | 'VERIFIED' | 'SELLER' = 'VERIFIED';
-          if (role === 'UNVERIFIED' || role === 'UNVERIFIED_STUDENT') targetRole = 'UNVERIFIED';
-          else if (role === 'SELLER' || role === 'TOP_SELLER') targetRole = 'SELLER';
-          else targetRole = 'VERIFIED';
+          let roleEmail = 'buyer@fpt.edu.vn';
+          if (role === 'UNVERIFIED' || role === 'UNVERIFIED_STUDENT') {
+            targetRole = 'UNVERIFIED';
+            roleEmail = 'unverified@fpt.edu.vn';
+          } else if (role === 'SELLER' || role === 'TOP_SELLER') {
+            targetRole = 'SELLER';
+            roleEmail = 'seller@fpt.edu.vn';
+          } else {
+            targetRole = 'VERIFIED';
+            roleEmail = 'buyer@fpt.edu.vn';
+          }
 
+          // 1. Thử đăng nhập qua Backend trước để lấy JWT token thật
+          try {
+            const backendRes = await authMobileService.login({
+              email: roleEmail,
+              password: 'Password123@',
+            });
+            if (backendRes.user && backendRes.token) {
+              set({
+                user: backendRes.user,
+                token: backendRes.token,
+                isAuthenticated: true,
+              });
+              syncUserToStores(backendRes.user.id);
+              await get().loadRegisteredAccounts();
+              return {
+                success: true,
+                message: `Đăng nhập thành công với vai trò ${backendRes.user.role}!`,
+                user: backendRes.user,
+              };
+            }
+          } catch (apiErr: any) {
+            console.log('ℹ️ [Backend Role Login Offline/Unreachable, using local mock]:', apiErr?.message);
+          }
+
+          // 2. Fallback ngoại tuyến
           const testUser = await accountStorage.getTestAccountByRole(targetRole);
           const token = `token_${Date.now()}_${testUser.id}`;
           set({
@@ -284,8 +325,13 @@ export const useUserStore = create<UserState>()(
       },
 
       // Backward-compatible methods
-      setAuth: (user: UserProfile, token: string) => {
-        set({ user, token, isAuthenticated: !!token });
+      setAuth: (user: UserProfile, token: string, refreshToken?: string) => {
+        set({
+          user,
+          token,
+          refreshToken: refreshToken !== undefined ? refreshToken : get().refreshToken,
+          isAuthenticated: !!token,
+        });
         if (user && user.id) {
           syncUserToStores(user.id);
         }
@@ -302,11 +348,20 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
-        authMobileService.logout().catch(() => {});
+        const currentToken = get().token;
+        if (currentToken && !currentToken.startsWith('token_')) {
+          try {
+            const client = require('../services/apiClient').default;
+            client?.post('/auth/logout').catch(() => {});
+          } catch {
+            // Ignored
+          }
+        }
         syncUserToStores(null);
         set({
           user: null,
           token: null,
+          refreshToken: null,
           isAuthenticated: false,
         });
       },

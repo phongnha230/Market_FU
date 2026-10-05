@@ -19,7 +19,7 @@ export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({ st
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Đơn hàng & Giao dịch của tôi</Text>
-        <TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.7} onPress={() => onPressStatus && onPressStatus('all')}>
           <Text style={styles.seeAll}>Xem lịch sử ›</Text>
         </TouchableOpacity>
       </View>

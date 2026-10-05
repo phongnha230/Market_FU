@@ -31,34 +31,19 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   const sellerCampus = fromBackendCampus(user?.campus || 'Hòa Lạc');
   const defaultSafePoint = getCampusDefaultSafePoint(sellerCampus);
 
-  const [title, setTitle] = useState('Bàn phím cơ Akko 3087 v2 Silent Switch');
-  const [price, setPrice] = useState('520.000');
+  const [title, setTitle] = useState('');
+  const [price, setPrice] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<PostCategory>('it');
   const [selectedCondition, setSelectedCondition] = useState<PostCondition>('new');
-  const [description, setDescription] = useState(
-    'Bàn phím cơ Akko chính chủ sinh viên dùng lướt, phím gõ êm, switch nhạy, fullbox đủ phụ kiện cáp và keypuller. Nhận test trực tiếp tại trạm Safe-Point.'
-  );
+  const [description, setDescription] = useState('');
   const [allowNegotiate, setAllowNegotiate] = useState(true);
   const [freeForK20, setFreeForK20] = useState(false);
   const [selectedSafePoint, setSelectedSafePoint] = useState(defaultSafePoint);
   const [campusShipEnabled, setCampusShipEnabled] = useState(true);
-  const [hashtags, setHashtags] = useState<string[]>(['akko', 'banphimco', 'silent', 'gaming']);
+  const [hashtags, setHashtags] = useState<string[]>([]);
   const [hashtagInput, setHashtagInput] = useState('');
 
-  const [images, setImages] = useState<PostImageItem[]>([
-    {
-      id: '1',
-      source: require('../../../../assets/products/keyboard-akko.jpg'),
-      isCover: true,
-      isHd: true,
-    },
-    {
-      id: '2',
-      source: require('../../../../assets/products/books-mas291.jpg'),
-      isCover: false,
-      isHd: false,
-    },
-  ]);
+  const [images, setImages] = useState<PostImageItem[]>([]);
 
   const handleRemoveImage = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
@@ -91,14 +76,14 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   };
 
   const handleSubmit = () => {
-    const rawPrice = parseInt(price.replace(/[^\d]/g, ''), 10) || 500000;
+    const rawPrice = parseInt(price.replace(/[^\d]/g, ''), 10) || 0;
     const currentSeller = user || {
-      id: 'acc_seller',
-      name: 'Đặng Thùy Dương',
+      id: '',
+      name: 'Người bán FPT',
       campus: sellerCampus,
-      cohort: 'K16',
+      cohort: '',
       rating: 5.0,
-      isKycVerified: true,
+      isKycVerified: false,
     };
 
     addProduct({

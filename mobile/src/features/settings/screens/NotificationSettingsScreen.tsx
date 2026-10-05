@@ -3,7 +3,8 @@ import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { requestNotificationPermission } from '../../../services/notificationMobileService';
+import { requestNotificationPermission, registerForPushNotificationsAsync } from '../../../services/notificationMobileService';
+import { useNotificationStore } from '../../../stores/notificationStore';
 
 const HeaderNavBtn: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
@@ -23,7 +24,9 @@ export const NotificationSettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
-  const [pushEnabled, setPushEnabled] = useState(true);
+  const pushPermissionGranted = useNotificationStore((state) => state.pushPermissionGranted);
+  const setPushPermissionGranted = useNotificationStore((state) => state.setPushPermissionGranted);
+
   const [chatMessages, setChatMessages] = useState(true);
   const [orderUpdates, setOrderUpdates] = useState(true);
   const [safePointAlerts, setSafePointAlerts] = useState(true);
@@ -32,12 +35,16 @@ export const NotificationSettingsScreen: React.FC = () => {
   const [vibrateEnabled, setVibrateEnabled] = useState(true);
 
   const handleToggleMasterPush = async (val: boolean) => {
-    setPushEnabled(val);
     if (val) {
       const granted = await requestNotificationPermission();
-      if (!granted) {
-        setPushEnabled(false);
+      if (granted) {
+        await registerForPushNotificationsAsync();
+        setPushPermissionGranted(true);
+      } else {
+        setPushPermissionGranted(false);
       }
+    } else {
+      setPushPermissionGranted(false);
     }
   };
 
@@ -104,9 +111,9 @@ export const NotificationSettingsScreen: React.FC = () => {
             <Text style={styles.masterDesc}>Nhận thông báo tức thì trên màn hình khóa</Text>
           </View>
           <Switch
-            value={pushEnabled}
+            value={pushPermissionGranted}
             onValueChange={handleToggleMasterPush}
-            thumbColor={pushEnabled ? '#F27024' : '#F1F5F9'}
+            thumbColor={pushPermissionGranted ? '#F27024' : '#F1F5F9'}
             trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
           />
         </View>

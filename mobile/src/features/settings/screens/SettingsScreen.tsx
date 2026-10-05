@@ -15,7 +15,16 @@ export const SettingsScreen: React.FC = () => {
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
       { text: 'Hủy', style: 'cancel' },
-      { text: 'Đăng xuất', style: 'destructive', onPress: logout },
+      {
+        text: 'Đăng xuất',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          if (navigation?.navigate) {
+            navigation.navigate('Login');
+          }
+        },
+      },
     ]);
   };
 

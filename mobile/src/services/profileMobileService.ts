@@ -70,6 +70,54 @@ export const profileMobileService = {
   },
 
   /**
+   * Nộp hồ sơ Onboarding Người Bán (Họ tên, SĐT, Cơ sở, Ngân hàng + Thẻ SV)
+   */
+  async submitSellerOnboarding(data: {
+    fullName: string;
+    studentId: string;
+    phoneNumber: string;
+    campus: string;
+    bankName: string;
+    accountNo: string;
+    accountName: string;
+    cardImageUri?: string;
+  }): Promise<{ status: string; message: string }> {
+    const { toBackendCampus } = await import('../lib/backendMappers');
+    const backendCampus = toBackendCampus(data.campus) || 'HOL';
+
+    const formData = new FormData();
+    formData.append('fullName', data.fullName.trim());
+    formData.append('studentId', data.studentId.trim().toUpperCase());
+    formData.append('phoneNumber', data.phoneNumber.trim() || '0901234567');
+    formData.append('campus', backendCampus);
+    formData.append('bankName', data.bankName.trim());
+    formData.append('accountNo', data.accountNo.trim());
+    formData.append('accountName', data.accountName.trim().toUpperCase());
+
+    if (data.cardImageUri) {
+      const filename = data.cardImageUri.split('/').pop() || 'seller_card.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      formData.append('cardImage', {
+        uri: data.cardImageUri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    const res = await apiClient.post<ApiResponse<any>>('/profile/seller-onboarding', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return {
+      status: res.data?.data?.status || 'PENDING',
+      message: res.data?.data?.message || 'Nộp hồ sơ đăng ký Người Bán thành công!',
+    };
+  },
+
+  /**
    * Tạo lệnh rút tiền từ Ví Campus về tài khoản ngân hàng
    * Đồng bộ tài khoản ngân hàng qua PATCH /bank-account trước khi tạo yêu cầu
    */

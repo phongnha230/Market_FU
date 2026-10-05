@@ -12,19 +12,22 @@ export function useProductDetailActions(
 
   const [isOfferModalVisible, setIsOfferModalVisible] = useState(false);
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
-  const [isSameCampus, setIsSameCampus] = useState(true);
 
   const isSeller = user?.role === 'SELLER';
   const isVerified = (user?.isKycVerified || isSeller) && user?.kycStatus !== 'PENDING';
+
+  const isSameCampus = useMemo(() => {
+    if (!user?.campus || !product?.campus) return true;
+    return user.campus.trim().toLowerCase() === product.campus.trim().toLowerCase();
+  }, [user?.campus, product?.campus]);
 
   const isOwnProduct = useMemo(() => {
     if (!user || !product?.seller) return false;
     return Boolean(
       (product.seller.id && user.id === product.seller.id) ||
-      (product.seller.name && user.name === product.seller.name) ||
-      (isSeller && (product.seller.id === 'acc_seller' || product.seller.name === user.name))
+      (product.seller.name && user.name === product.seller.name)
     );
-  }, [user, product?.seller, isSeller]);
+  }, [user, product?.seller]);
 
   const showKycRequiredAlert = useCallback((actionName: string) => {
     Alert.alert(
@@ -161,16 +164,11 @@ export function useProductDetailActions(
     });
   }, [navigation, product]);
 
-  const handleToggleSameCampus = useCallback(() => {
-    setIsSameCampus((prev) => !prev);
-  }, []);
-
   return {
     isOfferModalVisible,
     isReportModalVisible,
     isSameCampus,
     isOwnProduct,
-    handleToggleSameCampus,
     handleBack,
     handleGoHome,
     handleOpenBuyNow,

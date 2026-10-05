@@ -17,7 +17,7 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
 
   const handleViewShop = () => {
     navigation.navigate('PublicSellerProfile', {
-      userId: (seller as any).id || (seller as any).userId || 'acc_seller',
+      userId: (seller as any).id || (seller as any).userId || '',
       sellerName: seller.name,
     });
   };

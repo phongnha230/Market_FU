@@ -1,7 +1,7 @@
 import { CategoryItem } from '../types/home.types';
 import { ProductCardProps } from '../../../components/common/ProductCard';
 
-export const CAMPUSES: string[] = ['HÒA LẠC', 'TP.HCM', 'ĐÀ NẴNG', 'CẦN THƠ'];
+export const CAMPUSES: string[] = ['TẤT CẢ', 'HÒA LẠC', 'TP.HCM', 'ĐÀ NẴNG', 'CẦN THƠ', 'QUY NHƠN'];
 
 export const CATEGORIES: CategoryItem[] = [
   {

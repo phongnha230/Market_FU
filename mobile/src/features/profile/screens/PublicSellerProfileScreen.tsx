@@ -23,25 +23,7 @@ import { SellerReviewsList } from '../components/SellerReviewsList';
 import { SellerBottomBar } from '../components/SellerBottomBar';
 import { ReportModal } from '../../report/components/ReportModal';
 
-const DEFAULT_REVIEWS = [
-  {
-    id: 'rev_1',
-    reviewerName: 'Trần Minh Quân (K17)',
-    rating: 5,
-    comment:
-      'Bạn bán rất nhiệt tình, hẹn đúng giờ tại Sảnh Alpha test cắm điện thử máy OK mới nhận tiền.',
-    createdAt: '2 ngày trước',
-    productTitle: 'Màn hình Dell 24" UltraSharp',
-  },
-  {
-    id: 'rev_2',
-    reviewerName: 'Lê Hoàng Anh (K18)',
-    rating: 5,
-    comment: 'Giáo trình sạch đẹp nguyên vẹn, bọc cẩn thận. Rất uy tín!',
-    createdAt: '1 tuần trước',
-    productTitle: 'Combo CSL201 + MAS291',
-  },
-];
+const DEFAULT_REVIEWS: any[] = [];
 
 export const PublicSellerProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -49,8 +31,8 @@ export const PublicSellerProfileScreen: React.FC = () => {
   const route = useRoute<any>();
   const { user: currentUser } = useUserStore();
 
-  const userId = route.params?.userId || 'acc_seller';
-  const paramSellerName = route.params?.sellerName || 'Sinh viên FPT';
+  const userId = route.params?.userId || currentUser?.id || '';
+  const paramSellerName = route.params?.sellerName || 'Người bán FPT';
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,25 +59,25 @@ export const PublicSellerProfileScreen: React.FC = () => {
               fullName: paramSellerName,
               campus: 'HÒA LẠC',
               role: 'SELLER',
-              avatarBadge: 'TOP_SELLER',
-              reputationScore: 98,
-              createdAt: '2023-09-01T00:00:00.000Z',
+              avatarBadge: '',
+              reputationScore: 100,
+              createdAt: new Date().toISOString(),
               _count: {
-                products: 6,
-                receivedReviews: 14,
+                products: 0,
+                receivedReviews: 0,
               },
             });
           }
 
           const sellerProducts = (prodsData || []).filter(
-            (p: any) => p.sellerId === userId || p.sellerName === paramSellerName
+            (p: any) => p.sellerId === userId || (paramSellerName && p.sellerName === paramSellerName)
           );
-          setProducts(sellerProducts.length > 0 ? sellerProducts : (prodsData || []).slice(0, 4));
+          setProducts(sellerProducts);
 
           if (reviewsData && reviewsData.length > 0) {
             setReviews(reviewsData);
           } else {
-            setReviews(DEFAULT_REVIEWS);
+            setReviews([]);
           }
         })
         .catch((err: any) => {

@@ -21,58 +21,7 @@ export interface UserWallet {
   transactions: WalletTransaction[];
 }
 
-const INITIAL_WALLETS: Record<string, UserWallet> = {
-  // acc_seller có sẵn doanh thu bán hàng đồ công nghệ
-  acc_seller: {
-    availableBalance: 2450000,
-    escrowBalance: 1850000,
-    coins: 520,
-    transactions: [
-      {
-        id: 'tx_s1',
-        type: 'SALE_ESCROW_RELEASE',
-        title: 'Hoàn tất đơn hàng: Chuột Logitech G102',
-        amount: 210000,
-        date: 'Hôm qua, 18:30',
-        status: 'SUCCESS',
-        referenceCode: 'ORD-651239',
-      },
-      {
-        id: 'tx_s2',
-        type: 'BUY_ESCROW_HOLD',
-        title: 'Cọc Escrow đơn: Màn hình Dell 24" (Chờ giao Safe-Point)',
-        amount: 1850000,
-        date: 'Hôm nay, 14:15',
-        status: 'PENDING',
-        referenceCode: 'ORD-882194',
-      },
-    ],
-  },
-  // acc_verified là sinh viên mua hàng có sẵn xu và số dư
-  acc_verified: {
-    availableBalance: 500000,
-    escrowBalance: 1850000,
-    coins: 350,
-    transactions: [
-      {
-        id: 'tx_b1',
-        type: 'DEPOSIT',
-        title: 'Nạp ví qua VietQR Napas 24/7',
-        amount: 500000,
-        date: '25/09/2026',
-        status: 'SUCCESS',
-        referenceCode: 'DEP-883912',
-      },
-    ],
-  },
-  // acc_unverified tài khoản mới
-  acc_unverified: {
-    availableBalance: 0,
-    escrowBalance: 0,
-    coins: 50,
-    transactions: [],
-  },
-};
+const INITIAL_WALLETS: Record<string, UserWallet> = {};
 
 interface WalletState {
   walletsByUser: Record<string, UserWallet>;
@@ -95,7 +44,7 @@ export const useWalletStore = create<WalletState>()(
   persist(
     (set, get) => ({
       walletsByUser: INITIAL_WALLETS,
-      activeUserId: 'acc_seller',
+      activeUserId: null,
 
       setActiveUser: (userId) => {
         set({ activeUserId: userId });
@@ -103,7 +52,7 @@ export const useWalletStore = create<WalletState>()(
 
       getWallet: () => {
         const { walletsByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         return (
           walletsByUser[currentId] || {
             availableBalance: 0,
@@ -116,7 +65,7 @@ export const useWalletStore = create<WalletState>()(
 
       withdraw: async (amount, bankInfo) => {
         const { walletsByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const wallet = walletsByUser[currentId] || {
           availableBalance: 0,
           escrowBalance: 0,
@@ -181,7 +130,7 @@ export const useWalletStore = create<WalletState>()(
 
       deposit: async (amount) => {
         const { walletsByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const wallet = walletsByUser[currentId] || {
           availableBalance: 0,
           escrowBalance: 0,
@@ -254,7 +203,7 @@ export const useWalletStore = create<WalletState>()(
 
       addCoins: (amount) => {
         const { walletsByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const wallet = walletsByUser[currentId] || {
           availableBalance: 0,
           escrowBalance: 0,
@@ -275,7 +224,7 @@ export const useWalletStore = create<WalletState>()(
 
       deductCoins: (amount) => {
         const { walletsByUser, activeUserId } = get();
-        const currentId = activeUserId || 'acc_unverified';
+        const currentId = activeUserId || 'anonymous';
         const wallet = walletsByUser[currentId] || {
           availableBalance: 0,
           escrowBalance: 0,

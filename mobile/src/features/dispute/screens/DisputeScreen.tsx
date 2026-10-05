@@ -43,7 +43,7 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
     description,
     setDescription,
     handleSubmit,
-  } = useDispute(handleBack);
+  } = useDispute(handleBack, orderId);
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>

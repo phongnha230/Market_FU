@@ -14,6 +14,7 @@ import { CheckoutProductCard } from '../components/CheckoutProductCard';
 import { CheckoutSafePointCard } from '../components/CheckoutSafePointCard';
 import { CheckoutPaymentMethods } from '../components/CheckoutPaymentMethods';
 import { CheckoutVoucherCard } from '../components/CheckoutVoucherCard';
+import { CheckoutVoucherModal } from '../components/CheckoutVoucherModal';
 import { CheckoutSummaryCard } from '../components/CheckoutSummaryCard';
 import { CheckoutBottomBar } from '../components/CheckoutBottomBar';
 
@@ -85,6 +86,22 @@ export const CheckoutScreen: React.FC = () => {
         totalAmount={ctrl.totalAmount}
         selectedPayment={ctrl.selectedPayment}
         onConfirmPayment={ctrl.handleConfirmPayment}
+        formatCurrency={ctrl.formatCurrency}
+        isSubmitting={ctrl.isSubmitting}
+      />
+
+      <CheckoutVoucherModal
+        visible={ctrl.isVoucherModalOpen}
+        onClose={() => ctrl.setIsVoucherModalOpen(false)}
+        appliedVoucher={ctrl.appliedVoucher}
+        onSelectVoucher={ctrl.handleSelectVoucher}
+        myVouchers={ctrl.myVouchers}
+        loadingVouchers={ctrl.loadingVouchers}
+        customVoucherInput={ctrl.customVoucherInput}
+        onCustomVoucherInputChange={ctrl.setCustomVoucherInput}
+        onApplyCustomVoucher={ctrl.handleApplyCustomVoucher}
+        onNavigateVoucherList={ctrl.handleNavigateVoucherList}
+        insetsBottom={insets.bottom}
         formatCurrency={ctrl.formatCurrency}
       />
     </View>

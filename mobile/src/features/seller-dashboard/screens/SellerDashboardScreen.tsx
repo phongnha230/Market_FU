@@ -78,24 +78,27 @@ export const SellerDashboardScreen: React.FC = () => {
     setRefreshing(false);
   }, [fetchAnalytics]);
 
-  const activeCount = useMemo(() => myListings.filter((l) => l.status === 'AVAILABLE').length || 4, [myListings]);
+  const activeCount = useMemo(() => myListings.filter((l) => l.status === 'AVAILABLE').length, [myListings]);
   const reservedCount = useMemo(() => {
     if (analytics?.counts) {
       return analytics.counts.processing + analytics.counts.shipping;
     }
-    return myListings.filter((l) => l.status === 'RESERVED').length || 2;
+    return myListings.filter((l) => l.status === 'RESERVED').length;
   }, [analytics?.counts, myListings]);
   const soldCount = useMemo(() => {
     if (analytics?.counts) {
       return analytics.counts.completed;
     }
-    return myListings.filter((l) => l.status === 'SOLD').length || 18;
+    return myListings.filter((l) => l.status === 'SOLD').length;
   }, [analytics?.counts, myListings]);
-  const shippingCount = useMemo(() => analytics?.counts ? analytics.counts.shipping : 1, [analytics?.counts]);
+  const shippingCount = useMemo(() => (analytics?.counts ? analytics.counts.shipping : 0), [analytics?.counts]);
 
-  const totalRevenue = useMemo(() => analytics?.monthlyRevenue ?? 3850000, [analytics?.monthlyRevenue]);
-  const pendingEscrowAmount = useMemo(() => analytics?.pendingEscrow ?? escrowBalance, [analytics?.pendingEscrow, escrowBalance]);
-  const completionRate = useMemo(() => analytics?.completionRate ?? 100, [analytics?.completionRate]);
+  const totalRevenue = useMemo(() => analytics?.monthlyRevenue ?? availableBalance ?? 0, [analytics?.monthlyRevenue, availableBalance]);
+  const pendingEscrowAmount = useMemo(() => analytics?.pendingEscrow ?? escrowBalance ?? 0, [analytics?.pendingEscrow, escrowBalance]);
+  const completionRate = useMemo(() => {
+    if (analytics?.completionRate !== undefined) return analytics.completionRate;
+    return soldCount + reservedCount > 0 ? 100 : 0;
+  }, [analytics?.completionRate, soldCount, reservedCount]);
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>

@@ -6,6 +6,7 @@ import {
   FlatList,
   StyleSheet,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
+import { socketMobileService } from '../../../services/socketMobileService';
 
 const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
@@ -154,16 +156,16 @@ const filterOrders = (
   activeTab: string
 ): OrderItem[] => {
   return orders.filter((o) => {
-    const matchesUser = isSeller
-      ? o.sellerId === currentUserId || o.buyerId === currentUserId
-      : o.buyerId === currentUserId;
+    const isMySale = o.sellerId === currentUserId;
+    const isMyBuy = o.buyerId === currentUserId;
+    const matchesUser = isSeller ? (isMySale || isMyBuy) : isMyBuy;
     if (!matchesUser) return false;
 
     switch (activeTab) {
       case 'my_sales':
-        return o.sellerId === currentUserId;
+        return isMySale;
       case 'my_buys':
-        return o.buyerId === currentUserId;
+        return isMyBuy;
       case 'escrow':
         return o.status === 'ESCROW_PAID' || o.status === 'PENDING_SAFEPOINT';
       case 'completed':
@@ -182,12 +184,34 @@ export const OrderListScreen: React.FC = () => {
   const { user } = useUserStore();
   const { orders, fetchOrders } = useOrderStore();
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     fetchOrders().catch(() => {});
+
+    const unsubPaid = socketMobileService.onOrderPaid(() => fetchOrders().catch(() => {}));
+    const unsubNew = socketMobileService.onNewOrderReceived(() => fetchOrders().catch(() => {}));
+    const unsubComp = socketMobileService.onOrderCompleted(() => fetchOrders().catch(() => {}));
+    const unsubShip = socketMobileService.onOrderShippingUpdated(() => fetchOrders().catch(() => {}));
+    const unsubCancel = socketMobileService.onOrderCancelled(() => fetchOrders().catch(() => {}));
+
+    return () => {
+      unsubPaid();
+      unsubNew();
+      unsubComp();
+      unsubShip();
+      unsubCancel();
+    };
+  }, [fetchOrders]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchOrders().catch(() => {});
+    setRefreshing(false);
   }, [fetchOrders]);
 
   const isSeller = user?.role === 'SELLER';
-  const currentUserId = user?.id || 'acc_verified';
+  const currentUserId = user?.id || '';
   const [activeTab, setActiveTab] = useState<string>('all');
 
   const tabs: TabOption[] = React.useMemo(() => {
@@ -302,6 +326,9 @@ export const OrderListScreen: React.FC = () => {
         renderItem={renderOrderItem}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+        }
         ListEmptyComponent={
           <OrderListEmptyState activeTab={activeTab} onExplore={handleGoHome} />
         }

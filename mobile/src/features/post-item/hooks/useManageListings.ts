@@ -6,52 +6,7 @@ import { productMobileService } from '../../../services/productMobileService';
 import { ListingItemData } from '../screens/ManageListingsScreen';
 import { ListingStatus } from '../components/ManageListingsTabs';
 
-const INITIAL_LISTINGS: ListingItemData[] = [
-  {
-    id: 'l1',
-    title: 'Bàn phím cơ Akko 3087 v2',
-    price: '520.000 đ',
-    timeAgo: '10:15 hôm nay',
-    location: 'Sảnh Alpha Hòa Lạc',
-    locationIcon: 'location-outline',
-    image: require('../../../../assets/products/keyboard-akko.jpg'),
-    tag: 'Active',
-    tagColor: '#059669',
-    tagTextColor: '#FFFFFF',
-    unreadMessages: 3,
-    views: 42,
-    status: 'active',
-  },
-  {
-    id: 'l2',
-    title: 'Combo CSL201 + MAS291',
-    price: '120.000 đ',
-    timeAgo: '2 ngày trước',
-    location: 'Thư viện Beta',
-    locationIcon: 'school-outline',
-    image: require('../../../../assets/products/books-mas291.jpg'),
-    tag: 'K18',
-    tagColor: 'rgba(255, 255, 255, 0.9)',
-    tagTextColor: '#0F172A',
-    scheduledAppointments: 1,
-    views: 89,
-    status: 'scheduled',
-  },
-  {
-    id: 'l3',
-    title: 'Võ phục Vovinam (kèm đai)',
-    price: '90.000 đ',
-    timeAgo: '5 ngày trước',
-    location: 'Nhà thi đấu FPT',
-    locationIcon: 'fitness-outline',
-    image: require('../../../../assets/products/vovinam-uniform.jpg'),
-    tag: 'Size L',
-    tagColor: 'rgba(255, 255, 255, 0.9)',
-    tagTextColor: '#0F172A',
-    views: 18,
-    status: 'active',
-  },
-];
+const INITIAL_LISTINGS: ListingItemData[] = [];
 
 export const useManageListings = () => {
   const navigation = useNavigation<any>();
@@ -67,12 +22,12 @@ export const useManageListings = () => {
   const [serverListings, setServerListings] = useState<ListingItemData[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const currentSellerId = user?.id || 'acc_seller';
+  const currentSellerId = user?.id || '';
 
   const fetchMyProducts = useCallback(async () => {
     try {
       const items = await productMobileService.getMyProducts();
-      if (Array.isArray(items) && items.length > 0) {
+      if (Array.isArray(items)) {
         const mapped: ListingItemData[] = items.map((p) => {
           let st: ListingStatus = 'active';
           if (p.status === 'SOLD') st = 'sold';
@@ -137,22 +92,14 @@ export const useManageListings = () => {
         tag: p.status === 'AVAILABLE' ? 'Active' : p.status,
         tagColor: p.status === 'AVAILABLE' ? '#059669' : '#64748B',
         tagTextColor: '#FFFFFF',
-        views: p.viewsCount || 25,
+        views: p.viewsCount || 0,
         status: st,
         rawStatus: p.status,
       });
     });
 
-    if (currentSellerId === 'acc_seller') {
-      INITIAL_LISTINGS.forEach((il) => {
-        if (!list.some((item) => item.id === il.id || item.title === il.title)) {
-          list.push(il);
-        }
-      });
-    }
-
     return list;
-  }, [serverListings, khoMyListings, currentSellerId]);
+  }, [serverListings, khoMyListings]);
 
   const handleBoost = useCallback((id: string, title: string) => {
     Alert.alert(

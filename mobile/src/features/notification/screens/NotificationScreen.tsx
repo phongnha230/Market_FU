@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Alert,
   FlatList,
   ListRenderItem,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,12 +53,31 @@ const FilterChipItem: React.FC<FilterChipItemProps> = React.memo(({ item, isActi
   );
 });
 
+import { useNotificationStore } from '../../../stores/notificationStore';
+
 export const NotificationScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const {
+    notifications,
+    isLoading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useNotificationStore();
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [activeFilter, setActiveFilter] = useState<NotificationFilterType>('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchNotifications().catch(() => {});
+  }, [fetchNotifications]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchNotifications().catch(() => {});
+    setRefreshing(false);
+  }, [fetchNotifications]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => n.unread).length,
@@ -75,15 +95,13 @@ export const NotificationScreen: React.FC = () => {
   );
 
   const handleMarkAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
+    markAllAsRead();
     Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc!');
-  }, []);
+  }, [markAllAsRead]);
 
   const handleNotificationPress = useCallback(
     (item: NotificationItem) => {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
-      );
+      markAsRead(item.id);
 
       if (item.targetScreen && navigation && navigation.navigate) {
         navigation.navigate(item.targetScreen, item.targetParams);
@@ -91,7 +109,7 @@ export const NotificationScreen: React.FC = () => {
         Alert.alert(item.title, item.body);
       }
     },
-    [navigation]
+    [markAsRead, navigation]
   );
 
   const handleBack = useCallback(() => {
@@ -229,6 +247,9 @@ export const NotificationScreen: React.FC = () => {
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing || isLoading} onRefresh={onRefresh} colors={['#EA580C']} />
+          }
           renderItem={renderItem}
         />
       )}

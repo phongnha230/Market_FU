@@ -143,23 +143,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           onDepositPress={() => setShowDepositModal(true)}
         />
 
-        {/* Thanh Cài đặt nhanh (Settings Bar) */}
-        <TouchableOpacity
-          style={styles.settingsBarCard}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <View style={styles.settingsBarLeft}>
-            <View style={styles.settingsBarIconBox}>
-              <Ionicons name="cog" size={20} color="#EA580C" />
-            </View>
-            <View>
-              <Text style={styles.settingsBarTitle}>Cài đặt hệ thống ứng dụng</Text>
-              <Text style={styles.settingsBarSub}>Tài khoản, thông báo, bảo mật & trợ giúp</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#EA580C" />
-        </TouchableOpacity>
 
         {/* Lịch sử tố cáo vi phạm */}
         <TouchableOpacity
@@ -188,10 +171,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           ))}
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
-          <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
-        </TouchableOpacity>
+        {!user ? (
+          <TouchableOpacity
+            style={styles.loginCtaBtn}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Ionicons name="log-in-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.loginCtaText}>Đăng nhập / Đăng ký tài khoản FPT</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+            <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Quick Edit Profile Modal */}
@@ -296,6 +290,17 @@ const styles = StyleSheet.create({
   settingsBarSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
   settingsSection: { marginTop: 14 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#475569', marginBottom: 6 },
+  loginCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#EA580C',
+    boxShadow: '0 4px 8px rgba(234, 88, 12, 0.25)',
+  },
+  loginCtaText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

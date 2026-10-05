@@ -21,60 +21,12 @@ import { AiAssistantInputBar } from '../components/AiAssistantInputBar';
 
 export type { ChatMessage, SuggestedProductItem };
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'm1',
-    sender: 'ai',
-    text: 'Chào Quân! Tôi là trợ lý chuyên sâu FPT 5Campus Marketplace. Tôi có thể hỗ trợ bạn thẩm định giá đồ dùng học tập, đối soát tài khoản MSSV chính quy, hoặc kết nối giao dịch trực tiếp ngay tại ký túc xá. Bạn cần hỗ trợ gì hôm nay?',
-    time: '09:41',
-  },
-  {
-    id: 'm2',
-    sender: 'user',
-    text: 'Mình muốn mua lại màn hình máy tính để làm đồ án OJT tại KTX Hola, bạn gợi ý mẫu nào bền mà tầm 1.5tr không?',
-    time: '09:42',
-  },
-  {
-    id: 'm3',
-    sender: 'ai',
-    time: '09:42',
-    campusHeader: 'KHUYẾN NGHỊ THEO CAMPUS HÒA LẠC',
-    text: 'Với ngân sách 1.500.000 đ tại Hola, hiện có 2 sinh viên K16 vừa kết thúc kỳ Capstone OJT đang thanh lý màn hình tình trạng tốt, hỗ trợ bạn test tận phòng:',
-    suggestedProducts: [
-      {
-        id: 'p_dell',
-        domTag: 'Hola Dom D',
-        conditionBadge: 'Like New 98%',
-        trustScore: '98/100',
-        title: 'Dell 24" SE2422H Full HD 75Hz',
-        sellerInfo: 'SV K16 SE • Bảo hành hãng 6T',
-        price: '1.450.000 đ',
-        originalPrice: '1.700.000 đ',
-        image: require('../../../../assets/products/monitor-dell-24.jpg'),
-      },
-      {
-        id: 'p_lg',
-        domTag: 'Hola Dom A',
-        conditionBadge: 'Tốt • IPS',
-        trustScore: '0 Điểm chết',
-        title: 'LG 24MK430H IPS 24 inch',
-        sellerInfo: 'SV K17 Graphic Design • Tặng kèm cáp HDMI',
-        price: '1.300.000 đ',
-        discountBadge: 'Rẻ hơn 35%',
-        image: require('../../../../assets/products/monitor-dell-24.jpg'),
-      },
-    ],
-    safetyTip: {
-      title: 'Mẹo an toàn giao dịch tại Hola',
-      safePoint: 'Bàn Test Kỹ thuật Sảnh Alpha',
-      desc: 'Bạn nên hẹn người bán tại Bàn Test Kỹ thuật Sảnh Alpha. Khu vực này được trang bị sẵn ổ cắm điện 220V và cáp chuyển HDMI/Type-C để test cổng hiển thị trước khi chuyển khoản.',
-    },
-    actionChips: [
-      { id: 'compare', label: 'So sánh thông số 2 màn', icon: 'sparkles', color: '#2563EB' },
-      { id: 'location', label: 'Xem vị trí Sảnh Alpha', icon: 'map', color: '#059669' },
-    ],
-  },
-];
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 'm1',
+  sender: 'ai',
+  text: 'Chào bạn! Tôi là trợ lý chuyên sâu FPT Campus Marketplace được tích hợp Gemini AI. Tôi có thể hỗ trợ bạn định giá đồ dùng, tìm đồ học tập quanh KTX, hoặc hướng dẫn giao dịch an toàn tại trạm Safe-Point. Bạn cần hỗ trợ gì hôm nay?',
+  time: 'Vừa xong',
+};
 
 const QUICK_PROMPTS = [
   '📚 Định giá giáo trình PRF192 cũ?',
@@ -88,7 +40,7 @@ export const AiAssistantScreen: React.FC = () => {
   const { currentCampus } = useCampusStore();
   const { user, isAuthenticated } = useAuthStore();
 
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState<string>('');
   const flatListRef = useRef<FlatList>(null);
 
@@ -187,7 +139,7 @@ export const AiAssistantScreen: React.FC = () => {
         {
           text: 'Làm mới',
           onPress: () => {
-            setMessages([INITIAL_MESSAGES[0]]);
+            setMessages([WELCOME_MESSAGE]);
           },
         },
       ]

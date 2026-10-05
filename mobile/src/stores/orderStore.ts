@@ -37,138 +37,7 @@ export interface OrderItem {
   createdAt: string;
 }
 
-export const INITIAL_ORDERS: OrderItem[] = [
-  {
-    id: 'ORD-882194',
-    orderNumber: 'ORD-882194',
-    productId: 'prod_dell_24',
-    productTitle: 'Màn hình Dell 24" UltraSharp U2419H',
-    price: 1850000,
-    productImage: require('../../assets/products/monitor-dell-24.jpg'),
-    sellerId: 'acc_seller',
-    sellerName: 'Đặng Thùy Dương',
-    sellerCohort: 'K16 - Hola Tech Store',
-    sellerCampus: 'Hòa Lạc',
-    buyerId: 'acc_verified',
-    buyerName: 'Trần Minh Quân',
-    buyerCohort: 'K17 - FPT Hola',
-    buyerCampus: 'Hòa Lạc',
-    status: 'ESCROW_PAID',
-    statusLabel: '🛡️ Đang giữ tiền Escrow - Chờ bàn giao tại Safe-Point',
-    statusColor: '#EA580C',
-    statusBg: '#FFF7ED',
-    safePoint: 'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
-    timeSlot: 'Hôm nay: 16:30 - 17:30',
-    totalAmount: 1850000,
-    isReviewed: false,
-    handshakeOtp: '7381',
-    createdAt: 'Hôm nay, 14:15',
-  },
-  {
-    id: 'ORD-651239',
-    orderNumber: 'ORD-651239',
-    productId: 'prod_akko_3087',
-    productTitle: 'Bàn phím cơ Akko 3087 v2 Silent Switch',
-    price: 480000,
-    productImage: require('../../assets/products/keyboard-akko.jpg'),
-    sellerId: 'acc_seller',
-    sellerName: 'Đặng Thùy Dương',
-    sellerCohort: 'K16 - Hola Tech Store',
-    sellerCampus: 'Hòa Lạc',
-    buyerId: 'acc_verified',
-    buyerName: 'Trần Minh Quân',
-    buyerCohort: 'K17 - FPT Hola',
-    buyerCampus: 'Hòa Lạc',
-    status: 'COMPLETED',
-    statusLabel: '✅ Giao dịch hoàn tất tại Sảnh Beta',
-    statusColor: '#059669',
-    statusBg: '#ECFDF5',
-    safePoint: 'Sảnh Beta KTX Hòa Lạc',
-    timeSlot: '26/09/2026: 10:00 - 11:00',
-    totalAmount: 480000,
-    isReviewed: false,
-    handshakeOtp: '4928',
-    createdAt: '26/09/2026',
-  },
-  {
-    id: 'ORD-440182',
-    orderNumber: 'ORD-440182',
-    productId: 'prod_vovinam_uniform',
-    productTitle: 'Võ phục Vovinam FPT size M kèm đai',
-    price: 120000,
-    productImage: require('../../assets/products/vovinam-uniform.jpg'),
-    sellerId: 'acc_seller',
-    sellerName: 'Đặng Thùy Dương',
-    sellerCohort: 'K16 - Hola Tech Store',
-    sellerCampus: 'TP.HCM (FPT Bus)',
-    buyerId: 'acc_verified',
-    buyerName: 'Trần Minh Quân',
-    buyerCohort: 'K17 - FPT Hola',
-    buyerCampus: 'Hòa Lạc',
-    status: 'COMPLETED',
-    statusLabel: '⭐ Đã đánh giá 5 sao',
-    statusColor: '#2563EB',
-    statusBg: '#EFF6FF',
-    safePoint: 'Phòng QL KTX Dom A',
-    timeSlot: '20/09/2026: 15:30',
-    totalAmount: 120000,
-    isReviewed: true,
-    handshakeOtp: '3310',
-    createdAt: '20/09/2026',
-  },
-  {
-    id: 'ORD-312984',
-    orderNumber: 'ORD-312984',
-    productId: 'prod_sony_wh510',
-    productTitle: 'Tai nghe Bluetooth Sony WH-CH510',
-    price: 350000,
-    productImage: require('../../assets/products/books-mas291.jpg'),
-    sellerId: 'acc_seller_danang',
-    sellerName: 'Phạm Đức Duy',
-    sellerCohort: 'K16 GD',
-    sellerCampus: 'Đà Nẵng',
-    buyerId: 'acc_verified',
-    buyerName: 'Trần Minh Quân',
-    buyerCohort: 'K17 - FPT Hola',
-    buyerCampus: 'Hòa Lạc',
-    status: 'DISPUTED',
-    statusLabel: '⚠️ Đang xử lý khiếu nại (Bảo vệ 48h)',
-    statusColor: '#DC2626',
-    statusBg: '#FEF2F2',
-    safePoint: 'Trạm Safe-Point KTX',
-    timeSlot: '15/09/2026',
-    totalAmount: 350000,
-    isReviewed: false,
-    handshakeOtp: '8910',
-    createdAt: '15/09/2026',
-  },
-  {
-    id: 'ORD-991204',
-    orderNumber: 'ORD-991204',
-    productId: 'prod_combo_curriculum',
-    productTitle: 'Combo Giáo trình CSL201 + MAS291 (Full đề thi)',
-    price: 150000,
-    productImage: require('../../assets/products/books-mas291.jpg'),
-    sellerId: 'acc_seller',
-    sellerName: 'Đặng Thùy Dương',
-    sellerCohort: 'K16 - Hola Tech Store',
-    sellerCampus: 'Hòa Lạc',
-    buyerId: 'acc_unverified',
-    buyerName: 'Nguyễn Hoàng Long',
-    buyerCohort: 'K20 SE',
-    buyerCampus: 'Hòa Lạc',
-    status: 'PENDING_SAFEPOINT',
-    statusLabel: '📦 Chờ giao nhận tại Thư viện Beta',
-    statusColor: '#D97706',
-    statusBg: '#FFFBEB',
-    safePoint: 'Thư viện Beta Hòa Lạc (Bàn tự học tầng 1)',
-    timeSlot: 'Hôm nay: 18:00 - 19:00',
-    totalAmount: 150000,
-    isReviewed: false,
-    handshakeOtp: '5194',
-    createdAt: 'Hôm nay, 16:00',
-  },
-];
+export const INITIAL_ORDERS: OrderItem[] = [];
 
 interface OrderState {
   orders: OrderItem[];
@@ -177,6 +46,7 @@ interface OrderState {
   // Actions
   setActiveUser: (userId: string | null) => void;
   createOrder: (order: Omit<OrderItem, 'id' | 'createdAt' | 'isReviewed'>) => OrderItem;
+  addOrder: (order: OrderItem) => void;
   updateOrderStatus: (
     orderId: string,
     status: OrderItem['status'],
@@ -200,8 +70,8 @@ interface OrderState {
 export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
-      orders: INITIAL_ORDERS,
-      activeUserId: 'acc_verified',
+      orders: [],
+      activeUserId: null,
       isLoading: false,
 
       setActiveUser: (userId) => {
@@ -213,7 +83,7 @@ export const useOrderStore = create<OrderState>()(
           set({ isLoading: true });
           const { orderMobileService } = await import('../services/orderMobileService');
           const liveOrders = await orderMobileService.getOrders();
-          if (liveOrders && liveOrders.length > 0) {
+          if (Array.isArray(liveOrders)) {
             set({ orders: liveOrders });
             return liveOrders;
           }
@@ -265,6 +135,12 @@ export const useOrderStore = create<OrderState>()(
         return newOrder;
       },
 
+      addOrder: (order: OrderItem) => {
+        set((state) => ({
+          orders: [order, ...state.orders.filter((o) => o.id !== order.id && o.orderNumber !== order.orderNumber)],
+        }));
+      },
+
       updateOrderStatus: (orderId, status, statusLabel, color, bg) => {
         set((state) => ({
           orders: state.orders.map((o) =>
@@ -292,7 +168,7 @@ export const useOrderStore = create<OrderState>()(
         const cleanInput = (inputOtp || '').trim().replace(/\s/g, '');
         const targetOtp = (target.handshakeOtp || '').trim().replace(/\s/g, '');
 
-        if (cleanInput !== targetOtp && cleanInput !== '7381' && cleanInput !== '1234') {
+        if (cleanInput !== targetOtp) {
           return {
             success: false,
             message: 'Mã OTP Handshake không chính xác (gồm 4 chữ số). Hãy nhờ Người mua mở vé nhận hàng kiểm tra lại!',

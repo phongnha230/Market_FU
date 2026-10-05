@@ -15,6 +15,9 @@ import { ChatDetailTopBar } from '../components/ChatDetailTopBar';
 import { ChatDetailProductCard } from '../components/ChatDetailProductCard';
 import { ChatDetailMessageItem, MessageItem } from '../components/ChatDetailMessageItem';
 import { ChatDetailInputBar } from '../components/ChatDetailInputBar';
+import { chatMobileService } from '../../../services/chatMobileService';
+import { socketMobileService } from '../../../services/socketMobileService';
+import { useUserStore } from '../../../stores/userStore';
 
 const QUICK_REPLIES = [
   'Sản phẩm còn không bạn?',
@@ -45,15 +48,17 @@ export const ChatDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const flatListRef = useRef<FlatList>(null);
+  const { user } = useUserStore();
+  const currentUserId = user?.id || 'me';
 
   const routePartner = route.params?.partner;
   const partner = useMemo(
     () =>
       routePartner || {
-        id: 'u-nam',
-        name: 'Hoàng Anh',
+        id: 'u-partner',
+        name: 'Người bán FPT',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        cohort: 'K16 SE - Hola',
+        cohort: 'Sinh viên FPT',
         isOnline: true,
       },
     [routePartner]
@@ -64,40 +69,137 @@ export const ChatDetailScreen: React.FC = () => {
     () =>
       routeProduct || {
         id: 'p1',
-        title: 'Bàn phím cơ Akko 3087 v2 Silent',
-        price: '480.000đ',
+        title: 'Món đồ Campus',
+        price: '0đ',
         image: require('../../../../assets/products/keyboard-akko.jpg'),
       },
     [routeProduct]
   );
 
   const initialOffer = route.params?.initialOffer;
+  const initialConvId = route.params?.conversationId || route.params?.id;
 
+  const [conversationId, setConversationId] = useState<string | null>(initialConvId || null);
   const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
   const inputTextRef = useRef(inputText);
+
   useEffect(() => {
     inputTextRef.current = inputText;
   }, [inputText]);
 
-  const [messages, setMessages] = useState<MessageItem[]>([
-    {
-      id: 'm1',
-      sender: 'partner',
-      type: 'text',
-      text: 'Chào bạn! Mình có thể hỗ trợ bạn xem món đồ này nhé.',
-      time: '14:20',
-    },
-    {
-      id: 'm2',
-      sender: 'partner',
-      type: 'safepoint',
-      time: '14:21',
-      safePointData: {
-        location: 'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
-        timeSlot: 'Hôm nay: 16:30 - 17:30',
-      },
-    },
-  ]);
+  // 1. Khởi tạo / Lấy conversationId và tin nhắn thực tế từ Backend
+  useEffect(() => {
+    let isMounted = true;
+
+    const initChat = async () => {
+      let activeConvId = conversationId;
+
+      if (!activeConvId && product?.id) {
+        try {
+          activeConvId = await chatMobileService.createOrGetConversation(product.id);
+          if (isMounted && activeConvId) {
+            setConversationId(activeConvId);
+          }
+        } catch (e: any) {
+          console.log('⚠️ [createOrGetConversation info]:', e?.message);
+        }
+      }
+
+      if (activeConvId) {
+        try {
+          const remoteMsgs = await chatMobileService.getMessages(activeConvId, currentUserId);
+          if (isMounted && remoteMsgs && remoteMsgs.length > 0) {
+            const mapped: MessageItem[] = remoteMsgs.map((m) => {
+              const msgType: any = m.messageType === 'OFFER_PRICE' ? 'offer' : (m.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
+              return {
+                id: m.id,
+                sender: m.isMe ? 'me' : 'partner',
+                type: msgType,
+                text: m.message,
+                time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+                offerData: m.offerPrice ? {
+                  originalPrice: typeof product.price === 'number' ? product.price : 500000,
+                  offeredPrice: m.offerPrice,
+                  status: 'pending',
+                } : undefined,
+                safePointData: m.meetupLocation ? {
+                  location: m.meetupLocation,
+                  timeSlot: 'Hẹn gặp giao dịch',
+                } : undefined,
+              };
+            });
+            setMessages(mapped);
+          }
+        } catch (err: any) {
+          console.log('⚠️ [getMessages info]:', err?.message);
+        }
+      }
+    };
+
+    initChat();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [conversationId, product?.id, currentUserId]);
+
+  // 2. Lắng nghe Socket.IO Real-time cho phòng chat này
+  useEffect(() => {
+    if (!conversationId) return;
+
+    socketMobileService.joinConversation(conversationId);
+    socketMobileService.markMessageRead(conversationId);
+
+    const unsubMsg = socketMobileService.onReceiveMessage((rawMsg: any) => {
+      if (rawMsg?.conversationId && rawMsg.conversationId !== conversationId) return;
+
+      const isMe = rawMsg.senderId === currentUserId;
+      const msgType: any = rawMsg.messageType === 'OFFER_PRICE' ? 'offer' : (rawMsg.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
+
+      const incoming: MessageItem = {
+        id: rawMsg.id || `msg_${Date.now()}`,
+        sender: isMe ? 'me' : 'partner',
+        type: msgType,
+        text: rawMsg.text || rawMsg.content || '',
+        time: rawMsg.createdAt ? new Date(rawMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+        offerData: rawMsg.offerPrice ? {
+          originalPrice: typeof product.price === 'number' ? product.price : 500000,
+          offeredPrice: rawMsg.offerPrice,
+          status: 'pending',
+        } : undefined,
+        safePointData: rawMsg.meetupLocation ? {
+          location: rawMsg.meetupLocation,
+          timeSlot: 'Hẹn gặp giao dịch',
+        } : undefined,
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+    });
+
+    const unsubTyping = socketMobileService.onUserTyping((data) => {
+      if (data.conversationId === conversationId && data.userId !== currentUserId) {
+        setIsTyping(true);
+      }
+    });
+
+    const unsubStopTyping = socketMobileService.onUserStopTyping((data) => {
+      if (data.conversationId === conversationId) {
+        setIsTyping(false);
+      }
+    });
+
+    return () => {
+      socketMobileService.leaveConversation(conversationId);
+      unsubMsg();
+      unsubTyping();
+      unsubStopTyping();
+    };
+  }, [conversationId, currentUserId, product.price]);
 
   // If navigated with initial offer from MakeOfferModal
   useEffect(() => {
@@ -115,8 +217,12 @@ export const ChatDetailScreen: React.FC = () => {
         },
       };
       setMessages((prev) => [...prev, offerMsg]);
+
+      if (conversationId && initialOffer.offeredPrice) {
+        chatMobileService.sendOfferPrice(conversationId, initialOffer.offeredPrice).catch(() => {});
+      }
     }
-  }, [initialOffer]);
+  }, [initialOffer, conversationId]);
 
   const handleSendMessage = useCallback((textToSend?: string) => {
     const text = (textToSend || inputTextRef.current).trim();
@@ -133,18 +239,10 @@ export const ChatDetailScreen: React.FC = () => {
     setMessages((prev) => [...prev, newMsg]);
     setInputText('');
 
-    // Simulate auto reply from seller
-    setTimeout(() => {
-      const replyMsg: MessageItem = {
-        id: 'reply-' + Date.now(),
-        sender: 'partner',
-        type: 'text',
-        text: 'Oke bạn nha! Mình đồng ý hẹn nhau tại trạm Safe-point có camera để bạn test đồ kỹ càng nhé.',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, replyMsg]);
-    }, 1000);
-  }, []);
+    if (conversationId) {
+      chatMobileService.sendMessage(conversationId, text, 'TEXT').catch(() => {});
+    }
+  }, [conversationId]);
 
   const handleSendSafePoint = useCallback((location: string) => {
     const newMsg: MessageItem = {
@@ -158,7 +256,11 @@ export const ChatDetailScreen: React.FC = () => {
       },
     };
     setMessages((prev) => [...prev, newMsg]);
-  }, []);
+
+    if (conversationId) {
+      chatMobileService.sendMessage(conversationId, `Hẹn gặp bạn tại: ${location}`, 'MEETUP_LOCATION', undefined, location).catch(() => {});
+    }
+  }, [conversationId]);
 
   const handleAcceptOffer = useCallback((msgId: string) => {
     setMessages((prev) =>
@@ -239,6 +341,12 @@ export const ChatDetailScreen: React.FC = () => {
         onViewProduct={() => navigation.navigate('ProductDetail', { productId: product.id })}
       />
 
+      {isTyping && (
+        <View style={styles.typingNotice}>
+          <Text style={styles.typingText}>{partner.name} đang soạn tin nhắn...</Text>
+        </View>
+      )}
+
       {/* Messages List */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -252,6 +360,11 @@ export const ChatDetailScreen: React.FC = () => {
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <View style={styles.emptyMessages}>
+              <Text style={styles.emptyMessagesText}>Chưa có tin nhắn nào. Hãy gửi lời chào để bắt đầu giao dịch!</Text>
+            </View>
+          }
         />
 
         {/* Quick Replies Bar */}
@@ -268,7 +381,13 @@ export const ChatDetailScreen: React.FC = () => {
 
         <ChatDetailInputBar
           inputText={inputText}
-          onChangeText={setInputText}
+          onChangeText={(val) => {
+            setInputText(val);
+            if (conversationId) {
+              if (val.length > 0) socketMobileService.sendTyping(conversationId);
+              else socketMobileService.sendStopTyping(conversationId);
+            }
+          }}
           onSend={() => handleSendMessage()}
           onAttachPhoto={() => Alert.alert('Gửi ảnh', 'Chọn ảnh chụp thực tế sản phẩm từ thiết bị')}
           onPickSafePoint={handlePickSafePoint}
@@ -282,6 +401,25 @@ export const ChatDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   messagesList: { paddingHorizontal: 16, paddingVertical: 14 },
+  typingNotice: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    backgroundColor: '#EFF6FF',
+  },
+  typingText: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontStyle: 'italic',
+  },
+  emptyMessages: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyMessagesText: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
   quickRepliesBar: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 6,

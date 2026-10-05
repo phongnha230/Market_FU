@@ -44,9 +44,9 @@ export const Onboarding2Screen: React.FC<Onboarding2ScreenProps & { navigation?:
     if (onSkip) {
       onSkip();
     } else if (navigation && navigation.replace) {
-      navigation.replace('Login');
+      navigation.replace('MainTabs');
     } else if (navigation && navigation.navigate) {
-      navigation.navigate('Login');
+      navigation.navigate('MainTabs');
     }
   };
 

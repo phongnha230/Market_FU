@@ -29,9 +29,9 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     if (onFinish) {
       onFinish();
     } else if (navigation && navigation.replace) {
-      navigation.replace('Login');
+      navigation.replace('MainTabs');
     } else if (navigation && navigation.navigate) {
-      navigation.navigate('Login');
+      navigation.navigate('MainTabs');
     }
   };
 
@@ -39,9 +39,9 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     if (onSkip) {
       onSkip();
     } else if (navigation && navigation.replace) {
-      navigation.replace('Login');
+      navigation.replace('MainTabs');
     } else if (navigation && navigation.navigate) {
-      navigation.navigate('Login');
+      navigation.navigate('MainTabs');
     }
   };
 

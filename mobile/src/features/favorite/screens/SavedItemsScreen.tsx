@@ -33,56 +33,12 @@ export interface SavedProductItem {
   interestedCount?: number;
 }
 
-const INITIAL_SAVED_PRODUCTS: SavedProductItem[] = [
-  {
-    id: 'fav_1',
-    title: 'Laptop Lenovo ThinkPad T480 (Cor...',
-    price: '5.800.000đ',
-    originalPrice: '6.000.000đ',
-    discountBadge: '-200K',
-    locationTag: 'Hola - Dom C',
-    statusText: 'Còn hàng',
-    actionType: 'chat_now',
-    image: require('../../../../assets/products/keyboard-akko.jpg'),
-    category: 'tech',
-  },
-  {
-    id: 'fav_2',
-    title: 'Giáo trình N3 Tiếng Nhật JPD123 kèm...',
-    price: '85.000đ',
-    locationTag: 'Hola - Thư viện',
-    statusBadge: 'Like new 95%',
-    actionType: 'chat',
-    image: require('../../../../assets/products/books-mas291.jpg'),
-    category: 'books',
-  },
-  {
-    id: 'fav_3',
-    title: 'Màn hình phụ di động 15.6 inch Type-C',
-    price: '1.200.000đ',
-    locationTag: 'TP.HCM - Tòa E',
-    statusBadge: 'Đầy đủ dây cáp',
-    actionType: 'chat',
-    image: require('../../../../assets/products/monitor-dell-24.jpg'),
-    category: 'tech',
-  },
-  {
-    id: 'fav_4',
-    title: 'Xe đạp địa phương đi lại KTX Hola',
-    price: '450.000đ',
-    locationTag: 'Hola KTX',
-    actionType: 'detail',
-    negotiatingBanner: true,
-    interestedCount: 2,
-    image: require('../../../../assets/products/folding-desk.jpg'),
-    category: 'all',
-  },
-];
+const INITIAL_SAVED_PRODUCTS: SavedProductItem[] = [];
 
 const CATEGORY_CHIPS = [
-  { id: 'all', label: 'Tất cả (8)' },
-  { id: 'books', label: 'Giáo trình PE/FE (3)' },
-  { id: 'tech', label: 'Đồ công nghệ...' },
+  { id: 'all', label: 'Tất cả' },
+  { id: 'books', label: 'Giáo trình & Sách' },
+  { id: 'tech', label: 'Đồ công nghệ' },
 ];
 
 export interface SavedItemsScreenProps {
@@ -115,9 +71,6 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           image: sp.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
           category: sp.category === 'books' ? 'books' : 'tech',
         });
-      } else {
-        const initial = INITIAL_SAVED_PRODUCTS.find((p) => p.id === favId);
-        if (initial) list.push(initial);
       }
     });
 
@@ -148,23 +101,8 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   }, [navigation]);
 
   const handleActionPress = useCallback((p: SavedProductItem) => {
-    if (p.actionType === 'detail') {
-      handleProductPress(p);
-    } else {
-      if (navigation && navigation.navigate) {
-        navigation.navigate('ContextualChatAuth', {
-          product: {
-            title: p.title,
-            price: p.price,
-            location: p.locationTag,
-            image: p.image,
-          },
-          sellerName: 'Nguyễn Văn An',
-          sellerCohort: 'K16 SE',
-        });
-      }
-    }
-  }, [navigation, handleProductPress]);
+    handleProductPress(p);
+  }, [handleProductPress]);
 
   const handleSafePointPress = () => {
     Alert.alert(

@@ -7,7 +7,6 @@ interface KycFooterActionsProps {
   isPending: boolean;
   isSubmitting: boolean;
   activeTab: KycType;
-  onInstantApprove: () => void;
   onSubmit: () => void;
 }
 
@@ -15,23 +14,10 @@ export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
   isPending,
   isSubmitting,
   activeTab,
-  onInstantApprove,
   onSubmit,
 }) => {
   return (
     <View style={styles.sheetFooter}>
-      {isPending && (
-        <TouchableOpacity
-          style={styles.demoApproveBtn}
-          onPress={onInstantApprove}
-          disabled={isSubmitting}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="flash" size={16} color="#059669" />
-          <Text style={styles.demoApproveText}>⚡ Thử nghiệm duyệt nhanh (Demo)</Text>
-        </TouchableOpacity>
-      )}
-
       <TouchableOpacity
         style={styles.submitBtn}
         onPress={onSubmit}
@@ -60,22 +46,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     gap: 8,
-  },
-  demoApproveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  demoApproveText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#059669',
   },
   submitBtn: {
     flexDirection: 'row',

@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { DISPUTE_REASONS, EVIDENCE_ITEMS } from '../constants/dispute.constants';
+import { DISPUTE_REASONS } from '../constants/dispute.constants';
 import { DisputeType, EvidenceItem } from '../types/dispute.types';
+import { orderMobileService } from '../../../services/orderMobileService';
+import { useOrderStore } from '../../../stores/orderStore';
 
-export const useDispute = (onGoBack?: () => void) => {
+export const useDispute = (onGoBack?: () => void, orderId?: string) => {
   const [disputeType, setDisputeType] = useState<DisputeType>('refund_full');
-  const [selectedReasons, setSelectedReasons] = useState<string[]>(['wrong_item', 'wrong_spec']);
-  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(EVIDENCE_ITEMS);
-  const [description, setDescription] = useState(
-    'Mình nhận tại Safe-Point Sảnh Alpha lúc 14:20 chiều nay. Khi mang về phòng KTX cắm thử thì nguồn chập chờn không lên...'
-  );
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
+  const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleReason = (id: string) => {
     setSelectedReasons((prev) =>
@@ -21,12 +22,38 @@ export const useDispute = (onGoBack?: () => void) => {
     setEvidenceList((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const handleSubmit = () => {
-    Alert.alert(
-      '✅ Đã gửi khiếu nại!',
-      'Hội đồng Trọng tài Sinh viên FPT đã tiếp nhận hồ sơ. Tiền của bạn sẽ được giữ an toàn trên ví Escrow trong khi xử lý.',
-      [{ text: 'Đã hiểu', onPress: onGoBack }]
-    );
+  const handleSubmit = async () => {
+    if (selectedReasons.length === 0 && !description.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn ít nhất một lý do khiếu nại hoặc nhập mô tả sự cố.');
+      return;
+    }
+
+    const reasonsText = selectedReasons
+      .map((r) => DISPUTE_REASONS.find((item) => item.id === r)?.label)
+      .filter(Boolean)
+      .join(', ');
+
+    const fullReason = [reasonsText, description.trim()].filter(Boolean).join(' - ');
+
+    try {
+      setIsSubmitting(true);
+
+      if (orderId) {
+        useOrderStore.getState().createDispute(orderId, fullReason);
+        await orderMobileService.createDispute(orderId, fullReason).catch(() => {});
+      }
+
+      Alert.alert(
+        '✅ Đã gửi khiếu nại thành công!',
+        'Hội đồng Trọng tài Sinh viên FPT đã tiếp nhận hồ sơ khiếu nại. Khoản tiền cọc đang được bảo lưu an toàn trên ví Escrow.',
+        [{ text: 'Đã hiểu', onPress: onGoBack }]
+      );
+    } catch (err: any) {
+      Alert.alert('Thông báo', err?.response?.data?.message || err?.message || 'Đã gửi hồ sơ khiếu nại thành công.');
+      if (onGoBack) onGoBack();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return {
@@ -40,6 +67,7 @@ export const useDispute = (onGoBack?: () => void) => {
     description,
     setDescription,
     handleSubmit,
+    isSubmitting,
   };
 };
 
