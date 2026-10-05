@@ -95,13 +95,20 @@ function ChatContent() {
             suggestedOffer: `${Math.round((c.product?.price || 100000) * 0.9).toLocaleString('vi-VN')} đ`,
           },
           messages: storeMsgs.length > 0
-            ? storeMsgs.map((m) => ({
-                id: m.id,
-                sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
-                text: m.text || '',
-                time: m.createdAt,
-                offerPrice: m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined,
-              }))
+            ? storeMsgs.map((m) => {
+                const isAccept = Boolean(m.text?.includes('[OFFER_ACCEPTED]') || m.text?.toLowerCase().includes('đồng ý mức giá') || m.text?.toLowerCase().includes('đồng ý chốt'));
+                const isReject = Boolean(m.text?.includes('[OFFER_REJECTED]') || m.text?.toLowerCase().includes('từ chối đề xuất') || m.text?.toLowerCase().includes('chưa phù hợp'));
+                return {
+                  id: m.id,
+                  sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
+                  text: m.text || '',
+                  time: m.createdAt,
+                  isOfferAccepted: isAccept,
+                  isOfferRejected: isReject,
+                  offerPrice: m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined,
+                  numericOfferPrice: m.offerPrice,
+                };
+              })
             : [],
         };
       });
@@ -216,6 +223,37 @@ function ChatContent() {
     }, 1800);
   };
 
+  const handleAcceptOffer = (msgId: string, offerPrice: number) => {
+    if (!activeConv) return;
+    const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
+    const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
+
+    chatStore.sendMessage({
+      conversationId: activeConv.id,
+      text: acceptText,
+      messageType: 'OFFER_PRICE',
+      offerPrice,
+    });
+
+    handleSendMessage(acceptText);
+    showToast(`✅ Đã đồng ý mức giá ${formattedPrice}! Người mua đã nhận được nút đặt hàng theo giá mới.`, 'success');
+  };
+
+  const handleRejectOffer = (msgId: string, offerPrice: number) => {
+    if (!activeConv) return;
+    const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
+    const rejectText = `[OFFER_REJECTED] Mức giá ${formattedPrice} chưa phù hợp bạn nhé. Bạn có thể thương lượng lại hoặc mua theo giá niêm yết nhé!`;
+
+    chatStore.sendMessage({
+      conversationId: activeConv.id,
+      text: rejectText,
+      messageType: 'TEXT',
+    });
+
+    handleSendMessage(rejectText);
+    showToast(`Đã từ chối mức giá đề xuất ${formattedPrice}.`, 'info');
+  };
+
   const quickChips = [
     '⚡ Hẹn 17h30 sảnh Alpha nhé!',
     'Mình đến nơi rồi, đang đứng ở Passio',
@@ -297,22 +335,33 @@ function ChatContent() {
                 />
 
                 {/* Pinned Product Bar */}
-                <PinnedProductBar
-                  product={activeConv.pinnedProduct}
-                  partnerName={activeConv.name}
-                  onOfferPrice={(offer) => {
-                    const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
-                    chatStore.sendOfferPrice(activeConv.id, numericPrice);
-                    handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
-                    showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
-                  }}
-                  onScheduleMeeting={() => {
-                    const defaultLocation = 'Sảnh Alpha / Cổng KTX';
-                    chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
-                    handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
-                    showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
-                  }}
-                />
+                {(() => {
+                  const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
+                    .reverse()
+                    .find((m) => m.isOfferAccepted);
+                  const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
+                    (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
+
+                  return (
+                    <PinnedProductBar
+                      product={activeConv.pinnedProduct}
+                      partnerName={activeConv.name}
+                      agreedPrice={activeAgreedPrice}
+                      onOfferPrice={(offer) => {
+                        const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
+                        chatStore.sendOfferPrice(activeConv.id, numericPrice);
+                        handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
+                        showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
+                      }}
+                      onScheduleMeeting={() => {
+                        const defaultLocation = 'Sảnh Alpha / Cổng KTX';
+                        chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
+                        handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
+                        showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
+                      }}
+                    />
+                  );
+                })()}
 
                 {/* Messages History */}
                 <MessageHistory
@@ -321,6 +370,10 @@ function ChatContent() {
                   partnerAvatar={activeConv.avatar}
                   isTyping={isTypingOther}
                   containerRef={chatMessagesContainerRef}
+                  productId={activeConv.pinnedProduct?.id}
+                  isSeller={activeConv.role === 'seller'}
+                  onAcceptOffer={handleAcceptOffer}
+                  onRejectOffer={handleRejectOffer}
                 />
 
                 {/* Chat Input Bar with Quick Chips */}

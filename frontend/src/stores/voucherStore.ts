@@ -177,7 +177,7 @@ export const useVoucherStore = create<VoucherState>()(
         try {
           set({ isLoading: true });
           const res = await voucherService.getVouchers({ isActive: true, limit: 50 });
-          if (res.vouchers && res.vouchers.length > 0) {
+          if (res.vouchers) {
             set({ availableVouchers: res.vouchers.map(mapBackendVoucher) });
           }
         } catch (error) {

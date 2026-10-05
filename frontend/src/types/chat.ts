@@ -5,7 +5,9 @@ export interface ChatMessage {
   time: string;
   image?: string;
   isOfferAccepted?: boolean;
+  isOfferRejected?: boolean;
   offerPrice?: string;
+  numericOfferPrice?: number;
 }
 
 export interface Conversation {

@@ -25,44 +25,6 @@ interface AdminState {
   ensureAdminToken: () => Promise<string | null>;
 }
 
-// Demo admin accounts
-const ADMIN_ACCOUNTS: (AdminProfile & { password: string })[] = [
-  {
-    email: 'admin@fpt.edu.vn',
-    password: 'AdminPassword123@',
-    name: 'SuperAdmin BQT',
-    role: 'superadmin',
-    campus: 'all',
-    avatarInitial: 'A',
-    permissions: [
-      'posts.approve',
-      'posts.reject',
-      'posts.delete',
-      'kyc.approve',
-      'kyc.reject',
-      'users.manage',
-      'users.trust_score',
-      'reports.handle',
-      'safehandoff.manage',
-      'settings.system',
-    ],
-  },
-  {
-    email: 'mod.hola@fpt.edu.vn',
-    password: 'Mod@Hola2025',
-    name: 'Nguyễn Thị Hà',
-    role: 'campus_admin',
-    campus: 'hola',
-    avatarInitial: 'H',
-    permissions: [
-      'posts.approve',
-      'posts.reject',
-      'kyc.approve',
-      'reports.handle',
-    ],
-  },
-];
-
 const dummyStorage = {
   getItem: () => null,
   setItem: () => {},
@@ -82,59 +44,69 @@ export const useAdminStore = create<AdminState>()(
       ensureAdminToken: async () => {
         const existing = get().accessToken;
         if (existing) return existing;
-
-        try {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-          const res = await fetch(`${baseUrl}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'admin@fpt.edu.vn', password: 'AdminPassword123@' }),
-          });
-          const data = await res.json();
-          if (data.success && data.data?.tokens?.accessToken) {
-            const token = data.data.tokens.accessToken;
-            set({ accessToken: token });
-            return token;
-          }
-        } catch {
-          // offline fallback
-        }
         return null;
       },
 
       login: async (email, password) => {
-        const account = ADMIN_ACCOUNTS.find(
-          (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
-        );
-        if (!account) {
-          return {
-            success: false,
-            message: 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.',
-          };
-        }
-        const { password: _pw, ...profile } = account;
-        set({ admin: profile, isLoggedIn: true });
-
-        // Tự động xin access token ADMIN từ backend để gọi API KYC, Report
         try {
           const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
           const res = await fetch(`${baseUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: account.email, password }),
+            body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
           });
           const data = await res.json();
-          if (data.success && data.data?.tokens?.accessToken) {
-            set({ accessToken: data.data.tokens.accessToken });
+          if (!res.ok || !data.success) {
+            return {
+              success: false,
+              message: data.message || 'Email hoặc mật khẩu quản trị không đúng.',
+            };
           }
-        } catch {
-          // offline fallback
-        }
 
-        return {
-          success: true,
-          message: `Chào mừng ${account.name} đã đăng nhập vào hệ thống quản trị!`,
-        };
+          const user = data.data?.user;
+          const token = data.data?.tokens?.accessToken;
+          if (user?.role !== 'ADMIN') {
+            return {
+              success: false,
+              message: 'Tài khoản này không có quyền truy cập bảng quản trị BQT.',
+            };
+          }
+
+          const profile: AdminProfile = {
+            name: user.profile?.fullName || user.email?.split('@')[0] || 'Quản trị viên',
+            email: user.email,
+            role: 'superadmin',
+            campus: 'all',
+            avatarInitial: (user.profile?.fullName || 'A')[0].toUpperCase(),
+            permissions: [
+              'posts.approve',
+              'posts.reject',
+              'posts.delete',
+              'kyc.approve',
+              'kyc.reject',
+              'users.manage',
+              'users.trust_score',
+              'reports.handle',
+              'safehandoff.manage',
+              'settings.system',
+            ],
+          };
+
+          if (token) {
+            set({ accessToken: token });
+          }
+          set({ admin: profile, isLoggedIn: true });
+
+          return {
+            success: true,
+            message: `Chào mừng ${profile.name} đã đăng nhập vào hệ thống quản trị!`,
+          };
+        } catch {
+          return {
+            success: false,
+            message: 'Không thể kết nối đến máy chủ xác thực BQT.',
+          };
+        }
       },
 
       logout: () => set({ admin: null, isLoggedIn: false, accessToken: null }),

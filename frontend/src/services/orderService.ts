@@ -75,6 +75,7 @@ export interface CreateOrderParams {
   productId: string;
   orderType: 'MEETUP' | 'SHIP_COD';
   coinsUsed?: number;
+  agreedPrice?: number;
   deliveryNote?: string;
   paymentMethod?: 'VIETQR' | 'PAYOS_WEB' | 'CASH';
   shipping?: {

@@ -70,52 +70,7 @@ export default function AdminWithdrawalsPage() {
       const list = res.data?.data || res.data || [];
       setWithdrawals(Array.isArray(list) ? list : []);
     } catch {
-      // Mock data fallback if backend is empty
-      setWithdrawals([
-        {
-          id: 'wd-demo-1',
-          userId: 'u1',
-          amount: 1450000,
-          bankAccount: {
-            bankName: 'MB Bank (Quân Đội)',
-            accountNo: '0000305848243',
-            accountName: 'HOANG THI DIEU HUYEN',
-          },
-          status: 'PENDING',
-          createdAt: new Date().toISOString(),
-          user: {
-            id: 'u1',
-            email: 'huyen.htd@fpt.edu.vn',
-            profile: {
-              fullName: 'Hoàng Thị Diệu Huyền',
-              campus: 'HOL',
-              phoneNumber: '0981234567',
-            },
-          },
-        },
-        {
-          id: 'wd-demo-2',
-          userId: 'u2',
-          amount: 450000,
-          bankAccount: {
-            bankName: 'Vietcombank',
-            accountNo: '1012398472',
-            accountName: 'NGUYEN VAN NAM',
-          },
-          status: 'APPROVED',
-          adminNote: 'Đã chuyển khoản qua Napas 247 mã FT2619028',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          processedAt: new Date().toISOString(),
-          user: {
-            id: 'u2',
-            email: 'nam.nv@fpt.edu.vn',
-            profile: {
-              fullName: 'Nguyễn Văn Nam',
-              campus: 'HOL',
-            },
-          },
-        },
-      ]);
+      setWithdrawals([]);
     } finally {
       setIsLoading(false);
     }

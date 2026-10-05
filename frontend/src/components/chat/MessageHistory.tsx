@@ -12,6 +12,10 @@ interface MessageHistoryProps {
   partnerAvatar: string;
   isTyping: boolean;
   containerRef?: React.Ref<HTMLDivElement>;
+  productId?: string;
+  isSeller?: boolean;
+  onAcceptOffer?: (msgId: string, offerPrice: number) => void;
+  onRejectOffer?: (msgId: string, offerPrice: number) => void;
 }
 
 export default function MessageHistory({
@@ -20,6 +24,10 @@ export default function MessageHistory({
   partnerAvatar,
   isTyping,
   containerRef,
+  productId,
+  isSeller,
+  onAcceptOffer,
+  onRejectOffer,
 }: MessageHistoryProps) {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -42,49 +50,107 @@ export default function MessageHistory({
 
         {messages.map((msg) => {
           if (msg.isOfferAccepted) {
+            const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
             return (
               <div key={msg.id} className="flex justify-center my-3">
-                <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center gap-3 shadow-xs max-w-md text-xs">
-                  <div className="h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                    <Tag className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-emerald-900">
-                      {msg.text}
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 shadow-xs max-w-md w-full text-xs space-y-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                      <Tag className="h-4 w-4" />
                     </div>
-                    <div className="text-[11px] text-emerald-700">
-                      {partnerName} đã đồng ý mức giá <strong>{msg.offerPrice}</strong>
+                    <div className="flex-1">
+                      <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <span>Đã chốt giá thỏa thuận thành công!</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-800 mt-0.5">
+                        Mức giá được chấp nhận: <strong className="text-sm text-emerald-700">{msg.offerPrice}</strong>
+                      </div>
                     </div>
                   </div>
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+
+                  {!isSeller && productId && numericPrice > 0 && (
+                    <div className="pt-2 border-t border-emerald-200/70 flex justify-end">
+                      <Link
+                        href={`/checkout?productId=${encodeURIComponent(productId)}&agreedPrice=${numericPrice}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition active:scale-98"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                        <span>Đặt mua ngay (Giá chốt: {msg.offerPrice})</span>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           }
 
-          if (msg.offerPrice && !msg.isOfferAccepted) {
+          if (msg.isOfferRejected) {
             return (
               <div key={msg.id} className="flex justify-center my-3">
-                <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 shadow-xs max-w-md w-full text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                      <Tag className="h-4 w-4" />
+                <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 flex items-center gap-3 shadow-xs max-w-md text-xs">
+                  <div className="h-8 w-8 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
+                    <Tag className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-rose-950">
+                      Đã từ chối đề xuất giá
                     </div>
-                    <div>
-                      <div className="font-bold text-amber-950">
-                        Đề nghị thương lượng giá
-                      </div>
-                      <div className="text-[11px] text-amber-800">
-                        Mức giá đề xuất: <strong className="text-sm text-fpt-orange">{msg.offerPrice}</strong>
-                      </div>
+                    <div className="text-[11px] text-rose-700">
+                      Mức giá đề xuất: <strong>{msg.offerPrice}</strong> đã bị từ chối
                     </div>
                   </div>
-                  <Link
-                    href="/orders"
-                    className="rounded-xl bg-fpt-orange px-3 py-1.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-xs shrink-0"
-                  >
-                    Xem đơn
-                  </Link>
+                </div>
+              </div>
+            );
+          }
+
+          if (msg.offerPrice && !msg.isOfferAccepted && !msg.isOfferRejected) {
+            const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
+            return (
+              <div key={msg.id} className="flex justify-center my-3">
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 shadow-xs max-w-md w-full text-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <Tag className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-amber-950">
+                          Đề nghị thương lượng giá
+                        </div>
+                        <div className="text-[11px] text-amber-800">
+                          Mức giá đề xuất: <strong className="text-sm text-fpt-orange">{msg.offerPrice}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="rounded bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                      Chờ phản hồi
+                    </span>
+                  </div>
+
+                  {isSeller ? (
+                    <div className="pt-2 border-t border-amber-200/70 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onRejectOffer && onRejectOffer(msg.id, numericPrice)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        Từ chối
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAcceptOffer && onAcceptOffer(msg.id, numericPrice)}
+                        className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                      >
+                        Đồng ý mức giá này
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pt-1.5 border-t border-amber-200/60 text-[11px] text-amber-800/90 italic flex items-center gap-1">
+                      <span>⏳ Đang chờ người bán phản hồi đề xuất...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

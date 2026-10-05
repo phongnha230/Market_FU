@@ -67,7 +67,7 @@ export default function LoginForm({
   const googleBtnRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com';
 
     const renderGsiButton = () => {
       const google = typeof window !== 'undefined' ? (window as any).google : undefined;
@@ -305,68 +305,6 @@ export default function LoginForm({
           )}
         </Button>
       </form>
-
-      {/* Demo Credentials Quick-Select */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
-        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-          <span>Chọn tài khoản mẫu để thử nghiệm nhanh:</span>
-        </div>
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-          {/* 1. Sinh viên (Buyer) */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEmail('namntk17@fe.edu.vn');
-              setPassword('Password123@');
-              if (demoState === 'error') setDemoState('normal');
-            }}
-            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-emerald-500 hover:bg-emerald-50/30 transition cursor-pointer group shadow-2xs"
-          >
-            <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-emerald-700">
-              🎓 Sinh viên
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">namntk17@fe...</div>
-            <div className="text-[9px] text-emerald-600 font-bold mt-1">→ Mua đồ</div>
-          </Button>
-
-          {/* 2. Người bán (Seller) */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEmail('seller@fpt.edu.vn');
-              setPassword('Password123@');
-              if (demoState === 'error') setDemoState('normal');
-            }}
-            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-blue-500 hover:bg-blue-50/30 transition cursor-pointer group shadow-2xs"
-          >
-            <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-blue-700">
-              🛒 Người bán
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">seller@fpt...</div>
-            <div className="text-[9px] text-blue-600 font-bold mt-1">→ Đăng bán</div>
-          </Button>
-
-          {/* 3. Quản trị viên (Admin) */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEmail('admin@fpt.edu.vn');
-              setPassword('AdminPassword123@');
-              if (demoState === 'error') setDemoState('normal');
-            }}
-            className="rounded-lg border-slate-200 bg-white p-2 sm:p-2.5 h-auto text-left flex-col items-start justify-start hover:border-fpt-orange hover:bg-orange-50/40 transition cursor-pointer group shadow-2xs"
-          >
-            <div className="text-xs font-extrabold text-slate-800 flex items-center gap-1 group-hover:text-fpt-orange">
-              🛡️ Quản trị
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono truncate mt-0.5">admin@fpt...</div>
-            <div className="text-[9px] text-fpt-orange font-bold mt-1">→ BQT Panel</div>
-          </Button>
-        </div>
-      </div>
 
       {/* Register Callout */}
       <div className="text-center text-xs text-slate-600">

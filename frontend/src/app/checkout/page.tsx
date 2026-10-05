@@ -203,11 +203,17 @@ function CheckoutContent() {
   const voucherDiscount = isMeetup ? 0 : 15000;
   const effectiveShippingFee = isMeetup ? 0 : Math.max(0, shippingFee - voucherDiscount);
 
+  // Negotiated price agreed in Chat P2P
+  const rawAgreedPrice = searchParams.get('agreedPrice') || searchParams.get('offerPrice');
+  const agreedPrice = rawAgreedPrice ? parseInt(rawAgreedPrice.replace(/\D/g, ''), 10) : null;
+  const isAgreedPriceApplied = Boolean(agreedPrice && agreedPrice > 0 && agreedPrice < productData.price);
+  const effectiveProductPrice = isAgreedPriceApplied ? (agreedPrice as number) : productData.price;
+
   // Coins discount: 1 Xu = 1.000 VNĐ. Task 3.3 / B3-10: Capped at 10% of product price
-  const maxCoinsAllowed = Math.min(50, currentUser.coins, Math.floor((productData.price * 0.1) / 1000));
+  const maxCoinsAllowed = Math.min(50, currentUser.coins, Math.floor((effectiveProductPrice * 0.1) / 1000));
   const coinDiscountAmount = useCoinDiscount && maxCoinsAllowed > 0 ? maxCoinsAllowed * 1000 : 0;
 
-  const totalAmount = Math.max(0, productData.price + effectiveShippingFee - coinDiscountAmount);
+  const totalAmount = Math.max(0, effectiveProductPrice + effectiveShippingFee - coinDiscountAmount);
 
   const isOwner = Boolean(
     currentUser && (
@@ -237,6 +243,7 @@ function CheckoutContent() {
           productId: productData.id,
           orderType: isMeetup ? 'MEETUP' : 'SHIP_COD',
           coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
+          agreedPrice: isAgreedPriceApplied ? effectiveProductPrice : undefined,
           deliveryNote,
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
@@ -267,7 +274,7 @@ function CheckoutContent() {
         product: {
           title: productData.title,
           subtitle: isMeetup ? 'Bàn giao trực tiếp tại Safe-Point Campus' : (productData.description || 'Bàn giao chuẩn KTX'),
-          price: productData.price,
+          price: effectiveProductPrice,
           escrowBadge: isMeetup ? 'Xác thực QR Handshake' : 'Đã cọc Escrow bảo hộ',
           conditionBadge: productData.conditionBadge,
           imageUrl: productData.imageUrl,
@@ -743,11 +750,29 @@ function CheckoutContent() {
 
               <div className="mt-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>Tiền hàng tạm tính</span>
-                  <span className="font-bold text-slate-800">
-                    {productData.price.toLocaleString('vi-VN')} đ
-                  </span>
+                  <span>Tiền hàng</span>
+                  <div className="text-right">
+                    {isAgreedPriceApplied && (
+                      <span className="text-slate-400 line-through text-[11px] mr-1.5">
+                        {productData.price.toLocaleString('vi-VN')} đ
+                      </span>
+                    )}
+                    <span className={`font-bold ${isAgreedPriceApplied ? 'text-fpt-orange text-sm' : 'text-slate-800'}`}>
+                      {effectiveProductPrice.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
                 </div>
+
+                {isAgreedPriceApplied && (
+                  <div className="flex items-center justify-between text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200 text-[11px] font-semibold">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" /> Giá chốt thương lượng trong Chat
+                    </span>
+                    <span className="font-bold text-emerald-700">
+                      -{(productData.price - effectiveProductPrice).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="flex items-center gap-1">

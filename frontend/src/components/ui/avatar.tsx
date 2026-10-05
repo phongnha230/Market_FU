@@ -64,13 +64,28 @@ const AvatarImage = React.forwardRef<HTMLImageElement, AvatarImageProps>(
 
       // Check if image is already cached or complete in memory
       const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.onload = () => {
+        setIsLoaded(true);
+        context?.setStatus('loaded');
+      };
+      img.onerror = () => {
+        setIsLoaded(false);
+        context?.setStatus('error');
+      };
       img.src = src;
+
       if (img.complete && img.naturalWidth > 0) {
         setIsLoaded(true);
         context?.setStatus('loaded');
       } else {
         context?.setStatus('loading');
       }
+
+      return () => {
+        img.onload = null;
+        img.onerror = null;
+      };
     }, [src]);
 
     if (!src) return null;
@@ -80,6 +95,7 @@ const AvatarImage = React.forwardRef<HTMLImageElement, AvatarImageProps>(
         ref={ref}
         src={src}
         alt={alt}
+        referrerPolicy="no-referrer"
         onLoad={(e) => {
           setIsLoaded(true);
           context?.setStatus('loaded');

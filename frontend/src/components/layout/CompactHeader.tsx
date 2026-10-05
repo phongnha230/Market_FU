@@ -179,9 +179,18 @@ export default function CompactHeader({
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition"
               title={user.email}
             >
-              <div className="h-5 w-5 rounded-full bg-orange-100 text-fpt-orange flex items-center justify-center font-bold text-[10px]">
-                {user.name ? user.name[0].toUpperCase() : 'U'}
-              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name || 'Avatar'}
+                  referrerPolicy="no-referrer"
+                  className="h-5 w-5 rounded-full object-cover shrink-0 border border-slate-200"
+                />
+              ) : (
+                <div className="h-5 w-5 rounded-full bg-orange-100 text-fpt-orange flex items-center justify-center font-bold text-[10px] shrink-0">
+                  {user.name ? user.name[0].toUpperCase() : 'U'}
+                </div>
+              )}
               <span className="max-w-[80px] truncate sm:max-w-[120px]">
                 {user.name || user.email.split('@')[0]}
               </span>

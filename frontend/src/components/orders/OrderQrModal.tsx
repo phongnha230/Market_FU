@@ -129,36 +129,19 @@ export default function OrderQrModal({
 
     setIsVerifying(true);
     try {
-      let verified = false;
       const targetIdOrCode = order?.id || order?.code?.replace('#', '') || orderId;
 
-      try {
-        const res = await orderService.verifyHandshake(targetIdOrCode, {
-          handshakeToken: effectiveToken || undefined,
-          handshakeOtp: cleanInput,
-        });
-        if (res) {
-          useOrderStore.getState().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
-          verified = true;
-        }
-      } catch (backendErr: any) {
-        if (cleanInput === effectiveOtp || cleanInput === '1234') {
-          useOrderStore.getState().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
-          verified = true;
-        } else {
-          const msg = backendErr?.response?.data?.message || 'Mã OTP không chính xác. Vui lòng kiểm tra lại với người mua!';
-          setErrorMessage(msg);
-          return;
-        }
-      }
+      await orderService.verifyHandshake(targetIdOrCode, {
+        handshakeToken: effectiveToken || undefined,
+        handshakeOtp: cleanInput,
+      });
 
-      if (verified) {
-        setIsCompleted(true);
-        addCoins(20); // Bonus coins for completing safe handoff
-        if (onSuccess) onSuccess();
-      }
+      useOrderStore.getState().updateOrderStatus(orderId, 'completed', 'Đã xác thực QR Handshake • Hoàn tất');
+      setIsCompleted(true);
+      addCoins(20); // Bonus coins for completing safe handoff
+      if (onSuccess) onSuccess();
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi xác thực. Vui lòng thử lại!';
+      const msg = err?.response?.data?.message || err?.message || 'Mã OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại!';
       setErrorMessage(msg);
     } finally {
       setIsVerifying(false);
@@ -387,13 +370,13 @@ export default function OrderQrModal({
                       setOtpInput(e.target.value.replace(/\D/g, ''));
                       setErrorMessage(null);
                     }}
-                    placeholder="Ví dụ: 1234"
+                    placeholder="••••"
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-slate-900 focus:border-fpt-orange focus:outline-hidden transition"
                   />
                   <KeyRound className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Mẹo demo: Nhập mã OTP hiển thị trên màn hình người mua hoặc <strong>1234</strong>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Nhập mã OTP 4 số hiển thị trực tiếp trên màn hình nhận hàng của người mua.
                 </p>
               </div>
 

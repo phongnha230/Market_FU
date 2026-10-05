@@ -25,7 +25,6 @@ import {
   Truck,
 } from 'lucide-react';
 import {
-  INITIAL_VOUCHERS,
   INITIAL_QUESTS,
   VoucherItem,
   CoinQuestItem,
@@ -144,13 +143,8 @@ export default function VouchersPage() {
     };
   });
 
-  // Hợp nhất danh sách: Ưu tiên Voucher thật từ DB của Admin, kèm các mã hệ thống
-  const allDisplayVouchers: VoucherItem[] = [
-    ...mappedBackendVouchers,
-    ...INITIAL_VOUCHERS.filter(
-      (iv) => !mappedBackendVouchers.some((mv) => mv.id === iv.id || mv.title === iv.title)
-    ),
-  ];
+  // Danh sách Voucher hiển thị từ Backend Database
+  const allDisplayVouchers: VoucherItem[] = mappedBackendVouchers;
 
   // Tab counts calculation
   const counts = {

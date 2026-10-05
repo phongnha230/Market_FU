@@ -175,13 +175,9 @@ export default function OrdersPage() {
       setTimeout(() => {
         router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
       }, 1000);
-    } catch {
-      // Fallback update nếu offline hoặc mock
-      updateOrderStatus(orderCode, 'delivered', 'Giao thành công tại sảnh KTX');
-      showToast(`Đã xác nhận nhận hàng an toàn đơn ${orderCode}! Chuyển sang đánh giá...`, 'success');
-      setTimeout(() => {
-        router.push(`/orders/review?code=${encodeURIComponent(orderCode)}`);
-      }, 1000);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận nhận hàng lúc này. Vui lòng thử lại!';
+      showToast(`❌ ${msg}`, 'error');
     }
   };
 
@@ -191,12 +187,12 @@ export default function OrdersPage() {
 
     try {
       await orderService.cancelOrder(orderId, 'Người mua yêu cầu hủy đơn');
-    } catch {
-      // offline fallback
+      updateOrderStatus(orderCode, 'processing', 'Đã hủy đơn hàng');
+      showToast(`Đã hủy đơn hàng ${orderCode} thành công.`, 'info');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Không thể hủy đơn hàng lúc này. Vui lòng thử lại!';
+      showToast(`❌ ${msg}`, 'error');
     }
-
-    updateOrderStatus(orderCode, 'processing', 'Đã hủy đơn hàng');
-    showToast(`Đã hủy đơn hàng ${orderCode} thành công.`, 'info');
   };
 
   return (

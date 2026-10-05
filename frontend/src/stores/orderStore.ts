@@ -84,72 +84,7 @@ interface OrderState {
   resetOrders: () => void;
 }
 
-export const INITIAL_ORDERS: OrderItem[] = [
-  {
-    id: 'ord-1',
-    code: '#ORD-88392-HCM-HL',
-    type: 'inter-campus',
-    typeLabel: 'Inter-Campus Express • FPT CampusShip',
-    timeLabel: 'Tạo lúc 09:15 - Hôm qua',
-    status: 'shipping',
-    statusText: 'Đang trên xe trung chuyển',
-    statusColor: 'text-fpt-orange',
-    product: {
-      title: 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
-      subtitle: 'Phù hợp học Code WEB2013 / Đồ họa • Hỗ trợ kết nối một dây Type-C PD',
-      price: 1225000,
-      escrowBadge: 'Đã cọc Escrow bảo hộ',
-      conditionBadge: 'Like New',
-      imageUrl: '/products/monitor-dell-24.jpg',
-      seller: {
-        name: 'Nguyễn Văn An',
-        cohortCampus: 'K16 SE - FPT Q.9 TP.HCM',
-        verifiedText: 'Miễn phí ký gửi liên cơ sở',
-      },
-    },
-    tracking: {
-      routeTitle: 'Tuyến Hub Nam - Bắc (FPT Q.9 TP.HCM ➔ FPT Hòa Lạc)',
-      estimatedArrival: 'Dự kiến đến Dom B: 14:00 Ngày mai',
-      currentLocation: 'Đang trung chuyển an toàn qua FPT Express Bus Hub Đà Nẵng',
-      trackingCode: 'FPT-SHIP-99410',
-      steps: [
-        { title: 'Kho Q.9 Rời bến', status: 'completed' },
-        { title: 'Hub FPT Đà Nẵng', status: 'current' },
-        { title: 'Trung chuyển Nội Bài', status: 'pending' },
-        { title: 'Trạm nhận Dom B HL', status: 'pending' },
-      ],
-    },
-  },
-  {
-    id: 'ord-2',
-    code: '#ORD-77102-HL-HL',
-    type: 'safe-handoff',
-    typeLabel: 'Nội bộ Hòa Lạc - Safe Handoff',
-    timeLabel: 'Giao lúc 11:30 - Hôm nay',
-    status: 'delivered',
-    statusText: 'Giao thành công tại Thư viện Beta',
-    statusColor: 'text-emerald-600',
-    reviewed: false,
-    product: {
-      title: 'Combo Giáo trình PE CSL201 (Data Structures) + MAS291 (Xác suất thống kê)',
-      subtitle: 'Sách in chuẩn bản quyền FPT, có ghi chú giải đề thi thử PE các kỳ Fall 2023 - Summer 2024',
-      price: 150000,
-      escrowBadge: 'Đã tất toán ví Escrow',
-      conditionBadge: 'Used - Good',
-      imageUrl: '/products/books-mas291.jpg',
-      seller: {
-        name: 'Trần Thùy Trang',
-        cohortCampus: 'K17 GD - Hola Campus',
-        verifiedText: 'Đã quét mã nhận hàng tại quầy Thư viện Beta',
-      },
-    },
-    rewardPrompt: {
-      title: 'Đánh giá người bán để nâng điểm Trust Score',
-      subtitle: 'Chia sẻ chất lượng tài liệu giáo trình và nhận ngay Voucher 20K áp dụng cước chuyển phát liên Hub 5 Campus!',
-      voucherAmount: 'Voucher 20K',
-    },
-  },
-];
+export const INITIAL_ORDERS: OrderItem[] = [];
 
 const dummyStorage = {
   getItem: () => null,
@@ -437,9 +372,6 @@ export const useOrderStore = create<OrderState>()(
             state.orders = [];
           } else {
             state.orders = state.ordersByUser?.[state.activeUserId] || [];
-          }
-          if (state.orders?.some((o) => o.id === 'ord-1' || o.id === 'ord-2')) {
-            state.orders = state.orders.filter((o) => o.id !== 'ord-1' && o.id !== 'ord-2');
           }
         }
       },

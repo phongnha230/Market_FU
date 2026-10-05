@@ -171,25 +171,6 @@ export default function CreatePostPage() {
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [hashtagInput, setHashtagInput] = useState('');
 
-  // Nút hỗ trợ điền nhanh dữ liệu mẫu khi người dùng muốn thử nghiệm demo
-  const handleLoadSamplePost = () => {
-    setImages([
-      '/products/book-prf192.jpg',
-      '/products/books-mas291.jpg',
-      '/products/keyboard-akko.jpg',
-    ]);
-    setImageFiles([null, null, null]);
-    setTitle('Giáo trình PRF192 bản đẹp + Kèm tóm tắt lý thuyết thi PE');
-    setPrice('90000');
-    setCategory('books');
-    setCondition('Mới 99% Like new');
-    setDescription(
-      'Sách PRF192 mình học kỳ trước xong, pass lại cho các bạn K18-K19 học lập trình C. Sách giữ rất kỹ, không rách gáy, không viết bút dạ quang lem nhem.\nĐặc biệt tặng kèm tập tài liệu tóm tắt con trỏ (Pointer) và bài tập luyện code PE 10 điểm.\nNhận sách tại sảnh trường hoặc KTX bất kỳ buổi chiều nào trong tuần.'
-    );
-    setHashtags(['sách', 'lập trình', 'K17', 'giá rẻ']);
-    showToast('✨ Đã điền nhanh thông tin bài đăng mẫu để thử nghiệm!');
-  };
-
   const addProduct = useProductStore((state) => state.addProduct);
   const setKycStatus = useUserStore((state) => state.setKycStatus);
   const [phone, setPhone] = useState(currentUser.phone || '0982 345 678');
@@ -610,54 +591,6 @@ export default function CreatePostPage() {
       <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans">
         <Navbar selectedCampus={campus} onSelectCampus={(c) => handleCampusChange(c)} />
 
-        {/* Demo KYC Switcher for Fast Testing */}
-        <div className="bg-slate-900 text-white px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 shadow-inner">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-fpt-orange">⚡ Thử nghiệm vai trò & quyền Seller:</span>
-            <span className="text-slate-300">
-              Trạng thái: <strong className="text-white uppercase">{currentUser.kycStatus}</strong>
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setKycStatus('unverified')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
-                currentUser.kycStatus === 'unverified' ? 'bg-fpt-orange text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
-            >
-              1. Chưa xác thực
-            </button>
-            <button
-              type="button"
-              onClick={() => setKycStatus('pending', 'seller')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
-                currentUser.kycStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
-            >
-              2. Đang chờ duyệt
-            </button>
-            <button
-              type="button"
-              onClick={() => setKycStatus('approved_student', 'student')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
-                currentUser.kycStatus === 'approved_student' ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
-            >
-              3. Đã duyệt Người mua
-            </button>
-            <button
-              type="button"
-              onClick={() => setKycStatus('approved_seller', 'seller')}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
-                currentUser.kycStatus === 'approved_seller' ? 'bg-emerald-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              }`}
-            >
-              4. Đã duyệt Seller (Mở form)
-            </button>
-          </div>
-        </div>
-
         <main className="mx-auto max-w-4xl w-full px-4 py-12 sm:py-16 flex-1 flex flex-col items-center justify-center">
           <div className="w-full rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-xl text-center space-y-6">
             {/* Top Icon Badge */}
@@ -808,18 +741,8 @@ export default function CreatePostPage() {
               </p>
             </div>
 
-            {/* Right student trust card & Quick Demo helper */}
+            {/* Right student trust card */}
             <div className="flex flex-wrap items-center gap-3 self-start lg:self-center">
-              <button
-                type="button"
-                onClick={handleLoadSamplePost}
-                className="flex items-center gap-1.5 rounded-2xl border border-orange-200 bg-orange-50/80 px-3.5 py-2.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 hover:border-orange-300 transition shadow-2xs cursor-pointer"
-                title="Tự động điền dữ liệu mẫu (sách PRF192, 90.000đ, ảnh mẫu) để thử nghiệm đăng tin"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span>⚡ Thử nhanh tin mẫu</span>
-              </button>
-
               <div className="flex items-center gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-2.5 shadow-xs shrink-0">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <ShieldCheck className="h-5 w-5" />

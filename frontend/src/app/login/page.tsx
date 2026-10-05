@@ -38,7 +38,6 @@ function LoginFormContent() {
   const modeParam = searchParams.get('mode');
 
   const { login, updateProfile, showToast } = useMarket();
-  const adminLogin = useAdminStore((s) => s.login);
 
   // Primary mode: 'login' | 'register' | 'forgot-password'
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password'>(
@@ -55,41 +54,14 @@ function LoginFormContent() {
   const [demoState, setDemoState] = useState<'normal' | 'error' | 'loading'>('normal');
 
   const handleLoginSuccess = async (email: string, password?: string) => {
-    // 1. Kiểm tra nếu là tài khoản Quản trị viên (BQT)
-    if (password) {
-      const adminResult = await adminLogin(email, password);
-      if (adminResult.success) {
-        document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
-        // Đồng thời đăng nhập vào backend để lấy Access Token có quyền ADMIN
-        try {
-          await authService.login({ email, password });
-        } catch {
-          // Bỏ qua lỗi backend nếu offline
-        }
-        showToast('🛡️ Đăng nhập Quản trị viên BQT thành công! Đang vào trung tâm điều hành...', 'success');
-        setTimeout(() => {
-          router.push('/admin/dashboard');
-        }, 800);
-        return;
-      }
-
-      // Nếu nhập email BQT nhưng sai mật khẩu
-      const isKnownAdmin = ['admin@fpt.edu.vn', 'mod.hola@fpt.edu.vn'].includes(email.toLowerCase().trim());
-      if (isKnownAdmin) {
-        setDemoState('error');
-        showToast('Mật khẩu quản trị viên BQT không chính xác. Vui lòng kiểm tra lại.', 'error');
-        return;
-      }
-    }
-
-    // 2. Đăng nhập người dùng qua Backend API
     try {
-      let res: any;
-      if (password) {
-        res = await authService.login({ email, password });
-      } else {
-        login(email);
+      if (!password) {
+        showToast('Vui lòng nhập mật khẩu tài khoản.', 'error');
+        setDemoState('error');
+        return;
       }
+
+      const res = await authService.login({ email, password });
 
       // Nếu tài khoản có vai trò ADMIN từ Backend
       if (res?.user?.role === 'ADMIN') {
@@ -112,7 +84,7 @@ function LoginFormContent() {
             'settings.system',
           ],
         };
-        useAdminStore.setState({ admin: adminProfile, isLoggedIn: true });
+        useAdminStore.setState({ admin: adminProfile, isLoggedIn: true, accessToken: res.tokens?.accessToken || null });
         document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
         showToast('🛡️ Đăng nhập Quản trị viên BQT thành công! Đang vào trung tâm điều hành...', 'success');
         setTimeout(() => {
@@ -176,7 +148,7 @@ function LoginFormContent() {
         router.push(redirectParam);
       }, 800);
     } catch (err: any) {
-      setDemoState('error');
+      setDemoState('normal');
       showToast(err?.message || 'Đăng nhập Google thất bại. Vui lòng kiểm tra lại.', 'error');
     } finally {
       setIsGoogleLoading(false);
@@ -187,7 +159,7 @@ function LoginFormContent() {
   const initGoogleAuth = () => {
     const clientId =
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-      '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
+      '286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com';
     const google = typeof window !== 'undefined' ? (window as any).google : undefined;
     if (google?.accounts?.id) {
       try {

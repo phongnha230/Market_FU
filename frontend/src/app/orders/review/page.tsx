@@ -30,22 +30,17 @@ import { Card, Badge, Button, Avatar, AvatarFallback, Progress } from '@/compone
 function ReviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rawParam = searchParams.get('code') || searchParams.get('orderId') || '#ORD-88392-HCM-HL';
-  const orderCode = rawParam.startsWith('#') ? rawParam : `#${rawParam}`;
+  const rawParam = searchParams.get('code') || searchParams.get('orderId') || '';
+  const orderCode = rawParam ? (rawParam.startsWith('#') ? rawParam : `#${rawParam}`) : '';
 
   const markOrderReviewed = useOrderStore((state) => state.markOrderReviewed);
   const addCoins = useUserStore((state) => state.addCoins);
   const getOrder = useOrderStore((state) => state.getOrder);
-  const currentOrder = getOrder(orderCode);
+  const currentOrder = orderCode ? getOrder(orderCode) : undefined;
 
   const [rating, setRating] = useState<number>(5);
-  const [selectedTags, setSelectedTags] = useState<string[]>([
-    'mota',
-    'donggoi',
-  ]);
-  const [comment, setComment] = useState<string>(
-    'Màn hình nhận tại sảnh Dom B KTX Hòa Lạc nguyên vẹn không vết xước. Bạn An đóng gói bằng 4 lớp màng xốp khí và thùng carton rất cẩn thận. Test kết nối Type-C với laptop ThinkPad lên ngay 1080p 60Hz sáng đẹp, kèm đủ 2 cáp zin. Rất uy tín!'
-  );
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [comment, setComment] = useState<string>('');
   const [proofVideoUrl, setProofVideoUrl] = useState<string>('');
   const [giveBonusTrust, setGiveBonusTrust] = useState<boolean>(true);
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
@@ -73,6 +68,10 @@ function ReviewContent() {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!orderCode) {
+      showToast('❌ Không tìm thấy thông tin đơn hàng cần đánh giá!');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
@@ -95,13 +94,6 @@ function ReviewContent() {
       if (errorCode === 'ALREADY_REVIEWED') {
         markOrderReviewed(orderCode);
         showToast('ℹ️ Bạn đã gửi đánh giá cho đơn hàng này rồi.');
-        setTimeout(() => router.push('/orders'), 1200);
-      } else if (orderCode.includes('77102') || !currentOrder?.id) {
-        // Mock fallback for static demo orders
-        const earnedCoins = proofVideoUrl.trim() ? 200 : 100;
-        markOrderReviewed(orderCode);
-        addCoins(earnedCoins);
-        showToast(`🎉 Đã ghi nhận đánh giá thành công & cộng +${earnedCoins} Xu.`);
         setTimeout(() => router.push('/orders'), 1200);
       } else {
         showToast(`❌ ${message}`);

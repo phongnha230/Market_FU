@@ -9,6 +9,7 @@ import { MapPin, Tag, ExternalLink } from 'lucide-react';
 interface PinnedProductBarProps {
   product: Conversation['pinnedProduct'];
   partnerName: string;
+  agreedPrice?: number;
   onOfferPrice: (offer: string) => void;
   onScheduleMeeting: () => void;
 }
@@ -16,9 +17,12 @@ interface PinnedProductBarProps {
 export default function PinnedProductBar({
   product,
   partnerName,
+  agreedPrice,
   onOfferPrice,
   onScheduleMeeting,
 }: PinnedProductBarProps) {
+  const isAgreed = Boolean(agreedPrice && agreedPrice > 0 && agreedPrice < product.price);
+
   return (
     <div className="shrink-0 bg-white border-b border-orange-100 px-4 py-2.5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -38,17 +42,33 @@ export default function PinnedProductBar({
             {product.title}
           </h4>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-sm font-extrabold text-fpt-orange">
-              {product.price.toLocaleString('vi-VN')} đ
-            </span>
-            {product.originalPrice && (
-              <span className="text-xs text-slate-400 line-through">
-                {product.originalPrice.toLocaleString('vi-VN')} đ
-              </span>
+            {isAgreed ? (
+              <>
+                <span className="text-sm font-extrabold text-emerald-600">
+                  {agreedPrice!.toLocaleString('vi-VN')} đ
+                </span>
+                <span className="text-xs text-slate-400 line-through">
+                  {product.price.toLocaleString('vi-VN')} đ
+                </span>
+                <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">
+                  Đã chốt giá Chat
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-extrabold text-fpt-orange">
+                  {product.price.toLocaleString('vi-VN')} đ
+                </span>
+                {product.originalPrice && (
+                  <span className="text-xs text-slate-400 line-through">
+                    {product.originalPrice.toLocaleString('vi-VN')} đ
+                  </span>
+                )}
+                <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                  {product.conditionBadge}
+                </span>
+              </>
             )}
-            <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-              {product.conditionBadge}
-            </span>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
             <MapPin className="h-3 w-3 text-fpt-orange shrink-0" />
@@ -79,11 +99,11 @@ export default function PinnedProductBar({
         </button>
 
         <Link
-          href={`/checkout?productId=${encodeURIComponent(product.id || 'feat-3')}&type=meetup`}
+          href={`/checkout?productId=${encodeURIComponent(product.id || 'feat-3')}&type=meetup${isAgreed ? `&agreedPrice=${agreedPrice}` : ''}`}
           className="rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
           title="Đặt hẹn giao dịch Safe Handoff có Escrow bảo vệ"
         >
-          <span>Đặt Safe-Handoff</span>
+          <span>{isAgreed ? 'Đặt mua giá chốt' : 'Đặt Safe-Handoff'}</span>
         </Link>
 
         <Link
