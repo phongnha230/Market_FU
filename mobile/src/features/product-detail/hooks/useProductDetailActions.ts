@@ -85,17 +85,22 @@ export function useProductDetailActions(
   const handleOpenBuyNow = useCallback(() => {
     if (!checkActionEligibility('đặt cọc giao dịch ký quỹ Escrow')) return;
 
+    const numericPrice =
+      typeof product.price === 'number'
+        ? product.price
+        : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 1450000;
+
     navigation.navigate('Checkout', {
       product: {
         id: product.id,
         title: product.title,
-        price: parseInt(product.price.replace(/\./g, ''), 10) || 1450000,
-        priceStr: product.price + 'đ',
-        image: product.images[0],
-        sellerName: product.seller.name,
-        sellerMajor: product.seller.major,
-        sellerCampus: isSameCampus ? 'Cơ sở Hòa Lạc' : 'Cơ sở TP.HCM',
-        sellerId: product.seller.id,
+        price: numericPrice,
+        priceStr: (product.priceStr || numericPrice.toLocaleString('vi-VN')) + 'đ',
+        image: product.images?.[0] || product.image,
+        sellerName: product.seller?.name || product.sellerName || 'Người bán FPT',
+        sellerMajor: product.seller?.major || product.sellerCohort || 'K17 FPT',
+        sellerCampus: product.campus || (isSameCampus ? 'Cơ sở Hòa Lạc' : 'Cơ sở khác'),
+        sellerId: product.seller?.id || product.sellerId || '',
       },
       isDifferentCampus: !isSameCampus,
     });
@@ -104,18 +109,23 @@ export function useProductDetailActions(
   const handleOpenChat = useCallback(() => {
     if (!checkActionEligibility('nhắn tin trao đổi với người bán')) return;
 
+    const numericPrice =
+      typeof product.price === 'number'
+        ? product.price
+        : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 1450000;
+
     navigation.navigate('ChatDetail', {
       partner: {
-        id: product.seller.id,
-        name: product.seller.name,
-        cohort: 'K16 - SE',
+        id: product.seller?.id || product.sellerId || 'partner',
+        name: product.seller?.name || product.sellerName || 'Người bán FPT',
+        cohort: product.seller?.major || product.sellerCohort || 'K16 - SE',
         isOnline: true,
       },
       product: {
         id: product.id,
         title: product.title,
-        price: product.price + 'đ',
-        image: product.images[0],
+        price: (product.priceStr || numericPrice.toLocaleString('vi-VN')) + 'đ',
+        image: product.images?.[0] || product.image,
       },
     });
   }, [checkActionEligibility, navigation, product]);
@@ -143,23 +153,28 @@ export function useProductDetailActions(
 
   const handleSubmitOffer = useCallback((offeredPrice: number, message: string) => {
     setIsOfferModalVisible(false);
+    const numericPrice =
+      typeof product.price === 'number'
+        ? product.price
+        : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 1450000;
+
     navigation.navigate('ChatDetail', {
       partner: {
-        id: product.seller.id,
-        name: product.seller.name,
-        cohort: 'K16 - SE',
+        id: product.seller?.id || product.sellerId || 'partner',
+        name: product.seller?.name || product.sellerName || 'Người bán FPT',
+        cohort: product.seller?.major || product.sellerCohort || 'K16 - SE',
         isOnline: true,
       },
       product: {
         id: product.id,
         title: product.title,
-        price: product.price + 'đ',
-        image: product.images[0],
+        price: (product.priceStr || numericPrice.toLocaleString('vi-VN')) + 'đ',
+        image: product.images?.[0] || product.image,
       },
       initialOffer: {
         offeredPrice,
         message,
-        originalPrice: parseInt(product.price.replace(/\./g, ''), 10) || 1450000,
+        originalPrice: numericPrice,
       },
     });
   }, [navigation, product]);

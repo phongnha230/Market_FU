@@ -26,7 +26,10 @@ export const useProductDetail = (productId?: string) => {
       location: `${found.campus} • ${found.safePoint || 'Safe-Point'}`,
       images: found.images && found.images.length > 0 ? found.images : DEFAULT_PRODUCT_DETAIL.images,
       specs: DEFAULT_PRODUCT_DETAIL.specs,
-      description: DEFAULT_PRODUCT_DETAIL.description,
+      description: found.description || DEFAULT_PRODUCT_DETAIL.description,
+      campus: found.campus,
+      sellerId: found.sellerId,
+      sellerCohort: found.sellerCohort,
       seller: {
         id: found.sellerId,
         name: found.sellerName,

@@ -66,8 +66,8 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
       return;
     }
 
-    if (amount < 20000) {
-      Alert.alert('Hạn mức tối thiểu', 'Số tiền rút tối thiểu là 20.000đ.');
+    if (amount < 50000) {
+      Alert.alert('Hạn mức tối thiểu', 'Số tiền rút tối thiểu là 50.000đ theo quy định tài vụ.');
       return;
     }
 

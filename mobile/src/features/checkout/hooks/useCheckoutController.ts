@@ -130,6 +130,18 @@ export function useCheckoutController() {
   const handleConfirmPayment = useCallback(async () => {
     if (isSubmitting) return;
 
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập tài khoản FPT để tiến hành đặt mua và ký quỹ Escrow.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -177,9 +189,16 @@ export function useCheckoutController() {
         toCampus: user?.campus || 'Đà Nẵng',
       });
     } catch (err: any) {
-      console.log('⚠️ [createOrder offline fallback]:', err?.message);
+      console.log('⚠️ [createOrder error]:', err?.message);
 
-      // Fallback offline an toàn
+      // Nếu backend trả về lỗi nghiệp vụ (ví dụ: KYC required, self-buy, out of stock,...)
+      const apiErrorMessage = err.response?.data?.error?.message || err.response?.data?.message;
+      if (apiErrorMessage && err.response?.status && err.response.status >= 400 && err.response.status < 500) {
+        Alert.alert('Không thể đặt đơn', apiErrorMessage);
+        return;
+      }
+
+      // Fallback offline an toàn nếu backend mất mạng hoặc server chưa bật
       const fallbackOtp = Math.floor(1000 + Math.random() * 9000).toString();
       const fallbackCode = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
       const fallbackOrder: OrderItem = {

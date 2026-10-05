@@ -100,6 +100,17 @@ export const useProductStore = create<ProductState>()(
               safePoint: newProdData.safePoint,
               allowNegotiate: newProdData.allowNegotiate,
               campusShipEnabled: newProdData.campusShipEnabled,
+              description: newProdData.description,
+              hashtags: newProdData.hashtags,
+            })
+            .then((live) => {
+              if (live?.id) {
+                set((state) => ({
+                  products: state.products.map((p) =>
+                    p.id === newProduct.id ? { ...p, id: live.id } : p
+                  ),
+                }));
+              }
             })
             .catch(() => {});
         });

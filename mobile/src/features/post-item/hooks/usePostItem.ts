@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { PostCategory, PostCondition, PostImageItem } from '../types/post-item.types';
 import { useProductStore } from '../../../stores/productStore';
 import { useUserStore } from '../../../stores/userStore';
@@ -45,6 +46,62 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
 
   const [images, setImages] = useState<PostImageItem[]>([]);
 
+  const handleAddImage = async () => {
+    Alert.alert('Thêm ảnh sản phẩm', 'Chọn nguồn ảnh thực tế của món đồ', [
+      {
+        text: 'Chụp ảnh mới (Camera)',
+        onPress: async () => {
+          try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Cấp quyền', 'Vui lòng cấp quyền truy cập Camera để chụp ảnh sản phẩm.');
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
+            if (!res.canceled && res.assets && res.assets.length > 0) {
+              const newAsset = res.assets[0];
+              const newItem: PostImageItem = {
+                id: `img_${Date.now()}`,
+                source: { uri: newAsset.uri },
+                isCover: images.length === 0,
+              };
+              setImages((prev) => [...prev, newItem]);
+            }
+          } catch (e: any) {
+            Alert.alert('Lỗi', e?.message || 'Không thể mở Camera.');
+          }
+        },
+      },
+      {
+        text: 'Chọn từ Thư viện ảnh',
+        onPress: async () => {
+          try {
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsMultipleSelection: true,
+              quality: 0.8,
+            });
+            if (!res.canceled && res.assets && res.assets.length > 0) {
+              const newItems: PostImageItem[] = res.assets.map((a, idx) => ({
+                id: `img_${Date.now()}_${idx}`,
+                source: { uri: a.uri },
+                isCover: images.length === 0 && idx === 0,
+              }));
+              setImages((prev) => [...prev, ...newItems].slice(0, 6));
+            }
+          } catch (e: any) {
+            Alert.alert('Lỗi', e?.message || 'Không thể mở thư viện ảnh.');
+          }
+        },
+      },
+      { text: 'Hủy', style: 'cancel' },
+    ]);
+  };
+
   const handleRemoveImage = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
   };
@@ -76,7 +133,22 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   };
 
   const handleSubmit = () => {
+    if (!user) {
+      Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập tài khoản Người bán để đăng tin.');
+      return;
+    }
+
+    if (title.trim().length < 5) {
+      Alert.alert('Tiêu đề quá ngắn', 'Tiêu đề sản phẩm phải có ít nhất 5 ký tự để người mua dễ tìm thấy.');
+      return;
+    }
+
     const rawPrice = parseInt(price.replace(/[^\d]/g, ''), 10) || 0;
+    if (rawPrice <= 0) {
+      Alert.alert('Giá không hợp lệ', 'Vui lòng nhập giá bán sản phẩm.');
+      return;
+    }
+
     const currentSeller = user || {
       id: '',
       name: 'Người bán FPT',
@@ -86,12 +158,17 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
       isKycVerified: false,
     };
 
+    const finalDescription =
+      description.trim().length >= 10
+        ? description.trim()
+        : `${title.trim()} - Cần pass lại giá sinh viên FPT tại cơ sở ${sellerCampus}. Tình trạng tốt, có thể test đồ trực tiếp tại Safe-point.`;
+
     addProduct({
-      title,
+      title: title.trim(),
       price: rawPrice,
       condition: selectedCondition === 'new' ? 'Mới 100%' : 'Like new 99%',
       category: selectedCategory === 'book' ? 'books' : 'electronics',
-      images: images.map((i) => i.source),
+      images: images.map((i) => (typeof i.source === 'object' && i.source.uri ? i.source.uri : i.source)),
       campus: sellerCampus, // Khóa cứng theo cơ sở Seller đăng ký
       sellerId: currentSeller.id,
       sellerName: currentSeller.name,
@@ -102,7 +179,7 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
       allowNegotiate,
       campusShipEnabled,
       hashtags,
-      description,
+      description: finalDescription,
     });
 
     Alert.alert(
@@ -145,6 +222,7 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
     handleAddHashtag,
     handleRemoveHashtag,
     images,
+    handleAddImage,
     handleRemoveImage,
     handleApplySuggestion,
     handleSubmit,

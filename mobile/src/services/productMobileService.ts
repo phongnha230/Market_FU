@@ -148,6 +148,15 @@ export const productMobileService = {
         ? payload.description.trim()
         : `${payload.title} - Sản phẩm đồ dùng sinh viên FPT pass lại giá sinh viên. Hẹn xem tại Safe-point.`;
 
+    const extractedUrls = Array.isArray(payload.images)
+      ? payload.images.filter((img) => typeof img === 'string' && img.startsWith('http'))
+      : [];
+
+    const finalImageUrls =
+      extractedUrls.length > 0
+        ? extractedUrls
+        : ['https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600'];
+
     const body: any = {
       title: payload.title.trim(),
       description: desc,
@@ -159,9 +168,7 @@ export const productMobileService = {
       location: payload.safePoint || 'Trạm Safe-Point Sảnh Tòa Alpha',
       allowShipping: payload.campusShipEnabled ?? true,
       hashtags: payload.hashtags ?? [],
-      imageUrls: Array.isArray(payload.images)
-        ? payload.images.filter((img) => typeof img === 'string' && img.startsWith('http'))
-        : [],
+      imageUrls: finalImageUrls,
     };
 
     const res = await apiClient.post<ApiResponse<any>>('/products', body);

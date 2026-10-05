@@ -84,7 +84,11 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
       <MakeOfferModal
         visible={actions.isOfferModalVisible}
         onClose={actions.handleCloseOfferModal}
-        originalPrice={parseInt(product.price.replace(/\./g, ''), 10) || 1450000}
+        originalPrice={
+          typeof product.price === 'number'
+            ? product.price
+            : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 1450000
+        }
         productTitle={product.title}
         sellerName={product.seller.name}
         onSubmitOffer={actions.handleSubmitOffer}

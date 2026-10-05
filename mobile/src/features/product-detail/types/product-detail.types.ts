@@ -31,6 +31,9 @@ export interface ProductDetailData {
     avatarUrl?: string;
     isVerified: boolean;
   };
+  campus?: string;
+  sellerId?: string;
+  sellerCohort?: string;
   safePointInfo: {
     name: string;
     desc: string;

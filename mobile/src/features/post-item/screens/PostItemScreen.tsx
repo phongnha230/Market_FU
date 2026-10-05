@@ -46,6 +46,7 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     handleAddHashtag,
     handleRemoveHashtag,
     images,
+    handleAddImage,
     handleRemoveImage,
     handleApplySuggestion,
     handleSubmit,
@@ -137,7 +138,11 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <PostImageSection images={images} onRemoveImage={handleRemoveImage} />
+          <PostImageSection
+            images={images}
+            onRemoveImage={handleRemoveImage}
+            onAddImage={handleAddImage}
+          />
           
           {/* AI Vision Photo Auto-fill Banner */}
           <AiPhotoAutoFillBanner
