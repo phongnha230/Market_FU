@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUserStore } from '../stores/userStore';
 import { useCampusStore } from '../stores/useCampusStore';
 import { useProductStore, ProductItem } from '../stores/productStore';
@@ -7,6 +7,8 @@ import { useWalletStore } from '../stores/walletStore';
 import { useFavoriteStore } from '../stores/useFavoriteStore';
 import { useChatStore } from '../stores/chatStore';
 import { useNotificationStore } from '../stores/notificationStore';
+import { socketMobileService } from '../services/socketMobileService';
+import { notificationMobileService } from '../services/notificationMobileService';
 import { KhoContextType, InventoryStats } from './KhoContext';
 
 export const useKhoValue = (): KhoContextType => {
@@ -56,18 +58,259 @@ export const useKhoValue = (): KhoContextType => {
   const markNotificationsAsReadAction = useNotificationStore((s) => s.markAllAsRead);
 
   // Tính toán role & quyền
-  const isSeller = Boolean(user && (user.role === 'SELLER' || user.id === 'acc_seller'));
+  const isSeller = Boolean(user && user.role === 'SELLER');
   const isBuyer = Boolean(user && user.role !== 'SELLER');
   const isKycVerified = Boolean(user?.isKycVerified || user?.kycStatus === 'APPROVED');
 
-  // Seller ID hiện hành
-  const currentSellerId = user?.id || 'acc_seller';
-  const currentBuyerId = user?.id || 'acc_verified';
+  // ID hiện hành
+  const currentSellerId = user?.id || '';
+  const currentBuyerId = user?.id || '';
 
-  // === Kho Hàng Của Tôi (Seller Listings) ===
+  // === Kho Hàng Của Tôi (Seller Listings từ Backend API /products/me) ===
+  const [sellerProducts, setSellerProducts] = useState<ProductItem[]>([]);
+
+  const fetchMySellerProducts = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const { productMobileService } = await import('../services/productMobileService');
+      const items = await productMobileService.getMyProducts();
+      if (Array.isArray(items)) {
+        setSellerProducts(items);
+      }
+    } catch (e: any) {
+      console.log('⚠️ [Backend /products/me offline]:', e?.message);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    fetchMySellerProducts().catch(() => {});
+    fetchOrders().catch(() => {});
+    useNotificationStore.getState().fetchNotifications().catch(() => {});
+    useChatStore.getState().fetchConversations().catch(() => {});
+
+    // Kiểm tra và hiển thị Form Xin đồng ý nhận thông báo nếu người dùng mới vào app lần đầu
+    let consentTimer: any = null;
+    const { hasPromptedPermission, setPermissionModalVisible } = useNotificationStore.getState();
+    if (!hasPromptedPermission) {
+      consentTimer = setTimeout(() => {
+        setPermissionModalVisible(true);
+      }, 1500);
+    }
+
+    // Khởi tạo kênh Push Notification & lắng nghe chạm banner
+    notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
+    const unsubPushListeners = notificationMobileService.setupNotificationListeners();
+
+    // Kết nối Socket và đăng ký sự kiện realtime toàn hệ thống
+    socketMobileService.getSocket();
+
+    const unsubNotif = socketMobileService.onNotification((n) => {
+      useNotificationStore.getState().addNotification({
+        title: n.title,
+        body: n.body,
+        category: (n.type?.toLowerCase() as any) || 'system',
+        icon: 'notifications',
+        iconColor: '#EA580C',
+        iconBg: '#FFF7ED',
+        targetScreen: n.targetUrl ? 'OrderDetail' : undefined,
+      });
+
+      notificationMobileService.displayLocalPushNotification({
+        title: n.title,
+        body: n.body,
+        data: { targetUrl: n.targetUrl, type: n.type },
+      });
+    });
+
+    const unsubOrderPaid = socketMobileService.onOrderPaid((d: any) => {
+      fetchOrders().catch(() => {});
+      const title = '🛡️ Escrow đã được cọc an toàn';
+      const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} đã thanh toán ký quỹ Escrow thành công!`;
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'order',
+        icon: 'shield-checkmark',
+        iconColor: '#059669',
+        iconBg: '#ECFDF5',
+        targetScreen: 'OrderDetail',
+        targetParams: { orderId: d?.orderId || d?.orderCode },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { orderId: d?.orderId || d?.orderCode, type: 'ORDER' },
+      });
+    });
+
+    const unsubNewOrder = socketMobileService.onNewOrderReceived((d: any) => {
+      fetchOrders().catch(() => {});
+      const title = '📦 Bạn có đơn hàng mới!';
+      const body = `Sinh viên vừa đặt mua sản phẩm của bạn (Đơn #${d?.orderCode || d?.orderId || ''}).`;
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'order',
+        icon: 'cube',
+        iconColor: '#2563EB',
+        iconBg: '#EFF6FF',
+        targetScreen: 'OrderDetail',
+        targetParams: { orderId: d?.orderId || d?.orderCode },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { orderId: d?.orderId || d?.orderCode, type: 'ORDER' },
+      });
+    });
+
+    const unsubOrderComp = socketMobileService.onOrderCompleted((d: any) => {
+      fetchOrders().catch(() => {});
+      const title = '🎉 Giao dịch hoàn tất thành công!';
+      const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} đã hoàn tất. Tiền Escrow đã được giải ngân về ví!`;
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'order',
+        icon: 'checkmark-circle',
+        iconColor: '#059669',
+        iconBg: '#ECFDF5',
+        targetScreen: 'OrderDetail',
+        targetParams: { orderId: d?.orderId || d?.orderCode },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { orderId: d?.orderId || d?.orderCode, type: 'ORDER' },
+      });
+    });
+
+    const unsubOrderShip = socketMobileService.onOrderShippingUpdated((d: any) => {
+      fetchOrders().catch(() => {});
+      const title = '🚚 Cập nhật vận chuyển đơn hàng';
+      const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} có trạng thái vận chuyển mới.`;
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'order',
+        icon: 'bicycle',
+        iconColor: '#EA580C',
+        iconBg: '#FFF7ED',
+        targetScreen: 'OrderDetail',
+        targetParams: { orderId: d?.orderId || d?.orderCode },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { orderId: d?.orderId || d?.orderCode, type: 'ORDER' },
+      });
+    });
+
+    const unsubOrderCancel = socketMobileService.onOrderCancelled((d: any) => {
+      fetchOrders().catch(() => {});
+      const title = '❌ Đơn hàng đã bị hủy';
+      const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} đã bị hủy bỏ.`;
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'order',
+        icon: 'close-circle',
+        iconColor: '#DC2626',
+        iconBg: '#FEF2F2',
+        targetScreen: 'OrderDetail',
+        targetParams: { orderId: d?.orderId || d?.orderCode },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { orderId: d?.orderId || d?.orderCode, type: 'ORDER' },
+      });
+    });
+
+    const unsubNewMsg = socketMobileService.onNewMessageNotification((d: any) => {
+      useChatStore.getState().fetchConversations().catch(() => {});
+      const title = '💬 Tin nhắn mới trên Chợ Sinh Viên';
+      const body = d?.text || 'Bạn có tin nhắn mới từ người mua/bán.';
+      useNotificationStore.getState().addNotification({
+        title,
+        body,
+        category: 'chat',
+        icon: 'chatbubbles',
+        iconColor: '#3B82F6',
+        iconBg: '#EFF6FF',
+        targetScreen: 'ChatDetail',
+        targetParams: { partner: { id: d?.conversationId } },
+      });
+      notificationMobileService.displayLocalPushNotification({
+        title,
+        body,
+        data: { conversationId: d?.conversationId, type: 'CHAT' },
+      });
+    });
+
+    const unsubKyc = socketMobileService.onKycStatusUpdated((d) => {
+      if (d.status) {
+        useUserStore.getState().updateUser({
+          kycStatus: d.status,
+          isKycVerified: d.status === 'APPROVED',
+          role: d.status === 'APPROVED' && d.type === 'SELLER' ? 'SELLER' : undefined,
+        });
+        const title = d.status === 'APPROVED' ? '⭐ Hồ sơ sinh viên đã được phê duyệt!' : '⚠️ Hồ sơ KYC bị từ chối';
+        const body = d.status === 'APPROVED'
+          ? 'Tài khoản của bạn đã được xác minh chính chủ sinh viên FPT và mở khóa toàn bộ tính năng.'
+          : (d.reason || 'Vui lòng kiểm tra lại hình chụp thẻ sinh viên.');
+        useNotificationStore.getState().addNotification({
+          title,
+          body,
+          category: 'system',
+          icon: 'school',
+          iconColor: d.status === 'APPROVED' ? '#059669' : '#DC2626',
+          iconBg: d.status === 'APPROVED' ? '#ECFDF5' : '#FEF2F2',
+          targetScreen: 'AccountSettings',
+        });
+        notificationMobileService.displayLocalPushNotification({
+          title,
+          body,
+          data: { type: 'KYC' },
+        });
+      }
+    });
+
+    const unsubCoins = socketMobileService.onCoinsUpdated((d) => {
+      if (typeof d.coins === 'number') {
+        useUserStore.getState().updateUser({ coins: d.coins });
+      }
+    });
+
+    const unsubWithdrawal = socketMobileService.onWithdrawalUpdated(() => {
+      // Re-sync wallet / orders
+      fetchOrders().catch(() => {});
+    });
+
+    return () => {
+      if (consentTimer) clearTimeout(consentTimer);
+      unsubPushListeners();
+      unsubNotif();
+      unsubOrderPaid();
+      unsubNewOrder();
+      unsubOrderComp();
+      unsubOrderShip();
+      unsubOrderCancel();
+      unsubNewMsg();
+      unsubKyc();
+      unsubCoins();
+      unsubWithdrawal();
+    };
+  }, [isAuthenticated, user?.id, fetchMySellerProducts, fetchOrders]);
+
   const myListings = useMemo(() => {
+    if (sellerProducts.length > 0) {
+      return sellerProducts;
+    }
     return products.filter((p) => p.sellerId === currentSellerId);
-  }, [products, currentSellerId]);
+  }, [sellerProducts, products, currentSellerId]);
 
   // Thống kê kho hàng
   const inventoryStats: InventoryStats = useMemo(() => {
@@ -169,8 +412,11 @@ export const useKhoValue = (): KhoContextType => {
   );
 
   const refreshKhoHang = useCallback(async () => {
-    await fetchProducts(currentCampus);
-  }, [fetchProducts, currentCampus]);
+    await Promise.allSettled([
+      fetchProducts(currentCampus),
+      fetchMySellerProducts(),
+    ]);
+  }, [fetchProducts, fetchMySellerProducts, currentCampus]);
 
   // === Kho Đơn Hàng ===
   const myBuyOrders = useMemo(() => {
@@ -266,12 +512,13 @@ export const useKhoValue = (): KhoContextType => {
       setIsRefreshing(true);
       await Promise.allSettled([
         fetchProducts(currentCampus),
+        fetchMySellerProducts(),
         fetchOrders(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchProducts, fetchOrders, currentCampus]);
+  }, [fetchProducts, fetchMySellerProducts, fetchOrders, currentCampus]);
 
   return useMemo(
     () => ({

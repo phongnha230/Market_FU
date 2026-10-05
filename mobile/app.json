@@ -2,6 +2,7 @@
   "expo": {
     "name": "FU SecondHand",
     "slug": "fu-secondhand-market",
+    "scheme": "fu-market",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,7 +30,8 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

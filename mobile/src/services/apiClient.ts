@@ -1,6 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
-import { useAuthStore } from '../stores/useAuthStore';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -21,6 +20,15 @@ export interface ApiError {
 }
 
 import Constants from 'expo-constants';
+
+const getAuthStore = () => {
+  try {
+    const { useAuthStore } = require('../stores/useAuthStore');
+    return useAuthStore;
+  } catch {
+    return null;
+  }
+};
 
 export const getApiBaseUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -74,8 +82,10 @@ const processQueue = (error: any) => {
 // 1. Request Interceptor: Tự động gán JWT Bearer token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    console.log('[API Request]', config.method?.toUpperCase(), `${config.baseURL || ''}${config.url || ''}`);
     try {
-      const token = useAuthStore.getState().token;
+      const authStore = getAuthStore();
+      const token = authStore?.getState()?.token;
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -84,22 +94,35 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.log('[API Request Error]', error);
+    return Promise.reject(error);
+  }
 );
 
 // 2. Response Interceptor: Tự động xử lý Refresh Token khi gặp mã 401
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('[API Response Success]', response.config.url, response.status);
+    return response;
+  },
   async (error: AxiosError<{ success?: boolean; error?: ApiError }>) => {
+    console.log('[API Response Error]', error.message, error.code, `${error.config?.baseURL || ''}${error.config?.url || ''}`, error.response?.data);
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status;
 
     const isAuthEndpoint =
       originalRequest?.url?.includes('/auth/login') ||
       originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/google') ||
+      originalRequest?.url?.includes('/auth/logout') ||
+      originalRequest?.url?.includes('/auth/send-register-otp') ||
+      originalRequest?.url?.includes('/auth/verify-register-otp') ||
+      originalRequest?.url?.includes('/auth/resend-register-otp') ||
       originalRequest?.url?.includes('/auth/refresh-token');
 
-    const currentToken = useAuthStore.getState().token;
+    const authStore = getAuthStore();
+    const currentToken = authStore?.getState()?.token;
 
     if (status === 401 && !originalRequest?._retry && !isAuthEndpoint && currentToken) {
       if (isRefreshing) {
@@ -114,17 +137,22 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        const storedRefreshToken = (authStore?.getState() as any)?.refreshToken || currentToken;
         const refreshRes = await axios.post(
           `${getApiBaseUrl()}/auth/refresh-token`,
-          {},
+          { refreshToken: storedRefreshToken },
           { headers: { Authorization: `Bearer ${currentToken}` } }
         );
 
-        const newAccessToken = refreshRes.data?.data?.accessToken;
+        const newAccessToken =
+          refreshRes.data?.data?.tokens?.accessToken ||
+          refreshRes.data?.data?.accessToken ||
+          refreshRes.data?.tokens?.accessToken;
+
         if (newAccessToken) {
-          const user = useAuthStore.getState().user;
-          if (user) {
-            useAuthStore.getState().setAuth(user, newAccessToken);
+          const user = authStore?.getState()?.user;
+          if (user && authStore) {
+            authStore.getState().setAuth(user, newAccessToken);
           }
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -134,7 +162,10 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshErr) {
         processQueue(refreshErr);
-        useAuthStore.getState().logout();
+        // Clear auth state cleanly without re-calling logout API endpoint
+        if (authStore?.setState) {
+          authStore.setState({ user: null, token: null, isAuthenticated: false });
+        }
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

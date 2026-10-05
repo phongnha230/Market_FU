@@ -2,13 +2,20 @@ import './global.css';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KhoProvider } from './src/context/KhoContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { TopNotificationBanner } from './src/components/common/TopNotificationBanner';
+import { NotificationConsentModal } from './src/components/common/NotificationConsentModal';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <RootNavigator />
+      <KhoProvider>
+        <StatusBar style="dark" />
+        <RootNavigator />
+        <TopNotificationBanner />
+        <NotificationConsentModal />
+      </KhoProvider>
     </SafeAreaProvider>
   );
 }

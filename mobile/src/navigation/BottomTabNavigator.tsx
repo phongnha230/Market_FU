@@ -12,7 +12,7 @@ import {
   VoucherScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
-import { useUserStore } from '../stores';
+import { useUserStore, useChatStore } from '../stores';
 import { RequireAuthModal } from '../components';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -73,6 +73,9 @@ const getTabConfig = (routeName: string): TabConfig => {
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const { isAuthenticated, user } = useUserStore();
+  const unreadChatCount = useChatStore((s) =>
+    s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+  );
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'auth' | 'seller' | 'kyc'>('auth');
   const [modalTitle, setModalTitle] = useState<string | undefined>(undefined);
@@ -150,9 +153,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
             >
               <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
                 <Ionicons name={iconName} size={iconSize} color={iconColor} />
-                {route.name === 'Chat' && isAuthenticated && (
+                {route.name === 'Chat' && isAuthenticated && unreadChatCount > 0 && (
                   <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>2</Text>
+                    <Text style={styles.chatBadgeText}>
+                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                    </Text>
                   </View>
                 )}
               </View>

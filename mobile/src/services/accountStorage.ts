@@ -35,80 +35,7 @@ export interface AccountRecord {
 
 const ACCOUNTS_STORAGE_KEY = 'fu_registered_accounts';
 
-export const INITIAL_TEST_ACCOUNTS: AccountRecord[] = [
-  {
-    passwordHash: '123456',
-    user: {
-      id: 'acc_unverified',
-      name: 'Nguyễn Hoàng Long',
-      studentId: 'SE200115',
-      email: 'longnhse200115@fpt.edu.vn',
-      campus: 'HÒA LẠC',
-      role: 'BUYER',
-      isKycVerified: false,
-      kycStatus: 'NONE',
-      cohort: 'K20',
-      major: 'Kỹ thuật phần mềm (SE)',
-      phone: '',
-      roomNumber: '',
-      bio: '',
-      rating: 5.0,
-      reputationPoints: 80,
-      coins: 50,
-      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    passwordHash: '123456',
-    user: {
-      id: 'acc_verified',
-      name: 'Trần Minh Quân',
-      studentId: 'SE172819',
-      email: 'quan.nv@fpt.edu.vn',
-      campus: 'HÒA LẠC',
-      role: 'BUYER',
-      isKycVerified: true,
-      kycStatus: 'APPROVED',
-      cohort: 'K17',
-      major: 'Kỹ thuật phần mềm (SE)',
-      phone: '0982 345 892',
-      roomNumber: 'Dom E - Phòng 304',
-      bio: 'Sinh viên K17 Software Engineering tại Hola. Hay pass lại sách IT và phụ kiện đồ án.',
-      rating: 4.9,
-      reputationPoints: 100,
-      coins: 350,
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    passwordHash: '123456',
-    user: {
-      id: 'acc_seller',
-      name: 'Đặng Thùy Dương',
-      studentId: 'SE161204',
-      email: 'duongdtse161204@fpt.edu.vn',
-      campus: 'HÒA LẠC',
-      role: 'SELLER',
-      isKycVerified: true,
-      kycStatus: 'APPROVED',
-      avatarBadge: 'TOP_SELLER',
-      cohort: 'K16',
-      major: 'An toàn thông tin (IA)',
-      phone: '0918 889 999',
-      roomNumber: 'Hola Tech Store (Dom B)',
-      bio: 'Cửa hàng công nghệ sinh viên Hola. Chuyên màn hình Dell, bàn phím cơ, ram, ssd giá SV.',
-      rating: 5.0,
-      reputationPoints: 120,
-      coins: 1200,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      bankAccount: {
-        bankName: 'Vietcombank',
-        accountNo: '1029384756',
-        accountName: 'DANG THUY DUONG',
-      },
-    },
-  },
-];
+export const INITIAL_TEST_ACCOUNTS: AccountRecord[] = [];
 
 class AccountStorageService {
   /**
@@ -118,14 +45,12 @@ class AccountStorageService {
     try {
       const raw = await AsyncStorage.getItem(ACCOUNTS_STORAGE_KEY);
       if (!raw) {
-        // Khởi tạo 3 tài khoản mặc định vào AsyncStorage
-        await AsyncStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(INITIAL_TEST_ACCOUNTS));
-        return INITIAL_TEST_ACCOUNTS;
+        return [];
       }
       return JSON.parse(raw);
     } catch (e) {
       console.warn('Lỗi đọc tài khoản từ AsyncStorage:', e);
-      return INITIAL_TEST_ACCOUNTS;
+      return [];
     }
   }
 
@@ -239,16 +164,22 @@ class AccountStorageService {
    */
   async getTestAccountByRole(role: 'UNVERIFIED' | 'VERIFIED' | 'SELLER'): Promise<UserProfile> {
     const accounts = await this.getAllAccounts();
-    if (role === 'UNVERIFIED') {
-      const found = accounts.find((a) => a.user.id === 'acc_unverified');
-      return found ? found.user : INITIAL_TEST_ACCOUNTS[0].user;
-    }
-    if (role === 'VERIFIED') {
-      const found = accounts.find((a) => a.user.id === 'acc_verified');
-      return found ? found.user : INITIAL_TEST_ACCOUNTS[1].user;
-    }
-    const found = accounts.find((a) => a.user.id === 'acc_seller');
-    return found ? found.user : INITIAL_TEST_ACCOUNTS[2].user;
+    const targetRole = role === 'SELLER' ? 'SELLER' : 'BUYER';
+    const found = accounts.find((a) => a.user.role === targetRole);
+    if (found) return found.user;
+    return {
+      id: `acc_${role.toLowerCase()}`,
+      name: role === 'SELLER' ? 'Người bán FPT' : 'Sinh viên FPT',
+      studentId: 'SE000000',
+      email: `${role.toLowerCase()}@fpt.edu.vn`,
+      campus: 'HÒA LẠC',
+      role: targetRole,
+      isKycVerified: role !== 'UNVERIFIED',
+      kycStatus: role === 'UNVERIFIED' ? 'NONE' : 'APPROVED',
+      rating: 5.0,
+      reputationPoints: 100,
+      coins: 0,
+    };
   }
 }
 

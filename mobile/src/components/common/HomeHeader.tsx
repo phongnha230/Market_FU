@@ -9,6 +9,7 @@ export interface HomeHeaderProps {
   campusName?: string;
   avatarUrl?: string;
   isAuthenticated?: boolean;
+  unreadNotificationCount?: number;
   onSearchPress?: () => void;
   onNotificationPress?: () => void;
   onAvatarPress?: () => void;
@@ -20,6 +21,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
   campusName = 'HÒA LẠC',
   avatarUrl,
   isAuthenticated = false,
+  unreadNotificationCount = 0,
   onSearchPress,
   onNotificationPress,
   onAvatarPress,
@@ -64,7 +66,17 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={onNotificationPress}
           >
-            <View style={styles.notificationDot} />
+            {isAuthenticated && unreadNotificationCount > 0 && (
+              unreadNotificationCount > 1 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.notificationDot} />
+              )
+            )}
             <Ionicons name="notifications-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
 
@@ -141,6 +153,27 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    zIndex: 2,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
   },
   avatarButton: { marginLeft: 8 },
   avatar: {
