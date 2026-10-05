@@ -178,7 +178,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <View style={styles.dividerLine} />
       </View>
 
-      {/* Nút Đăng nhập Google SSO FPT */}
+      {/* Nút Đăng nhập bằng Google */}
       <TouchableOpacity
         style={styles.googleBtn}
         activeOpacity={0.85}
@@ -192,7 +192,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <View style={styles.googleIconBadge}>
               <Ionicons name="logo-google" size={18} color="#EA4335" />
             </View>
-            <Text style={styles.googleBtnText}>Đăng nhập nhanh với Google FPT</Text>
+            <Text style={styles.googleBtnText}>Đăng nhập bằng Google</Text>
           </>
         )}
       </TouchableOpacity>

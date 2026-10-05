@@ -57,14 +57,14 @@ const RegisterGoogleAction: React.FC<{
           <View style={styles.googleIconBadge}>
             <Ionicons name="logo-google" size={18} color="#EA4335" />
           </View>
-          <Text style={styles.googleBtnText}>Đăng ký 1 chạm bằng Google (@fpt.edu.vn)</Text>
+          <Text style={styles.googleBtnText}>Đăng ký bằng Google</Text>
         </>
       )}
     </TouchableOpacity>
 
     <View style={[styles.dividerRow, { marginTop: 0, marginBottom: 14 }]}>
       <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>HOẶC ĐIỀN THÔNG TIN SINH VIÊN</Text>
+      <Text style={styles.dividerText}>HOẶC ĐIỀN THÔNG TIN ĐĂNG KÝ</Text>
       <View style={styles.dividerLine} />
     </View>
   </>

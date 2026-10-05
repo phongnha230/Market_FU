@@ -1,6 +1,5 @@
 import apiClient, { ApiResponse } from './apiClient';
-import { UserProfile } from '../stores/userStore';
-import { useAuthStore } from '../stores/useAuthStore';
+import type { UserProfile } from './accountStorage';
 
 export interface LoginCredentials {
   email: string;
@@ -70,6 +69,15 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
   };
 };
 
+const getAuthStore = () => {
+  try {
+    const { useAuthStore } = require('../stores/useAuthStore');
+    return useAuthStore;
+  } catch {
+    return null;
+  }
+};
+
 export const authMobileService = {
   /**
    * Đăng nhập qua API Backend
@@ -78,10 +86,11 @@ export const authMobileService = {
     const res = await apiClient.post<ApiResponse<AuthBackendResponse>>('/auth/login', creds);
     const data = res.data.data;
     const token = data.tokens?.accessToken || '';
+    const refreshToken = data.tokens?.refreshToken || '';
     const mobileUser = adaptBackendUserToMobile(data.user);
 
     if (token) {
-      useAuthStore.getState().setAuth(mobileUser, token);
+      getAuthStore()?.getState()?.setAuth(mobileUser, token, refreshToken);
     }
 
     return { user: mobileUser, token };
@@ -123,10 +132,11 @@ export const authMobileService = {
     });
     const resData = res.data.data;
     const token = resData.tokens?.accessToken || '';
+    const refreshToken = resData.tokens?.refreshToken || '';
     const mobileUser = adaptBackendUserToMobile(resData.user);
 
     if (token) {
-      useAuthStore.getState().setAuth(mobileUser, token);
+      getAuthStore()?.getState()?.setAuth(mobileUser, token, refreshToken);
     }
 
     return { user: mobileUser, token };
@@ -156,10 +166,11 @@ export const authMobileService = {
     });
     const resData = res.data.data;
     const token = resData.tokens?.accessToken || '';
+    const refreshToken = resData.tokens?.refreshToken || '';
     const mobileUser = adaptBackendUserToMobile(resData.user);
 
     if (token) {
-      useAuthStore.getState().setAuth(mobileUser, token);
+      getAuthStore()?.getState()?.setAuth(mobileUser, token, refreshToken);
     }
 
     return { user: mobileUser, token };
@@ -175,7 +186,7 @@ export const authMobileService = {
     const mobileUser = adaptBackendUserToMobile(data.user);
 
     if (token) {
-      useAuthStore.getState().setAuth(mobileUser, token);
+      getAuthStore()?.getState()?.setAuth(mobileUser, token);
     }
 
     return { user: mobileUser, token };
@@ -189,8 +200,10 @@ export const authMobileService = {
       await apiClient.post('/auth/logout');
     } catch {
       // Ignored
-    } finally {
-      useAuthStore.getState().logout();
+    }
+    const store = getAuthStore();
+    if (store && store.setState) {
+      store.setState({ user: null, token: null, isAuthenticated: false });
     }
   },
 

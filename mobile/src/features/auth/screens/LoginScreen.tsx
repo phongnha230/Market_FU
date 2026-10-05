@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoginController, CAMPUS_LIST } from '../hooks/useLoginController';
 import { AuthTopBar } from '../components/AuthTopBar';
 import { AuthHeader } from '../components/AuthHeader';
-import { LoginQuickRoleSwitcher } from '../components/LoginQuickRoleSwitcher';
 import { LoginCampusSelector } from '../components/LoginCampusSelector';
 import { LoginForm } from '../components/LoginForm';
 import { RegisterForm } from '../components/RegisterForm';
@@ -70,8 +69,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           authMode={ctrl.authMode}
           onSelectMode={ctrl.setAuthMode}
         />
-
-        <LoginQuickRoleSwitcher onSwitchRole={ctrl.handleQuickSwitchRole} />
 
         <LoginCampusSelector
           selectedCampusId={ctrl.selectedCampusId}
@@ -141,6 +138,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         onSuccess={ctrl.handleOtpVerifySuccess}
         onCancel={ctrl.handleOtpCancel}
       />
+
     </View>
   );
 };

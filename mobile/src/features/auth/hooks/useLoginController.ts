@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useCampusStore, CampusType } from '../../../stores/useCampusStore';
 import { CampusChipItem } from '../components/LoginCampusSelector';
+import { authMobileService } from '../../../services/authMobileService';
+import { signInWithGoogle } from '../../../services/googleSignIn';
 
 export const CAMPUS_LIST: CampusChipItem[] = [
   { id: 'hl', name: 'Hòa Lạc', shortLabel: 'Hòa Lạc (HL)', storeValue: 'HÒA LẠC' },
@@ -34,8 +36,8 @@ export function useLoginController(
 
   // Login form state
   const [selectedCampusId, setSelectedCampusId] = useState<string>('hl');
-  const [loginIdentifier, setLoginIdentifier] = useState<string>('quanlmse172819@fpt.edu.vn');
-  const [loginPassword, setLoginPassword] = useState<string>('fpt123456');
+  const [loginIdentifier, setLoginIdentifier] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
 
@@ -152,8 +154,17 @@ export function useLoginController(
       Alert.alert('Lỗi', 'Vui lòng nhập Email FPT (@fpt.edu.vn)');
       return;
     }
-    if (!regPassword.trim() || regPassword.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự');
+    const hasMinLen = regPassword.length >= 8;
+    const hasUpper = /[A-Z]/.test(regPassword);
+    const hasNumber = /[0-9]/.test(regPassword);
+    const hasSpecial = /[^A-Za-z0-9]/.test(regPassword);
+    const isStrongPassword = hasMinLen && hasUpper && hasNumber && hasSpecial;
+
+    if (!isStrongPassword) {
+      Alert.alert(
+        'Mật khẩu chưa đạt chuẩn',
+        'Mật khẩu an toàn phải có tối thiểu 8 ký tự, gồm ít nhất 1 chữ hoa (A-Z), 1 chữ số (0-9) và 1 ký tự đặc biệt (!@#$%...).'
+      );
       return;
     }
     if (regPassword !== regConfirmPassword) {
@@ -166,64 +177,106 @@ export function useLoginController(
       return;
     }
 
-    // Mở OTP Verification Modal
+    // Gửi OTP qua Backend và mở OTP Verification Modal
     setIsSendingOtp(true);
-    setTimeout(() => {
-      setIsSendingOtp(false);
+    try {
+      await authMobileService.sendRegisterOtp({
+        fullName: regFullName.trim(),
+        email: regEmail.trim(),
+        password: regPassword.trim(),
+        studentId: regStudentId.trim().toUpperCase(),
+        campus: currentCampus.storeValue,
+        phoneNumber: regPhone.trim() || undefined,
+      });
       setShowOtpModal(true);
-    }, 400);
+    } catch (err: any) {
+      console.log('ℹ️ [Backend sendRegisterOtp error]:', err?.message);
+      const errMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi mã OTP xác thực. Vui lòng kiểm tra lại thông tin.';
+      Alert.alert('Không thể tiếp tục đăng ký', errMsg);
+    } finally {
+      setIsSendingOtp(false);
+    }
   }, [
     regFullName,
     regStudentId,
     regEmail,
+    regPhone,
     regPassword,
     regConfirmPassword,
     captchaInput,
     captchaCode,
+    currentCampus.storeValue,
   ]);
 
-  const handleOtpVerifySuccess = useCallback(async (verifiedUser: any) => {
+  const handleOtpVerifySuccess = useCallback((verifiedUser: any) => {
     setShowOtpModal(false);
-    // Lưu tài khoản sau khi OTP xác thực thành công
-    const res = await register({
-      fullName: regFullName.trim(),
-      studentId: regStudentId.trim().toUpperCase(),
-      email: regEmail.trim(),
-      phone: regPhone.trim() || undefined,
-      password: regPassword.trim(),
-      campus: currentCampus.storeValue,
-    });
-
-    if (res.success) {
-      Alert.alert(
-        '🎉 Đăng ký thành công',
-        `Chào mừng ${regFullName} gia nhập Market FU!`,
-        [{ text: 'Bắt đầu ngay', onPress: navigateAfterAuth }]
-      );
-    } else {
-      Alert.alert('Lỗi hoàn tất đăng ký', res.message);
-    }
-  }, [regFullName, regStudentId, regEmail, regPhone, regPassword, currentCampus.storeValue, register, navigateAfterAuth]);
+    // Tài khoản đã được xác thực và kích hoạt chính thức từ OTP Backend
+    Alert.alert(
+      '🎉 Đăng ký thành công!',
+      `Chào mừng ${verifiedUser?.name || regFullName || 'bạn'} gia nhập chợ sinh viên FPT 5Campus!`,
+      [{ text: 'Bắt đầu ngay', onPress: navigateAfterAuth }]
+    );
+  }, [regFullName, navigateAfterAuth]);
 
   const handleOtpCancel = useCallback(() => {
     setShowOtpModal(false);
   }, []);
 
+  const [showGoogleModal, setShowGoogleModal] = useState<boolean>(false);
+
   const handleGoogleLogin = useCallback(async () => {
     setIsGoogleLoading(true);
     try {
-      // Mock Google SSO dành cho sinh viên FPT
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 600));
-      const res = await loginAsRole('VERIFIED_STUDENT');
-      if (res.success) {
-        navigateAfterAuth();
-      } else {
-        Alert.alert('Đăng nhập Google thất bại', res.message);
+      const campus = currentCampus.storeValue;
+      const result = await signInWithGoogle(campus);
+
+      if (!result.success) {
+        if (!result.cancelled) {
+          Alert.alert('Đăng nhập Google thất bại', result.error);
+        }
+        return;
       }
+
+      // Nếu đã xác thực thành công (từ flow chọn tài khoản)
+      if (result.user && result.token) {
+        useUserStore.getState().setAuth(result.user, result.token);
+        navigateAfterAuth();
+        return;
+      }
+
+      // Nếu có idToken từ native Google Play Services
+      if (result.idToken) {
+        const res = await authMobileService.loginWithGoogle(result.idToken, campus);
+        if (res.user && res.token) {
+          useUserStore.getState().setAuth(res.user, res.token);
+          navigateAfterAuth();
+        } else {
+          Alert.alert('Lỗi', 'Không thể xác thực tài khoản Google. Vui lòng thử lại.');
+        }
+      }
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Đăng nhập Google thất bại. Vui lòng thử lại.';
+      Alert.alert('Lỗi đăng nhập Google', msg);
     } finally {
       setIsGoogleLoading(false);
     }
-  }, [loginAsRole, navigateAfterAuth]);
+  }, [currentCampus.storeValue, navigateAfterAuth]);
+
+  const handleGoogleSuccess = useCallback((user: any) => {
+    setShowGoogleModal(false);
+    navigateAfterAuth();
+  }, [navigateAfterAuth]);
+
+  const handleCloseGoogleModal = useCallback(() => {
+    setShowGoogleModal(false);
+  }, []);
 
   const handleQuickSwitchRole = useCallback(async (roleType: 'UNVERIFIED_STUDENT' | 'VERIFIED_STUDENT' | 'TOP_SELLER') => {
     const res = await loginAsRole(roleType);
@@ -271,6 +324,7 @@ export function useLoginController(
     handleRefreshCaptcha,
     showOtpModal,
     isSendingOtp,
+    showGoogleModal,
     isGoogleLoading,
     isLoading,
     handleLoginSubmit,
@@ -278,6 +332,8 @@ export function useLoginController(
     handleOtpVerifySuccess,
     handleOtpCancel,
     handleGoogleLogin,
+    handleGoogleSuccess,
+    handleCloseGoogleModal,
     handleQuickSwitchRole,
     handleForgotPass,
     handleGoBack,

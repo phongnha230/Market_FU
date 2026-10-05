@@ -34,8 +34,10 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const MAX_RESENDS = 5;
   const [otp, setOtp] = useState<string>('');
   const [cooldown, setCooldown] = useState<number>(60);
+  const [resendCount, setResendCount] = useState<number>(0);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [isResending, setIsResending] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       setOtp('');
       setErrorMessage(null);
       setCooldown(60);
+      setResendCount(0);
       focusTimer = setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
@@ -81,7 +84,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     setErrorMessage(null);
 
     try {
-      // 1. Gọi Backend API xác thực OTP
+      // 1. Gọi Backend API xác thực OTP thực tế (Gửi email + check Redis)
       const result = await authMobileService.verifyRegisterOtp({
         email,
         otp: code,
@@ -89,65 +92,48 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
       if (result.user && result.token) {
         useUserStore.getState().setAuth(result.user, result.token);
-        Alert.alert(
-          '🎉 Đăng ký thành công!',
-          `Chào mừng ${fullName || 'bạn'} gia nhập chợ sinh viên FPT 5Campus. Tài khoản đã được kích hoạt!`
-        );
         onSuccess(result.user);
         return;
       }
     } catch (apiErr: any) {
-      console.log('⚠️ [Backend verify OTP error, checking mock fallback]:', apiErr?.message);
+      console.log('⚠️ [Backend verify OTP error]:', apiErr?.message);
       const errMsg =
-        apiErr?.response?.data?.message ||
         apiErr?.response?.data?.error?.message ||
+        apiErr?.response?.data?.message ||
         apiErr?.message ||
-        '';
+        'Mã OTP không chính xác hoặc đã hết hạn.';
 
-      // Hỗ trợ mã OTP test nhanh trong môi trường phát triển (123456 hoặc 888888)
-      if (code === '123456' || code === '888888' || code === '999999') {
-        const mockCreatedUser = await useUserStore.getState().register({
-          name: fullName,
-          fullName: fullName,
-          studentId: studentId || 'SE180000',
-          email,
-          campus: campus || 'HÒA LẠC',
-        });
-        if (mockCreatedUser.user) {
-          Alert.alert(
-            '🎉 Xác thực thành công (Chế độ Dev OTP)!',
-            `Chào mừng ${fullName} gia nhập chợ sinh viên FPT 5Campus!`
-          );
-          onSuccess(mockCreatedUser.user);
-          return;
-        }
-      }
-
-      setErrorMessage(errMsg || 'Mã OTP không chính xác hoặc đã hết hạn.');
+      setErrorMessage(errMsg);
     } finally {
       setIsVerifying(false);
     }
   };
 
-  // Gửi lại mã OTP
+  // Gửi lại mã OTP (chạy lại đồng hồ đếm ngược 60s như web)
   const handleResendOtp = async () => {
-    if (cooldown > 0 || isResending) return;
+    if (cooldown > 0 || isResending || resendCount >= MAX_RESENDS) return;
 
     setIsResending(true);
     setErrorMessage(null);
     try {
       await authMobileService.resendRegisterOtp(email);
+      setResendCount((prev) => prev + 1);
       setCooldown(60);
       setOtp('');
-      Alert.alert('Đã gửi lại mã', `Mã OTP mới đã được gửi tới hòm thư ${email}.`);
+      inputRef.current?.focus();
+      Alert.alert(
+        '📬 Đã gửi lại mã OTP',
+        `Mã xác thực 6 số mới đã được gửi tới hòm thư ${email}. Đồng hồ đếm ngược 60s đã được thiết lập lại.`
+      );
     } catch (err: any) {
       console.log('⚠️ [Backend resend OTP error]:', err?.message);
-      // Fallback dev
-      setCooldown(60);
-      Alert.alert(
-        'Đã tạo mã OTP mới',
-        `Mã OTP mới đã được tạo lại cho ${email}. (Gợi ý test nhanh: 123456)`
-      );
+      const errMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi lại mã OTP. Vui lòng thử lại sau.';
+      setErrorMessage(errMsg);
+      Alert.alert('Gửi lại mã thất bại', errMsg);
     } finally {
       setIsResending(false);
     }
@@ -269,11 +255,23 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
           {/* Resend Cooldown & Actions */}
           <View style={styles.footerRow}>
-            {cooldown > 0 ? (
-              <View style={styles.cooldownBox}>
-                <Ionicons name="time-outline" size={15} color="#64748B" style={{ marginRight: 4 }} />
-                <Text style={styles.cooldownText}>
-                  Gửi lại mã sau <Text style={{ color: '#EA580C', fontWeight: '700' }}>{cooldown}s</Text>
+            {resendCount >= MAX_RESENDS ? (
+              <View style={styles.maxResendWarning}>
+                <Ionicons name="warning-outline" size={15} color="#DC2626" style={{ marginRight: 4 }} />
+                <Text style={styles.maxResendText}>
+                  Đã hết lượt gửi lại ({MAX_RESENDS}/{MAX_RESENDS}). Vui lòng thử lại sau.
+                </Text>
+              </View>
+            ) : cooldown > 0 ? (
+              <View style={styles.cooldownContainer}>
+                <View style={styles.cooldownBox}>
+                  <Ionicons name="time-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
+                  <Text style={styles.cooldownText}>
+                    Gửi lại mã mới sau <Text style={{ color: '#EA580C', fontWeight: '800' }}>{cooldown}s</Text>
+                  </Text>
+                </View>
+                <Text style={styles.remainingCountText}>
+                  (Còn {MAX_RESENDS - resendCount}/{MAX_RESENDS} lần gửi lại)
                 </Text>
               </View>
             ) : (
@@ -287,8 +285,10 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   <ActivityIndicator size="small" color="#EA580C" />
                 ) : (
                   <>
-                    <Ionicons name="refresh" size={15} color="#EA580C" style={{ marginRight: 4 }} />
-                    <Text style={styles.resendText}>Gửi lại mã OTP mới</Text>
+                    <Ionicons name="refresh" size={16} color="#EA580C" style={{ marginRight: 6 }} />
+                    <Text style={styles.resendText}>
+                      Gửi lại mã OTP ({MAX_RESENDS - resendCount} lần còn lại)
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -463,6 +463,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 12,
   },
+  cooldownContainer: {
+    alignItems: 'center',
+  },
   cooldownBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -470,6 +473,26 @@ const styles = StyleSheet.create({
   cooldownText: {
     fontSize: 13,
     color: '#64748B',
+  },
+  remainingCountText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  maxResendWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  maxResendText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   resendBtn: {
     flexDirection: 'row',
