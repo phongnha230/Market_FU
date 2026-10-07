@@ -24,9 +24,12 @@ import { socketClient } from '@/services/socketClient';
 import { showDesktopNotification } from '@/utils/webPush';
 
 interface NotificationState {
+  notificationsByUser: Record<string, NotificationItem[]>;
+  activeUserId: string | null;
   notifications: NotificationItem[];
 
   // Actions
+  setActiveUser: (userId: string | null) => void;
   fetchNotifications: () => Promise<void>;
   initSocketListeners: () => () => void;
   addNotification: (params: Omit<NotificationItem, 'id' | 'isRead' | 'createdAt'>) => NotificationItem;
@@ -50,9 +53,28 @@ const dummyStorage = {
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
+      notificationsByUser: {},
+      activeUserId: null,
       notifications: [],
 
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim().toLowerCase() : null;
+        const state = get();
+        const userNotifs = uId && state.notificationsByUser[uId] ? state.notificationsByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          notifications: userNotifs,
+        });
+      },
+
       fetchNotifications: async () => {
+        const state = get();
+        const uId = state.activeUserId;
+        if (!uId) {
+          set({ notifications: [] });
+          return;
+        }
+
         try {
           const res = await notificationService.getUserNotifications();
           if (res.notifications) {
@@ -66,7 +88,13 @@ export const useNotificationStore = create<NotificationState>()(
               isRead: n.isRead,
               createdAt: new Date(n.createdAt).toLocaleDateString('vi-VN'),
             }));
-            set({ notifications: mapped });
+            set((st) => ({
+              notifications: mapped,
+              notificationsByUser: {
+                ...st.notificationsByUser,
+                [uId]: mapped,
+              },
+            }));
           }
         } catch {
           // fallback to current local state
@@ -76,9 +104,17 @@ export const useNotificationStore = create<NotificationState>()(
       initSocketListeners: () => {
         const cleanup = socketClient.onNewNotification((notif) => {
           if (!notif) return;
+          const uId = get().activeUserId;
+          if (!uId) return;
+
+          // Nếu thông báo hướng đến tài khoản cụ thể, chỉ hiển thị nếu khớp với user đang đăng nhập
+          if (notif.userId && String(notif.userId).trim().toLowerCase() !== uId) {
+            return;
+          }
+
           const newNotif: NotificationItem = {
             id: notif.id || `notif-${Date.now()}`,
-            userId: notif.userId || '',
+            userId: notif.userId || uId,
             title: notif.title || 'Thông báo mới',
             body: notif.body || '',
             type: notif.type || 'SYSTEM',
@@ -86,9 +122,18 @@ export const useNotificationStore = create<NotificationState>()(
             isRead: false,
             createdAt: 'Vừa xong',
           };
-          set((state) => ({
-            notifications: [newNotif, ...state.notifications],
-          }));
+
+          set((state) => {
+            const currentList = state.notificationsByUser[uId] || [];
+            const updated = [newNotif, ...currentList];
+            return {
+              notifications: updated,
+              notificationsByUser: {
+                ...state.notificationsByUser,
+                [uId]: updated,
+              },
+            };
+          });
 
           // Tự động làm mới số dư Xu & quyền tài khoản khi có thông báo KYC hoặc thưởng Xu
           if (newNotif.type === 'KYC' || newNotif.title?.includes('Xu') || newNotif.body?.includes('Xu')) {
@@ -107,6 +152,7 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       addNotification: (params) => {
+        const uId = get().activeUserId;
         const newNotif: NotificationItem = {
           ...params,
           id: `notif-${Date.now()}`,
@@ -114,9 +160,19 @@ export const useNotificationStore = create<NotificationState>()(
           createdAt: 'Vừa xong',
         };
 
-        set((state) => ({
-          notifications: [newNotif, ...state.notifications],
-        }));
+        if (uId) {
+          set((state) => {
+            const currentList = state.notificationsByUser[uId] || [];
+            const updated = [newNotif, ...currentList];
+            return {
+              notifications: updated,
+              notificationsByUser: {
+                ...state.notificationsByUser,
+                [uId]: updated,
+              },
+            };
+          });
+        }
 
         showDesktopNotification({
           title: newNotif.title,
@@ -129,30 +185,73 @@ export const useNotificationStore = create<NotificationState>()(
 
       markAsRead: (id) => {
         notificationService.markAsRead(id).catch(() => {});
-        set((state) => ({
-          notifications: state.notifications.map((n) =>
+        const uId = get().activeUserId;
+        if (!uId) return;
+
+        set((state) => {
+          const updated = state.notifications.map((n) =>
             n.id === id ? { ...n, isRead: true } : n
-          ),
-        }));
+          );
+          return {
+            notifications: updated,
+            notificationsByUser: {
+              ...state.notificationsByUser,
+              [uId]: updated,
+            },
+          };
+        });
       },
 
       markAllAsRead: () => {
         notificationService.markAllAsRead().catch(() => {});
-        set((state) => ({
-          notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
-        }));
+        const uId = get().activeUserId;
+        if (!uId) return;
+
+        set((state) => {
+          const updated = state.notifications.map((n) => ({ ...n, isRead: true }));
+          return {
+            notifications: updated,
+            notificationsByUser: {
+              ...state.notificationsByUser,
+              [uId]: updated,
+            },
+          };
+        });
       },
 
       deleteNotification: (id) => {
+        const uId = get().activeUserId;
+        if (!uId) return;
+
+        set((state) => {
+          const updated = state.notifications.filter((n) => n.id !== id);
+          return {
+            notifications: updated,
+            notificationsByUser: {
+              ...state.notificationsByUser,
+              [uId]: updated,
+            },
+          };
+        });
+      },
+
+      clearAll: () => {
+        const uId = get().activeUserId;
+        if (!uId) return;
+
         set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id),
+          notifications: [],
+          notificationsByUser: {
+            ...state.notificationsByUser,
+            [uId]: [],
+          },
         }));
       },
 
-      clearAll: () => set({ notifications: [] }),
-
       getUnreadCount: () => {
-        return get().notifications.filter((n) => !n.isRead).length;
+        const state = get();
+        if (!state.activeUserId) return 0;
+        return state.notifications.filter((n) => !n.isRead).length;
       },
 
       getByType: (type) => {
@@ -161,14 +260,26 @@ export const useNotificationStore = create<NotificationState>()(
         return all.filter((n) => n.type === type);
       },
 
-      resetNotifications: () => set({ notifications: [] }),
+      resetNotifications: () =>
+        set({
+          notifications: [],
+          activeUserId: null,
+        }),
     }),
     {
       name: 'fu_market_notifications_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
       onRehydrateStorage: () => (state) => {
-        if (state && !state.notifications) {
-          state.notifications = [];
+        if (state) {
+          if (!state.notificationsByUser || typeof state.notificationsByUser !== 'object') {
+            state.notificationsByUser = {};
+          }
+          // Khi chưa đăng nhập hoặc không có activeUserId, làm sạch hoàn toàn notifications để khách không xem được
+          if (!state.activeUserId) {
+            state.notifications = [];
+          } else {
+            state.notifications = state.notificationsByUser[state.activeUserId] || [];
+          }
         }
       },
     }

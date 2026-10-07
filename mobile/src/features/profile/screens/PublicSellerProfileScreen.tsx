@@ -31,8 +31,9 @@ export const PublicSellerProfileScreen: React.FC = () => {
   const route = useRoute<any>();
   const { user: currentUser } = useUserStore();
 
-  const userId = route.params?.userId || currentUser?.id || '';
-  const paramSellerName = route.params?.sellerName || 'Người bán FPT';
+  const paramUserId = route.params?.userId;
+  const paramSellerName = route.params?.sellerName || '';
+  const userId = paramUserId || (paramSellerName ? '' : currentUser?.id || '');
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -128,22 +128,24 @@ export default function CompactHeader({
           <span>Ưu đãi & Xu</span>
         </Link>
 
-        <Link
-          href="/chat"
-          className={`relative px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'chat'
-              ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
-              : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-          }`}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          <span>Tin nhắn</span>
-          {unreadMessages > 0 && (
-            <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-black text-white leading-none">
-              {unreadMessages}
-            </span>
-          )}
-        </Link>
+        {isLoggedIn && (
+          <Link
+            href="/chat"
+            className={`relative px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'chat'
+                ? 'bg-orange-50 text-fpt-orange border border-orange-200 shadow-xs'
+                : 'text-slate-600 bg-white/80 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+            }`}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span>Tin nhắn</span>
+            {unreadMessages > 0 && (
+              <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-black text-white leading-none">
+                {unreadMessages}
+              </span>
+            )}
+          </Link>
+        )}
 
         <Link
           href="/favorites"

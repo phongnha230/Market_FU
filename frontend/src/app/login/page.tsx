@@ -159,7 +159,7 @@ function LoginFormContent() {
   const initGoogleAuth = () => {
     const clientId =
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-      '286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com';
+      '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
     const google = typeof window !== 'undefined' ? (window as any).google : undefined;
     if (google?.accounts?.id) {
       try {

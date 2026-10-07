@@ -236,27 +236,45 @@ export default function ProfilePage() {
     return (sum / userReviews.length).toFixed(1);
   }, [userReviews]);
 
+  // soldItems: các món đồ đã bán thành công
   const soldItems = useMemo(() => {
-    return myProducts.filter((p) => p.status === 'SOLD');
+    return myProducts
+      .filter((p) => p.status === 'SOLD')
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        imageUrl: p.imageUrl,
+        images: p.images,
+        campusBadge: p.location,
+        conditionBadge: p.badges?.[0] || 'Đã giao dịch',
+        description: p.description || `Món đồ pass bởi ${p.seller.name} tại ${p.location}`,
+        timeAgo: p.timeAgo || 'Đã bán',
+        detailLink: `/posts/${p.id}`,
+        status: p.status,
+        _raw: p,
+      }));
   }, [myProducts]);
 
-  // sellingItems: dùng myProducts từ backend (đã load), shape thêm các display fields
+  // sellingItems: chỉ hiển thị tin chưa bán (AVAILABLE, PENDING_APPROVAL, RESERVED, v.v.)
   const sellingItems = useMemo(() => {
-    return myProducts.map((p) => ({
-      id: p.id,
-      title: p.title,
-      price: p.price,
-      imageUrl: p.imageUrl,
-      images: p.images,
-      campusBadge: p.location,
-      conditionBadge: p.badges[0] || 'Like New',
-      description: p.description || `Món đồ pass bởi ${p.seller.name} tại ${p.location}`,
-      timeAgo: p.timeAgo || 'Vừa đăng',
-      detailLink: `/posts/${p.id}`,
-      status: p.status,
-      // Keep reference to full ProductItem for edit modal
-      _raw: p,
-    }));
+    return myProducts
+      .filter((p) => p.status !== 'SOLD')
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        imageUrl: p.imageUrl,
+        images: p.images,
+        campusBadge: p.location,
+        conditionBadge: p.badges?.[0] || 'Like New',
+        description: p.description || `Món đồ pass bởi ${p.seller.name} tại ${p.location}`,
+        timeAgo: p.timeAgo || 'Vừa đăng',
+        detailLink: `/posts/${p.id}`,
+        status: p.status,
+        // Keep reference to full ProductItem for edit modal
+        _raw: p,
+      }));
   }, [myProducts]);
 
   const showToast = (msg: string) => {
@@ -1024,41 +1042,49 @@ export default function ProfilePage() {
                             {/* Actions Footer */}
                             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1.5 bg-slate-50/50 text-[11px]">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* Edit button */}
-                                <Link
-                                  href={`/posts/${encodeURIComponent(prod.id)}/edit`}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Chỉnh sửa toàn bộ thông tin bài đăng"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  <span>Sửa tin</span>
-                                </Link>
+                                {prod.status !== 'SOLD' ? (
+                                  <>
+                                    {/* Edit button */}
+                                    <Link
+                                      href={`/posts/${encodeURIComponent(prod.id)}/edit`}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                      title="Chỉnh sửa toàn bộ thông tin bài đăng"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                      <span>Sửa tin</span>
+                                    </Link>
 
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleRenewProduct(prod.id, prod.title);
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Gia hạn bài đăng thêm 30 ngày"
-                                >
-                                  <RefreshCw className="h-3 w-3 text-slate-500" />
-                                  <span>Gia hạn 30d</span>
-                                </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleRenewProduct(prod.id, prod.title);
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
+                                      title="Gia hạn bài đăng thêm 30 ngày"
+                                    >
+                                      <RefreshCw className="h-3 w-3 text-slate-500" />
+                                      <span>Gia hạn 30d</span>
+                                    </button>
 
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleBoostProduct(prod.id, prod.title);
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Đẩy tin lên đầu trang (-100 FPT Coin)"
-                                >
-                                  <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
-                                  <span>Đẩy tin (-100 Xu)</span>
-                                </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleBoostProduct(prod.id, prod.title);
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                      title="Đẩy tin lên đầu trang (-100 FPT Coin)"
+                                    >
+                                      <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                      <span>Đẩy tin (-100 Xu)</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                                    ✓ Đã giao dịch
+                                  </Badge>
+                                )}
                               </div>
 
                               <Link
@@ -1171,9 +1197,14 @@ export default function ProfilePage() {
                 {/* TAB 3: LỊCH SỬ ĐÃ BÁN */}
                 {activeTab === 'sold' && (
                   <div className="space-y-4">
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Lịch sử các món đồ đã pass thành công ({soldItems.length})
-                    </h3>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Lịch sử các món đồ đã pass thành công
+                      </h3>
+                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 text-[11px]">
+                        ✓ {soldItems.length} món đã giao dịch
+                      </span>
+                    </div>
 
                     {soldItems.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
@@ -1181,28 +1212,90 @@ export default function ProfilePage() {
                         <p className="text-xs text-slate-400 mt-1">Các món đồ sau khi hoàn tất giao dịch an toàn SafeHandoff sẽ hiển thị tại đây.</p>
                       </div>
                     ) : (
-                      <div className="space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {soldItems.map((item) => (
                           <Card
                             key={item.id}
-                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border-slate-200 bg-white p-4 shadow-2xs"
+                            className="group flex flex-col justify-between rounded-2xl border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden"
                           >
-                            <div className="space-y-1">
-                              <p className="text-xs font-bold text-slate-900">
-                                {item.title}
-                              </p>
-                              <p className="text-[11px] text-slate-500">
-                                Điểm hẹn: {item.location || 'FPT Campus'}
-                              </p>
+                            <div>
+                              {/* Top Image with Sold Overlay */}
+                              <div className="relative aspect-[16/10] w-full bg-slate-100 overflow-hidden">
+                                <Image
+                                  src={item.imageUrl}
+                                  alt={item.title}
+                                  fill
+                                  className="object-cover grayscale-[20%] group-hover:scale-105 transition-transform duration-300"
+                                />
+                                {/* Campus badge */}
+                                <div className="absolute top-2.5 left-2.5 rounded-md bg-slate-900/75 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white">
+                                  {item.campusBadge}
+                                </div>
+
+                                {/* Sold Success Badge */}
+                                <div className="absolute top-2.5 right-2.5 rounded-md bg-emerald-600/95 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow-xs">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span>Đã pass thành công</span>
+                                </div>
+
+                                {/* SafeHandoff tag */}
+                                <div className="absolute bottom-2 left-2 rounded-md bg-slate-900/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-medium text-slate-200 flex items-center gap-1">
+                                  <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                                  <span>Safe-Handoff</span>
+                                </div>
+                              </div>
+
+                              {/* Content */}
+                              <div className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-base font-extrabold text-slate-800">
+                                    {formatVND(item.price)}
+                                  </div>
+                                  <span className="text-[11px] font-medium text-slate-400">
+                                    {item.timeAgo}
+                                  </span>
+                                </div>
+
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-fpt-orange transition-colors">
+                                  {item.title}
+                                </h4>
+
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                  {item.description}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="flex items-center justify-between sm:justify-end gap-3 text-xs">
-                              <span className="font-bold text-emerald-600">
-                                {formatVND(item.price)}
-                              </span>
-                              <Badge variant="success" className="px-2.5 py-0.5 text-[10px] font-bold normal-case">
-                                ✓ Đã giao dịch
-                              </Badge>
+                            {/* Actions Footer */}
+                            <div className="border-t border-slate-100 px-3 py-2.5 flex items-center justify-between gap-1.5 bg-slate-50/70 text-[11px]">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Relist / Post Similar button */}
+                                <Link
+                                  href="/create-post"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-fpt-orange/30 bg-orange-50 px-2.5 py-1 font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Đăng bài mới hoặc pass món đồ tương tự"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span>Đăng lại món tương tự</span>
+                                </Link>
+
+                                <Link
+                                  href="/orders"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Xem chi tiết đơn hàng & lịch sử giao dịch"
+                                >
+                                  <ShoppingBag className="h-3 w-3 text-slate-500" />
+                                  <span>Đơn hàng</span>
+                                </Link>
+                              </div>
+
+                              <Link
+                                href={item.detailLink}
+                                className="font-bold text-slate-700 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
+                              >
+                                <span>Xem tin</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </Link>
                             </div>
                           </Card>
                         ))}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
@@ -24,6 +24,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useNotificationStore, NotificationItem, NotificationType } from '@/stores/notificationStore';
+import { useUserStore } from '@/stores/userStore';
 import { cn } from '@/lib/utils';
 import { useMarket } from '@/context/MarketContext';
 import { showDesktopNotification } from '@/utils/webPush';
@@ -32,6 +33,12 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { showToast } = useMarket();
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'CHAT' | 'KYC' | 'ORDER'>('all');
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const notifications = useNotificationStore((state) => state.notifications);
   const markAsRead = useNotificationStore((state) => state.markAsRead);
@@ -84,6 +91,38 @@ export default function NotificationsPage() {
         );
     }
   };
+
+  if (isMounted && !isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans py-4 sm:py-6">
+        <main className="mx-auto max-w-4xl px-4 sm:px-6 flex-1 w-full space-y-5">
+          <CompactHeader
+            showBackButton={true}
+            backHref="/"
+            breadcrumbs={[{ label: 'Thông báo hệ thống' }]}
+          />
+          <Card className="rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-12 text-center shadow-xs">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 text-fpt-orange mb-4 shadow-2xs">
+              <Bell className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">Bạn chưa đăng nhập</h2>
+            <p className="text-sm text-slate-500 max-w-md mx-auto mt-2">
+              Thông báo tài khoản, đơn hàng và duyệt thẻ sinh viên được bảo mật riêng tư. Vui lòng đăng nhập để xem thông báo của bạn.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Button
+                asChild
+                className="bg-fpt-orange hover:bg-fpt-orange-hover text-white font-bold rounded-xl px-6 h-11"
+              >
+                <Link href="/login">Đăng nhập tài khoản</Link>
+              </Button>
+            </div>
+          </Card>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans py-4 sm:py-6">

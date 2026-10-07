@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useFavoriteStore } from './favoriteStore';
 import { useVoucherStore } from './voucherStore';
 import { useOrderStore } from './orderStore';
+import { useNotificationStore } from './notificationStore';
+import { useChatStore } from './chatStore';
 
 export interface UserProfile {
   id?: string;
@@ -197,6 +199,8 @@ export const useUserStore = create<UserState>()(
           useFavoriteStore.getState().setActiveUser(primaryKey);
           useVoucherStore.getState().setActiveUser(primaryKey);
           useOrderStore.getState().setActiveUser(primaryKey);
+          useNotificationStore.getState().setActiveUser(primaryKey);
+          useChatStore.getState().setActiveUser(primaryKey);
 
           set((state) => ({
             user: mergedUser,
@@ -223,6 +227,8 @@ export const useUserStore = create<UserState>()(
           useFavoriteStore.getState().setActiveUser(uKey);
           useVoucherStore.getState().setActiveUser(uKey);
           useOrderStore.getState().setActiveUser(uKey);
+          useNotificationStore.getState().setActiveUser(uKey);
+          useChatStore.getState().setActiveUser(uKey);
 
           set((state) => ({
             isLoggedIn: true,
@@ -252,6 +258,8 @@ export const useUserStore = create<UserState>()(
           useFavoriteStore.getState().setActiveUser(null);
           useVoucherStore.getState().setActiveUser(null);
           useOrderStore.getState().setActiveUser(null);
+          useNotificationStore.getState().setActiveUser(null);
+          useChatStore.getState().setActiveUser(null);
           set(() => ({
             isLoggedIn: false,
             accessToken: null,
@@ -368,11 +376,15 @@ export const useUserStore = create<UserState>()(
           useFavoriteStore.getState().setActiveUser(null);
           useVoucherStore.getState().setActiveUser(null);
           useOrderStore.getState().setActiveUser(null);
+          useNotificationStore.getState().setActiveUser(null);
+          useChatStore.getState().setActiveUser(null);
         } else if (state?.user?.id || state?.user?.email) {
           const uKey = (state.user.id || state.user.email).trim().toLowerCase();
           useFavoriteStore.getState().setActiveUser(uKey);
           useVoucherStore.getState().setActiveUser(uKey);
           useOrderStore.getState().setActiveUser(uKey);
+          useNotificationStore.getState().setActiveUser(uKey);
+          useChatStore.getState().setActiveUser(uKey);
 
           // Tự động đồng bộ số dư Xu và hồ sơ mới nhất từ Backend Database khi tải lại trang
           if (typeof window !== 'undefined') {

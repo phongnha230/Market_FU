@@ -18,6 +18,8 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useNotificationStore, NotificationItem, NotificationType } from '@/stores/notificationStore';
+import { useUserStore } from '@/stores/userStore';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { showDesktopNotification } from '@/utils/webPush';
 
@@ -30,6 +32,7 @@ export default function NotificationDropdown({ isOpen, onClose }: NotificationDr
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'CHAT' | 'ORDER' | 'KYC'>('all');
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const notifications = useNotificationStore((state) => state.notifications);
   const markAsRead = useNotificationStore((state) => state.markAsRead);
@@ -53,6 +56,33 @@ export default function NotificationDropdown({ isOpen, onClose }: NotificationDr
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  if (!isLoggedIn) {
+    return (
+      <div
+        ref={dropdownRef}
+        className="absolute right-0 top-full mt-2.5 z-50 w-[320px] rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-5 text-center space-y-3 animate-in fade-in zoom-in-95 duration-150"
+      >
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-fpt-orange">
+          <Bell className="h-5 w-5" />
+        </div>
+        <div>
+          <h4 className="text-sm font-bold text-slate-800">Chưa đăng nhập</h4>
+          <p className="text-xs text-slate-500 mt-1">
+            Vui lòng đăng nhập để xem thông báo riêng tư của bạn.
+          </p>
+        </div>
+        <Button
+          asChild
+          className="w-full bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold rounded-xl h-9"
+        >
+          <Link href="/login" onClick={onClose}>
+            Đăng nhập ngay
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

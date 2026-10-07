@@ -88,8 +88,8 @@ export default function Navbar({
 
   // Prevent hydration mismatch by using initial values on SSR and until mounted on client
   const mountedIsLoggedIn = isMounted && isLoggedIn;
-  const mountedUnreadNotifs = isMounted ? unreadNotifs : 0;
-  const mountedUnreadMessages = isMounted ? unreadMessages : 0;
+  const mountedUnreadNotifs = mountedIsLoggedIn ? unreadNotifs : 0;
+  const mountedUnreadMessages = mountedIsLoggedIn ? unreadMessages : 0;
   const mountedFavoritesCount = isMounted ? favoritesCount : 0;
 
 
@@ -215,56 +215,60 @@ export default function Navbar({
 
         {/* Right action tools */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Notification button & Dropdown popover */}
-          <div className="relative">
+          {/* Notification button & Dropdown popover - Chỉ hiển thị khi đã đăng nhập */}
+          {mountedIsLoggedIn && (
+            <div className="relative">
+              <Button
+                variant="ghost"
+                title={`Thông báo (${mountedUnreadNotifs} mới) - Bấm 1 lần mở xem nhanh, bấm đúp (2 lần) vào trang thông báo`}
+                onClick={() => setIsNotifDropdownOpen((prev) => !prev)}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  setIsNotifDropdownOpen(false);
+                  router.push('/notifications');
+                }}
+                className={cn(
+                  'relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer',
+                  isNotifDropdownOpen && 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
+                )}
+              >
+                <Bell className="h-4.5 w-4.5" />
+                {mountedUnreadNotifs > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
+                    {mountedUnreadNotifs > 9 ? '9+' : mountedUnreadNotifs}
+                  </span>
+                )}
+              </Button>
+
+              <NotificationDropdown
+                isOpen={isNotifDropdownOpen}
+                onClose={() => setIsNotifDropdownOpen(false)}
+              />
+            </div>
+          )}
+
+          {/* Chat message button - Chỉ hiển thị khi đã đăng nhập */}
+          {mountedIsLoggedIn && (
             <Button
+              asChild
               variant="ghost"
-              title={`Thông báo (${mountedUnreadNotifs} mới) - Bấm 1 lần mở xem nhanh, bấm đúp (2 lần) vào trang thông báo`}
-              onClick={() => setIsNotifDropdownOpen((prev) => !prev)}
-              onDoubleClick={(e) => {
-                e.preventDefault();
-                setIsNotifDropdownOpen(false);
-                router.push('/notifications');
-              }}
-              className={cn(
-                'relative h-9 w-9 rounded-full p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer',
-                isNotifDropdownOpen && 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
-              )}
+              title={`Tin nhắn (${mountedUnreadMessages} mới)`}
+              className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
+                activeTab === 'chat'
+                  ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
             >
-              <Bell className="h-4.5 w-4.5" />
-              {mountedUnreadNotifs > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-                  {mountedUnreadNotifs > 9 ? '9+' : mountedUnreadNotifs}
-                </span>
-              )}
+              <Link href="/chat">
+                <MessageSquare className="h-4.5 w-4.5" />
+                {mountedUnreadMessages > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
+                    {mountedUnreadMessages > 9 ? '9+' : mountedUnreadMessages}
+                  </span>
+                )}
+              </Link>
             </Button>
-
-            <NotificationDropdown
-              isOpen={isNotifDropdownOpen}
-              onClose={() => setIsNotifDropdownOpen(false)}
-            />
-          </div>
-
-          {/* Chat message button */}
-          <Button
-            asChild
-            variant="ghost"
-            title={`Tin nhắn (${mountedUnreadMessages} mới)`}
-            className={`relative h-9 w-9 rounded-full p-0 transition-colors cursor-pointer ${
-              activeTab === 'chat'
-                ? 'bg-orange-50 text-fpt-orange ring-1 ring-orange-200'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Link href="/chat">
-              <MessageSquare className="h-4.5 w-4.5" />
-              {mountedUnreadMessages > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white ring-2 ring-white shadow-xs">
-                  {mountedUnreadMessages > 9 ? '9+' : mountedUnreadMessages}
-                </span>
-              )}
-            </Link>
-          </Button>
+          )}
 
           {/* FPT Coin Widget */}
           {mountedIsLoggedIn && (
@@ -525,37 +529,41 @@ export default function Navbar({
             >
               Yêu thích
             </Link>
-            <Link
-              href="/orders"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
-            >
-              Đơn hàng
-            </Link>
-            <Link
-              href="/notifications"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
-            >
-              <span>Thông báo</span>
-              {mountedUnreadNotifs > 0 && (
-                <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                  {mountedUnreadNotifs} mới
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/chat"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
-            >
-              <span>Tin nhắn</span>
-              {mountedUnreadMessages > 0 && (
-                <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
-                  {mountedUnreadMessages} mới
-                </span>
-              )}
-            </Link>
+            {mountedIsLoggedIn && (
+              <>
+                <Link
+                  href="/orders"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                >
+                  Đơn hàng
+                </Link>
+                <Link
+                  href="/notifications"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+                >
+                  <span>Thông báo</span>
+                  {mountedUnreadNotifs > 0 && (
+                    <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                      {mountedUnreadNotifs} mới
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  href="/chat"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between"
+                >
+                  <span>Tin nhắn</span>
+                  {mountedUnreadMessages > 0 && (
+                    <span className="rounded-full bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
+                      {mountedUnreadMessages} mới
+                    </span>
+                  )}
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       )}
