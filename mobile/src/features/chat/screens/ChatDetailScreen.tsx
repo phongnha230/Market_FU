@@ -111,6 +111,14 @@ export const ChatDetailScreen: React.FC = () => {
         try {
           const remoteMsgs = await chatMobileService.getMessages(activeConvId, currentUserId);
           if (isMounted && remoteMsgs && remoteMsgs.length > 0) {
+            const hasAccepted = remoteMsgs.some(
+              (m) => m.message?.includes('[OFFER_ACCEPTED]') || m.message?.toLowerCase().includes('đồng ý chốt')
+            );
+            const hasRejected = remoteMsgs.some(
+              (m) => m.message?.includes('[OFFER_REJECTED]') || m.message?.toLowerCase().includes('từ chối đề xuất')
+            );
+            const defaultOfferStatus = hasAccepted ? 'accepted' : (hasRejected ? 'declined' : 'pending');
+
             const mapped: MessageItem[] = remoteMsgs.map((m) => {
               const msgType: any = m.messageType === 'OFFER_PRICE' ? 'offer' : (m.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
               return {
@@ -122,7 +130,7 @@ export const ChatDetailScreen: React.FC = () => {
                 offerData: m.offerPrice ? {
                   originalPrice: typeof product.price === 'number' ? product.price : 500000,
                   offeredPrice: m.offerPrice,
-                  status: 'pending',
+                  status: defaultOfferStatus,
                 } : undefined,
                 safePointData: m.meetupLocation ? {
                   location: m.meetupLocation,
@@ -156,13 +164,35 @@ export const ChatDetailScreen: React.FC = () => {
       if (rawMsg?.conversationId && rawMsg.conversationId !== conversationId) return;
 
       const isMe = rawMsg.senderId === currentUserId;
+      const text = rawMsg.text || rawMsg.content || rawMsg.message || '';
+      const isAccept = text.includes('[OFFER_ACCEPTED]') || text.toLowerCase().includes('đồng ý chốt mức giá');
+      const isReject = text.includes('[OFFER_REJECTED]') || text.toLowerCase().includes('từ chối đề xuất') || text.toLowerCase().includes('chưa phù hợp');
+
+      if (isAccept) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.type === 'offer' && m.offerData
+              ? { ...m, offerData: { ...m.offerData, status: 'accepted' } }
+              : m
+          )
+        );
+      } else if (isReject) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.type === 'offer' && m.offerData
+              ? { ...m, offerData: { ...m.offerData, status: 'declined' } }
+              : m
+          )
+        );
+      }
+
       const msgType: any = rawMsg.messageType === 'OFFER_PRICE' ? 'offer' : (rawMsg.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
 
       const incoming: MessageItem = {
         id: rawMsg.id || `msg_${Date.now()}`,
         sender: isMe ? 'me' : 'partner',
         type: msgType,
-        text: rawMsg.text || rawMsg.content || '',
+        text,
         time: rawMsg.createdAt ? new Date(rawMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
         offerData: rawMsg.offerPrice ? {
           originalPrice: typeof product.price === 'number' ? product.price : 500000,
@@ -262,16 +292,69 @@ export const ChatDetailScreen: React.FC = () => {
     }
   }, [conversationId]);
 
-  const handleAcceptOffer = useCallback((msgId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId && m.offerData
-          ? { ...m, offerData: { ...m.offerData, status: 'accepted' } }
-          : m
-      )
-    );
-    Alert.alert('Thành công', 'Bạn đã chấp nhận đề xuất giá này!');
-  }, []);
+  const handleAcceptOffer = useCallback(
+    (msgId: string) => {
+      const targetMsg = messages.find((m) => m.id === msgId);
+      const offeredPrice = targetMsg?.offerData?.offeredPrice || 0;
+      const formattedPrice = offeredPrice > 0 ? `${offeredPrice.toLocaleString('vi-VN')}đ` : '';
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.offerData
+            ? { ...m, offerData: { ...m.offerData, status: 'accepted' } }
+            : m
+        )
+      );
+
+      if (conversationId && offeredPrice > 0) {
+        const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
+        chatMobileService
+          .sendMessage(conversationId, acceptText, 'OFFER_PRICE', offeredPrice)
+          .catch(() => {});
+      }
+      Alert.alert('Thành công', `Bạn đã chấp nhận đề xuất giá ${formattedPrice}!`);
+    },
+    [conversationId, messages]
+  );
+
+  const handleRejectOffer = useCallback(
+    (msgId: string) => {
+      const targetMsg = messages.find((m) => m.id === msgId);
+      const offeredPrice = targetMsg?.offerData?.offeredPrice || 0;
+      const formattedPrice = offeredPrice > 0 ? `${offeredPrice.toLocaleString('vi-VN')}đ` : '';
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.offerData
+            ? { ...m, offerData: { ...m.offerData, status: 'declined' } }
+            : m
+        )
+      );
+
+      if (conversationId) {
+        const rejectText = `[OFFER_REJECTED] Mức giá đề xuất ${formattedPrice} chưa phù hợp bạn nhé. Bạn có thể thương lượng lại hoặc mua theo giá niêm yết nhé!`;
+        chatMobileService
+          .sendMessage(conversationId, rejectText, 'TEXT')
+          .catch(() => {});
+      }
+      Alert.alert('Thông báo', 'Đã từ chối mức giá đề xuất.');
+    },
+    [conversationId, messages]
+  );
+
+  const handleCheckoutOffer = useCallback(
+    (offeredPrice: number) => {
+      navigation.navigate('Checkout', {
+        product: {
+          ...product,
+          price: offeredPrice,
+          priceStr: `${offeredPrice.toLocaleString('vi-VN')}đ`,
+        },
+        agreedPrice: offeredPrice,
+      });
+    },
+    [navigation, product]
+  );
 
   const handleBookSafePoint = useCallback((safePointLocation?: string) => {
     navigation.navigate('Checkout', {
@@ -311,10 +394,12 @@ export const ChatDetailScreen: React.FC = () => {
       <ChatDetailMessageItem
         item={item}
         onAcceptOffer={handleAcceptOffer}
+        onRejectOffer={handleRejectOffer}
         onBookSafePoint={handleBookSafePoint}
+        onCheckoutOffer={handleCheckoutOffer}
       />
     ),
-    [handleAcceptOffer, handleBookSafePoint]
+    [handleAcceptOffer, handleRejectOffer, handleBookSafePoint, handleCheckoutOffer]
   );
 
   const renderQuickReply = useCallback(

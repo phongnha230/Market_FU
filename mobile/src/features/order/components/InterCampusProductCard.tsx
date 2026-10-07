@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface InterCampusProductCardProps {
   title: string;
@@ -21,7 +22,7 @@ export const InterCampusProductCard: React.FC<InterCampusProductCardProps> = ({
   return (
     <View style={styles.productCard}>
       <View style={styles.topRow}>
-        <Image source={image} style={styles.productThumb} contentFit="cover" />
+        <Image source={resolveProductImage(image)} style={styles.productThumb} contentFit="cover" />
         <View style={styles.productInfo}>
           <Text style={styles.productTitle} numberOfLines={2}>
             {title}

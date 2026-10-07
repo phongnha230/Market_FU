@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface ChatDetailProductCardProps {
   product: {
@@ -18,7 +20,7 @@ export const ChatDetailProductCard: React.FC<ChatDetailProductCardProps> = ({
   return (
     <View style={styles.productStrip}>
       <Image
-        source={typeof product.image === 'string' ? { uri: product.image } : product.image}
+        source={resolveProductImage(product.image)}
         style={styles.productStripThumb}
       />
       <View style={styles.productStripInfo}>
@@ -29,9 +31,11 @@ export const ChatDetailProductCard: React.FC<ChatDetailProductCardProps> = ({
       </View>
       <TouchableOpacity
         style={styles.viewProductBtn}
+        activeOpacity={0.8}
         onPress={onViewProduct}
       >
-        <Text style={styles.viewProductBtnText}>Xem chi tiết</Text>
+        <Text style={styles.viewProductBtnText}>Xem món</Text>
+        <Ionicons name="chevron-forward" size={11} color="#EA580C" />
       </TouchableOpacity>
     </View>
   );
@@ -42,22 +46,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6.5,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
   },
-  productStripThumb: { width: 38, height: 38, borderRadius: 8, marginRight: 10 },
-  productStripInfo: { flex: 1 },
-  productStripTitle: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
-  productStripPrice: { fontSize: 12, fontWeight: '900', color: '#EA580C', marginTop: 1 },
-  viewProductBtn: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  productStripThumb: {
+    width: 34,
+    height: 34,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    marginRight: 9,
+    backgroundColor: '#F1F5F9',
   },
-  viewProductBtnText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
+  productStripInfo: { flex: 1, marginRight: 8 },
+  productStripTitle: { fontSize: 11.5, fontWeight: '700', color: '#0F172A' },
+  productStripPrice: { fontSize: 11.5, fontWeight: '900', color: '#EA580C', marginTop: 1 },
+  viewProductBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    gap: 1.5,
+  },
+  viewProductBtnText: { fontSize: 10.5, fontWeight: '700', color: '#EA580C' },
 });

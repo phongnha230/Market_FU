@@ -11,7 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { socketMobileService } from '../../../services/socketMobileService';
@@ -122,8 +122,8 @@ const OrderCardItem: React.FC<{
       <View style={styles.cardFooter}>
         <Text style={styles.dateText}>{item.createdAt}</Text>
 
-        <View style={styles.actionButtonsRow}>
-          {item.handshakeOtp && !isCompleted && (
+          {/* OTP Handshake CHỈ hiện cho Người mua trên đơn hẹn gặp trực tiếp MEETUP (không hiện cho người bán hoặc đơn GHN liên campus) */}
+          {isBuyer && item.orderType !== 'SHIP_COD' && item.handshakeOtp && !isCompleted && (
             <View style={styles.otpBadge}>
               <Ionicons name="key-outline" size={12} color="#64748B" />
               <Text style={styles.otpBadgeText}>OTP: {item.handshakeOtp}</Text>
@@ -178,9 +178,9 @@ const OrderCardItem: React.FC<{
           </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
-});
+    );
+  }
+);
 
 const OrderListEmptyState: React.FC<{ activeTab: string; onExplore: () => void }> = React.memo(
   ({ activeTab, onExplore }) => (
@@ -233,6 +233,7 @@ const filterOrders = (
 export const OrderListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useUserStore();
   const { orders, fetchOrders } = useOrderStore();
 
@@ -264,7 +265,13 @@ export const OrderListScreen: React.FC = () => {
 
   const isSeller = user?.role === 'SELLER';
   const currentUserId = user?.id || '';
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>(route.params?.initialTab || 'all');
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   const tabs: TabOption[] = React.useMemo(() => {
     if (isSeller) {

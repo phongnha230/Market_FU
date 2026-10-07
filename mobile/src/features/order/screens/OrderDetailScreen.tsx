@@ -115,6 +115,10 @@ export const OrderDetailScreen: React.FC = () => {
 
   const safePoint = matchedOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const isSeller = user?.role === 'SELLER' || (matchedOrder && user?.id === matchedOrder?.sellerId);
+  const isInterCampus = Boolean(
+    (matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus) ||
+    matchedOrder?.orderType === 'SHIP_COD'
+  );
 
   const handleConfirmReceived = useCallback(() => {
     Alert.alert(
@@ -266,8 +270,8 @@ export const OrderDetailScreen: React.FC = () => {
           <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
         )}
 
-        {/* Chỉ hiện mã QR đồng kiểm khi đơn đang trong quá trình bàn giao/chờ nhận */}
-        {orderStatus !== 'completed' && orderStatus !== 'cancelled' && (
+        {/* Chỉ hiện mã QR đồng kiểm khi đơn MEETUP (cùng campus hẹn gặp) đang trong quá trình bàn giao/chờ nhận */}
+        {orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isInterCampus && (
           <>
             <Text style={styles.sectionHeader}>ĐIỂM HẸN & MÃ QR ĐỒNG KIỂM</Text>
             <OrderSafePointQrCard safePoint={safePoint} orderId={orderId} />
@@ -277,6 +281,7 @@ export const OrderDetailScreen: React.FC = () => {
         <OrderActionButtons
           orderStatus={orderStatus}
           isSeller={Boolean(isSeller)}
+          isInterCampus={isInterCampus}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}
           onConfirmReceived={handleConfirmReceived}

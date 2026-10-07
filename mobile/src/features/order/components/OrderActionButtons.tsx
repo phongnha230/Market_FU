@@ -58,6 +58,7 @@ DisputedBanner.displayName = 'DisputedBanner';
 interface PrimaryActionButtonProps {
   orderStatus: string;
   isSeller: boolean;
+  isInterCampus?: boolean;
   isReviewed: boolean;
   isSubmitting: boolean;
   isDisputed: boolean;
@@ -69,6 +70,7 @@ interface PrimaryActionButtonProps {
 const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   orderStatus,
   isSeller,
+  isInterCampus,
   isReviewed,
   isSubmitting,
   isDisputed,
@@ -77,6 +79,14 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   onOpenReview,
 }) => {
   if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
+    if (isInterCampus) {
+      return (
+        <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
+          <Ionicons name="cube-outline" size={20} color="#EA580C" style={styles.mr6} />
+          <Text style={[styles.confirmReceivedText, { color: '#334155' }]}>Đơn liên campus • GHN luân chuyển & đối soát</Text>
+        </View>
+      );
+    }
     return (
       <TouchableOpacity
         style={[styles.confirmReceivedBtn, styles.sellerBtnBg]}
@@ -167,6 +177,7 @@ SubActionButtons.displayName = 'SubActionButtons';
 export interface OrderActionButtonsProps {
   orderStatus: string;
   isSeller: boolean;
+  isInterCampus?: boolean;
   isReviewed: boolean;
   isSubmitting: boolean;
   onConfirmReceived: () => void;
@@ -181,6 +192,7 @@ export interface OrderActionButtonsProps {
 export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(({
   orderStatus,
   isSeller,
+  isInterCampus,
   isReviewed,
   isSubmitting,
   onConfirmReceived,
@@ -207,6 +219,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
       <PrimaryActionButton
         orderStatus={orderStatus}
         isSeller={isSeller}
+        isInterCampus={isInterCampus}
         isReviewed={isReviewed}
         isSubmitting={isSubmitting}
         isDisputed={isDisputed}

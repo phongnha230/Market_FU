@@ -11,6 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 export interface PackageHandoverProofModalProps {
   visible: boolean;
@@ -82,10 +83,7 @@ export const PackageHandoverProofModal: React.FC<PackageHandoverProofModalProps>
             {/* Package Photo Frame */}
             <View style={styles.photoContainer}>
               <Image
-                source={
-                  productImage ||
-                  require('../../../../assets/products/monitor-dell-24.jpg')
-                }
+                source={resolveProductImage(productImage)}
                 style={styles.packageImage}
                 contentFit="cover"
               />

@@ -34,6 +34,7 @@ export interface OrderItem {
   totalAmount: number;
   isReviewed?: boolean;
   handshakeOtp?: string;
+  orderType?: 'MEETUP' | 'SHIP_COD';
   createdAt: string;
 }
 

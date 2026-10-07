@@ -17,6 +17,7 @@ export interface CreateOrderPayload {
   deliveryNote?: string;
   note?: string;
   coinsUsed?: number;
+  agreedPrice?: number;
   voucherCode?: string;
   isDifferentCampus?: boolean;
   shipping?: {
@@ -86,6 +87,15 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   const rawCampus = product.campus || item.shipping?.destinationCampus;
   const friendlyCampus = fromBackendCampus(rawCampus);
 
+  const isShip = Boolean(
+    item.orderType === 'SHIP_COD' ||
+    item.shipping?.partner ||
+    item.shipping?.trackingNumber ||
+    item.shippingAddress ||
+    (item.deliveryMethod && item.deliveryMethod !== 'safe_point' && item.deliveryMethod !== 'MEETUP')
+  );
+  const resolvedOrderType: 'MEETUP' | 'SHIP_COD' = isShip ? 'SHIP_COD' : 'MEETUP';
+
   return {
     id: item.id || item._id,
     orderNumber: item.orderCode || item.code || `ORD-${String(item.id || '').slice(-6)}`,
@@ -120,7 +130,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
       item.safePointLocation ||
       'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
     timeSlot: item.timeSlot || 'Hôm nay: 16:30 - 17:30',
-    handshakeOtp: validOtp,
+    orderType: resolvedOrderType,
+    // Handshake OTP CHỈ dùng cho đơn MEETUP (cùng campus hẹn gặp), không gán cho đơn liên campus GHN!
+    handshakeOtp: resolvedOrderType === 'SHIP_COD' ? undefined : validOtp,
     createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay',
     isReviewed: Boolean(item.isReviewed || (Array.isArray(item.reviews) && item.reviews.length > 0)),
   };
@@ -144,6 +156,7 @@ export const orderMobileService = {
       safePoint: payload.safePoint,
       meetupLocation: payload.meetupLocation || payload.safePoint,
       appointmentTime: payload.appointmentTime,
+      agreedPrice: payload.agreedPrice,
     };
 
     if (orderType === 'SHIP_COD') {

@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useChatStore } from '../../../stores/chatStore';
 import { socketMobileService } from '../../../services/socketMobileService';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface ConversationItem {
   id: string;
@@ -105,7 +106,7 @@ export const ChatListScreen: React.FC = () => {
     isOnline: !!c.isOnline,
     productTitle: c.productTitle || 'Món đồ Campus',
     productPrice: typeof c.productPrice === 'number' ? `${c.productPrice.toLocaleString('vi-VN')}đ` : 'Thỏa thuận',
-    productImage: c.productImage || require('../../../../assets/products/keyboard-akko.jpg'),
+    productImage: resolveProductImage(c.productImage),
     lastMessage: c.lastMessage || 'Bắt đầu cuộc trò chuyện',
     lastTime: c.lastTime ? (c.lastTime.includes(':') ? c.lastTime : new Date(c.lastTime).toLocaleDateString('vi-VN')) : 'Gần đây',
     unreadCount: c.unreadCount || 0,
