@@ -114,7 +114,7 @@ export const SettingsScreen: React.FC = () => {
             '#FEF3C7',
             'Đổi mật khẩu tài khoản',
             'Cập nhật mật khẩu đăng nhập',
-            () => navigation.navigate('AccountSettings')
+            () => navigation.navigate('ChangePassword')
           )}
           <View style={styles.divider} />
           {renderRow(

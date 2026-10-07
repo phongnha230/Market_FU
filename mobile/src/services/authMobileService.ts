@@ -47,6 +47,15 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
   const role: 'BUYER' | 'SELLER' | 'ADMIN' = user.role === 'SELLER' ? 'SELLER' : 'BUYER';
   const isKycVerified = kycStatus === 'APPROVED' || role === 'SELLER';
 
+  const rawBank = profile.bankAccount || user.bankAccount;
+  const bankAccount = rawBank?.accountNo
+    ? {
+        bankName: rawBank.bankName || 'MB',
+        accountNo: rawBank.accountNo || '',
+        accountName: rawBank.accountName || profile.fullName || user.fullName || '',
+      }
+    : undefined;
+
   return {
     id: user.userId || user.id || profile.userId || profile.id,
     name: profile.fullName || user.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
@@ -66,6 +75,7 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
     coins: user.campusCoins ?? profile.campusCoins ?? 0,
     avatarUrl: profile.avatarUrl || user.avatarUrl || '',
     avatarBadge: role === 'SELLER' ? 'TOP_SELLER' : undefined,
+    bankAccount,
   };
 };
 

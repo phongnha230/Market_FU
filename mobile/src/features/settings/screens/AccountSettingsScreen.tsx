@@ -14,7 +14,6 @@ import { useUserStore } from '../../../stores/userStore';
 import { authMobileService } from '../../../services/authMobileService';
 import { AccountVerificationBanner } from '../components/AccountVerificationBanner';
 import { AccountStudentInfoForm } from '../components/AccountStudentInfoForm';
-import { AccountPasswordSection } from '../components/AccountPasswordSection';
 
 const HeaderNavButton: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
@@ -41,11 +40,6 @@ export const AccountSettingsScreen: React.FC = () => {
   const [major, setMajor] = useState(user?.major || '');
   const [dormRoom, setDormRoom] = useState(user?.dormRoom || '');
   const [bio, setBio] = useState(user?.bio || '');
-
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showPasswordSection, setShowPasswordSection] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Đồng bộ lại khi user thay đổi
   useEffect(() => {
@@ -82,33 +76,6 @@ export const AccountSettingsScreen: React.FC = () => {
       Alert.alert('Lỗi', res.message || 'Không thể cập nhật hồ sơ');
     }
   }, [fullName, phoneNumber, major, dormRoom, bio, updateUserProfile]);
-
-  const handleChangePassword = useCallback(async () => {
-    if (!newPassword || newPassword.trim().length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu mới phải có ít nhất 6 ký tự');
-      return;
-    }
-
-    try {
-      setIsChangingPassword(true);
-      const res = await authMobileService.changePassword({
-        currentPassword: oldPassword ? oldPassword.trim() : undefined,
-        newPassword: newPassword.trim(),
-        confirmPassword: newPassword.trim(),
-      });
-      Alert.alert('🎉 Thành công', res.message || 'Mật khẩu tài khoản đã được thay đổi!');
-      setOldPassword('');
-      setNewPassword('');
-      setShowPasswordSection(false);
-    } catch (err: any) {
-      Alert.alert(
-        'Lỗi đổi mật khẩu',
-        err?.response?.data?.message || err?.message || 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu cũ.'
-      );
-    } finally {
-      setIsChangingPassword(false);
-    }
-  }, [newPassword, oldPassword]);
 
   const isVerified = user?.isKycVerified || user?.role === 'SELLER';
 
@@ -154,17 +121,24 @@ export const AccountSettingsScreen: React.FC = () => {
           isLoading={isLoading}
         />
 
-        {/* Section 2: Đổi mật khẩu */}
-        <AccountPasswordSection
-          showPasswordSection={showPasswordSection}
-          setShowPasswordSection={setShowPasswordSection}
-          oldPassword={oldPassword}
-          setOldPassword={setOldPassword}
-          newPassword={newPassword}
-          setNewPassword={setNewPassword}
-          onChangePassword={handleChangePassword}
-          isChangingPassword={isChangingPassword}
-        />
+        {/* Section 2: Đổi mật khẩu tài khoản */}
+        <View style={{ marginTop: 18 }}>
+          <Text style={styles.sectionTitle}>BẢO MẬT & MẬT KHẨU TÀI KHOẢN</Text>
+          <TouchableOpacity
+            style={styles.changePasswordCard}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('ChangePassword')}
+          >
+            <View style={styles.pwIconBg}>
+              <Ionicons name="key-outline" size={20} color="#EA580C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pwTitle}>Đổi mật khẩu tài khoản</Text>
+              <Text style={styles.pwSubtitle}>Cập nhật mật khẩu đăng nhập & ví Escrow</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -185,6 +159,46 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
   scrollBody: { paddingHorizontal: 16, paddingBottom: 40 },
+  sectionTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  changePasswordCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    gap: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  pwIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pwTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pwSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
 });
 
 export default AccountSettingsScreen;
