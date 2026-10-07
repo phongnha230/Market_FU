@@ -11,6 +11,7 @@ import {
   ArrowRight,
   MessageSquare,
   AlertTriangle,
+  ShieldAlert,
   Compass,
   QrCode,
   XCircle,
@@ -121,6 +122,8 @@ export default function OrderCard({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-fpt-orange"></span>
             </span>
+          ) : order.status === 'disputed' ? (
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
           ) : (
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           )}
@@ -211,12 +214,12 @@ export default function OrderCard({
         </div>
       </div>
 
-      {/* TRACKING PROGRESS ROUTE DIAGRAM */}
-      {order.tracking && (
-        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/40 border border-orange-100 p-4 text-xs shadow-none">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
+      {/* In-transit tracking timeline - ONLY shown when actively shipping */}
+      {order.status === 'shipping' && order.tracking && (
+        <div className="mx-4 sm:mx-5 mb-3 rounded-xl bg-orange-50/50 border border-orange-100 p-3 text-xs">
+          <div className="flex items-center justify-between gap-1 mb-2">
             <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Truck className="h-4 w-4 text-fpt-orange" />
+              <Truck className="h-3.5 w-3.5 text-fpt-orange" />
               {order.tracking.routeTitle}
             </span>
             <span className="font-bold text-fpt-orange text-[11px]">
@@ -225,11 +228,11 @@ export default function OrderCard({
           </div>
 
           {/* 4 Hub Steps */}
-          <div className="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-[11px] mb-3">
+          <div className="grid grid-cols-4 gap-2 text-center text-[10px] mb-2">
             {order.tracking.steps.map((st, sIdx) => (
               <div key={sIdx} className="flex flex-col items-center">
                 <div
-                  className={`h-2 w-full rounded-full mb-1.5 ${
+                  className={`h-1.5 w-full rounded-full mb-1 ${
                     st.status === 'completed'
                       ? 'bg-emerald-500'
                       : st.status === 'current'
@@ -238,7 +241,7 @@ export default function OrderCard({
                   }`}
                 ></div>
                 <span
-                  className={`font-semibold ${
+                  className={`font-medium ${
                     st.status === 'current'
                       ? 'text-fpt-orange font-bold'
                       : st.status === 'completed'
@@ -252,57 +255,40 @@ export default function OrderCard({
             ))}
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-600 pt-2 border-t border-orange-200/60">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span>{order.tracking.currentLocation}</span>
+          <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-orange-200/50">
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+              <span className="truncate">{order.tracking.currentLocation}</span>
             </div>
-            <span className="text-slate-400 font-mono">
-              Mã vận đơn: {order.tracking.trackingCode}
+            <span className="text-slate-400 font-mono text-[10px] shrink-0 ml-2">
+              {order.tracking.trackingCode}
             </span>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* REWARD CALLOUT BOX WITH BUTTON */}
-      {order.rewardPrompt && !order.reviewed && (
-        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-orange-50/60 border border-orange-200/80 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-none">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0">
-              <Star className="h-5 w-5 fill-white" />
-            </div>
-            <div>
-              <h4 className="font-bold text-xs sm:text-sm text-slate-900">
-                {order.rewardPrompt.title}
-              </h4>
-              <p className="text-xs text-slate-600 leading-tight mt-0.5">
-                {order.rewardPrompt.subtitle}
-              </p>
-            </div>
+      {/* DISPUTE STATUS - Compact 1-line strip */}
+      {order.status === 'disputed' && (
+        <div className="mx-4 sm:mx-5 mb-3 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200/80 flex items-center justify-between text-xs text-rose-800">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span className="truncate font-medium">
+              {isSellerViewer
+                ? 'Đơn đang có khiếu nại trả hàng • Tiền Escrow tạm khóa bảo hộ'
+                : 'Đang thẩm định hồ sơ trả hàng • Tiền Escrow tạm khóa 100%'}
+            </span>
           </div>
-
-          <Button
-            asChild
-            className="h-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 shadow-sm transition cursor-pointer"
+          <Link
+            href={
+              isSellerViewer
+                ? `/orders/${encodeURIComponent(order.code.replace('#', ''))}`
+                : `/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`
+            }
+            className="text-[11px] font-bold text-rose-700 hover:text-rose-900 underline shrink-0 ml-2"
           >
-            <Link href={`/orders/review?code=${encodeURIComponent(order.code)}`}>
-              <span>Đánh giá ngay ({order.rewardPrompt.voucherAmount})</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </Card>
-      )}
-
-      {order.reviewed && (
-        <Card className="mx-4 sm:mx-5 mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 flex flex-row items-center justify-between text-xs text-emerald-800 font-semibold shadow-none">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Đã hoàn tất đánh giá 5 sao cho giao dịch này và nhận thưởng Coins!
-          </span>
-          <Badge variant="outline" className="text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 font-bold hover:bg-white">
-            +50 Coins
-          </Badge>
-        </Card>
+            Chi tiết ➔
+          </Link>
+        </div>
       )}
 
       {/* Action Buttons Row */}
@@ -314,12 +300,12 @@ export default function OrderCard({
               <span className="truncate">{order.tracking.currentLocation}</span>
             </span>
           ) : (
-            <span>Mã vận đơn: <strong className="font-mono text-slate-800">{order.code}</strong></span>
+            <span>Mã: <strong className="font-mono text-slate-800">{order.code}</strong></span>
           )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end w-full sm:w-auto">
-          {/* Seller Action Buttons */}
+          {/* Seller Actions */}
           {isSellerViewer ? (
             <>
               {((order.status as string) === 'pending' || order.status === 'processing') && onShipOrder && (
@@ -330,6 +316,18 @@ export default function OrderCard({
                 >
                   <Truck className="h-3.5 w-3.5 text-white" />
                   <span>Bàn giao GHN</span>
+                </Button>
+              )}
+              {order.status === 'disputed' && (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto rounded-xl border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+                    <span>Xem khiếu nại</span>
+                  </Link>
                 </Button>
               )}
               <Button
@@ -344,7 +342,7 @@ export default function OrderCard({
             </>
           ) : (
             <>
-              {/* Buyer: Urgent payment button only for pending online payments */}
+              {/* Buyer Actions */}
               {canShowImmediatePayment && (
                 <Button
                   type="button"
@@ -356,53 +354,57 @@ export default function OrderCard({
                 </Button>
               )}
 
-              {/* Buyer: Actions when DELIVERED or COMPLETED */}
-              {order.status === 'delivered' && (
-                <>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                  >
-                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                      <span>Yêu cầu trả hàng</span>
-                    </Link>
-                  </Button>
-
-                  {!order.reviewed && (
-                    <Button
-                      asChild
-                      className="h-auto rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                        <Star className="h-3.5 w-3.5 fill-white text-white" />
-                        <span>Đánh giá</span>
-                      </Link>
-                    </Button>
-                  )}
-                </>
-              )}
-
-              {order.status === 'completed' && !order.reviewed && (
+              {order.status === 'disputed' && (
                 <Button
                   asChild
-                  className="h-auto rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  variant="outline"
+                  className="h-auto rounded-xl border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                 >
-                  <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                    <Star className="h-3.5 w-3.5 fill-white text-white" />
-                    <span>Đánh giá ngay</span>
+                  <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+                    <span>Tiến độ khiếu nại</span>
                   </Link>
                 </Button>
               )}
 
-              {/* Buyer: Single primary button to view full order details */}
+              {order.status === 'delivered' && (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                    <span>Yêu cầu trả hàng</span>
+                  </Link>
+                </Button>
+              )}
+
+              {(order.status === 'delivered' || order.status === 'completed') && (
+                order.reviewed ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Đã đánh giá</span>
+                  </span>
+                ) : (
+                  <Button
+                    asChild
+                    className="h-auto rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <Star className="h-3.5 w-3.5 fill-white text-white" />
+                      <span>Đánh giá (+50 xu)</span>
+                    </Link>
+                  </Button>
+                )
+              )}
+
               <Button
                 asChild
                 className="h-auto rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white px-4 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 flex-1 sm:flex-initial"
               >
                 <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
-                  <span>Xem chi tiết đơn hàng</span>
+                  <span>Chi tiết</span>
                   <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
                 </Link>
               </Button>

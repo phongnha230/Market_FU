@@ -130,7 +130,11 @@ function ReviewContent() {
   const sellerInitial = (sellerName || 'N').trim()[0].toUpperCase();
 
   // Mã số sinh viên của người mua đang review
-  const buyerStudentId = userData?.studentId || (userData?.email ? userData.email.split('@')[0].toUpperCase() : 'HE172819');
+  const buyerStudentId =
+    userData?.studentId ||
+    userData?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() ||
+    (userData?.email ? userData.email.split('@')[0].toUpperCase() : '') ||
+    (userData?.id ? `SV${userData.id.slice(0, 6).toUpperCase()}` : 'SV_FPT');
   const anonymousCode = buyerStudentId.length > 4 ? `${buyerStudentId.slice(0, 4)}**** (${userData?.campus || 'HL'})` : `${buyerStudentId}****`;
 
   const TAG_OPTIONS = [

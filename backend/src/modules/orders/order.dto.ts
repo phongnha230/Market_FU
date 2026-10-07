@@ -10,6 +10,10 @@ export const createOrderSchema = z
     agreedPrice: z.coerce.number().int().positive('Giá chốt phải lớn hơn 0').optional(),
     deliveryNote: z.string().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
     paymentMethod: z.enum(['VIETQR', 'PAYOS_WEB', 'CASH']).default('VIETQR'),
+    safePoint: z.string().max(200, 'Tên điểm Safe-Point không quá 200 ký tự').optional(),
+    meetupLocation: z.string().max(200, 'Địa điểm hẹn không quá 200 ký tự').optional(),
+    appointmentTime: z.string().optional(),
+    safePointHubId: z.string().optional(),
     shipping: z
       .object({
         receiverName: z.string().min(2, 'Tên người nhận phải có ít nhất 2 ký tự'),

@@ -1115,6 +1115,31 @@ export default function OrderDetailPage() {
                     </div>
                   )}
 
+                  {/* Case 5: DISPUTED (Đang khiếu nại / yêu cầu trả hàng) */}
+                  {isOrderDisputed && (
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-950 space-y-1.5">
+                        <p className="font-bold flex items-center gap-1.5 text-xs text-rose-800">
+                          <AlertTriangle className="h-4 w-4 text-rose-600" />
+                          <span>Đang chờ giải quyết khiếu nại & Trả hàng</span>
+                        </p>
+                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                          Bạn đã gửi hồ sơ yêu cầu trả hàng. Tiền cọc Escrow đã được tạm khóa bảo hộ 100%. BQT / CLB IT sẽ phản hồi và hướng dẫn xử lý trong vòng 24h.
+                        </p>
+                      </div>
+
+                      <Button
+                        asChild
+                        className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                          <ShieldAlert className="h-4 w-4 mr-1.5 text-white" />
+                          <span>Xem tiến độ trả hàng & khiếu nại</span>
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Safe-Handoff QR Modal button if direct trade */}
                   {order.type === 'safe-handoff' && order.status !== 'completed' && (
                     <Button

@@ -12,6 +12,8 @@ export interface CreateOrderPayload {
   orderType?: 'MEETUP' | 'SHIP_COD';
   paymentMethod?: string;
   safePoint?: string;
+  meetupLocation?: string;
+  appointmentTime?: string;
   deliveryNote?: string;
   note?: string;
   coinsUsed?: number;
@@ -139,6 +141,9 @@ export const orderMobileService = {
       paymentMethod,
       coinsUsed: Math.max(0, Number(payload.coinsUsed) || 0),
       deliveryNote: payload.deliveryNote || payload.note || payload.safePoint || 'Giao dịch qua Chợ FPT',
+      safePoint: payload.safePoint,
+      meetupLocation: payload.meetupLocation || payload.safePoint,
+      appointmentTime: payload.appointmentTime,
     };
 
     if (orderType === 'SHIP_COD') {

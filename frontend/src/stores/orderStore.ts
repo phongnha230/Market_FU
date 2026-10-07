@@ -14,7 +14,10 @@ export interface OrderItem {
   type: 'inter-campus' | 'safe-handoff';
   typeLabel: string;
   timeLabel: string;
-  status: 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed';
+  appointmentTime?: string;
+  meetupLocation?: string;
+  safePointHubId?: string;
+  status: 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed' | 'cancelled';
   statusText: string;
   statusColor: string;
   reviewed?: boolean;
@@ -120,7 +123,7 @@ export const useOrderStore = create<OrderState>()(
                 SHIPPING: 'shipping',
                 DELIVERED: 'delivered',
                 COMPLETED: 'completed',
-                CANCELLED: 'processing',
+                CANCELLED: 'cancelled',
                 DISPUTED: 'disputed',
               };
               const statusColorMap: Record<string, string> = {
@@ -139,10 +142,17 @@ export const useOrderStore = create<OrderState>()(
                 type: bo.orderType === 'SHIP_COD' ? 'inter-campus' : 'safe-handoff',
                 typeLabel: bo.orderType === 'SHIP_COD' ? 'Inter-Campus Express • FPT CampusShip' : 'Nội bộ Campus - Safe Handoff',
                 timeLabel: new Date(bo.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
+                appointmentTime: (bo as any).appointmentTime
+                  ? new Date((bo as any).appointmentTime).toISOString()
+                  : undefined,
+                meetupLocation: (bo as any).meetupLocation || bo.product?.meetupLocation,
+                safePointHubId: (bo as any).safePointHubId,
                 status: statusMap[bo.status] || 'processing',
                 statusText:
                   bo.status === 'COMPLETED'
                     ? 'Giao dịch thành công'
+                    : bo.status === 'CANCELLED'
+                    ? 'Đã hủy đơn'
                     : bo.status === 'PAID'
                     ? 'Đã nạp Escrow bảo hộ'
                     : bo.status === 'SHIPPING'

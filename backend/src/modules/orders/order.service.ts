@@ -84,7 +84,19 @@ export class OrderService {
    * 1. Tạo đơn hàng mới (MEETUP hoặc SHIP_COD)
    */
   async createOrder(buyerId: string, input: CreateOrderInput) {
-    const { productId, orderType, coinsUsed = 0, deliveryNote, paymentMethod = 'VIETQR', shipping, agreedPrice } = input;
+    const {
+      productId,
+      orderType,
+      coinsUsed = 0,
+      deliveryNote,
+      paymentMethod = 'VIETQR',
+      shipping,
+      agreedPrice,
+      safePoint,
+      meetupLocation,
+      appointmentTime,
+      safePointHubId,
+    } = input;
 
     // B5-REDIS: Thu thập Distributed Lock trên sản phẩm để ngăn chặn Race Condition (2 người cùng tranh mua 1 món đồ độc bản)
     const lock = await acquireLock(`lock:product:${productId}`, 6000);
@@ -107,6 +119,7 @@ export class OrderService {
         status: true,
         campus: true,
         sellerId: true,
+        meetupLocation: true,
       },
     });
 
@@ -179,19 +192,25 @@ export class OrderService {
               buyerId,
             },
             OR: [
+              // 1. Người bán chủ động gửi đề xuất mức giá này
               { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
+              // 2. Người bán xác nhận đồng ý bằng cú pháp hệ thống [OFFER_ACCEPTED]
               { senderId: product.sellerId, text: { contains: '[OFFER_ACCEPTED]' } },
-              { senderId: buyerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
+              // 3. Người bán xác nhận đồng ý chốt giá trong tin nhắn văn bản
+              { senderId: product.sellerId, text: { contains: `${agreedPrice.toLocaleString('vi-VN')}` } },
             ],
           },
         });
 
         if (verifiedOffer) {
           finalProductPrice = agreedPrice;
+        } else {
+          console.warn(`⚠️ Mức giá ${agreedPrice} chưa được người bán chấp thuận trong chat, giữ nguyên giá gốc niêm yết: ${product.price}`);
+          finalProductPrice = product.price;
         }
       } catch (checkErr) {
-        console.warn('⚠️ Lỗi kiểm tra offer trong chat, sử dụng giá agreedPrice nếu hợp lệ:', checkErr);
-        finalProductPrice = agreedPrice;
+        console.warn('⚠️ Lỗi kiểm tra offer trong chat, an toàn giữ nguyên giá niêm yết:', checkErr);
+        finalProductPrice = product.price;
       }
     }
 
@@ -311,6 +330,9 @@ export class OrderService {
           orderType,
           status: 'PENDING',
           warrantyHours: orderType === 'SHIP_COD' ? 48 : 24,
+          appointmentTime: appointmentTime ? new Date(appointmentTime) : undefined,
+          meetupLocation: meetupLocation || safePoint || (orderType === 'MEETUP' ? product.meetupLocation : undefined),
+          safePointHubId: safePointHubId || undefined,
           payment: {
             price: finalProductPrice,
             shippingFee,
@@ -647,25 +669,8 @@ export class OrderService {
         data: { reputationScore: { increment: 5 } },
       });
 
-      // Giải ngân Escrow: cộng tiền/xu cho người bán nếu đơn đã thanh toán trước (online)
-      const earnedCoins = Math.floor(order.payment.totalAmount / 1000);
-      if (order.payment.isPaid && earnedCoins > 0) {
-        const updatedSeller = await tx.profile.update({
-          where: { userId: order.sellerId },
-          data: { campusCoins: { increment: earnedCoins } },
-        });
-
-        await tx.coinTransaction.create({
-          data: {
-            userId: order.sellerId,
-            amount: earnedCoins,
-            balanceAfter: updatedSeller.campusCoins,
-            type: 'BONUS',
-            description: `Giải ngân Escrow đơn hàng #${order.orderCode} (${order.payment.totalAmount.toLocaleString('vi-VN')} đ)`,
-            referenceId: order.id,
-          },
-        });
-      }
+      // Giải ngân Escrow: Đơn hàng COMPLETED -> tiền tự động ghi nhận vào Doanh thu Escrow của Người bán
+      // (FPT Coin là điểm tích lũy dùng mua hàng, không cộng tiền bán hàng vào campusCoins)
 
       return resOrder;
     });
@@ -1052,26 +1057,8 @@ export class OrderService {
         data: { reputationScore: { increment: 5 } },
       });
 
-      // Giải ngân Escrow: cộng tiền/xu cho người bán khi người mua xác nhận nhận hàng
-      const earnedCoins = Math.floor(order.payment.totalAmount / 1000);
-      if (order.payment.isPaid && earnedCoins > 0) {
-        const updatedSeller = await tx.profile.update({
-          where: { userId: order.sellerId },
-          data: { campusCoins: { increment: earnedCoins } },
-        });
-
-        await tx.coinTransaction.create({
-          data: {
-            userId: order.sellerId,
-            amount: earnedCoins,
-            balanceAfter: updatedSeller.campusCoins,
-            type: 'BONUS',
-            description: `Giải ngân Escrow đơn hàng #${order.orderCode} (${order.payment.totalAmount.toLocaleString('vi-VN')} đ)`,
-            referenceId: order.id,
-          },
-        });
-      }
-
+      // Giải ngân Escrow: Đơn hàng COMPLETED -> tiền tự động ghi nhận vào Doanh thu Escrow của Người bán
+      // (FPT Coin là điểm tích lũy dùng mua hàng, không cộng tiền bán hàng vào campusCoins)
       return resOrder;
     });
 
@@ -1392,10 +1379,19 @@ export class OrderService {
     const totalOrders = orders.length;
     const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 100;
 
+    const withdrawals = await prisma.withdrawalRequest.findMany({
+      where: { userId: sellerId, status: { in: ['PENDING', 'APPROVED'] } },
+      select: { amount: true },
+    });
+    const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    const availableBalance = Math.max(0, totalRevenue - totalWithdrawn);
+
     return {
       totalRevenue,
       monthlyRevenue,
       pendingEscrow,
+      availableBalance,
+      totalWithdrawn,
       completionRate,
       counts: {
         total: totalOrders,

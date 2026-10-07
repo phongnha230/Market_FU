@@ -49,11 +49,14 @@ export const ReviewScreen: React.FC = () => {
   const [mediaList, setMediaList] = useState<ReviewMedia[]>([]);
 
   const buyerStudentId =
-    user?.studentId || (user?.email ? user.email.split('@')[0].toUpperCase() : 'HE172819');
+    user?.studentId ||
+    user?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() ||
+    (user?.email ? user.email.split('@')[0].toUpperCase() : '') ||
+    (user?.id ? `SV${user.id.slice(0, 6).toUpperCase()}` : 'SV_FPT');
   const anonymousBuyerCode =
     buyerStudentId.length > 4
       ? `${buyerStudentId.slice(0, 4)}**** (${user?.campus || 'HL'})`
-      : `${buyerStudentId}**** (HL)`;
+      : `${buyerStudentId}**** (${user?.campus || 'HL'})`;
 
   const hasVideo = mediaList.some((m) => m.isVideo);
   const bonusCoins = hasVideo ? 200 : 100;

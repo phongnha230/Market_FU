@@ -379,6 +379,11 @@ model Order {
   warrantyHours  Int            @default(24)
   warrantyEndsAt DateTime?
 
+  // Safe-Handoff Appointment & Meetup Location
+  appointmentTime DateTime?
+  meetupLocation  String?
+  safePointHubId  String?
+
   reviews        Review[]
   dispute        Dispute?
 

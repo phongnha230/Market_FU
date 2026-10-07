@@ -245,6 +245,12 @@ function CheckoutContent() {
           coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
           agreedPrice: isAgreedPriceApplied ? effectiveProductPrice : undefined,
           deliveryNote,
+          meetupLocation: isMeetup
+            ? (deliveryNote || `Safe-Point KTX / Khuôn viên ${CAMPUS_NAMES[destinationCode] || destinationCode}`)
+            : undefined,
+          safePoint: isMeetup
+            ? `Safe-Point KTX / Khuôn viên ${CAMPUS_NAMES[destinationCode] || destinationCode}`
+            : undefined,
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined

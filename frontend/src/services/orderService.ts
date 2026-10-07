@@ -10,6 +10,9 @@ export interface BackendOrder {
   status: 'PENDING' | 'PAID' | 'SHIPPING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
   warrantyHours: number;
   warrantyEndsAt?: string;
+  appointmentTime?: string;
+  meetupLocation?: string;
+  safePointHubId?: string;
   payment: {
     price: number;
     shippingFee: number;
@@ -77,6 +80,10 @@ export interface CreateOrderParams {
   coinsUsed?: number;
   agreedPrice?: number;
   deliveryNote?: string;
+  meetupLocation?: string;
+  safePoint?: string;
+  appointmentTime?: string;
+  safePointHubId?: string;
   paymentMethod?: 'VIETQR' | 'PAYOS_WEB' | 'CASH';
   shipping?: {
     receiverName: string;
@@ -218,6 +225,8 @@ export const orderService = {
     totalRevenue: number;
     monthlyRevenue: number;
     pendingEscrow: number;
+    availableBalance?: number;
+    totalWithdrawn?: number;
     completionRate: number;
     counts: {
       total: number;

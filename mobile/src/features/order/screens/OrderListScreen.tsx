@@ -140,6 +140,17 @@ const OrderCardItem: React.FC<{
             </TouchableOpacity>
           )}
 
+          {item.status === 'DISPUTED' && (
+            <TouchableOpacity
+              style={styles.disputeActiveBadge}
+              activeOpacity={0.8}
+              onPress={handlePress}
+            >
+              <Ionicons name="warning" size={11} color="#DC2626" style={{ marginRight: 2 }} />
+              <Text style={styles.disputeActiveBadgeText}>Đang khiếu nại</Text>
+            </TouchableOpacity>
+          )}
+
           {canBuyerReview && (
             <TouchableOpacity
               style={styles.reviewBtn}
@@ -149,6 +160,13 @@ const OrderCardItem: React.FC<{
               <Ionicons name="star" size={12} color="#FFFFFF" style={{ marginRight: 2 }} />
               <Text style={styles.reviewBtnText}>Đánh giá</Text>
             </TouchableOpacity>
+          )}
+
+          {isBuyer && item.isReviewed && (
+            <View style={styles.reviewedBadge}>
+              <Ionicons name="star" size={11} color="#EAB308" style={{ marginRight: 2 }} />
+              <Text style={styles.reviewedBadgeText}>Đã đánh giá</Text>
+            </View>
           )}
 
           <TouchableOpacity
@@ -598,6 +616,36 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  reviewedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  reviewedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  disputeActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  disputeActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   detailBtn: {
     flexDirection: 'row',

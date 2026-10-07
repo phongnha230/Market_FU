@@ -37,9 +37,10 @@ export function useCheckoutController() {
   const isDifferentCampus = route.params?.isDifferentCampus ?? false;
 
   const [selectedSafePoint, setSelectedSafePoint] = useState(
-    isDifferentCampus
-      ? 'Sảnh KTX Dom A (Cơ sở Hòa Lạc - Nhận từ FPT Bus)'
-      : 'Sảnh Tòa Alpha (Trạm Safe-Point có camera 24/7)'
+    route.params?.safePoint ||
+      (isDifferentCampus
+        ? 'Sảnh KTX Dom A (Cơ sở Hòa Lạc - Nhận từ FPT Bus)'
+        : 'Sảnh Tòa Alpha (Trạm Safe-Point có camera 24/7)')
   );
   const [selectedPayment, setSelectedPayment] = useState<'vietqr' | 'fptpay' | 'cash'>('fptpay');
   const [appliedVoucher, setAppliedVoucher] = useState<{
@@ -150,6 +151,7 @@ export function useCheckoutController() {
         orderType: isDifferentCampus ? 'SHIP_COD' : 'MEETUP',
         paymentMethod: selectedPayment === 'vietqr' ? 'VIETQR' : selectedPayment === 'fptpay' ? 'PAYOS_WEB' : 'CASH',
         safePoint: selectedSafePoint,
+        meetupLocation: selectedSafePoint,
         deliveryNote: `Hẹn gặp tại: ${selectedSafePoint}`,
         voucherCode: appliedVoucher?.code,
         isDifferentCampus,

@@ -24,19 +24,24 @@ const CancelledBanner: React.FC<CancelledBannerProps> = React.memo(() => (
 CancelledBanner.displayName = 'CancelledBanner';
 
 interface DisputedBannerProps {
+  isSeller?: boolean;
   onWithdrawDispute?: () => void;
 }
 
-const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ onWithdrawDispute }) => (
+const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, onWithdrawDispute }) => (
   <View style={styles.disputedBanner}>
     <View style={styles.disputedHeader}>
       <Ionicons name="warning" size={20} color="#D97706" />
-      <Text style={styles.disputedTitle}>Đơn hàng đang có khiếu nại</Text>
+      <Text style={styles.disputedTitle}>
+        {isSeller ? 'Đơn bán đang có khiếu nại đổi trả' : 'Đơn hàng đang có khiếu nại'}
+      </Text>
     </View>
     <Text style={styles.disputedSub}>
-      BQT đang thẩm tra bằng chứng giao nhận. Nếu bạn và đối tác đã tự thương lượng xong, bạn có thể tự rút đơn khiếu nại bên dưới.
+      {isSeller
+        ? 'Người mua đã gửi yêu cầu khiếu nại và đổi trả. Tiền Escrow tạm khóa bảo hộ. Bạn có thể nhắn tin cho người mua để cùng trao đổi xử lý.'
+        : 'BQT đang thẩm tra bằng chứng giao nhận. Nếu bạn và đối tác đã tự thương lượng xong, bạn có thể tự rút đơn khiếu nại bên dưới.'}
     </Text>
-    {onWithdrawDispute && (
+    {!isSeller && onWithdrawDispute && (
       <TouchableOpacity
         style={styles.withdrawDisputeBtn}
         activeOpacity={0.85}
@@ -195,7 +200,9 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
     <View style={styles.actionContainer}>
       {isCancelled && <CancelledBanner />}
 
-      {isDisputed && <DisputedBanner onWithdrawDispute={onWithdrawDispute} />}
+      {isDisputed && (
+        <DisputedBanner isSeller={isSeller} onWithdrawDispute={onWithdrawDispute} />
+      )}
 
       <PrimaryActionButton
         orderStatus={orderStatus}

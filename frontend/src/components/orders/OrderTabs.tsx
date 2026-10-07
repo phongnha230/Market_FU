@@ -36,6 +36,7 @@ export default function OrderTabs({
     { id: 'shipping', label: `Đang ship (${filterCounts?.shipping ?? 0})` },
     { id: 'inspecting', label: `Đồng kiểm (${filterCounts?.inspecting ?? 0})` },
     { id: 'delivered', label: `Đã giao & Đánh giá (${filterCounts?.delivered ?? 0})` },
+    { id: 'disputed', label: `Trả hàng / Khiếu nại (${filterCounts?.disputed ?? 0})` },
   ];
 
   return (
