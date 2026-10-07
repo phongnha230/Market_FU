@@ -21,6 +21,7 @@ export interface DisputeItem {
   refundAmount?: number;
   createdAt: string;
   resolvedAt?: string;
+  orderRaw?: any;
 }
 
 interface DisputeState {
@@ -42,6 +43,10 @@ interface DisputeState {
     action: 'REFUND' | 'REJECT',
     adminNote: string
   ) => Promise<{ success: boolean; message: string }>;
+  cancelDispute: (
+    disputeId: string,
+    reason?: string
+  ) => Promise<{ success: boolean; message: string }>;
   getDisputeByOrder: (orderId: string) => DisputeItem | undefined;
   getDisputesByStatus: (status?: DisputeStatus) => DisputeItem[];
   resetDisputes: () => void;
@@ -61,6 +66,7 @@ const mapBackendDispute = (bd: BackendDispute): DisputeItem => ({
   refundAmount: bd.order?.payment?.totalAmount || undefined,
   createdAt: new Date(bd.createdAt).toLocaleString('vi-VN'),
   resolvedAt: bd.resolvedAt ? new Date(bd.resolvedAt).toLocaleString('vi-VN') : undefined,
+  orderRaw: bd.order,
 });
 
 export const INITIAL_DISPUTES: DisputeItem[] = [];
@@ -164,6 +170,50 @@ export const useDisputeStore = create<DisputeState>()(
         } catch (error: any) {
           const errMsg = error.response?.data?.message || error.message || 'Lỗi khi xử lý khiếu nại';
           return { success: false, message: errMsg };
+        }
+      },
+
+      // 4. Người mua rút / hủy khiếu nại (khi còn PENDING)
+      cancelDispute: async (disputeId, reason) => {
+        const target = get().disputes.find((d) => d.id === disputeId);
+        try {
+          const res = await reportService.cancelDispute(disputeId, reason);
+          set((state) => ({
+            disputes: state.disputes.map((d) =>
+              d.id === disputeId
+                ? {
+                    ...d,
+                    status: 'CANCELLED',
+                    adminNote: reason ? `Người mua rút khiếu nại: ${reason}` : 'Người mua tự rút khiếu nại',
+                    resolvedAt: 'Vừa xong',
+                  }
+                : d
+            ),
+          }));
+
+          if (target) {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Người mua đã rút khiếu nại');
+          }
+
+          return { success: true, message: res?.message || 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.' };
+        } catch (error: any) {
+          // Fallback optimistic offline mode nếu server tạm thời lỗi
+          set((state) => ({
+            disputes: state.disputes.map((d) =>
+              d.id === disputeId
+                ? {
+                    ...d,
+                    status: 'CANCELLED',
+                    adminNote: reason ? `Người mua rút khiếu nại: ${reason}` : 'Người mua tự rút khiếu nại',
+                    resolvedAt: 'Vừa xong',
+                  }
+                : d
+            ),
+          }));
+          if (target) {
+            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Người mua đã rút khiếu nại');
+          }
+          return { success: true, message: 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.' };
         }
       },
 

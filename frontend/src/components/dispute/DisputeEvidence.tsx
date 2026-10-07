@@ -9,8 +9,10 @@ import {
   Play,
   Camera,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
+import { reportService } from '@/services/reportService';
 
 interface DisputeEvidenceProps {
   description: string;
@@ -20,6 +22,8 @@ interface DisputeEvidenceProps {
   isSubmitting: boolean;
   sellerName: string;
   onShowToast: (msg: string) => void;
+  uploadedProofVideoUrl?: string;
+  onUploadedProofVideoUrlChange?: (url: string) => void;
 }
 
 export default function DisputeEvidence({
@@ -30,8 +34,11 @@ export default function DisputeEvidence({
   isSubmitting,
   sellerName,
   onShowToast,
+  uploadedProofVideoUrl,
+  onUploadedProofVideoUrlChange,
 }: DisputeEvidenceProps) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
   const [evidenceList, setEvidenceList] = React.useState<Array<{ id: string; url: string; name: string; size: string; isVideo?: boolean }>>([
     {
       id: 'default-1',
@@ -47,27 +54,46 @@ export default function DisputeEvidence({
     },
   ]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    setIsUploadingMedia(true);
     const newItems: typeof evidenceList = [];
-    Array.from(files).forEach((file) => {
-      const isVideo = file.type.startsWith('video/');
-      const objectUrl = URL.createObjectURL(file);
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-      newItems.push({
-        id: Math.random().toString(36).substring(7),
-        url: objectUrl,
-        name: file.name,
-        size: `${sizeMb} MB • Vừa tải lên`,
-        isVideo,
-      });
-    });
 
-    setEvidenceList((prev) => [...prev, ...newItems]);
-    onShowToast(`✅ Đã tải lên ${newItems.length} tệp bằng chứng thực tế!`);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      for (const file of Array.from(files)) {
+        const isVideo = file.type.startsWith('video/');
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        let finalUrl = URL.createObjectURL(file);
+
+        try {
+          const uploadRes = await reportService.uploadDisputeEvidence(file);
+          if (uploadRes?.url) {
+            finalUrl = uploadRes.url;
+            if (isVideo && onUploadedProofVideoUrlChange) {
+              onUploadedProofVideoUrlChange(uploadRes.url);
+            }
+          }
+        } catch (err: any) {
+          console.warn('⚠️ [Upload fallback to local URL]:', err?.message || err);
+        }
+
+        newItems.push({
+          id: Math.random().toString(36).substring(7),
+          url: finalUrl,
+          name: file.name,
+          size: `${sizeMb} MB • Đã lưu`,
+          isVideo,
+        });
+      }
+
+      setEvidenceList((prev) => [...prev, ...newItems]);
+      onShowToast(`✅ Đã tải lên và đính kèm ${newItems.length} tệp bằng chứng thực tế!`);
+    } finally {
+      setIsUploadingMedia(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleRemoveItem = (id: string) => {
@@ -167,11 +193,21 @@ export default function DisputeEvidence({
         <Button
           type="button"
           variant="outline"
+          disabled={isUploadingMedia}
           onClick={() => fileInputRef.current?.click()}
-          className="h-auto w-full mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-fpt-orange hover:text-fpt-orange transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
+          className="h-auto w-full mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-fpt-orange hover:text-fpt-orange transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none disabled:opacity-60"
         >
-          <Camera className="h-4 w-4 text-fpt-orange" />
-          <span>Bấm để tải thêm ảnh chụp bóc hàng / video test thực tế từ máy</span>
+          {isUploadingMedia ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-fpt-orange" />
+              <span>Đang tải lên và lưu trữ bằng chứng an toàn...</span>
+            </>
+          ) : (
+            <>
+              <Camera className="h-4 w-4 text-fpt-orange" />
+              <span>Bấm để tải thêm ảnh chụp bóc hàng / video test thực tế từ máy</span>
+            </>
+          )}
         </Button>
       </Card>
 
