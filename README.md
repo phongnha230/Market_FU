@@ -1,26 +1,28 @@
 # 🎓 CAMPUS MARKETPLACE - HỆ THỐNG TRAO ĐỔI & THƯƠNG MẠI ĐIỆN TỬ SINH VIÊN
+
 > **Tài liệu đặc tả kiến trúc kỹ thuật, quy chuẩn hệ thống & lộ trình phát triển toàn diện**
 
 ---
 
 ## 📑 MỤC LỤC
+
 1. [Tổng quan dự án](#1-tổng-quan-dự-án)
 2. [Kiến trúc hệ thống tổng thể](#2-kiến-trúc-hệ-thống-tổng-thể)
 3. [Ngăn xếp công nghệ (Tech Stack)](#3-ngăn-xếp-công-nghệ-tech-stack)
-4. [Cấu trúc dự án & Tổ chức mã nguồn](#4-cấu-trúc-dự-án--tổ-chức-mã-nguồn)
-5. [Cơ chế Xác thực Thẻ Sinh viên & Phân tầng Người bán](#5-cơ-chế-xác-thực-thẻ-sinh-viên--phân-tầng-người-bán)
+4. [Cấu trúc dự án &amp; Tổ chức mã nguồn](#4-cấu-trúc-dự-án--tổ-chức-mã-nguồn)
+5. [Cơ chế Xác thực Thẻ Sinh viên &amp; Phân tầng Người bán](#5-cơ-chế-xác-thực-thẻ-sinh-viên--phân-tầng-người-bán)
 6. [Đặc tả Danh mục Sản phẩm Cốt lõi](#6-đặc-tả-danh-mục-sản-phẩm-cốt-lõi)
-7. [Quy trình Đăng Bán Đồ (AI Quick Post & 5 Bước Đăng Chuẩn)](#7-quy-trình-đăng-bán-đồ-ai-quick-post--5-bước-đăng-chuẩn)
-8. [Phân hệ Tin nhắn Thời gian thực & Phím tắt Mua Bán (P2P Chat)](#8-phân-hệ-tin-nhắn-thời-gian-thực--phím-tắt-mua-bán-p2p-chat)
-9. [Cơ chế Đánh Giá 2 Chiều & Hệ thống Phần Thưởng (Campus Coin & Karma)](#9-cơ-chế-đánh-giá-2-chiều--hệ-thống-phần-thưởng-campus-coin--karma)
+7. [Quy trình Đăng Bán Đồ (AI Quick Post &amp; 5 Bước Đăng Chuẩn)](#7-quy-trình-đăng-bán-đồ-ai-quick-post--5-bước-đăng-chuẩn)
+8. [Phân hệ Tin nhắn Thời gian thực &amp; Phím tắt Mua Bán (P2P Chat)](#8-phân-hệ-tin-nhắn-thời-gian-thực--phím-tắt-mua-bán-p2p-chat)
+9. [Cơ chế Đánh Giá 2 Chiều &amp; Hệ thống Phần Thưởng (Campus Coin &amp; Karma)](#9-cơ-chế-đánh-giá-2-chiều--hệ-thống-phần-thưởng-campus-coin--karma)
 10. [Phân hệ Trợ lý Thông minh AI (Campus AI Assistant)](#10-phân-hệ-trợ-lý-thông-minh-ai-campus-ai-assistant)
-11. [Quy chế Tự động Hết hạn & Gỡ tin sau 30 ngày (Auto-Expire)](#11-quy-chế-tự-động-hết-hạn--gỡ-tin-sau-30-ngày-auto-expire)
-12. [Phương Thức Mua Hàng & Thanh Toán (Nhận Hàng Rồi Mới Trả Tiền / COD)](#12-phương-thức-mua-hàng--thanh-toán-nhận-hàng-rồi-mới-trả-tiền--cod)
-13. [Quy trình Pass Đồ, Bao Test 24h-48h & Đổi Trả / Khiếu Nại](#13-quy-trình-pass-đồ-bao-test-24h-48h--đổi-trả--khiếu-nại)
+11. [Quy chế Tự động Hết hạn &amp; Gỡ tin sau 30 ngày (Auto-Expire)](#11-quy-chế-tự-động-hết-hạn--gỡ-tin-sau-30-ngày-auto-expire)
+12. [Phương Thức Mua Hàng &amp; Thanh Toán (Nhận Hàng Rồi Mới Trả Tiền / COD)](#12-phương-thức-mua-hàng--thanh-toán-nhận-hàng-rồi-mới-trả-tiền--cod)
+13. [Quy trình Pass Đồ, Bao Test 24h-48h &amp; Đổi Trả / Khiếu Nại](#13-quy-trình-pass-đồ-bao-test-24h-48h--đổi-trả--khiếu-nại)
 14. [Kiến trúc Thông báo Đa kênh (Multi-Channel Notification)](#14-kiến-trúc-thông-báo-đa-kênh-multi-channel-notification)
-15. [Quy chuẩn kỹ thuật & Tối ưu hóa hiệu năng](#15-quy-chuẩn-kỹ-thuật--tối-ưu-hóa-hiệu-năng)
+15. [Quy chuẩn kỹ thuật &amp; Tối ưu hóa hiệu năng](#15-quy-chuẩn-kỹ-thuật--tối-ưu-hóa-hiệu-năng)
 16. [Lộ trình triển khai (Roadmap)](#16-lộ-trình-triển-khai-roadmap)
-17. [Hướng dẫn cài đặt & Khởi chạy](#17-hướng-dẫn-cài-đặt--khởi-chạy)
+17. [Hướng dẫn cài đặt &amp; Khởi chạy](#17-hướng-dẫn-cài-đặt--khởi-chạy)
 
 ---
 
@@ -83,6 +85,7 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc **Tách biệt giao diện
 ## 3. NGĂN XẾP CÔNG NGHỆ (TECH STACK)
 
 ### 🌐 Frontend Web & Admin Portal
+
 * **Framework:** Next.js (App Router, TypeScript).
 * **Styling:** Tailwind CSS, Lucide React (Icons).
 * **Quản lý dữ liệu:** TanStack Query v5 (Caching, Automatic Refetch, Optimistic UI).
@@ -90,6 +93,7 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc **Tách biệt giao diện
 * **Real-time:** Socket.io-client.
 
 ### 📱 Mobile App (iOS / Android)
+
 * **Framework:** React Native / Expo (TypeScript, Expo SDK 52).
 * **Điều hướng:** React Navigation (Native Stack & Bottom Tabs).
 * **Giao diện & Hiệu năng:** `@gorhom/bottom-sheet`, `expo-image` (cache ảnh), `expo-image-picker`, `react-native-reanimated`.
@@ -98,6 +102,7 @@ Hệ thống tuân thủ nghiêm ngặt nguyên tắc **Tách biệt giao diện
 * **Real-time:** Socket.io-client.
 
 ### ⚙️ Backend Server & Notification Engine
+
 * **Nền tảng:** Node.js, Express.js (Kiến trúc Modular Monolith).
 * **Trí tuệ nhân tạo (AI):** **Google Gemini API** (`@google/generative-ai`) hỗ trợ Vision AI phân tích ảnh và Function Calling tra cứu sản phẩm.
 * **Thông báo Đa kênh:** **Firebase Admin SDK** (Push FCM) & **Nodemailer** (SMTP gửi Email giao dịch, duyệt thẻ SV).
@@ -260,11 +265,13 @@ Khung chat được thiết kế chuyên biệt cho giao dịch thương mại g
 Hệ thống Xu thưởng (**Campus Coins**) là cơ chế Gamification & Điểm thưởng nội bộ 100% tự chủ của MarketFU, nhằm khuyến khích văn hóa giao dịch tử tế và đánh giá trung thực giữa các sinh viên:
 
 ### 🪙 9.1 Cơ chế Kiếm Xu (Earn Coins)
+
 * **Người Bán:** Hoàn tất đơn hàng + nhận đánh giá 5 sao $\rightarrow$ Nhận **+5 đến +10 Điểm Uy Tín**.
 * **Người Mua:** Viết nhận xét có tâm $\ge 20$ từ + 1 ảnh thực tế $\rightarrow$ Nhận ngay **+100 Xu** (kèm video test máy: **+200 Xu**).
 * **Xác thực Thẻ Sinh Viên (KYC thành công):** Nhận ngay **+500 Xu** chào mừng tài khoản Cấp 2.
 
 ### 🛍️ 9.2 Công dụng tiêu Xu (100% Nội bộ tự chủ, không phụ thuộc bên thứ 3)
+
 1. **Đẩy tin bài đăng lên đầu trang (Bump Post) — 100 Xu:** Đưa món đồ đang bị trôi xuống dưới trở lại vị trí đầu trang chủ để tiếp cận sinh viên mới.
 2. **Ghim tin nổi bật 24 giờ (Pin to Top) — 300 Xu:** Đưa bài đăng vào mục *"Thanh lý gấp / Đồ hot trong ngày"* kèm huy hiệu viền cam nổi bật để bán nhanh trong ngày.
 3. **Khấu trừ tiền khi đặt đơn Online (VietQR / Napas / Ship COD):** 1 Xu = 1 VNĐ (được trừ tối đa 10% - 20% giá trị đơn hàng, chỉ áp dụng cho đơn thanh toán qua sàn).
