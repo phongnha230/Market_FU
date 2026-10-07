@@ -94,12 +94,29 @@ export default function ProductDetailPage() {
     }
   };
 
+  const user = useUserStore((s) => s.user);
+  const isEduEmail = Boolean(
+    user.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
+    user.email?.toLowerCase().endsWith('@fe.edu.vn')
+  );
+  const isVerifiedStudent = isEduEmail || user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
+
   const handleToggleFavorite = async () => {
     if (!product) return;
     const currentProduct = product;
     if (!isLoggedIn) {
       handleRequireAuth('favorite');
       showToast('🔒 Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích!', 'warning');
+      return;
+    }
+    const isOwner = Boolean(
+      user && (
+        (user.id && currentProduct.sellerId && user.id === currentProduct.sellerId) ||
+        (user.name && currentProduct.seller?.name && user.name.trim().toLowerCase() === currentProduct.seller.name.trim().toLowerCase())
+      )
+    );
+    if (isOwner) {
+      showToast('⚠️ Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!', 'warning');
       return;
     }
     const nextState = toggleFavoriteStore(currentProduct as any);
@@ -115,13 +132,6 @@ export default function ProductDetailPage() {
       nextState ? 'success' : 'info'
     );
   };
-
-  const user = useUserStore((s) => s.user);
-  const isEduEmail = Boolean(
-    user.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
-    user.email?.toLowerCase().endsWith('@fe.edu.vn')
-  );
-  const isVerifiedStudent = isEduEmail || user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
 
   const handleSendChat = async (msg: string) => {
     if (!product) return;

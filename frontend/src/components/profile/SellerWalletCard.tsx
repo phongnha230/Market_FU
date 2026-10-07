@@ -183,28 +183,48 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
           </div>
 
           {/* 3. TÀI KHOẢN NGÂN HÀNG LIÊN KẾT */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Building className="h-3.5 w-3.5 text-slate-500" />
-                  Tài khoản nhận tiền
-                </span>
-                <span className="rounded-full bg-emerald-100 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  Đã liên kết
-                </span>
+          {(() => {
+            const linkedBank = (currentUser as any)?.bankAccount || walletStore?.bankAccount;
+            const isBankLinked = Boolean(linkedBank?.accountNo);
+            return (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Building className="h-3.5 w-3.5 text-slate-500" />
+                      Tài khoản nhận tiền
+                    </span>
+                    {isBankLinked ? (
+                      <span className="rounded-full bg-emerald-100 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        Đã liên kết
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                        Chưa liên kết
+                      </span>
+                    )}
+                  </div>
+                  {isBankLinked ? (
+                    <>
+                      <div className="text-sm font-black text-slate-900 mt-2">
+                        {linkedBank?.bankName}
+                      </div>
+                      <div className="text-xs font-mono font-bold text-slate-600 mt-0.5">
+                        {linkedBank?.accountNo}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-slate-500 mt-2 font-medium">
+                      Chưa cài đặt số tài khoản ngân hàng nhận tiền giải ngân
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-slate-200">
+                  Chủ TK: {linkedBank?.accountName || currentUser.name || 'SINH VIEN FPT'}
+                </p>
               </div>
-              <div className="text-sm font-black text-slate-900 mt-2">
-                MB Bank (Quân Đội)
-              </div>
-              <div className="text-xs font-mono font-bold text-slate-600 mt-0.5">
-                0000305848243
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-slate-200">
-              Chủ TK: {currentUser.name || 'SINH VIEN FPT'}
-            </p>
-          </div>
+            );
+          })()}
         </div>
 
         {/* FPT Coin Wallet Distinction Banner */}

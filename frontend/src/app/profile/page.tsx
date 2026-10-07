@@ -45,6 +45,7 @@ import {
   Camera,
   Upload,
   Pencil,
+  Coins,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import EditProductModal from '@/components/modals/EditProductModal';
@@ -871,8 +872,93 @@ export default function ProfilePage() {
 
           {/* === RIGHT COLUMN: DYNAMIC TABS & CONTENT BASED ON ROLE (8 COLS) === */}
           <div className="lg:col-span-8 space-y-5">
-            {/* VÍ DOANH THU & KÝ QUỸ ESCROW (DÀNH CHO NGƯỜI BÁN & SINH VIÊN) */}
-            <SellerWalletCard onShowToast={showToast} />
+            {isSeller ? (
+              /* VÍ DOANH THU & KÝ QUỸ ESCROW (DÀNH CHO NGƯỜI BÁN) */
+              <SellerWalletCard onShowToast={showToast} />
+            ) : (
+              /* VÍ FPT COIN & BẢO HỘ TIỀN CỌC ESCROW (DÀNH CHO NGƯỜI MUA) */
+              <Card className="rounded-2xl border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-amber-500 to-orange-500 text-white shadow-xs">
+                      <Coins className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                          Ví Xu Mua Sắm & Bảo Hộ Tiền Cọc
+                        </h3>
+                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" /> Escrow An Toàn 100%
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Tích lũy xu giảm giá mua hàng và bảo hộ tiền cọc đơn mua đồ cũ trong trường FPT
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setKycModalRole('seller');
+                      setIsKycModalOpen(true);
+                    }}
+                    className="gap-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-fpt-orange border border-orange-200 text-xs font-bold px-3.5 py-2 h-auto"
+                  >
+                    <Store className="h-3.5 w-3.5" />
+                    <span>Mở Ví Bán Hàng (Seller)</span>
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Khối 1: Số dư FPT Coin */}
+                  <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                          <Coins className="h-3.5 w-3.5 text-amber-600" />
+                          FPT Coin mua sắm
+                        </span>
+                        <span className="rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                          Khấu trừ mua hàng
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-amber-950 mt-2 tracking-tight">
+                        {(userData.coins || 0).toLocaleString('vi-VN')} <span className="text-xs font-bold text-amber-700">Xu</span>
+                      </div>
+                      <div className="text-[11px] font-semibold text-amber-800/80 mt-0.5">
+                        Tương đương {(userData.coins || 0).toLocaleString('vi-VN')} đ giảm giá thanh toán
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-amber-700/80 mt-3 pt-2 border-t border-amber-200/60">
+                      ✓ Nhận qua điểm danh hàng ngày & hoàn tất đơn hàng
+                    </p>
+                  </div>
+
+                  {/* Khối 2: Bảo hộ tiền cọc Escrow đơn mua */}
+                  <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                          Bảo lãnh Tiền cọc Escrow
+                        </span>
+                        <span className="rounded-full bg-emerald-100 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          Bảo hộ 48h
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-700 font-semibold mt-2 leading-relaxed">
+                        Mọi khoản tiền bạn đặt cọc qua VietQR / PayOS đều được sàn tạm giữ an toàn 100%. Tiền cọc chỉ chuyển cho người bán sau khi bạn gặp kiểm tra đồ & bấm nhận hàng thành công.
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-emerald-700/80 mt-3 pt-2 border-t border-emerald-200/60">
+                      ✓ Chi tiết số tiền cọc hiển thị trực tiếp trong từng đơn mua
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {isSeller ? (
               /* SELLER VIEW */

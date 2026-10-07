@@ -2,7 +2,9 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { FavoriteItem } from '@/stores/favoriteStore';
+import { useUserStore } from '@/stores/userStore';
 import {
   Heart,
   MapPin,
@@ -10,6 +12,7 @@ import {
   Eye,
   Lock,
   Clock,
+  Settings,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AvatarFallback } from '@/components/ui';
 
@@ -29,6 +32,13 @@ export default function FavoriteCard({
   onFindSimilar,
 }: FavoriteCardProps) {
   const isReserved = item.status === 'reserved';
+  const currentUser = useUserStore((state) => state.user);
+  const isOwnProduct = Boolean(
+    currentUser && (
+      (currentUser.id && item.sellerId && currentUser.id === item.sellerId) ||
+      (currentUser.name && item.seller?.name && currentUser.name.trim().toLowerCase() === item.seller.name.trim().toLowerCase())
+    )
+  );
 
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + ' đ';
@@ -56,6 +66,11 @@ export default function FavoriteCard({
 
         {/* Top-left badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start z-10">
+          {isOwnProduct && (
+            <Badge className="rounded-md bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-xs border-none hover:bg-amber-500">
+              Tin của bạn
+            </Badge>
+          )}
           {item.badgeOrange && (
             <Badge className="rounded-md bg-fpt-orange px-2 py-0.5 text-[11px] font-bold text-white shadow-xs border-none hover:bg-fpt-orange">
               {item.badgeOrange}
@@ -177,6 +192,14 @@ export default function FavoriteCard({
               <Clock className="h-3.5 w-3.5" />
               <span>Đang tạm giữ chỗ</span>
             </Button>
+          ) : isOwnProduct ? (
+            <Link
+              href="/profile?tab=my-posts"
+              className="h-auto flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95 text-center"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Quản lý tin đăng</span>
+            </Link>
           ) : (
             <>
               <Button

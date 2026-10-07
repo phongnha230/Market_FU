@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useKycStore, KycType } from '@/stores/kycStore';
 import { useUserStore } from '@/stores/userStore';
+import { useWalletStore } from '@/stores/walletStore';
 import { profileService } from '@/services/profileService';
 import { cn } from '@/lib/utils';
 
@@ -362,13 +363,25 @@ export default function KycRegistrationModal({
       submittedAt: new Date().toLocaleString('vi-VN'),
     };
 
-    updateProfile({
+    const updates: any = {
       kycSubmittedData: submittedData,
       kycStatus: 'pending',
       kycRole: selectedRole,
       kycApplicationId: newApp.id,
       kycRejectionReason: undefined,
-    });
+    };
+
+    if (selectedRole === 'seller' && bankAccount.trim()) {
+      const bankData = {
+        bankName: bankName.trim(),
+        accountNo: bankAccount.trim(),
+        accountName: bankAccountName.trim().toUpperCase() || fullName.trim().toUpperCase(),
+      };
+      updates.bankAccount = bankData;
+      useWalletStore.getState().setBankAccount(bankData as any);
+    }
+
+    updateProfile(updates);
 
     // Update user state to pending
     setKycStatus('pending', selectedRole, newApp.id);

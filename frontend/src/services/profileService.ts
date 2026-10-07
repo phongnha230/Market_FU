@@ -34,7 +34,10 @@ export const profileService = {
         const profile = adaptBackendUser(userData);
         useUserStore.getState().setUser(profile);
         import('@/stores/walletStore').then(({ useWalletStore }) => {
-          useWalletStore.setState({ campusCoins: profile.coins });
+          useWalletStore.setState({
+            campusCoins: profile.coins,
+            ...(profile.bankAccount?.accountNo ? { bankAccount: profile.bankAccount as any } : {}),
+          });
         }).catch(() => {});
         return profile;
       }
@@ -45,7 +48,10 @@ export const profileService = {
     const profile = adaptBackendUser(userData);
     useUserStore.getState().setUser(profile);
     import('@/stores/walletStore').then(({ useWalletStore }) => {
-      useWalletStore.setState({ campusCoins: profile.coins });
+      useWalletStore.setState({
+        campusCoins: profile.coins,
+        ...(profile.bankAccount?.accountNo ? { bankAccount: profile.bankAccount as any } : {}),
+      });
     }).catch(() => {});
     return profile;
   },

@@ -80,6 +80,8 @@ interface OrderState {
     type?: 'inter-campus' | 'safe-handoff';
     deliveryNote?: string;
     paymentMethod?: string;
+    appointmentTime?: string;
+    meetupLocation?: string;
   }) => OrderItem;
   updateOrderStatus: (idOrCode: string, status: OrderItem['status'], statusText?: string) => void;
   markOrderReviewed: (idOrCode: string) => void;
@@ -273,7 +275,7 @@ export const useOrderStore = create<OrderState>()(
         };
       },
 
-      createOrder: ({ product, type = 'inter-campus', deliveryNote, paymentMethod }) => {
+      createOrder: ({ product, type = 'inter-campus', deliveryNote, paymentMethod, appointmentTime, meetupLocation }) => {
         const randomNum = Math.floor(10000 + Math.random() * 90000);
         const newCode = `#ORD-${randomNum}-CAMPUS`;
         const newId = `ord-${Date.now()}`;
@@ -288,6 +290,8 @@ export const useOrderStore = create<OrderState>()(
               ? 'Inter-Campus Express • FPT CampusShip'
               : 'Nội bộ Campus - Safe Handoff',
           timeLabel: 'Vừa tạo xong',
+          appointmentTime,
+          meetupLocation,
           status: 'shipping',
           statusText: type === 'inter-campus' ? 'Đang chuẩn bị đóng thùng KTX' : 'Chờ gặp tại điểm hẹn',
           statusColor: 'text-fpt-orange',

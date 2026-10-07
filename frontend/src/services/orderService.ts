@@ -187,12 +187,29 @@ export const orderService = {
   },
 
   // 8.1. Lấy đánh giá của người dùng để hiển thị trên Hồ sơ (Profile Reviews)
-  async getUserReviews(userId: string): Promise<any[]> {
+  async getUserReviews(
+    userId: string,
+    params?: { type?: 'received' | 'given' | 'all'; rating?: number; hasImages?: boolean; page?: number; limit?: number }
+  ): Promise<{
+    reviews: any[];
+    meta?: any;
+    stats?: {
+      totalReceived: number;
+      averageRating: number | null;
+      ratingDistribution: Record<number, number>;
+    };
+  }> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>(`/reviews/user/${userId}`);
-      return response.data.data?.reviews || response.data.data || [];
+      const response = await apiClient.get<ApiResponse<any>>(`/reviews/user/${userId}`, { params });
+      const reviews = Array.isArray(response.data.data) ? response.data.data : response.data.data?.reviews || [];
+      const stats = response.data.meta?.stats || null;
+      return {
+        reviews,
+        meta: response.data.meta,
+        stats,
+      };
     } catch {
-      return [];
+      return { reviews: [], stats: undefined };
     }
   },
 

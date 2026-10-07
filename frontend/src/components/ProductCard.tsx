@@ -27,6 +27,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isLiked = useFavoriteStore((state) => state.isFavorite(product.id));
   const toggleFavorite = useFavoriteStore((state) => state.toggleFavorite);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const currentUser = useUserStore((state) => state.user);
   const { showToast } = useMarket();
 
   // Format currency: 180000 -> 180.000 đ
@@ -112,6 +113,16 @@ export default function ProductCard({ product }: ProductCardProps) {
               showToast('🔒 Vui lòng đăng nhập để lưu sản phẩm vào danh sách yêu thích!', 'warning');
               return;
             }
+            const isOwnProduct = Boolean(
+              currentUser && (
+                (currentUser.id && product.sellerId && currentUser.id === product.sellerId) ||
+                (currentUser.name && product.seller?.name && currentUser.name.trim().toLowerCase() === product.seller.name.trim().toLowerCase())
+              )
+            );
+            if (isOwnProduct) {
+              showToast('⚠️ Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!', 'warning');
+              return;
+            }
             const res = toggleFavorite(product);
             if (res) {
               showToast('❤️ Đã thêm vào danh sách yêu thích!', 'success');
@@ -169,18 +180,22 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           {/* Seller Info Row */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Avatar size="sm" className="h-5 w-5 text-[10px]">
+            <Link
+              href={`/sellers/${product.sellerId || encodeURIComponent(product.seller.name)}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1.5 min-w-0 hover:text-fpt-orange transition-colors group/seller"
+            >
+              <Avatar size="sm" className="h-5 w-5 text-[10px] group-hover/seller:ring-1 group-hover/seller:ring-fpt-orange">
                 <AvatarFallback className="bg-slate-100 text-slate-700 border border-slate-200 font-bold">
                   {product.seller.initial}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-medium text-slate-700 truncate">
+              <span className="font-medium text-slate-700 group-hover/seller:text-fpt-orange truncate">
                 {product.seller.name}
               </span>
               <span className="text-slate-400 shrink-0">•</span>
               <span className="text-slate-500 shrink-0">{product.seller.cohort}</span>
-            </div>
+            </Link>
 
             {/* Verified Student Badge */}
             {product.seller.verified && (

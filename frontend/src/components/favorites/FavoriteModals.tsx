@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FavoriteItem } from '@/stores/favoriteStore';
-import { X, Send, MapPin, Bell } from 'lucide-react';
+import { useUserStore } from '@/stores/userStore';
+import { X, Send, MapPin, Bell, AlertCircle } from 'lucide-react';
 
 interface FavoriteModalsProps {
   chattingItem: FavoriteItem | null;
@@ -51,93 +52,138 @@ export default function FavoriteModals({
     setAlertKeyword('');
   };
 
+  const currentUser = useUserStore((state) => state.user);
+  const isOwnChatting = Boolean(
+    chattingItem &&
+    currentUser &&
+    (
+      (currentUser.id && chattingItem.sellerId && currentUser.id === chattingItem.sellerId) ||
+      (currentUser.name && chattingItem.seller.name && currentUser.name.trim().toLowerCase() === chattingItem.seller.name.trim().toLowerCase())
+    )
+  );
+
   return (
     <>
       {/* QUICK CHAT MODAL */}
       {chattingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-slate-50/80">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`h-8 w-8 rounded-full ${chattingItem.seller.avatarColor} text-xs font-bold text-white flex items-center justify-center`}
-                >
-                  {chattingItem.seller.initials}
+            {isOwnChatting ? (
+              <div className="p-6 text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-3">
+                  <AlertCircle className="w-6 h-6" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {chattingItem.seller.name}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    {chattingItem.seller.cohort} · {chattingItem.location}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Link
-                  href={`/chat?seller=${encodeURIComponent(chattingItem.seller.name)}`}
-                  className="text-[11px] font-bold text-fpt-orange hover:underline px-2 py-1 rounded-lg hover:bg-orange-50 transition"
-                >
-                  Mở tin nhắn đầy đủ ↗
-                </Link>
-                <button
-                  type="button"
-                  onClick={onCloseChat}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Product summary card in chat */}
-            <div className="p-4 bg-orange-50/40 border-b border-orange-100/60 flex items-center gap-3">
-              <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-slate-200 shrink-0">
-                <Image
-                  src={chattingItem.imageUrl}
-                  alt={chattingItem.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-bold text-slate-800 truncate">
-                  {chattingItem.title}
-                </h4>
-                <p className="text-xs font-extrabold text-fpt-orange">
-                  {formatVND(chattingItem.price)}
+                <h3 className="text-base font-bold text-slate-900 mb-1">
+                  Đây là sản phẩm của chính bạn
+                </h3>
+                <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                  Bạn là người đăng bán món đồ này. Hệ thống không cho phép tự gửi tin nhắn hỏi mua sản phẩm của chính mình.
                 </p>
+                <div className="flex items-center gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={onCloseChat}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  >
+                    Đóng
+                  </button>
+                  <Link
+                    href="/profile?tab=my-posts"
+                    onClick={onCloseChat}
+                    className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition"
+                  >
+                    Quản lý tin đăng
+                  </Link>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-slate-50/80">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`h-8 w-8 rounded-full ${chattingItem.seller.avatarColor} text-xs font-bold text-white flex items-center justify-center`}
+                    >
+                      {chattingItem.seller.initials}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {chattingItem.seller.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        {chattingItem.seller.cohort} · {chattingItem.location}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/chat?seller=${encodeURIComponent(chattingItem.seller.name)}`}
+                      className="text-[11px] font-bold text-fpt-orange hover:underline px-2 py-1 rounded-lg hover:bg-orange-50 transition"
+                    >
+                      Mở tin nhắn đầy đủ ↗
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={onCloseChat}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
 
-            {/* Chat Body */}
-            <div className="p-4 space-y-3 max-h-60 overflow-y-auto">
-              <div className="rounded-xl bg-slate-100 p-3 text-xs text-slate-700 max-w-[85%]">
-                Xin chào bạn! Mình đang pass món này tại cơ sở Hola, bạn muốn xem trực tiếp ở đâu nhỉ?
-              </div>
-            </div>
+                {/* Product summary card in chat */}
+                <div className="p-4 bg-orange-50/40 border-b border-orange-100/60 flex items-center gap-3">
+                  <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                    <Image
+                      src={chattingItem.imageUrl}
+                      alt={chattingItem.title}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-slate-800 truncate">
+                      {chattingItem.title}
+                    </h4>
+                    <p className="text-xs font-extrabold text-fpt-orange">
+                      {formatVND(chattingItem.price)}
+                    </p>
+                  </div>
+                </div>
 
-            {/* Form */}
-            <form
-              onSubmit={handleSendChat}
-              className="p-4 border-t border-slate-100 flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                placeholder={`Nhắn hỏi mua với ${chattingItem.seller.name}...`}
-                className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-fpt-orange"
-                autoFocus
-              />
-              <button
-                type="submit"
-                className="rounded-xl bg-fpt-orange p-2 text-white hover:bg-fpt-orange-hover transition cursor-pointer"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
+                {/* Chat Body */}
+                <div className="p-4 space-y-3 max-h-60 overflow-y-auto">
+                  <div className="rounded-xl bg-orange-50/70 border border-orange-200/60 p-3 text-xs text-slate-700 max-w-[95%]">
+                    💬 <span className="text-[11px] font-semibold text-slate-500">Gợi ý nhắn tin:</span>
+                    <p className="mt-1 font-medium text-slate-800">
+                      "Chào bạn {chattingItem.seller.name}! Mình quan tâm đến món <strong>{chattingItem.title}</strong> tại {chattingItem.location}. Món này còn không bạn?"
+                    </p>
+                  </div>
+                </div>
+
+                {/* Form */}
+                <form
+                  onSubmit={handleSendChat}
+                  className="p-4 border-t border-slate-100 flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    placeholder={`Nhắn hỏi mua với ${chattingItem.seller.name}...`}
+                    className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-fpt-orange"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-fpt-orange p-2 text-white hover:bg-fpt-orange-hover transition cursor-pointer"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

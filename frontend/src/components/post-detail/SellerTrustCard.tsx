@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { ProductDetail } from '@/types/product';
 import { useUserStore } from '@/stores/userStore';
 
@@ -20,6 +21,8 @@ export default function SellerTrustCard({
   const router = useRouter();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
 
+  const sellerProfileUrl = `/sellers/${encodeURIComponent(seller.id || seller.name)}`;
+
   const handleChatClick = (e: React.MouseEvent) => {
     if (!isLoggedIn) {
       e.preventDefault();
@@ -34,25 +37,27 @@ export default function SellerTrustCard({
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3.5">
       <div className="flex items-center justify-between">
-        <div
-          className="flex items-center gap-3"
+        <Link
+          href={sellerProfileUrl}
+          className="group flex items-center gap-3 transition cursor-pointer"
         >
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-fpt-blue text-sm font-black text-white shadow-xs">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-fpt-blue text-sm font-black text-white shadow-xs group-hover:scale-105 transition-transform">
             {seller.initial || seller.name[0]}
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 group-hover:text-fpt-orange transition-colors">
               {seller.name}
               {seller.verified && (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
               )}
+              <ChevronRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-fpt-orange transition-colors" />
             </h4>
             <span className="text-xs text-emerald-600 font-medium">
               🛡️ Sinh viên {seller.cohort} Đã xác minh FPT Mail
             </span>
           </div>
-        </div>
+        </Link>
 
         <button
           type="button"

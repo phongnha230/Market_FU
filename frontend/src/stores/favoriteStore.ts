@@ -4,6 +4,7 @@ import { ProductItem } from '@/types/product';
 
 export interface FavoriteItem {
   id: string;
+  sellerId?: string;
   title: string;
   category: 'books' | 'electronics' | 'dorm' | 'sports' | 'fashion' | 'hobbies' | 'services';
   price: number;
@@ -19,6 +20,7 @@ export interface FavoriteItem {
   inquiryCount?: number;
   location: string;
   seller: {
+    id?: string;
     name: string;
     cohort: string;
     studentIdMasked: string;
@@ -110,6 +112,7 @@ export const useFavoriteStore = create<FavoriteState>()(
             const p = product as ProductItem;
             newFav = {
               id: p.id,
+              sellerId: p.sellerId || (p.seller as any)?.id,
               title: p.title,
               category: 'electronics',
               price: p.price,
@@ -121,6 +124,7 @@ export const useFavoriteStore = create<FavoriteState>()(
               badgeOrange: p.badges?.[1],
               savedAt: new Date().toISOString(),
               seller: {
+                id: p.sellerId || (p.seller as any)?.id,
                 name: p.seller.name,
                 cohort: p.seller.cohort,
                 studentIdMasked: 'HE17****',

@@ -253,5 +253,6 @@ export function adaptBackendUser(user: any): UserProfile {
       soundEnabled: true,
       showMaskedId: true,
     },
+    bankAccount: profile.bankAccount || user.bankAccount || undefined,
   };
 }

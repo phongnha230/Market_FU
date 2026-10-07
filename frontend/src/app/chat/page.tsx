@@ -254,6 +254,7 @@ function ChatContent() {
             name: partnerName,
             role: otherRole,
             roleLabel: otherRoleLabel,
+            isMeSeller,
             cohortCampus: [c.otherUser?.cohort, c.otherUser?.campus].filter(Boolean).join(' • ') || (c.otherUser?.campus || 'FPT Campus'),
             avatar: partnerAvatar,
             isOnline: c.otherUser?.isOnline ?? true,
@@ -272,21 +273,69 @@ function ChatContent() {
               suggestedOffer: `${Math.round((c.product?.price || 100000) * 0.9).toLocaleString('vi-VN')} đ`,
             },
             messages: storeMsgs.length > 0
-              ? storeMsgs.map((m) => {
-                  const isAccept = Boolean(m.text?.includes('[OFFER_ACCEPTED]') || m.text?.toLowerCase().includes('đồng ý mức giá') || m.text?.toLowerCase().includes('đồng ý chốt'));
-                  const isReject = Boolean(m.text?.includes('[OFFER_REJECTED]') || m.text?.toLowerCase().includes('từ chối đề xuất') || m.text?.toLowerCase().includes('chưa phù hợp'));
-                  return {
-                    id: m.id,
-                    sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
-                    text: m.text || '',
-                    time: m.createdAt,
-                    isOfferAccepted: isAccept,
-                    isOfferRejected: isReject,
-                    offerPrice: m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined,
-                    numericOfferPrice: m.offerPrice,
-                    productTicket: m.productTicket,
-                  };
-                })
+              ? (() => {
+                  return storeMsgs.map((m, idx) => {
+                    const isAcceptMsg = Boolean(
+                      m.text?.includes('[OFFER_ACCEPTED]') ||
+                      m.text?.toLowerCase().includes('đồng ý mức giá') ||
+                      m.text?.toLowerCase().includes('đồng ý chốt')
+                    );
+                    const isRejectMsg = Boolean(
+                      m.text?.includes('[OFFER_REJECTED]') ||
+                      m.text?.toLowerCase().includes('từ chối đề xuất') ||
+                      m.text?.toLowerCase().includes('chưa phù hợp')
+                    );
+
+                    const hasOfferPrice = Boolean(m.offerPrice || m.messageType === 'OFFER_PRICE');
+
+                    // Kiểm tra xem sau tin nhắn này có phản hồi đồng ý hoặc từ chối hay không
+                    const laterMsgs = storeMsgs.slice(idx + 1);
+                    const isLaterAccepted = laterMsgs.some((later) =>
+                      Boolean(
+                        later.text?.includes('[OFFER_ACCEPTED]') ||
+                        later.text?.toLowerCase().includes('đồng ý mức giá') ||
+                        later.text?.toLowerCase().includes('đồng ý chốt')
+                      )
+                    );
+                    const isLaterRejected = laterMsgs.some((later) =>
+                      Boolean(
+                        later.text?.includes('[OFFER_REJECTED]') ||
+                        later.text?.toLowerCase().includes('từ chối đề xuất') ||
+                        later.text?.toLowerCase().includes('chưa phù hợp')
+                      )
+                    );
+
+                    // Thẻ đề xuất giá ban đầu sẽ đổi trạng thái khi có tin nhắn sau phản hồi
+                    const isOfferAccepted = hasOfferPrice ? (isLaterAccepted || isAcceptMsg) : isAcceptMsg;
+                    const isOfferRejected = hasOfferPrice ? isLaterRejected : false;
+
+                    // Đảm bảo có mức giá hiển thị nếu tin nhắn có đề xuất
+                    let displayPrice = m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined;
+                    let numPrice = m.offerPrice;
+                    if (!displayPrice && m.text && hasOfferPrice) {
+                      const match = m.text.match(/(\d{1,3}(?:\.\d{3})+|\d+)\s*đ?/);
+                      if (match) {
+                        const parsed = parseInt(match[1].replace(/\./g, ''), 10);
+                        if (!isNaN(parsed) && parsed > 0) {
+                          displayPrice = `${parsed.toLocaleString('vi-VN')} đ`;
+                          numPrice = parsed;
+                        }
+                      }
+                    }
+
+                    return {
+                      id: m.id,
+                      sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
+                      text: m.text || '',
+                      time: m.createdAt,
+                      isOfferAccepted,
+                      isOfferRejected,
+                      offerPrice: displayPrice,
+                      numericOfferPrice: numPrice,
+                      productTicket: m.productTicket,
+                    };
+                  });
+                })()
               : [],
           };
         });
@@ -411,14 +460,36 @@ function ChatContent() {
     const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
     const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
 
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    // Cập nhật trạng thái tin nhắn ngay lập tức trong local state để chuyển thẻ vàng thành thẻ xanh chốt giá
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConv.id) {
+          return {
+            ...c,
+            lastMessage: `Bạn: ${acceptText}`,
+            time: timeStr,
+            messages: c.messages.map((m) =>
+              m.id === msgId || (m.offerPrice && !m.isOfferAccepted && !m.isOfferRejected)
+                ? { ...m, isOfferAccepted: true, isOfferRejected: false }
+                : m
+            ),
+          };
+        }
+        return c;
+      })
+    );
+
+    // Gửi đúng 1 tin nhắn qua chatStore (tránh double call)
     chatStore.sendMessage({
       conversationId: activeConv.id,
       text: acceptText,
-      messageType: 'OFFER_PRICE',
+      messageType: 'TEXT',
       offerPrice,
     });
 
-    handleSendMessage(acceptText);
     showToast(`✅ Đã đồng ý mức giá ${formattedPrice}! Người mua đã nhận được nút đặt hàng theo giá mới.`, 'success');
   };
 
@@ -427,13 +498,35 @@ function ChatContent() {
     const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
     const rejectText = `[OFFER_REJECTED] Mức giá ${formattedPrice} chưa phù hợp bạn nhé. Bạn có thể thương lượng lại hoặc mua theo giá niêm yết nhé!`;
 
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    // Cập nhật trạng thái tin nhắn ngay lập tức trong local state để ẩn nút và chuyển thẻ sang màu đỏ từ chối
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConv.id) {
+          return {
+            ...c,
+            lastMessage: `Bạn: ${rejectText}`,
+            time: timeStr,
+            messages: c.messages.map((m) =>
+              m.id === msgId || (m.offerPrice && !m.isOfferAccepted && !m.isOfferRejected)
+                ? { ...m, isOfferRejected: true, isOfferAccepted: false }
+                : m
+            ),
+          };
+        }
+        return c;
+      })
+    );
+
+    // Gửi đúng 1 tin nhắn qua chatStore (tránh double call)
     chatStore.sendMessage({
       conversationId: activeConv.id,
       text: rejectText,
       messageType: 'TEXT',
     });
 
-    handleSendMessage(rejectText);
     showToast(`Đã từ chối mức giá đề xuất ${formattedPrice}.`, 'info');
   };
 
@@ -589,6 +682,7 @@ function ChatContent() {
                       product={activeConv.pinnedProduct}
                       partnerName={activeConv.name}
                       agreedPrice={activeAgreedPrice}
+                      isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                       onOfferPrice={(offer) => {
                         const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
                         chatStore.sendOfferPrice(activeConv.id, numericPrice);
@@ -613,7 +707,7 @@ function ChatContent() {
                   isTyping={isTypingOther}
                   containerRef={chatMessagesContainerRef}
                   productId={activeConv.pinnedProduct?.id}
-                  isSeller={activeConv.role === 'seller'}
+                  isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                   onAcceptOffer={handleAcceptOffer}
                   onRejectOffer={handleRejectOffer}
                 />

@@ -44,6 +44,11 @@ export interface UserProfile {
     soundEnabled: boolean;
     showMaskedId: boolean;
   };
+  bankAccount?: {
+    bankName?: string;
+    accountNo?: string;
+    accountName?: string;
+  };
 }
 
 interface UserState {

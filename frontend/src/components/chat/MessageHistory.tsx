@@ -161,31 +161,30 @@ export default function MessageHistory({
           if (msg.isOfferAccepted) {
             const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
             return (
-              <div key={msg.id} className="flex justify-center my-3">
-                <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 shadow-xs max-w-md w-full text-xs space-y-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                      <Tag className="h-4 w-4" />
+              <div key={msg.id} className="flex justify-center my-2.5">
+                <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200/90 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <CheckCircle2 className="h-4 w-4" />
                     </div>
-                    <div className="flex-1">
-                      <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        <span>Đã chốt giá thỏa thuận thành công!</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-extrabold text-emerald-950 text-xs">
+                        Đã chốt giá thỏa thuận
                       </div>
-                      <div className="text-[11px] text-emerald-800 mt-0.5">
-                        Mức giá được chấp nhận: <strong className="text-sm text-emerald-700">{msg.offerPrice}</strong>
+                      <div className="text-[11px] text-emerald-800 font-medium">
+                        Giá chốt: <strong className="text-emerald-700 font-extrabold text-xs">{msg.offerPrice}</strong>
                       </div>
                     </div>
                   </div>
 
                   {!isSeller && productId && numericPrice > 0 && (
-                    <div className="pt-2 border-t border-emerald-200/70 flex justify-end">
+                    <div className="pt-2 border-t border-emerald-200/60 flex justify-end">
                       <Link
                         href={`/checkout?productId=${encodeURIComponent(productId)}&agreedPrice=${numericPrice}`}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition active:scale-98"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition active:scale-95"
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                        <span>Đặt mua ngay (Giá chốt: {msg.offerPrice})</span>
+                        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+                        <span>Đặt mua ngay ({msg.offerPrice})</span>
                       </Link>
                     </div>
                   )}
@@ -196,18 +195,13 @@ export default function MessageHistory({
 
           if (msg.isOfferRejected) {
             return (
-              <div key={msg.id} className="flex justify-center my-3">
-                <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 flex items-center gap-3 shadow-xs max-w-md text-xs">
-                  <div className="h-8 w-8 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
-                    <Tag className="h-4 w-4" />
+              <div key={msg.id} className="flex justify-center my-2">
+                <div className="rounded-xl bg-rose-50/90 border border-rose-200/80 px-3 py-1.5 flex items-center gap-2 shadow-2xs max-w-sm text-xs">
+                  <div className="h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
+                    <Tag className="h-3 w-3" />
                   </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-rose-950">
-                      Đã từ chối đề xuất giá
-                    </div>
-                    <div className="text-[11px] text-rose-700">
-                      Mức giá đề xuất: <strong>{msg.offerPrice}</strong> đã bị từ chối
-                    </div>
+                  <div className="text-[11px] text-rose-900 font-medium">
+                    Đã từ chối giá đề xuất: <strong className="font-bold text-rose-700">{msg.offerPrice || 'thương lượng'}</strong>
                   </div>
                 </div>
               </div>
@@ -217,47 +211,48 @@ export default function MessageHistory({
           if (msg.offerPrice && !msg.isOfferAccepted && !msg.isOfferRejected) {
             const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
             return (
-              <div key={msg.id} className="flex justify-center my-3">
-                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 shadow-xs max-w-md w-full text-xs space-y-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                        <Tag className="h-4 w-4" />
+              <div key={msg.id} className="flex justify-center my-2.5">
+                <div className="rounded-2xl bg-gradient-to-br from-amber-50/90 to-orange-50/40 border border-amber-200/90 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-7 w-7 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <Tag className="h-3.5 w-3.5" />
                       </div>
-                      <div>
-                        <div className="font-bold text-amber-950">
+                      <div className="min-w-0">
+                        <div className="font-bold text-amber-950 text-xs">
                           Đề nghị thương lượng giá
                         </div>
-                        <div className="text-[11px] text-amber-800">
-                          Mức giá đề xuất: <strong className="text-sm text-fpt-orange">{msg.offerPrice}</strong>
+                        <div className="text-[11px] text-amber-800 font-medium">
+                          Mức giá: <strong className="text-xs font-black text-fpt-orange">{msg.offerPrice}</strong>
                         </div>
                       </div>
                     </div>
-                    <span className="rounded bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200/60 shrink-0">
                       Chờ phản hồi
                     </span>
                   </div>
 
-                  {isSeller ? (
-                    <div className="pt-2 border-t border-amber-200/70 flex items-center justify-end gap-2">
+                  {isSeller && msg.sender !== 'me' ? (
+                    <div className="pt-2 border-t border-amber-200/60 flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => onRejectOffer && onRejectOffer(msg.id, numericPrice)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition active:scale-95 cursor-pointer shadow-2xs"
                       >
                         Từ chối
                       </button>
                       <button
                         type="button"
                         onClick={() => onAcceptOffer && onAcceptOffer(msg.id, numericPrice)}
-                        className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                        className="rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange px-3 py-1.5 text-xs font-bold text-white hover:from-orange-600 hover:to-orange-700 transition active:scale-95 cursor-pointer shadow-xs flex items-center gap-1"
                       >
-                        Đồng ý mức giá này
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>Đồng ý mức giá</span>
                       </button>
                     </div>
                   ) : (
-                    <div className="pt-1.5 border-t border-amber-200/60 text-[11px] text-amber-800/90 italic flex items-center gap-1">
-                      <span>⏳ Đang chờ người bán phản hồi đề xuất...</span>
+                    <div className="pt-1.5 border-t border-amber-200/50 text-[10.5px] text-amber-700 italic flex items-center gap-1">
+                      <span>⏳ Đang chờ {isSeller ? 'người mua' : 'người bán'} phản hồi đề xuất...</span>
                     </div>
                   )}
                 </div>

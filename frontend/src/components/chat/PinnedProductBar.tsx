@@ -10,6 +10,7 @@ interface PinnedProductBarProps {
   product: Conversation['pinnedProduct'];
   partnerName: string;
   agreedPrice?: number;
+  isSeller?: boolean;
   onOfferPrice: (offer: string) => void;
   onScheduleMeeting: () => void;
 }
@@ -18,6 +19,7 @@ export default function PinnedProductBar({
   product,
   partnerName,
   agreedPrice,
+  isSeller,
   onOfferPrice,
   onScheduleMeeting,
 }: PinnedProductBarProps) {
@@ -80,14 +82,16 @@ export default function PinnedProductBar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
-        <button
-          type="button"
-          onClick={() => onOfferPrice(product.suggestedOffer)}
-          className="rounded-xl border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer flex items-center gap-1"
-        >
-          <Tag className="h-3.5 w-3.5" />
-          <span>Đề nghị: {product.suggestedOffer}</span>
-        </button>
+        {!isSeller && (
+          <button
+            type="button"
+            onClick={() => onOfferPrice(product.suggestedOffer)}
+            className="rounded-xl border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer flex items-center gap-1"
+          >
+            <Tag className="h-3.5 w-3.5" />
+            <span>Đề nghị: {product.suggestedOffer}</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -95,16 +99,18 @@ export default function PinnedProductBar({
           className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1"
         >
           <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Hẹn điểm nhận</span>
+          <span>{isSeller ? 'Hẹn điểm giao' : 'Hẹn điểm nhận'}</span>
         </button>
 
-        <Link
-          href={`/checkout?productId=${encodeURIComponent(product.id || 'feat-3')}&type=meetup${isAgreed ? `&agreedPrice=${agreedPrice}` : ''}`}
-          className="rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
-          title="Đặt hẹn giao dịch Safe Handoff có Escrow bảo vệ"
-        >
-          <span>{isAgreed ? 'Đặt mua giá chốt' : 'Đặt Safe-Handoff'}</span>
-        </Link>
+        {!isSeller && (
+          <Link
+            href={`/checkout?productId=${encodeURIComponent(product.id || 'feat-3')}&type=meetup${isAgreed ? `&agreedPrice=${agreedPrice}` : ''}`}
+            className="rounded-xl bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
+            title="Đặt hẹn giao dịch Safe Handoff có Escrow bảo vệ"
+          >
+            <span>{isAgreed ? 'Đặt mua giá chốt' : 'Đặt Safe-Handoff'}</span>
+          </Link>
+        )}
 
         <Link
           href={product.id ? `/posts/${encodeURIComponent(product.id)}` : '/posts'}

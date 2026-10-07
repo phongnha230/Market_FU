@@ -27,6 +27,7 @@ export interface Conversation {
   name: string;
   role: 'seller' | 'buyer';
   roleLabel: string;
+  isMeSeller?: boolean;
   cohortCampus: string;
   avatar: string;
   isOnline: boolean;

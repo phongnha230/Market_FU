@@ -28,11 +28,12 @@ import {
   AlertCircle,
   HelpCircle,
   Sparkles,
-  MessageSquare,
   Clock,
   ExternalLink,
   Wallet,
+  Calendar,
 } from 'lucide-react';
+import { safehandoffService, SafeHandoffHubItem } from '@/services/safehandoffService';
 
 // Campus mapping helper for rate calculation
 function parseCampusCode(str: string): 'HOL' | 'DAD' | 'QN' | 'HCM' | 'CT' {
@@ -111,6 +112,12 @@ function CheckoutContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Safe-Handoff Appointment & Meetup location state
+  const [availableHubs, setAvailableHubs] = useState<SafeHandoffHubItem[]>([]);
+  const [selectedHub, setSelectedHub] = useState<string>('Sảnh Tòa Alpha (Trạm camera 24/7 & bàn test)');
+  const [appointmentDate, setAppointmentDate] = useState<'today' | 'tomorrow'>('today');
+  const [appointmentSlot, setAppointmentSlot] = useState<string>('16:30 - 17:15 (Sau ca 4)');
+
   // Delivery notes state
   const [deliveryNote, setDeliveryNote] = useState('Giao tại sảnh Dom B vào buổi chiều sau giờ học Capstone.');
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -167,11 +174,27 @@ function CheckoutContent() {
   const isSameCampus = originCode === destinationCode;
   const isMeetup = typeParam === 'meetup' || isSameCampus;
 
+  // 2b. Fetch safe-handoff hubs for current campus when isMeetup
+  useEffect(() => {
+    if (isMeetup) {
+      safehandoffService
+        .getHubs({ campus: originCode })
+        .then((res) => {
+          if (res.hubs && res.hubs.length > 0) {
+            setAvailableHubs(res.hubs);
+            const operatingHub = res.hubs.find((h) => h.isOperating) || res.hubs[0];
+            setSelectedHub(`${operatingHub.name} (${operatingHub.locationDetails || 'Trạm Safe-Point'})`);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isMeetup, originCode]);
+
   useEffect(() => {
     let isMounted = true;
     if (isMeetup) {
       setShippingFee(0);
-      setEstimatedDays('Hẹn gặp trực tiếp trong ngày');
+      setEstimatedDays(`${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`);
       setTransitHub(`Safe-Point ${CAMPUS_NAMES[originCode] || originCode}`);
       return;
     }
@@ -237,6 +260,21 @@ function CheckoutContent() {
 
     setIsSubmitting(true);
     try {
+      let appointmentIso: string | undefined = undefined;
+      if (isMeetup) {
+        const targetDate = new Date();
+        if (appointmentDate === 'tomorrow') {
+          targetDate.setDate(targetDate.getDate() + 1);
+        }
+        const hourMatch = appointmentSlot.match(/(\d{1,2}):(\d{2})/);
+        if (hourMatch) {
+          targetDate.setHours(parseInt(hourMatch[1], 10), parseInt(hourMatch[2], 10), 0, 0);
+        } else {
+          targetDate.setHours(16, 30, 0, 0);
+        }
+        appointmentIso = targetDate.toISOString();
+      }
+
       let createdBackendOrder: any = null;
       try {
         createdBackendOrder = await orderService.createOrder({
@@ -245,12 +283,9 @@ function CheckoutContent() {
           coinsUsed: useCoinDiscount ? maxCoinsAllowed : 0,
           agreedPrice: isAgreedPriceApplied ? effectiveProductPrice : undefined,
           deliveryNote,
-          meetupLocation: isMeetup
-            ? (deliveryNote || `Safe-Point KTX / Khuôn viên ${CAMPUS_NAMES[destinationCode] || destinationCode}`)
-            : undefined,
-          safePoint: isMeetup
-            ? `Safe-Point KTX / Khuôn viên ${CAMPUS_NAMES[destinationCode] || destinationCode}`
-            : undefined,
+          meetupLocation: isMeetup ? selectedHub : undefined,
+          safePoint: isMeetup ? selectedHub : undefined,
+          appointmentTime: appointmentIso,
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined
@@ -279,7 +314,7 @@ function CheckoutContent() {
       const localOrder = createOrder({
         product: {
           title: productData.title,
-          subtitle: isMeetup ? 'Bàn giao trực tiếp tại Safe-Point Campus' : (productData.description || 'Bàn giao chuẩn KTX'),
+          subtitle: isMeetup ? selectedHub : (productData.description || 'Bàn giao chuẩn KTX'),
           price: effectiveProductPrice,
           escrowBadge: isMeetup ? 'Xác thực QR Handshake' : 'Đã cọc Escrow bảo hộ',
           conditionBadge: productData.conditionBadge,
@@ -292,6 +327,8 @@ function CheckoutContent() {
         },
         type: isMeetup ? 'safe-handoff' : 'inter-campus',
         deliveryNote,
+        appointmentTime: appointmentIso,
+        meetupLocation: isMeetup ? selectedHub : undefined,
         paymentMethod: paymentMethod === 'payos' ? 'VietQR Napas247 (Tự động)' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
       });
 
@@ -307,7 +344,7 @@ function CheckoutContent() {
       showToast(`🎉 Đặt hàng thành công! Đơn hàng ${finalCode} đã được khởi tạo.`);
       setTimeout(() => {
         router.push(
-          `/checkout/success?orderCode=${finalCode}&paymentMethod=${paymentMethod}&amount=${totalAmount}&productId=${productData.id}`
+          `/checkout/success?orderCode=${finalCode}&paymentMethod=${paymentMethod}&amount=${totalAmount}&productId=${productData.id}&meetupLocation=${encodeURIComponent(selectedHub)}&appointmentTime=${encodeURIComponent(appointmentIso || '')}`
         );
       }, 600);
     } catch {
@@ -411,7 +448,7 @@ function CheckoutContent() {
                       {CAMPUS_NAMES[originCode] || originCode}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {isMeetup ? 'Sảnh Tòa Alpha / Thư viện' : 'Bưu cục Safe-Handoff Point'}
+                      {isMeetup ? selectedHub : 'Bưu cục Safe-Handoff Point'}
                     </div>
                   </div>
 
@@ -536,6 +573,171 @@ function CheckoutContent() {
                   </div>
                 </div>
               </div>
+
+              {/* SAFE-HANDOFF APPOINTMENT & HUB SELECTION */}
+              {isMeetup && (
+                <div className="mt-5 pt-5 border-t border-slate-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-fpt-orange" />
+                      <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                        Chọn Trạm Safe-Point & Thời gian hẹn giao dịch
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      🛡️ Camera 24/7 & Bàn test thiết bị
+                    </span>
+                  </div>
+
+                  {/* 1. Chọn Trạm Safe-Point Hub */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-2 uppercase tracking-wider">
+                      1. Điểm hẹn giao dịch tại trường ({CAMPUS_NAMES[originCode] || originCode}):
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {(availableHubs.length > 0
+                        ? availableHubs.map((h) => ({
+                            id: h.id,
+                            name: `${h.name} (${h.locationDetails || 'Trạm Safe-Point'})`,
+                            desc: h.notes || 'Có camera giám sát an ninh và bàn test thiết bị trực tiếp',
+                            badge: h.status || 'Hoạt động',
+                          }))
+                        : [
+                            {
+                              id: 'hub-1',
+                              name: 'Sảnh Tòa Alpha (Khu vực có bàn test & Camera 24/7)',
+                              desc: 'Điểm hẹn an toàn chính tại sảnh ĐH FPT, có bảo vệ và camera giám sát',
+                              badge: 'Bàn test điện',
+                            },
+                            {
+                              id: 'hub-2',
+                              name: 'Thư viện Gamma (Tầng 1 - Khu tự học test máy)',
+                              desc: 'Ánh sáng tốt, không gian yên tĩnh, thích hợp test laptop & tablet',
+                              badge: 'Yên tĩnh',
+                            },
+                            {
+                              id: 'hub-3',
+                              name: 'Sảnh KTX Dom A-B (Gần quầy lễ tân)',
+                              desc: 'Thuận tiện giao nhận buổi trưa và tối cho sinh viên nội trú',
+                              badge: 'Bảo vệ KTX',
+                            },
+                            {
+                              id: 'hub-4',
+                              name: 'Căn tin Dom E-F (Khu ăn uống & cà phê)',
+                              desc: 'Gần trạm VinBus, thoáng mát, thích hợp hẹn gặp giờ giải lao',
+                              badge: 'Căn tin',
+                            },
+                          ]
+                      ).map((hub) => (
+                        <button
+                          key={hub.id}
+                          type="button"
+                          onClick={() => setSelectedHub(hub.name)}
+                          className={`text-left p-3 rounded-xl border text-xs transition cursor-pointer flex flex-col justify-between ${
+                            selectedHub === hub.name
+                              ? 'border-fpt-orange bg-orange-50/60 ring-2 ring-fpt-orange/40 shadow-xs'
+                              : 'border-slate-200/80 bg-slate-50/60 hover:bg-slate-100/70 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-bold text-slate-900 leading-snug">{hub.name}</span>
+                            {selectedHub === hub.name ? (
+                              <CheckCircle2 className="h-4 w-4 text-fpt-orange shrink-0 mt-0.5" />
+                            ) : (
+                              <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 shrink-0">
+                                {hub.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{hub.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. Chọn Ngày & Khung Giờ Hẹn */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Chọn Ngày */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase tracking-wider">
+                        2. Chọn ngày gặp mặt:
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentDate('today')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                            appointmentDate === 'today'
+                              ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          Hôm nay ({new Date().toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentDate('tomorrow')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                            appointmentDate === 'tomorrow'
+                              ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          Ngày mai ({(() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + 1);
+                            return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                          })()})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chọn Giờ / Ca Hẹn */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase tracking-wider">
+                        3. Chọn ca / giờ hẹn gặp:
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { label: '11:30 - 12:30 (Trưa ca 2)', icon: '🌅' },
+                          { label: '16:30 - 17:15 (Chiều ca 4)', icon: '☀️' },
+                          { label: '17:30 - 18:30 (Tan học chiều)', icon: '🌇' },
+                          { label: '19:30 - 20:30 (Tối tại KTX)', icon: '🌙' },
+                        ].map((slot) => (
+                          <button
+                            key={slot.label}
+                            type="button"
+                            onClick={() => setAppointmentSlot(slot.label)}
+                            className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition cursor-pointer text-center ${
+                              appointmentSlot === slot.label
+                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-600'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{slot.icon} {slot.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tóm tắt Cuộc hẹn */}
+                  <div className="rounded-xl bg-amber-50/80 border border-amber-200/80 p-3.5 flex items-start gap-3 text-xs text-amber-900">
+                    <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-extrabold text-amber-950">
+                        Lịch hẹn dự kiến: {appointmentSlot} • {appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}
+                      </div>
+                      <div className="mt-0.5 text-amber-800">
+                        📍 <strong>Địa điểm:</strong> {selectedHub}
+                      </div>
+                      <p className="text-[11px] text-amber-700 mt-1">
+                        Sau khi bấm <strong>Xác nhận đặt đơn</strong>, hệ thống tự động lưu lịch hẹn này vào đơn hàng và phát hành <strong>Mã QR Handshake + OTP 4 số</strong> để bạn mang đến trạm gặp người bán.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SECTION 3: KIỆN HÀNG ĐẶT MUA */}
