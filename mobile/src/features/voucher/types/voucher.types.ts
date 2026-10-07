@@ -1,3 +1,28 @@
+import { Voucher, UserVoucher, VoucherPartner, UserVoucherStatus } from '../../../stores/voucherStore';
+
+export type { Voucher, UserVoucher, VoucherPartner, UserVoucherStatus };
+
+export type VoucherPageView = 'store' | 'my_vouchers';
+
+export type VoucherCategoryKey = 'all' | 'coins' | 'dorm' | 'ship';
+
+export type MyVoucherFilterKey = 'ALL' | 'UNUSED' | 'USED' | 'EXPIRED';
+
+export interface CoinQuestItem {
+  id: string;
+  title: string;
+  coins: number;
+  description: string;
+  statusText: string;
+  isCompleted: boolean;
+  actionType: 'claim' | 'claimed' | 'link';
+  actionLabel: string;
+  iconName: string;
+  iconBg: string;
+  iconColor: string;
+}
+
+// Giữ lại kiểu cũ cho backward compatibility nếu có component nào import
 export interface VoucherItem {
   id: string;
   categoryTag: string;
@@ -19,8 +44,6 @@ export interface VoucherItem {
   lightBg: string;
   borderColor: string;
 }
-
-export type VoucherTabKey = 'all' | 'ship' | 'exchange';
 
 export interface MissionItem {
   id: string;

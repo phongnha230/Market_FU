@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWalletStore } from './walletStore';
+import { useUserStore } from './userStore';
 
 export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
@@ -31,9 +33,60 @@ export interface UserVoucher {
   createdAt: string;
 }
 
-export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [];
-
-const INITIAL_USER_VOUCHERS_BY_USER: Record<string, UserVoucher[]> = {};
+export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
+  {
+    id: 'vch-canteen-10k',
+    title: 'Voucher Cơm Căn Tin 10.000đ',
+    description: 'Áp dụng cho mọi suất cơm trưa/tối tại Căng-tin Tòa Gamma (Hola) và Canteen Q.9 (HCM).',
+    partner: 'CANTEEN',
+    partnerLabel: 'Căn Tin FPT',
+    coinCost: 10,
+    discountValue: 10000,
+    quantity: 85,
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
+    validDays: 14,
+    isActive: true,
+  },
+  {
+    id: 'vch-passio-15k',
+    title: 'Giảm 15.000đ Passio Coffee Campus',
+    description: 'Áp dụng cho mọi món nước Cà phê sữa, Trà đào hạt sen size L tại quầy Passio trong trường.',
+    partner: 'PASSIO',
+    partnerLabel: 'Passio Coffee',
+    coinCost: 15,
+    discountValue: 15000,
+    quantity: 120,
+    imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80',
+    validDays: 30,
+    isActive: true,
+  },
+  {
+    id: 'vch-7eleven-20k',
+    title: 'Phiếu Mua Hàng 20.000đ 7-Eleven KTX',
+    description: 'Giảm trực tiếp khi mua bánh mì, xúc xích nướng, đồ uống giải khát tại 7-Eleven sảnh KTX.',
+    partner: 'SEVEN_ELEVEN',
+    partnerLabel: '7-Eleven FPT',
+    coinCost: 20,
+    discountValue: 20000,
+    quantity: 40,
+    imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
+    validDays: 20,
+    isActive: true,
+  },
+  {
+    id: 'vch-ship-free',
+    title: 'Miễn Phí Vận Chuyển CampusShip',
+    description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
+    partner: 'OTHER',
+    partnerLabel: 'CampusShip Express',
+    coinCost: 25,
+    discountValue: 25000,
+    quantity: 200,
+    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
+    validDays: 45,
+    isActive: true,
+  },
+];
 
 interface VoucherState {
   availableVouchers: Voucher[];
@@ -44,6 +97,8 @@ interface VoucherState {
 
   // Actions
   setActiveUser: (userId: string | null) => void;
+  fetchAvailableVouchers: () => Promise<void>;
+  fetchMyVouchers: () => Promise<void>;
   fetchVouchers: () => Promise<void>;
   redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
   useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
@@ -55,7 +110,7 @@ interface VoucherState {
 export const useVoucherStore = create<VoucherState>()(
   persist(
     (set, get) => ({
-      availableVouchers: [],
+      availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
       myVouchersByUser: {},
       activeUserId: null,
       myVouchers: [],
@@ -71,22 +126,48 @@ export const useVoucherStore = create<VoucherState>()(
         });
       },
 
-      fetchVouchers: async () => {
+      fetchAvailableVouchers: async () => {
         try {
           set({ isLoading: true });
           const { voucherMobileService } = await import('../services/voucherMobileService');
-          const [pub, my] = await Promise.all([
-            voucherMobileService.getVouchers(),
-            voucherMobileService.getMyVouchers(),
-          ]);
-          if (my && my.length > 0) {
-            set({ myVouchers: my });
+          const list = await voucherMobileService.getVouchers();
+          if (Array.isArray(list) && list.length > 0) {
+            set({ availableVouchers: list });
           }
         } catch (e: any) {
-          console.log('⚠️ [Backend vouchers offline]:', e?.message);
+          console.log('⚠️ [Fetch available vouchers error]:', e?.message);
         } finally {
           set({ isLoading: false });
         }
+      },
+
+      fetchMyVouchers: async () => {
+        try {
+          set({ isLoading: true });
+          const { voucherMobileService } = await import('../services/voucherMobileService');
+          const my = await voucherMobileService.getMyVouchers();
+          const { activeUserId, myVouchersByUser } = get();
+          const currentId = activeUserId || 'anonymous';
+
+          if (Array.isArray(my) && my.length > 0) {
+            set({
+              myVouchers: my,
+              myVouchersByUser: {
+                ...myVouchersByUser,
+                [currentId]: my,
+              },
+            });
+          }
+        } catch (e: any) {
+          console.log('⚠️ [Fetch my vouchers error]:', e?.message);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      fetchVouchers: async () => {
+        const { fetchAvailableVouchers, fetchMyVouchers } = get();
+        await Promise.all([fetchAvailableVouchers(), fetchMyVouchers()]);
       },
 
       redeemVoucher: async (voucherId: string) => {
@@ -94,44 +175,101 @@ export const useVoucherStore = create<VoucherState>()(
         const currentId = activeUserId || 'anonymous';
         const item = availableVouchers.find((v) => v.id === voucherId);
 
-        if (!item) return { success: false, message: 'Voucher không tồn tại' };
-        if (item.quantity <= 0) return { success: false, message: 'Voucher đã hết số lượng' };
+        if (!item) {
+          return { success: false, message: 'Voucher không tồn tại trong kho' };
+        }
+        if (item.quantity <= 0) {
+          return { success: false, message: 'Voucher đã hết số lượng lượt đổi' };
+        }
 
-        const randomCode = `FUV-${item.partner.substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const newUV: UserVoucher = {
-          id: `uv-${Date.now()}`,
-          userId: currentId,
-          voucherId: item.id,
-          voucher: item,
-          voucherCode: randomCode,
-          status: 'UNUSED',
-          expiredAt: '30/11/2026',
-          createdAt: 'Vừa xong',
-        };
+        // Kiểm tra số dư Coins trong walletStore
+        const wallet = useWalletStore.getState().getWallet();
+        const userCoins = wallet.coins;
+        if (userCoins < item.coinCost) {
+          return {
+            success: false,
+            message: `Số dư không đủ! Bạn cần ${item.coinCost} Coins, hiện có ${userCoins} Coins.`,
+          };
+        }
 
-        const currentList = myVouchersByUser[currentId] || [];
-        const updatedList = [newUV, ...currentList];
+        try {
+          const { voucherMobileService } = await import('../services/voucherMobileService');
+          const res = await voucherMobileService.redeemVoucher(voucherId);
 
-        set((state) => ({
-          availableVouchers: state.availableVouchers.map((v) =>
-            v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
-          ),
-          myVouchers: updatedList,
-          myVouchersByUser: {
-            ...myVouchersByUser,
-            [currentId]: updatedList,
-          },
-        }));
+          // Trừ Xu trong walletStore và userStore
+          useWalletStore.getState().deductCoins(item.coinCost);
+          const currentUser = useUserStore.getState().user;
+          if (currentUser) {
+            useUserStore.getState().updateUser({
+              coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
+            });
+          }
 
-        import('../services/voucherMobileService').then(({ voucherMobileService }) => {
-          voucherMobileService.redeemVoucher(voucherId).catch(() => {});
-        });
+          const newUV = res.userVoucher;
+          const currentList = myVouchersByUser[currentId] || [];
+          const updatedList = [newUV, ...currentList.filter((x) => x.id !== newUV.id)];
 
-        return {
-          success: true,
-          message: `Đổi voucher ${item.title} thành công! Mã: ${randomCode}`,
-          voucher: newUV,
-        };
+          set((state) => ({
+            availableVouchers: state.availableVouchers.map((v) =>
+              v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
+            ),
+            myVouchers: updatedList,
+            myVouchersByUser: {
+              ...myVouchersByUser,
+              [currentId]: updatedList,
+            },
+          }));
+
+          return {
+            success: true,
+            message: res.message || `Đổi thành công voucher "${item.title}"!`,
+            voucher: newUV,
+          };
+        } catch (err: any) {
+          // Fallback ngoại tuyến (Optimistic Offline)
+          useWalletStore.getState().deductCoins(item.coinCost);
+          const currentUser = useUserStore.getState().user;
+          if (currentUser) {
+            useUserStore.getState().updateUser({
+              coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
+            });
+          }
+
+          const randomCode = `FUV-${item.partner.substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + (item.validDays || 30));
+
+          const offlineUV: UserVoucher = {
+            id: `uv-${Date.now()}`,
+            userId: currentId,
+            voucherId: item.id,
+            voucher: item,
+            voucherCode: randomCode,
+            status: 'UNUSED',
+            expiredAt: expiryDate.toLocaleDateString('vi-VN'),
+            createdAt: new Date().toLocaleDateString('vi-VN'),
+          };
+
+          const currentList = myVouchersByUser[currentId] || [];
+          const updatedList = [offlineUV, ...currentList];
+
+          set((state) => ({
+            availableVouchers: state.availableVouchers.map((v) =>
+              v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
+            ),
+            myVouchers: updatedList,
+            myVouchersByUser: {
+              ...myVouchersByUser,
+              [currentId]: updatedList,
+            },
+          }));
+
+          return {
+            success: true,
+            message: `Đổi thành công voucher "${item.title}"!`,
+            voucher: offlineUV,
+          };
+        }
       },
 
       useVoucherCode: async (userVoucherIdOrCode: string) => {
@@ -143,16 +281,27 @@ export const useVoucherStore = create<VoucherState>()(
           (uv) => uv.id === userVoucherIdOrCode || uv.voucherCode === userVoucherIdOrCode
         );
 
-        if (!target) return { success: false, message: 'Không tìm thấy voucher' };
-        if (target.status === 'USED') return { success: false, message: 'Voucher này đã được sử dụng trước đó' };
-        if (target.status === 'EXPIRED') return { success: false, message: 'Voucher này đã hết hạn sử dụng' };
+        if (!target) {
+          return { success: false, message: 'Không tìm thấy voucher trong ví' };
+        }
+        if (target.status === 'USED') {
+          return { success: false, message: 'Voucher này đã được sử dụng trước đó' };
+        }
+        if (target.status === 'EXPIRED') {
+          return { success: false, message: 'Voucher này đã hết hạn sử dụng' };
+        }
+
+        const nowFormatted =
+          new Date().toLocaleDateString('vi-VN') +
+          ' ' +
+          new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
         const updatedList = list.map((uv) =>
           uv.id === target.id
             ? {
                 ...uv,
                 status: 'USED' as UserVoucherStatus,
-                usedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                usedAt: nowFormatted,
               }
             : uv
         );
@@ -165,12 +314,18 @@ export const useVoucherStore = create<VoucherState>()(
           },
         });
 
-        // Bắn ngầm lên backend vô hiệu hóa voucher code trên server
-        import('../services/voucherMobileService').then(({ voucherMobileService }) => {
-          voucherMobileService.useVoucher(target.voucherCode).catch(() => {});
-        });
+        // Gọi API backend vô hiệu hóa voucher
+        try {
+          const { voucherMobileService } = await import('../services/voucherMobileService');
+          await voucherMobileService.useVoucher(target.voucherCode);
+        } catch (e: any) {
+          console.log('⚠️ [Voucher used offline]:', e?.message);
+        }
 
-        return { success: true, message: 'Áp dụng mã voucher thành công!' };
+        return {
+          success: true,
+          message: 'Xác nhận sử dụng voucher tại quầy thành công!',
+        };
       },
 
       getUserVouchersByStatus: (status?: UserVoucherStatus) => {
@@ -187,7 +342,7 @@ export const useVoucherStore = create<VoucherState>()(
 
       resetVouchers: () => {
         set({
-          availableVouchers: [],
+          availableVouchers: INITIAL_AVAILABLE_VOUCHERS,
           myVouchersByUser: {},
           myVouchers: [],
         });

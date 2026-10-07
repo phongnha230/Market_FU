@@ -1,44 +1,152 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { VoucherTabKey } from '../types/voucher.types';
+import { Ionicons } from '@expo/vector-icons';
+import { VoucherPageView } from '../types/voucher.types';
 
 interface VoucherTabsProps {
-  activeTab: VoucherTabKey;
-  onTabChange: (tab: VoucherTabKey) => void;
+  pageView: VoucherPageView;
+  onViewChange: (view: VoucherPageView) => void;
+  availableCount: number;
+  unusedCount: number;
 }
 
-export const VoucherTabs: React.FC<VoucherTabsProps> = ({ activeTab, onTabChange }) => {
-  const tabs: { key: VoucherTabKey; label: string }[] = [
-    { key: 'all', label: 'Tất cả' },
-    { key: 'ship', label: 'CampusShip' },
-    { key: 'exchange', label: 'Đổi xu' },
-  ];
-
+export const VoucherTabs: React.FC<VoucherTabsProps> = ({
+  pageView,
+  onViewChange,
+  availableCount,
+  unusedCount,
+}) => {
   return (
     <View style={styles.container}>
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.key;
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, isActive && styles.tabActive]}
-            activeOpacity={0.8}
-            onPress={() => onTabChange(tab.key)}
+      <TouchableOpacity
+        style={[styles.tab, pageView === 'store' && styles.tabActive]}
+        activeOpacity={0.8}
+        onPress={() => onViewChange('store')}
+      >
+        <Ionicons
+          name="storefront"
+          size={16}
+          color={pageView === 'store' ? '#FFFFFF' : '#64748B'}
+          style={{ marginRight: 6 }}
+        />
+        <Text style={[styles.tabText, pageView === 'store' && styles.tabTextActive]}>
+          Kho Đổi Voucher
+        </Text>
+        <View
+          style={[
+            styles.badge,
+            pageView === 'store' ? styles.badgeActive : styles.badgeInactive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.badgeText,
+              pageView === 'store' ? styles.badgeTextActive : styles.badgeTextInactive,
+            ]}
           >
-            <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+            {availableCount}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.tab, pageView === 'my_vouchers' && styles.tabActive]}
+        activeOpacity={0.8}
+        onPress={() => onViewChange('my_vouchers')}
+      >
+        <Ionicons
+          name="ticket"
+          size={16}
+          color={pageView === 'my_vouchers' ? '#FFFFFF' : '#64748B'}
+          style={{ marginRight: 6 }}
+        />
+        <Text style={[styles.tabText, pageView === 'my_vouchers' && styles.tabTextActive]}>
+          Ví Voucher Của Tôi
+        </Text>
+        {unusedCount > 0 && (
+          <View
+            style={[
+              styles.badge,
+              pageView === 'my_vouchers' ? styles.badgeActive : styles.badgeNotice,
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                pageView === 'my_vouchers' ? styles.badgeTextActive : styles.badgeNoticeText,
+              ]}
+            >
+              {unusedCount}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 12 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#F1F5F9', marginHorizontal: 3 },
-  tabActive: { backgroundColor: '#F27024' },
-  tabText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
-  tabTextActive: { color: '#FFFFFF' },
+  container: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    padding: 4,
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  tabActive: {
+    backgroundColor: '#EA580C',
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    marginLeft: 6,
+  },
+  badgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  badgeInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  badgeNotice: {
+    backgroundColor: '#FFEDD5',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  badgeTextActive: {
+    color: '#FFFFFF',
+  },
+  badgeTextInactive: {
+    color: '#475569',
+  },
+  badgeNoticeText: {
+    color: '#EA580C',
+  },
 });
 
 export default VoucherTabs;
