@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface CheckoutProductCardProps {
   product: {
@@ -9,18 +10,26 @@ interface CheckoutProductCardProps {
     image: any;
     sellerName?: string;
     sellerCampus?: string;
+    sellerCohort?: string;
   };
   isDifferentCampus: boolean;
   basePrice: number;
+  agreedPrice?: number | null;
+  isAgreedPriceApplied?: boolean;
+  effectiveProductPrice?: number;
   formatCurrency: (val: number) => string;
 }
 
-const ProductSellerRow: React.FC<{ sellerName?: string }> = React.memo(({ sellerName }) => (
-  <View style={styles.sellerRow}>
-    <Ionicons name="person-circle-outline" size={14} color="#64748B" />
-    <Text style={styles.sellerText}>Người bán: {sellerName || 'Nam NV'}</Text>
-  </View>
-));
+const ProductSellerRow: React.FC<{ sellerName?: string; sellerCohort?: string }> = React.memo(
+  ({ sellerName, sellerCohort }) => (
+    <View style={styles.sellerRow}>
+      <Ionicons name="person-circle-outline" size={14} color="#64748B" />
+      <Text style={styles.sellerText}>
+        Người bán: {sellerName || 'Sinh viên FPT'}{sellerCohort ? ` • ${sellerCohort}` : ''}
+      </Text>
+    </View>
+  )
+);
 
 const ProductCampusBadge: React.FC<{
   sellerCampus?: string;
@@ -29,12 +38,12 @@ const ProductCampusBadge: React.FC<{
   <View style={styles.campusBadgeRow}>
     <View style={[styles.campusBadge, isDifferentCampus && styles.diffCampusBadge]}>
       <Text style={[styles.campusBadgeText, isDifferentCampus && styles.diffCampusBadgeText]}>
-        {sellerCampus || 'Campus khác'}
+        {sellerCampus || 'Campus Hòa Lạc'}
       </Text>
     </View>
-    {isDifferentCampus && (
-      <Text style={styles.interCampusHint}>⚡ Ship xe FPT Bus 24h</Text>
-    )}
+    <Text style={[styles.campusHint, isDifferentCampus && styles.diffCampusHint]}>
+      {isDifferentCampus ? '⚡ Ship xe FPT Bus 24h' : '🛡️ Safe-Handoff cùng Campus'}
+    </Text>
   </View>
 ));
 
@@ -42,26 +51,50 @@ export const CheckoutProductCard: React.FC<CheckoutProductCardProps> = ({
   product,
   isDifferentCampus,
   basePrice,
+  agreedPrice,
+  isAgreedPriceApplied = false,
+  effectiveProductPrice,
   formatCurrency,
 }) => {
+  const displayPrice = effectiveProductPrice ?? (isAgreedPriceApplied && agreedPrice ? agreedPrice : basePrice);
+
   return (
     <>
       <Text style={styles.sectionHeader}>SẢN PHẨM GIAO DỊCH</Text>
       <View style={styles.productCard}>
         <Image
-          source={typeof product.image === 'string' ? { uri: product.image } : product.image}
+          source={resolveProductImage(product.image)}
           style={styles.productThumb}
         />
         <View style={styles.productInfo}>
           <Text style={styles.productTitle} numberOfLines={2}>
             {product.title}
           </Text>
-          <ProductSellerRow sellerName={product.sellerName} />
+          <ProductSellerRow
+            sellerName={product.sellerName}
+            sellerCohort={product.sellerCohort}
+          />
           <ProductCampusBadge
             sellerCampus={product.sellerCampus}
             isDifferentCampus={isDifferentCampus}
           />
-          <Text style={styles.productPrice}>{formatCurrency(basePrice)}</Text>
+
+          {isAgreedPriceApplied && agreedPrice ? (
+            <View style={styles.priceContainer}>
+              <View style={styles.priceRow}>
+                <Text style={styles.strikePrice}>{formatCurrency(basePrice)}</Text>
+                <Text style={styles.negotiatedPrice}>{formatCurrency(agreedPrice)}</Text>
+              </View>
+              <View style={styles.negotiatedBadge}>
+                <Ionicons name="sparkles" size={12} color="#059669" />
+                <Text style={styles.negotiatedBadgeText}>
+                  Giá chốt trong Chat (-{formatCurrency(basePrice - agreedPrice)})
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.productPrice}>{formatCurrency(displayPrice)}</Text>
+          )}
         </View>
       </View>
     </>
@@ -87,9 +120,9 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   productThumb: {
-    width: 75,
-    height: 75,
-    borderRadius: 10,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     marginRight: 12,
   },
@@ -120,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   campusBadge: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -128,7 +161,7 @@ const styles = StyleSheet.create({
   campusBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#059669',
   },
   diffCampusBadge: {
     backgroundColor: '#F5F3FF',
@@ -136,15 +169,52 @@ const styles = StyleSheet.create({
   diffCampusBadgeText: {
     color: '#7C3AED',
   },
-  interCampusHint: {
+  campusHint: {
     fontSize: 10,
     fontWeight: '700',
+    color: '#059669',
+  },
+  diffCampusHint: {
     color: '#EA580C',
   },
   productPrice: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '900',
     color: '#EA580C',
+    marginTop: 5,
+  },
+  priceContainer: {
+    marginTop: 5,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  strikePrice: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  negotiatedPrice: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#EA580C',
+  },
+  negotiatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: 4,
     marginTop: 4,
+  },
+  negotiatedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
   },
 });

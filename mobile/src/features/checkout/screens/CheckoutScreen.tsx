@@ -10,13 +10,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCheckoutController } from '../hooks/useCheckoutController';
 import { CheckoutEscrowBanner } from '../components/CheckoutEscrowBanner';
+import { CheckoutKycBanner } from '../components/CheckoutKycBanner';
 import { CheckoutProductCard } from '../components/CheckoutProductCard';
 import { CheckoutSafePointCard } from '../components/CheckoutSafePointCard';
 import { CheckoutPaymentMethods } from '../components/CheckoutPaymentMethods';
+import { CheckoutCoinDiscountCard } from '../components/CheckoutCoinDiscountCard';
 import { CheckoutVoucherCard } from '../components/CheckoutVoucherCard';
 import { CheckoutVoucherModal } from '../components/CheckoutVoucherModal';
 import { CheckoutSummaryCard } from '../components/CheckoutSummaryCard';
 import { CheckoutBottomBar } from '../components/CheckoutBottomBar';
+import { KycRegistrationModal } from '../../profile/components/KycRegistrationModal';
 
 export const CheckoutScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -33,7 +36,9 @@ export const CheckoutScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán & Ký quỹ Escrow</Text>
+        <Text style={styles.headerTitle}>
+          {ctrl.isMeetup ? 'Hẹn gặp Safe-Handoff' : 'Thanh toán & Ký quỹ Escrow'}
+        </Text>
         <TouchableOpacity
           onPress={ctrl.handleGoHome}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -43,25 +48,48 @@ export const CheckoutScreen: React.FC = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+        {/* Top Escrow Banner */}
         <CheckoutEscrowBanner />
 
+        {/* Unverified KYC Warning Banner */}
+        <CheckoutKycBanner
+          isKycVerified={ctrl.isKycVerified}
+          onOpenKycModal={() => ctrl.setIsKycModalOpen(true)}
+        />
+
+        {/* Product Card with agreed price support */}
         <CheckoutProductCard
           product={ctrl.product}
           isDifferentCampus={ctrl.isDifferentCampus}
           basePrice={ctrl.basePrice}
+          agreedPrice={ctrl.agreedPrice}
+          isAgreedPriceApplied={ctrl.isAgreedPriceApplied}
+          effectiveProductPrice={ctrl.effectiveProductPrice}
           formatCurrency={ctrl.formatCurrency}
         />
 
+        {/* Safe-Point / Inter-Campus Shipping & Appointment Hubs */}
         <CheckoutSafePointCard
+          isMeetup={ctrl.isMeetup}
           selectedSafePoint={ctrl.selectedSafePoint}
           onSelectSafePoint={ctrl.setSelectedSafePoint}
+          appointmentDate={ctrl.appointmentDate}
+          onSelectAppointmentDate={ctrl.setAppointmentDate}
+          appointmentSlot={ctrl.appointmentSlot}
+          onSelectAppointmentSlot={ctrl.setAppointmentSlot}
+          sellerCampus={ctrl.product.sellerCampus}
+          buyerCampus="Hòa Lạc"
+          deliveryNote={ctrl.deliveryNote}
+          onChangeDeliveryNote={ctrl.setDeliveryNote}
         />
 
+        {/* Payment Methods */}
         <CheckoutPaymentMethods
           selectedPayment={ctrl.selectedPayment}
           onSelectPayment={ctrl.setSelectedPayment}
         />
 
+        {/* Voucher Card */}
         <CheckoutVoucherCard
           appliedVoucher={ctrl.appliedVoucher}
           onOpenModal={ctrl.handleOpenVoucherModal}
@@ -69,19 +97,37 @@ export const CheckoutScreen: React.FC = () => {
           formatCurrency={ctrl.formatCurrency}
         />
 
+        {/* FPT Campus Coin Discount Card */}
+        <CheckoutCoinDiscountCard
+          userCoins={ctrl.userCoins}
+          maxCoinsAllowed={ctrl.maxCoinsAllowed}
+          useCoinDiscount={ctrl.useCoinDiscount}
+          onToggleCoinDiscount={ctrl.setUseCoinDiscount}
+          formatCurrency={ctrl.formatCurrency}
+        />
+
+        {/* Itemized Summary Card */}
         <CheckoutSummaryCard
           basePrice={ctrl.basePrice}
+          effectiveProductPrice={ctrl.effectiveProductPrice}
+          isAgreedPriceApplied={ctrl.isAgreedPriceApplied}
+          agreedPrice={ctrl.agreedPrice}
           shippingFee={ctrl.shippingFee}
           isDifferentCampus={ctrl.isDifferentCampus}
+          isMeetup={ctrl.isMeetup}
           loadingShipping={false}
-          estimatedDelivery="Giao trong 24h"
-          shippingPartner="FPT Bus Handoff"
+          estimatedDelivery={ctrl.isMeetup ? 'Hẹn gặp trực tiếp' : 'Giao trong 24h'}
+          shippingPartner={ctrl.isMeetup ? 'Safe-Point Hub' : 'FPT Bus Handoff'}
           discountAmount={ctrl.discountAmount}
+          appliedVoucher={ctrl.appliedVoucher}
+          coinDiscountAmount={ctrl.coinDiscountAmount}
+          coinsUsed={ctrl.maxCoinsAllowed}
           totalAmount={ctrl.totalAmount}
           formatCurrency={ctrl.formatCurrency}
         />
       </ScrollView>
 
+      {/* Fixed Bottom Action Bar */}
       <CheckoutBottomBar
         totalAmount={ctrl.totalAmount}
         selectedPayment={ctrl.selectedPayment}
@@ -90,6 +136,7 @@ export const CheckoutScreen: React.FC = () => {
         isSubmitting={ctrl.isSubmitting}
       />
 
+      {/* Voucher Modal */}
       <CheckoutVoucherModal
         visible={ctrl.isVoucherModalOpen}
         onClose={() => ctrl.setIsVoucherModalOpen(false)}
@@ -103,6 +150,16 @@ export const CheckoutScreen: React.FC = () => {
         onNavigateVoucherList={ctrl.handleNavigateVoucherList}
         insetsBottom={insets.bottom}
         formatCurrency={ctrl.formatCurrency}
+      />
+
+      {/* Student Identity KYC Registration Modal */}
+      <KycRegistrationModal
+        visible={ctrl.isKycModalOpen}
+        onClose={() => ctrl.setIsKycModalOpen(false)}
+        initialRole="STUDENT"
+        onSuccess={() => {
+          ctrl.setIsKycModalOpen(false);
+        }}
       />
     </View>
   );
