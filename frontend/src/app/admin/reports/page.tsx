@@ -26,10 +26,19 @@ import {
   RotateCcw,
   DollarSign,
   ShieldAlert,
+  Eye,
+  X,
+  Package,
+  CreditCard,
+  Phone,
+  Mail,
+  User,
+  Shield,
 } from 'lucide-react';
 
 import { safehandoffService, SafeHandoffHubItem } from '@/services/safehandoffService';
 import { BackendReport } from '@/services/reportService';
+import { DisputeItem } from '@/stores/disputeStore';
 
 export default function AdminReportsPage() {
   const { disputes, fetchDisputes, resolveDisputeByAdmin } = useDisputeStore();
@@ -43,6 +52,7 @@ export default function AdminReportsPage() {
   const [emailMSSV, setEmailMSSV] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [selectedDisputeForModal, setSelectedDisputeForModal] = useState<DisputeItem | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -269,30 +279,41 @@ export default function AdminReportsPage() {
                           </div>
                         )}
 
-                        {/* Action Buttons for Pending Dispute */}
-                        {d.status === 'PENDING' && (
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              type="button"
-                              disabled={isProcessing === d.id}
-                              onClick={() => handleResolveDispute(d.id, 'REJECT')}
-                              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                              <DollarSign className="h-3.5 w-3.5 text-slate-500" />
-                              <span>Bác đơn & Trả tiền Người bán</span>
-                            </button>
+                        {/* Action Toolbar */}
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDisputeForModal(d)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-fpt-orange" />
+                            <span>Chi tiết đơn hàng & Đối soát</span>
+                          </button>
 
-                            <button
-                              type="button"
-                              disabled={isProcessing === d.id}
-                              onClick={() => handleResolveDispute(d.id, 'REFUND')}
-                              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Chấp thuận Hoàn tiền Người mua</span>
-                            </button>
-                          </div>
-                        )}
+                          {d.status === 'PENDING' && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={isProcessing === d.id}
+                                onClick={() => handleResolveDispute(d.id, 'REJECT')}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                              >
+                                <DollarSign className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Bác đơn</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={isProcessing === d.id}
+                                onClick={() => handleResolveDispute(d.id, 'REFUND')}
+                                className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Hoàn tiền Người mua</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}
@@ -463,6 +484,238 @@ export default function AdminReportsPage() {
             </div>
           </div>
         </div>
+
+        {/* MODAL: CHI TIẾT ĐƠN HÀNG & ĐỐI SOÁT TRANH CHẤP */}
+        {selectedDisputeForModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-orange-100 text-fpt-orange flex items-center justify-center shrink-0">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <span>Hồ sơ Đơn hàng {selectedDisputeForModal.orderCode}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        selectedDisputeForModal.status === 'PENDING'
+                          ? 'bg-amber-100 text-amber-800'
+                          : selectedDisputeForModal.status === 'REFUNDED'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {selectedDisputeForModal.status === 'PENDING' ? 'ĐANG CHỜ PHÂN XỬ' : selectedDisputeForModal.status === 'REFUNDED' ? 'ĐÃ HOÀN TIỀN' : 'ĐÃ BÁC BỎ'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Gửi lúc: {selectedDisputeForModal.createdAt} • Bảo hộ Escrow Sàn FPT
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedDisputeForModal(null)}
+                  className="rounded-xl p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+                {/* 1. Bên Mua vs Bên Bán */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Buyer */}
+                  <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/60 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-800 border-b border-slate-200/70 pb-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                      <span>Thông tin Người mua (Bên khiếu nại)</span>
+                    </div>
+                    <div className="space-y-1 text-slate-600">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Họ và tên:</span>
+                        <span className="font-bold text-slate-900">{selectedDisputeForModal.orderRaw?.buyer?.profile?.fullName || selectedDisputeForModal.claimantName || 'Sinh viên'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Email:</span>
+                        <span className="font-medium text-slate-800">{selectedDisputeForModal.orderRaw?.buyer?.email || 'Chưa cập nhật'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Điện thoại:</span>
+                        <span className="font-semibold text-slate-800">{selectedDisputeForModal.orderRaw?.buyer?.profile?.phoneNumber || 'Chưa cập nhật'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cơ sở Campus:</span>
+                        <span className="font-medium text-slate-800">{selectedDisputeForModal.orderRaw?.buyer?.profile?.campus || 'FU Campus'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Điểm uy tín:</span>
+                        <span className="font-bold text-emerald-600">{selectedDisputeForModal.orderRaw?.buyer?.profile?.reputationScore ?? 100} điểm</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seller */}
+                  <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/60 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-800 border-b border-slate-200/70 pb-2">
+                      <Shield className="h-4 w-4 text-emerald-600" />
+                      <span>Thông tin Người bán (Bị khiếu nại)</span>
+                    </div>
+                    <div className="space-y-1 text-slate-600">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Họ và tên:</span>
+                        <span className="font-bold text-slate-900">{selectedDisputeForModal.orderRaw?.seller?.profile?.fullName || selectedDisputeForModal.orderRaw?.seller?.email || 'Người bán'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Email:</span>
+                        <span className="font-medium text-slate-800">{selectedDisputeForModal.orderRaw?.seller?.email || 'Chưa cập nhật'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Điện thoại:</span>
+                        <span className="font-semibold text-slate-800">{selectedDisputeForModal.orderRaw?.seller?.profile?.phoneNumber || 'Chưa cập nhật'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cơ sở Campus:</span>
+                        <span className="font-medium text-slate-800">{selectedDisputeForModal.orderRaw?.seller?.profile?.campus || 'FU Campus'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Điểm uy tín:</span>
+                        <span className="font-bold text-emerald-600">{selectedDisputeForModal.orderRaw?.seller?.profile?.reputationScore ?? 100} điểm</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Sản phẩm & Chi tiết thanh toán */}
+                <div className="rounded-2xl border border-slate-200 p-4 bg-white space-y-3">
+                  <div className="font-bold text-slate-900 text-sm flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span>📦 Món đồ giao dịch</span>
+                    <span className="text-xs font-black text-rose-600">
+                      {selectedDisputeForModal.refundAmount ? `${selectedDisputeForModal.refundAmount.toLocaleString('vi-VN')} đ` : 'Đang tải...'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-600">
+                    <div>
+                      <div className="text-slate-400">Tên món đồ:</div>
+                      <div className="font-bold text-slate-900 text-sm mt-0.5">
+                        {selectedDisputeForModal.orderRaw?.product?.title || 'Sản phẩm bàn giao'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400">Hình thức giao dịch:</div>
+                      <div className="font-semibold text-slate-800 mt-0.5">
+                        {selectedDisputeForModal.orderRaw?.orderType === 'MEETUP'
+                          ? `🤝 Safe-Handoff Hẹn gặp (${selectedDisputeForModal.orderRaw?.product?.meetupLocation || 'Điểm hẹn trạm KTX'})`
+                          : '🚚 Giao tận nơi Ship COD'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400">Phương thức thanh toán:</div>
+                      <div className="font-medium text-slate-800 mt-0.5">
+                        {selectedDisputeForModal.orderRaw?.payment?.paymentMethod || 'VietQR / PayOS'} • {selectedDisputeForModal.orderRaw?.payment?.isPaid ? 'Đã thanh toán Escrow' : 'Thanh toán trực tiếp'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400">Thời hạn bao test (Warranty):</div>
+                      <div className="font-medium text-slate-800 mt-0.5">
+                        {selectedDisputeForModal.orderRaw?.warrantyHours || 24} giờ test máy
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Bằng chứng khiếu nại & Video test */}
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+                  <div className="font-bold text-amber-950 text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span>Nội dung Khiếu nại từ Sinh viên</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="font-bold text-slate-900">
+                      Lý do: {selectedDisputeForModal.reason}
+                    </div>
+                    {selectedDisputeForModal.details && (
+                      <p className="text-slate-700 bg-white/80 p-3 rounded-xl border border-amber-200/80 leading-relaxed">
+                        {selectedDisputeForModal.details}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Video Test */}
+                  {selectedDisputeForModal.proofVideoUrl && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span className="flex items-center gap-1.5">
+                          <Video className="h-4 w-4 text-fpt-orange" />
+                          <span>Video kiểm tra mở hộp / Test thực tế:</span>
+                        </span>
+                        <a
+                          href={selectedDisputeForModal.proofVideoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-fpt-orange hover:underline inline-flex items-center gap-1 text-[11px]"
+                        >
+                          <span>Mở tab mới</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                      <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-60 w-full flex items-center justify-center">
+                        <video
+                          src={selectedDisputeForModal.proofVideoUrl}
+                          controls
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDisputeForModal(null)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Đóng cửa sổ
+                </button>
+
+                {selectedDisputeForModal.status === 'PENDING' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isProcessing === selectedDisputeForModal.id}
+                      onClick={async () => {
+                        await handleResolveDispute(selectedDisputeForModal.id, 'REJECT');
+                        setSelectedDisputeForModal(null);
+                      }}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <DollarSign className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Bác đơn & Trả tiền Người bán</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isProcessing === selectedDisputeForModal.id}
+                      onClick={async () => {
+                        await handleResolveDispute(selectedDisputeForModal.id, 'REFUND');
+                        setSelectedDisputeForModal(null);
+                      }}
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Chấp thuận Hoàn tiền Người mua</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Floating Toast Notification */}
         {toastMessage && (

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { reportController } from './report.controller';
 import { authenticate, authorize } from '../../middlewares/auth.middleware';
+import { uploadProductMedia } from '../../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -10,6 +11,9 @@ router.use(authenticate);
 // ============================================================================
 // 1. KHIẾU NẠI ĐỔI TRẢ (DISPUTES) - Cần đặt trước route `/:id`
 // ============================================================================
+// Upload video / hình ảnh bằng chứng khiếu nại
+router.post('/upload-evidence', uploadProductMedia.single('file'), reportController.uploadEvidence);
+
 // Người mua mở khiếu nại đơn hàng
 router.post('/disputes', reportController.createDispute);
 

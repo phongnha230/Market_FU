@@ -444,21 +444,52 @@ export class ReportService {
               orderType: true,
               status: true,
               payment: true,
+              shipping: true,
+              handshake: true,
+              warrantyHours: true,
+              warrantyEndsAt: true,
+              createdAt: true,
               product: {
-                select: { id: true, title: true, price: true, images: true },
+                select: {
+                  id: true,
+                  title: true,
+                  price: true,
+                  originalPrice: true,
+                  images: true,
+                  condition: true,
+                  description: true,
+                  campus: true,
+                  meetupLocation: true,
+                },
               },
               buyer: {
                 select: {
                   id: true,
                   email: true,
-                  profile: { select: { fullName: true, phoneNumber: true } },
+                  profile: {
+                    select: {
+                      fullName: true,
+                      phoneNumber: true,
+                      campus: true,
+                      reputationScore: true,
+                      avatarUrl: true,
+                    },
+                  },
                 },
               },
               seller: {
                 select: {
                   id: true,
                   email: true,
-                  profile: { select: { fullName: true, phoneNumber: true } },
+                  profile: {
+                    select: {
+                      fullName: true,
+                      phoneNumber: true,
+                      campus: true,
+                      reputationScore: true,
+                      avatarUrl: true,
+                    },
+                  },
                 },
               },
             },

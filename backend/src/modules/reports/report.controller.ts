@@ -17,6 +17,8 @@ import {
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { semesterAnalyticsService } from './analytics.service';
+import { saveMediaToStorage } from '../../config/storage';
+import { AppError } from '../../middlewares/error.middleware';
 
 const reportService = new ReportService();
 
@@ -82,6 +84,30 @@ export class ReportController {
   // ==========================================================================
   // 2. KHIẾU NẠI ĐỔI TRẢ (DISPUTES)
   // ==========================================================================
+
+  uploadEvidence = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) {
+        throw new AppError('Vui lòng cung cấp tệp video hoặc hình ảnh bằng chứng', 400, 'FILE_MISSING');
+      }
+
+      const isVideo = req.file.mimetype.toLowerCase().startsWith('video/');
+      const result = await saveMediaToStorage(req.file.buffer, 'disputes', isVideo ? 'video' : 'image');
+
+      return sendSuccess(
+        res,
+        {
+          url: result.secure_url,
+          publicId: result.public_id,
+          resourceType: isVideo ? 'video' : 'image',
+        },
+        undefined,
+        201
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
 
   createDispute = async (req: Request, res: Response, next: NextFunction) => {
     try {

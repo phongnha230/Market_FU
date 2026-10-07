@@ -140,6 +140,16 @@ export const reportService = {
   // ==========================================
   // 2. KHIẾU NẠI ĐỔI TRẢ (DISPUTES)
   // ==========================================
+  async uploadDisputeEvidence(file: File): Promise<{ url: string; resourceType: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<{ url: string; resourceType: string }>>(
+      '/reports/upload-evidence',
+      formData
+    );
+    return response.data.data;
+  },
+
   async createDispute(data: {
     orderId: string;
     reason: string;
