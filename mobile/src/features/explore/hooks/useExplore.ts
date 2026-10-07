@@ -8,19 +8,10 @@ import {
 import { ExploreProduct } from '../types/explore.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
 import { useProductStore, ProductItem } from '../../../stores/productStore';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 const mapProductToExplore = (p: ProductItem): ExploreProduct => {
-  let imgSource: any = require('../../../../assets/products/monitor-dell-24.jpg');
-  if (Array.isArray(p.images) && p.images.length > 0) {
-    const firstImg = p.images[0];
-    if (typeof firstImg === 'string' && firstImg.startsWith('http')) {
-      imgSource = { uri: firstImg };
-    } else if (typeof firstImg === 'object' && (firstImg as any)?.uri) {
-      imgSource = firstImg;
-    } else if (typeof firstImg === 'number') {
-      imgSource = firstImg;
-    }
-  }
+  const imgSource = resolveProductImage(p.images?.[0]);
 
   return {
     id: p.id,

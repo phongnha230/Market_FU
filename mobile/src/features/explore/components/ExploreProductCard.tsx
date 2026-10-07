@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ExploreProduct } from '../types/explore.types';
+import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../../lib/imageResolver';
 
 interface ExploreProductCardProps {
   product: ExploreProduct;
@@ -10,10 +11,19 @@ interface ExploreProductCardProps {
 }
 
 export const ExploreProductCard: React.FC<ExploreProductCardProps> = React.memo(({ product, onPress }) => {
+  const [hasError, setHasError] = useState(false);
+  const imageSource = hasError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(product.image);
+
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={onPress}>
       <View style={styles.imageBox}>
-        <Image source={product.image} style={styles.image} contentFit="cover" transition={200} />
+        <Image
+          source={imageSource}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+          onError={() => setHasError(true)}
+        />
         <View style={[styles.badge, { backgroundColor: product.badgeColor }]}>
           <Text style={styles.badgeText}>{product.badge}</Text>
         </View>

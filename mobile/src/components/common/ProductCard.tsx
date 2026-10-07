@@ -3,12 +3,20 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
+import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../lib/imageResolver';
+
+import { useUserStore } from '../../stores/userStore';
+import { Alert } from 'react-native';
+
+import { useNavigation } from '@react-navigation/native';
+
 export interface ProductCardProps {
   id: string;
   title: string;
   price: string;
   location: string;
   seller: string;
+  sellerId?: string;
   sellerYear?: string;
   image: any;
   badge?: string;
@@ -18,10 +26,12 @@ export interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
+  id,
   title,
   price,
   location,
   seller,
+  sellerId,
   sellerYear,
   image,
   badge,
@@ -29,13 +39,33 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isVerified = true,
   onPress,
 }) => {
+  const navigation = useNavigation<any>();
+  const { user } = useUserStore();
+  const isOwn = Boolean(
+    user && user.name && seller && user.name.trim().toLowerCase() === seller.trim().toLowerCase()
+  );
   const [isLiked, setIsLiked] = useState(false);
-  const imageSource = typeof image === 'string' ? { uri: image } : image;
+  const [hasError, setHasError] = useState(false);
+  const imageSource = hasError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(image);
+
+  const handleToggleLike = () => {
+    if (isOwn) {
+      Alert.alert('Thông báo', 'Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!');
+      return;
+    }
+    setIsLiked(!isLiked);
+  };
 
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
       <View style={styles.imageBox}>
-        <Image source={imageSource} style={styles.image} contentFit="cover" transition={200} />
+        <Image
+          source={imageSource}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+          onError={() => setHasError(true)}
+        />
         {badge && (
           <View style={[styles.badge, badgeVariant === 'green' ? styles.badgeGreen : styles.badgeWhite]}>
             <Text style={[styles.badgeText, badgeVariant === 'green' ? styles.textWhite : styles.textDark]}>
@@ -47,7 +77,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           style={styles.heartBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={() => setIsLiked(!isLiked)}
+          onPress={handleToggleLike}
         >
           <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={15} color={isLiked ? '#EF4444' : '#64748B'} />
         </TouchableOpacity>
@@ -59,11 +89,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <View style={styles.metaRow}>
           <Text style={styles.metaText}>{location}</Text>
         </View>
-        <View style={styles.sellerRow}>
+        <TouchableOpacity
+          style={styles.sellerRow}
+          activeOpacity={0.7}
+          onPress={() => {
+            navigation.navigate('PublicSellerProfile', {
+              userId: sellerId || '',
+              sellerName: seller,
+            });
+          }}
+        >
           <Text style={styles.sellerName} numberOfLines={1}>{seller}</Text>
           {sellerYear && <Text style={styles.sellerYear}> ({sellerYear})</Text>}
           {isVerified && <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ marginLeft: 3 }} />}
-        </View>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );

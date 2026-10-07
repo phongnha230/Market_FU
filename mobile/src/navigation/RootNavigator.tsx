@@ -25,6 +25,7 @@ import {
   ChatDetailScreen,
   SettingsScreen,
   AccountSettingsScreen,
+  ChangePasswordScreen,
   NotificationSettingsScreen,
   PrivacySettingsScreen,
   HelpCenterScreen,
@@ -86,6 +87,7 @@ export const RootNavigator = () => {
         <Stack.Screen name="ChatDetail" component={ChatDetailScreen as any} />
         <Stack.Screen name="Settings" component={SettingsScreen as any} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen as any} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen as any} />
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen as any} />
         <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen as any} />
         <Stack.Screen name="HelpCenter" component={HelpCenterScreen as any} />

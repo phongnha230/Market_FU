@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 export interface SuggestedProductItem {
   id: string;
@@ -32,7 +33,7 @@ export const AiAssistantProductCard: React.FC<AiAssistantProductCardProps> = ({
       <View style={styles.productCardTop}>
         {/* Product Thumbnail */}
         <View style={styles.prodThumbBox}>
-          <Image source={product.image} style={styles.prodThumbImg} contentFit="cover" />
+          <Image source={resolveProductImage(product.image)} style={styles.prodThumbImg} contentFit="cover" />
           <View style={styles.domBadge}>
             <Text style={styles.domBadgeText}>{product.domTag}</Text>
           </View>

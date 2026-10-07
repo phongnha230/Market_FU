@@ -5,6 +5,7 @@ import { useCampusStore } from '../../../stores/useCampusStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProductStore } from '../../../stores/productStore';
 import { ProductCardProps } from '../../../components/common/ProductCard';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   const { currentCampus, campuses, setCampusByIndex } = useCampusStore();
@@ -64,7 +65,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
         seller: p.sellerName || 'Sinh viên FPT',
         sellerYear: p.sellerCohort || 'K17',
         isVerified: p.sellerIsVerified ?? true,
-        image: p.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
+        image: resolveProductImage(p.images?.[0]),
         badge: p.condition || 'Like New',
         badgeVariant: 'white' as const,
         hashtags: p.hashtags,

@@ -35,7 +35,16 @@ export type RootStackParamList = {
   Voucher: undefined;
 
   // New Routes
-  Checkout: { product?: any; isDifferentCampus?: boolean } | undefined;
+  Checkout:
+    | {
+        product?: any;
+        isDifferentCampus?: boolean;
+        type?: 'meetup' | 'shipping';
+        safePoint?: string;
+        agreedPrice?: number;
+        offerPrice?: number;
+      }
+    | undefined;
   CheckoutSuccess:
     | {
         orderCode: string;
@@ -85,6 +94,7 @@ export type RootStackParamList = {
     | undefined;
   Settings: undefined;
   AccountSettings: undefined;
+  ChangePassword: undefined;
   NotificationSettings: undefined;
   PrivacySettings: undefined;
   HelpCenter: undefined;

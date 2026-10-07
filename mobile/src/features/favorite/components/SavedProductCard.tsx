@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { SavedProductItem } from '../screens/SavedItemsScreen';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface SavedProductCardProps {
   product: SavedProductItem;
@@ -37,7 +38,7 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
     >
       {/* Product Image Wrapper */}
       <View style={styles.imageBox}>
-        <Image source={product.image} style={styles.productImg} contentFit="cover" />
+        <Image source={resolveProductImage(product.image)} style={styles.productImg} contentFit="cover" />
 
         {/* Discount Badge */}
         {product.discountBadge && (

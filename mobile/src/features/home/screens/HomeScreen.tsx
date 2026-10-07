@@ -11,7 +11,6 @@ import CategoryGrid from '../components/CategoryGrid';
 import KycBanner from '../components/KycBanner';
 import FeedHeader from '../components/FeedHeader';
 import FeedFilterChips from '../components/FeedFilterChips';
-import VovinamBanner from '../components/VovinamBanner';
 import SafePointWidget from '../components/SafePointWidget';
 import { TrendingSearchesBanner } from '../components/TrendingSearchesBanner';
 import useHomeFeed from '../hooks/useHomeFeed';
@@ -207,12 +206,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         )}
 
-        <VovinamBanner
-          onPress={() => {
-            if (onProductPress) onProductPress('vovinam-uniform');
-            else navigation.navigate('ProductDetail', { productId: 'vovinam-uniform' });
-          }}
-        />
         <SafePointWidget onMapPress={() => navigation.navigate('SafePointHubs')} />
         <View style={styles.bottomSpacer} />
       </ScrollView>

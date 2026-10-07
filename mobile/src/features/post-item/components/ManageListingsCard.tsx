@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ListingItemData } from '../screens/ManageListingsScreen';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface ManageListingsCardProps {
   item: ListingItemData;
@@ -31,7 +32,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
       <View style={styles.cardMainRow}>
         {/* Thumbnail Image with Tag */}
         <View style={styles.thumbWrapper}>
-          <Image source={item.image} style={styles.thumbImage} contentFit="cover" />
+          <Image source={resolveProductImage(item.image)} style={styles.thumbImage} contentFit="cover" />
           {item.tag && (
             <View
               style={[

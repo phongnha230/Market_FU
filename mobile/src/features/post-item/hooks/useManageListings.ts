@@ -5,6 +5,7 @@ import { useKho } from '../../../context/KhoContext';
 import { productMobileService } from '../../../services/productMobileService';
 import { ListingItemData } from '../screens/ManageListingsScreen';
 import { ListingStatus } from '../components/ManageListingsTabs';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 const INITIAL_LISTINGS: ListingItemData[] = [];
 
@@ -41,7 +42,7 @@ export const useManageListings = () => {
             timeAgo: p.createdAt ? 'Vừa cập nhật' : 'Hôm nay',
             location: p.safePoint || 'Sảnh Alpha Hòa Lạc',
             locationIcon: 'location-outline',
-            image: p.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
+            image: resolveProductImage(p.images?.[0]),
             tag: p.status === 'AVAILABLE' ? 'Active' : p.status,
             tagColor: p.status === 'AVAILABLE' ? '#059669' : '#64748B',
             tagTextColor: '#FFFFFF',
@@ -88,7 +89,7 @@ export const useManageListings = () => {
         timeAgo: p.createdAt || 'Hôm nay',
         location: p.safePoint || 'Sảnh Alpha Hòa Lạc',
         locationIcon: 'location-outline',
-        image: p.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
+        image: resolveProductImage(p.images?.[0]),
         tag: p.status === 'AVAILABLE' ? 'Active' : p.status,
         tagColor: p.status === 'AVAILABLE' ? '#059669' : '#64748B',
         tagTextColor: '#FFFFFF',

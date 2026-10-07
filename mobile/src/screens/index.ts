@@ -1,5 +1,6 @@
 export { default as AboutScreen } from './AboutScreen';
 export { default as AccountSettingsScreen } from './AccountSettingsScreen';
+export { default as ChangePasswordScreen } from './ChangePasswordScreen';
 export { default as AiAssistantScreen } from './AiAssistantScreen';
 export { default as ChatDetailScreen } from './ChatDetailScreen';
 export { default as ChatListScreen } from './ChatListScreen';

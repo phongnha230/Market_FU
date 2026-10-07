@@ -17,6 +17,7 @@ import { useOrderStore } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { useWalletStore } from '../../../stores/walletStore';
 import { reviewMobileService } from '../../../services/reviewMobileService';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface ReviewMedia {
   id: string;
@@ -172,7 +173,7 @@ export const ReviewScreen: React.FC = () => {
         <View style={styles.combinedCard}>
           <View style={styles.productMiniRow}>
             <Image
-              source={typeof productImage === 'string' ? { uri: productImage } : productImage}
+              source={resolveProductImage(productImage)}
               style={styles.productThumb}
               contentFit="cover"
             />
