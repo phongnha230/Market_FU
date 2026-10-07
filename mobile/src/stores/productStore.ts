@@ -13,6 +13,7 @@ export interface ProductItem {
   campus: string;
   sellerId: string;
   sellerName: string;
+  sellerAvatar?: string;
   sellerCohort?: string;
   sellerRating?: number;
   sellerIsVerified?: boolean;

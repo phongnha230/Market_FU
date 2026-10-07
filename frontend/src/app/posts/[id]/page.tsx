@@ -147,7 +147,9 @@ export default function ProductDetailPage() {
     } catch {
       // offline fallback
     }
-    router.push(`/chat?seller=${encodeURIComponent(currentProduct.seller.name)}&postId=${encodeURIComponent(currentProduct.id)}`);
+    router.push(
+      `/chat?seller=${encodeURIComponent(currentProduct.seller.name)}&productId=${encodeURIComponent(currentProduct.id)}&postId=${encodeURIComponent(currentProduct.id)}&sellerAvatar=${encodeURIComponent(currentProduct.seller.avatarUrl || '')}`
+    );
   };
 
   const handleSendOffer = async (price: string, note: string) => {

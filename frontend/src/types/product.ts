@@ -69,6 +69,8 @@ export interface CampusOption {
 
 export interface CategoryOption {
   id: string;
+  slug?: string;
+  categoryType?: string;
   name: string;
   description?: string;
   count?: string | number;

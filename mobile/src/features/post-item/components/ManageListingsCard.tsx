@@ -97,15 +97,17 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
 
       {/* Bottom Action Buttons Row */}
       <View style={styles.cardActionsRow}>
-        {/* Sửa tin */}
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnBlue]}
-          activeOpacity={0.75}
-          onPress={() => onEdit(item)}
-        >
-          <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
-          <Text style={styles.actionBtnBlueText}>Sửa tin</Text>
-        </TouchableOpacity>
+        {/* Sửa tin (chỉ cho bài chưa bán) */}
+        {item.status !== 'sold' && (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnBlue]}
+            activeOpacity={0.75}
+            onPress={() => onEdit(item)}
+          >
+            <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
+            <Text style={styles.actionBtnBlueText}>Sửa tin</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Đẩy tin (cho bài active) */}
         {item.status === 'active' && (
@@ -131,22 +133,32 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Tạm ẩn / Mở bán lại */}
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnBlue]}
-          activeOpacity={0.75}
-          onPress={() => onToggleHide(item.id, item.title, isHidden)}
-        >
-          <Ionicons
-            name={isHidden ? 'eye-outline' : 'eye-off-outline'}
-            size={13}
-            color="#1E3A8A"
-            style={{ marginRight: 4 }}
-          />
-          <Text style={styles.actionBtnBlueText}>
-            {isHidden ? 'Hiện lại' : 'Tạm ẩn'}
-          </Text>
-        </TouchableOpacity>
+        {/* Tạm ẩn / Mở bán lại (chỉ cho bài chưa bán) */}
+        {item.status !== 'sold' && (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnBlue]}
+            activeOpacity={0.75}
+            onPress={() => onToggleHide(item.id, item.title, isHidden)}
+          >
+            <Ionicons
+              name={isHidden ? 'eye-outline' : 'eye-off-outline'}
+              size={13}
+              color="#1E3A8A"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.actionBtnBlueText}>
+              {isHidden ? 'Hiện lại' : 'Tạm ẩn'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Trạng thái Đã giao dịch cho bài sold */}
+        {item.status === 'sold' && (
+          <View style={[styles.actionBtn, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+            <Ionicons name="checkmark-done-circle" size={13} color="#059669" style={{ marginRight: 4 }} />
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>Đã giao dịch</Text>
+          </View>
+        )}
 
         {/* Đã bán (cho active / scheduled) */}
         {item.status !== 'sold' && (

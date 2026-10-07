@@ -15,25 +15,31 @@ export class CategoryService {
 
     const categories = await prisma.category.findMany({
       where: includeInactive ? undefined : { isActive: true },
-      include: {
-        _count: {
-          select: {
-            products: {
-              where: { status: 'AVAILABLE' },
-            },
-          },
-        },
-      },
       orderBy: { createdAt: 'asc' },
     });
 
-    const result = categories.map((cat) => ({
-      ...cat,
-      availableProductsCount: cat._count.products,
-    }));
+    // Lấy danh sách sản phẩm AVAILABLE để tính toán chính xác cả theo categoryId và categoryType
+    const availableProducts = await prisma.product.findMany({
+      where: { status: 'AVAILABLE' },
+      select: {
+        id: true,
+        categoryId: true,
+        categoryType: true,
+      },
+    });
 
-    // Cache kết quả trong 1 giờ (3600s)
-    await setCache(cacheKey, result, 3600);
+    const result = categories.map((cat) => {
+      const matchCount = availableProducts.filter(
+        (p) => p.categoryId === cat.id || (p.categoryType && p.categoryType === cat.category)
+      ).length;
+      return {
+        ...cat,
+        availableProductsCount: matchCount,
+      };
+    });
+
+    // Cache kết quả trong 60s để bảo đảm tính phản hồi nhanh khi admin phê duyệt
+    await setCache(cacheKey, result, 60);
     return result;
   }
 

@@ -33,6 +33,7 @@ export const useProductDetail = (productId?: string) => {
       seller: {
         id: found.sellerId,
         name: found.sellerName,
+        avatarUrl: found.sellerAvatar || '',
         major: found.sellerCohort || 'K17 Kỹ thuật phần mềm',
         rating: `${found.sellerRating || 5.0} ★`,
         soldCount: 8,

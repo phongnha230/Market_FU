@@ -54,6 +54,7 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
     campus: fromBackendCampus(item.campus),
     sellerId,
     sellerName,
+    sellerAvatar: item.seller?.avatar || item.seller?.avatarUrl || item.seller?.profile?.avatarUrl || '',
     sellerCohort,
     sellerRating,
     sellerIsVerified: item.seller?.profile?.kyc?.status === 'APPROVED' || item.seller?.role === 'SELLER',

@@ -225,7 +225,9 @@ export default function ProductActionBox({
                 }
                 return;
               }
-              router.push(`/chat?seller=${encodeURIComponent(product.seller.name)}&postId=${encodeURIComponent(product.id)}`);
+              router.push(
+                `/chat?seller=${encodeURIComponent(product.seller.name)}&productId=${encodeURIComponent(product.id)}&postId=${encodeURIComponent(product.id)}&sellerAvatar=${encodeURIComponent(product.seller.avatarUrl || '')}`
+              );
             }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3 text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:bg-fpt-orange-hover hover:shadow-lg transition-all active:scale-98 cursor-pointer"
           >

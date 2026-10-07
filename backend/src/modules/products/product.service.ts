@@ -2,7 +2,7 @@ import { prisma } from '../../config/prisma';
 import { saveImageToStorage, saveMediaToStorage, isValidVideoBuffer, isValidImageBuffer } from '../../config/storage';
 import { syncProductToMeili, deleteProductFromMeili, searchProductsMeili } from '../../config/meilisearch';
 import { AppError } from '../../middlewares/error.middleware';
-import { getCache, setCache } from '../../config/redis';
+import { getCache, setCache, delCachePattern } from '../../config/redis';
 import { CreateProductInput, UpdateProductInput, QueryProductInput, normalizeCategoryType } from './product.dto';
 import { trendingService } from '../analytics/trending.service';
 import { validateProductContent } from '../../utils/profanityFilter';
@@ -1156,6 +1156,10 @@ export class ProductService {
 
     // Đồng bộ tin đăng đã duyệt sang Meilisearch engine để người mua tìm thấy
     await syncProductToMeili(updated);
+
+    // Xóa cache danh mục và sản phẩm để cập nhật số lượng ngay lập tức
+    await delCachePattern('categories:*').catch(() => {});
+    await delCachePattern('products:*').catch(() => {});
 
     // Gửi thông báo thời gian thực cho Người bán
     try {

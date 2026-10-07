@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { CATEGORIES as categories } from '@/constants/marketplace';
@@ -9,53 +9,169 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useProductStore } from '@/stores/productStore';
 import { categoryService } from '@/services/categoryService';
+import { ProductService } from '@/services/productService';
+import { ProductItem, CategoryOption } from '@/types/product';
 
-// Từ khóa phân loại chuẩn để đếm chính xác sản phẩm thực tế theo danh mục
-const CAT_KEYWORDS: Record<string, string[]> = {
-  books: ['giáo trình', 'sách', 'book', 'pe', 'fe', 'prf', 'csl', 'mas', 'note', 'đề thi', 'tài liệu', 'syllabus'],
-  electronics: ['chuột', 'phím', 'bàn phím', 'màn hình', 'dell', 'tai nghe', 'switch', 'laptop', 'macbook', 'it', 'linh kiện', 'ram', 'logitech', 'akko'],
-  fashion: ['vovinam', 'võ phục', 'áo', 'polo', 'hoodie', 'giày', 'đồng phục', 'merch'],
-  dorm: ['tủ lạnh', 'bàn học', 'bàn gấp', 'quạt', 'đèn', 'decor', 'ấm', 'nồi', 'ktx', 'giường', 'chiếu'],
-  hobbies: ['nintendo', 'switch', 'game', 'đàn', 'guitar', 'boardgame', 'truyện', 'mô hình'],
-  services: ['bus', 'vé', 'thẻ', 'gym', 'pass', 'voucher', 'căng tin', 'xe'],
-};
+// Hàm chuẩn hóa chuỗi tiếng Việt để đối soát linh hoạt
+function normalizeStr(str?: string): string {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .trim();
+}
+
+// Phân loại bất kỳ tin đăng hoặc danh mục nào về 6 nhóm chuẩn của chợ
+function classifyToMarketCategory(
+  identifier?: string,
+  title?: string,
+  categoryType?: string
+): 'books' | 'electronics' | 'fashion' | 'dorm' | 'hobbies' | 'services' {
+  const idNorm = normalizeStr(identifier);
+  const typeNorm = normalizeStr(categoryType);
+  const textNorm = `${idNorm} ${typeNorm} ${normalizeStr(title)}`;
+
+  // 1. Sách & Tài liệu
+  if (
+    typeNorm === 'books' ||
+    idNorm === 'books' ||
+    idNorm.includes('giao-trinh') ||
+    idNorm.includes('sach') ||
+    textNorm.includes('giao trinh') ||
+    textNorm.includes('sach') ||
+    textNorm.includes('tai lieu') ||
+    textNorm.includes('de thi') ||
+    textNorm.includes('syllabus') ||
+    textNorm.includes('prf') ||
+    textNorm.includes('csl') ||
+    textNorm.includes('mas')
+  ) {
+    return 'books';
+  }
+
+  // 2. Thiết bị điện tử
+  if (
+    typeNorm === 'electronics' ||
+    idNorm === 'electronics' ||
+    idNorm.includes('dien-tu') ||
+    idNorm.includes('cong-nghe') ||
+    textNorm.includes('dien tu') ||
+    textNorm.includes('laptop') ||
+    textNorm.includes('chuot') ||
+    textNorm.includes('phim') ||
+    textNorm.includes('ban phim') ||
+    textNorm.includes('tai nghe') ||
+    textNorm.includes('man hinh') ||
+    textNorm.includes('macbook') ||
+    textNorm.includes('razer') ||
+    textNorm.includes('akko') ||
+    textNorm.includes('logitech') ||
+    textNorm.includes('ram') ||
+    textNorm.includes('sac')
+  ) {
+    return 'electronics';
+  }
+
+  // 3. Thời trang & Phụ kiện
+  if (
+    typeNorm === 'clothing' ||
+    typeNorm === 'fashion' ||
+    idNorm === 'fashion' ||
+    idNorm.includes('thoi-trang') ||
+    idNorm.includes('trang-phuc') ||
+    textNorm.includes('thoi trang') ||
+    textNorm.includes('vovinam') ||
+    textNorm.includes('vo phuc') ||
+    textNorm.includes('polo') ||
+    textNorm.includes('hoodie') ||
+    textNorm.includes('ao') ||
+    textNorm.includes('dong phuc') ||
+    textNorm.includes('giay') ||
+    textNorm.includes('quan') ||
+    textNorm.includes('balo')
+  ) {
+    return 'fashion';
+  }
+
+  // 4. Đồ dùng & KTX
+  if (
+    typeNorm === 'dorm_item' ||
+    typeNorm === 'dorm' ||
+    idNorm === 'dorm' ||
+    idNorm.includes('dorm') ||
+    idNorm.includes('phong-tro') ||
+    idNorm.includes('ktx') ||
+    textNorm.includes('ktx') ||
+    textNorm.includes('phong tro') ||
+    textNorm.includes('tu lanh') ||
+    textNorm.includes('ban gap') ||
+    textNorm.includes('ban hoc') ||
+    textNorm.includes('quat') ||
+    textNorm.includes('dem') ||
+    textNorm.includes('tu vai') ||
+    textNorm.includes('am') ||
+    textNorm.includes('noi')
+  ) {
+    return 'dorm';
+  }
+
+  // 5. Phương tiện & Tiện ích
+  if (
+    typeNorm === 'vehicle' ||
+    typeNorm === 'services' ||
+    idNorm === 'services' ||
+    idNorm.includes('xe') ||
+    idNorm.includes('phuong-tien') ||
+    textNorm.includes('xe') ||
+    textNorm.includes('xe may') ||
+    textNorm.includes('xe dap') ||
+    textNorm.includes('bus') ||
+    textNorm.includes('ve') ||
+    textNorm.includes('the gym')
+  ) {
+    return 'services';
+  }
+
+  // 6. Giải trí & Đam mê / Khác
+  return 'hobbies';
+}
 
 export default function CategorySection() {
-  const products = useProductStore((state) => state.products);
-  const [backendCounts, setBackendCounts] = useState<Record<string, number>>({});
+  const storeProducts = useProductStore((state) => state.products);
+  const [liveProducts, setLiveProducts] = useState<ProductItem[]>([]);
+  const [backendCategories, setBackendCategories] = useState<CategoryOption[]>([]);
 
-  useEffect(() => {
-    let isMounted = true;
-    categoryService.getCategories().then((items) => {
-      if (isMounted && items && items.length > 0) {
-        const slugMap: Record<string, string> = {
-          'giao-trinh-sach': 'books',
-          'books': 'books',
-          'do-dien-tu': 'electronics',
-          'electronics': 'electronics',
-          'thoi-trang': 'fashion',
-          'fashion': 'fashion',
-          'do-dung-phong-tro': 'dorm',
-          'dorm': 'dorm',
-          'do-dung-khac': 'hobbies',
-          'hobbies': 'hobbies',
-          'xe-co': 'services',
-          'services': 'services',
-        };
-        const map: Record<string, number> = {};
-        items.forEach((item) => {
-          const mappedKey = slugMap[item.id] || slugMap[item.name?.toLowerCase()] || item.id;
-          if (mappedKey) {
-            map[mappedKey] = (map[mappedKey] || 0) + (Number(item.count) || 0);
-          }
-        });
-        setBackendCounts(map);
+  // Tải danh sách sản phẩm và danh mục thực tế từ server
+  const loadCategoryData = useCallback(async () => {
+    try {
+      const [cats, prods] = await Promise.all([
+        categoryService.getCategories().catch(() => []),
+        ProductService.getAllProducts().catch(() => []),
+      ]);
+      setBackendCategories(cats);
+      if (prods && prods.length > 0) {
+        setLiveProducts(prods);
       }
-    }).catch(() => {});
-    return () => { isMounted = false; };
+    } catch {
+      // Fallback
+    }
   }, []);
 
-  // Tính số lượng tin đăng thực tế chính xác nhất cho từng danh mục
+  useEffect(() => {
+    loadCategoryData();
+
+    // Khi người dùng chuyển tab quay lại (ví dụ sau khi duyệt bài ở tab Admin), tự động cập nhật lại số lượng
+    const handleFocus = () => {
+      loadCategoryData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadCategoryData]);
+
+  // Tính số lượng tin đăng chính xác tuyệt đối theo dữ liệu thực tế
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
       books: 0,
@@ -66,34 +182,47 @@ export default function CategorySection() {
       services: 0,
     };
 
-    // Nếu backend có số liệu sản phẩm thực tế, gán trực tiếp
-    const hasBackendData = Object.values(backendCounts).some((c) => c > 0);
-    if (hasBackendData) {
-      for (const [key, val] of Object.entries(backendCounts)) {
-        if (counts[key] !== undefined) {
-          counts[key] = val;
-        }
+    // 1. Gộp danh sách sản phẩm từ API và local store để đếm không sót tin nào
+    const allProductsToCount: ProductItem[] = [];
+    const seenIds = new Set<string>();
+
+    [...liveProducts, ...storeProducts].forEach((p) => {
+      if (p && p.id && !seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        allProductsToCount.push(p);
       }
-      return counts;
-    }
+    });
 
-    // Đếm chính xác theo danh sách sản phẩm thực tế trong store
-    products.forEach((p) => {
-      const rawCat = (p.category || '').toLowerCase();
-      const title = (p.title || '').toLowerCase();
-      const location = (p.location || '').toLowerCase();
-      const text = `${rawCat} ${title} ${location}`;
-
-      for (const [catKey, keywords] of Object.entries(CAT_KEYWORDS)) {
-        if (rawCat === catKey || keywords.some((kw) => text.includes(kw))) {
-          counts[catKey] = (counts[catKey] || 0) + 1;
-          break;
+    // 2. Phân loại từng món đồ đang mở bán vào đúng 1 trong 6 danh mục
+    allProductsToCount.forEach((p) => {
+      const isAvailable = !p.status || p.status === 'AVAILABLE';
+      if (isAvailable) {
+        const target = classifyToMarketCategory(
+          p.category || p.categoryId,
+          p.title,
+          p.categoryType
+        );
+        if (target && counts[target] !== undefined) {
+          counts[target] += 1;
         }
       }
     });
 
+    // 3. Đối soát với số lượng báo về từ API danh mục (lấy giá trị lớn nhất đảm bảo không bị hụt)
+    if (backendCategories.length > 0) {
+      backendCategories.forEach((cat) => {
+        const cNum = Number(cat.count) || 0;
+        if (cNum > 0) {
+          const target = classifyToMarketCategory(cat.slug || cat.id, cat.name, cat.categoryType);
+          if (target && counts[target] !== undefined) {
+            counts[target] = Math.max(counts[target], cNum);
+          }
+        }
+      });
+    }
+
     return counts;
-  }, [products, backendCounts]);
+  }, [liveProducts, storeProducts, backendCategories]);
 
   return (
     <section className="py-8">

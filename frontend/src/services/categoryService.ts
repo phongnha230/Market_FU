@@ -9,6 +9,8 @@ export const categoryService = {
       const items = response.data.data || [];
       return items.map((cat: any) => ({
         id: cat.id || cat._id,
+        slug: cat.slug,
+        categoryType: cat.category,
         name: cat.name,
         description: cat.description,
         count: cat.availableProductsCount ?? cat._count?.products ?? cat._count?.posts ?? cat.activePostCount ?? 0,
