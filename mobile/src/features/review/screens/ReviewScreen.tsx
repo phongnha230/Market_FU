@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,44 +6,67 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Image,
   Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useOrderStore } from '../../../stores/orderStore';
+import { useUserStore } from '../../../stores/userStore';
+import { useWalletStore } from '../../../stores/walletStore';
+import { reviewMobileService } from '../../../services/reviewMobileService';
+
+interface ReviewMedia {
+  id: string;
+  uri: string;
+  isVideo?: boolean;
+  duration?: string;
+}
 
 export const ReviewScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const orderId = route.params?.orderId || 'ORD-882194';
-  const productTitle = route.params?.productTitle || 'Màn hình Dell 24" UltraSharp U2419H';
-  const sellerName = route.params?.sellerName || 'Nguyễn Văn Nam';
+  const { user } = useUserStore();
+  const orderId = route.params?.orderId || 'ORD-421365-C0EF';
+  const productTitle = route.params?.productTitle || 'Bàn phím cơ Gaming LED RGB';
+  const sellerName = route.params?.sellerName || 'Nhã Trần CT';
+  const sellerCampus = route.params?.sellerCampus || 'Cần Thơ';
   const productImage =
-    route.params?.productImage || require('../../../../assets/products/monitor-dell-24.jpg');
+    route.params?.productImage ||
+    require('../../../../assets/products/keyboard-akko.jpg');
 
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>(['Đúng mô tả', 'Thân thiện']);
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Danh sách hình ảnh / video bóc hộp được chọn từ thiết bị
+  const [mediaList, setMediaList] = useState<ReviewMedia[]>([]);
+
+  const buyerStudentId =
+    user?.studentId || (user?.email ? user.email.split('@')[0].toUpperCase() : 'HE172819');
+  const anonymousBuyerCode =
+    buyerStudentId.length > 4
+      ? `${buyerStudentId.slice(0, 4)}**** (${user?.campus || 'HL'})`
+      : `${buyerStudentId}**** (HL)`;
+
+  const hasVideo = mediaList.some((m) => m.isVideo);
+  const bonusCoins = hasVideo ? 200 : 100;
 
   const ratingLabels: { [key: number]: string } = {
     1: 'Rất tệ 😡',
-    2: 'Không hài lòng 🙁',
+    2: 'Chưa hài lòng 🙁',
     3: 'Bình thường 😐',
     4: 'Hài lòng 🙂',
-    5: 'Tuyệt vời & Rất uy tín! ⭐',
+    5: 'Rất hài lòng & Uy tín ⭐',
   };
 
-  const criteriaList = [
-    'Đúng như mô tả',
-    'Đúng giờ hẹn Safe-Point',
-    'Người bán thân thiện',
-    'Hàng nguyên tem/zin',
-    'Giá tốt cho sinh viên',
-  ];
+  const quickTags = ['Đúng mô tả', 'Đúng hẹn', 'Thân thiện', 'Hàng nguyên tem'];
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -51,87 +74,118 @@ export const ReviewScreen: React.FC = () => {
     );
   };
 
-  const handleSubmitReview = () => {
-    if (orderId) {
-      useOrderStore.getState().markOrderReviewed(orderId);
-      import('../../../services/reviewMobileService').then(({ reviewMobileService }) => {
-        reviewMobileService
-          .createReview({
-            orderId,
-            rating,
-            comment: comment ? `${comment} [${selectedTags.join(', ')}]` : undefined,
-          })
-          .catch(() => {});
+  const handlePickMedia = useCallback(async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Quyền truy cập',
+          'Vui lòng cấp quyền thư viện để chọn ảnh/video thực tế.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsMultipleSelection: true,
+        quality: 0.8,
       });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newItems: ReviewMedia[] = result.assets.map((asset, index) => {
+          const isVid = asset.type === 'video';
+          return {
+            id: `media-${Date.now()}-${index}`,
+            uri: asset.uri,
+            isVideo: isVid,
+            duration:
+              isVid && asset.duration ? `${Math.round(asset.duration / 1000)}s` : undefined,
+          };
+        });
+
+        setMediaList((prev) => [...prev, ...newItems]);
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Không thể mở thư viện lúc này.');
     }
-    Alert.alert(
-      '🎉 Cảm ơn bạn đã đánh giá!',
-      `Đánh giá ${rating} sao cho ${sellerName} đã được ghi nhận.\n\nBạn được cộng +20 Điểm Uy tín Campus và nhận 1 Voucher nước ép tại Căn tin KTX!`,
-      [
-        {
-          text: 'Về trang đơn hàng',
-          onPress: () => {
-            navigation.navigate('OrderList');
+  }, []);
+
+  const handleRemoveMedia = (id: string) => {
+    setMediaList((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleSubmitReview = async () => {
+    try {
+      setIsSubmitting(true);
+      if (orderId) {
+        useOrderStore.getState().markOrderReviewed(orderId);
+      }
+
+      useWalletStore.getState().addCoins(bonusCoins);
+
+      await reviewMobileService.createReview({
+        orderId,
+        rating,
+        comment: comment ? `${comment} [${selectedTags.join(', ')}]` : undefined,
+        images: mediaList.filter((m) => !m.isVideo).map((m) => m.uri),
+        proofVideoUrl: mediaList.find((m) => m.isVideo)?.uri,
+      });
+
+      Alert.alert(
+        '🎉 Cảm ơn bạn!',
+        `Đánh giá đã được ghi nhận. Bạn được cộng +${bonusCoins} Xu và +20 Điểm Uy tín Campus.`,
+        [
+          {
+            text: 'Đóng',
+            onPress: () => navigation.navigate('OrderList'),
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch {
+      Alert.alert('Thành công', 'Đánh giá đã được ghi nhận.');
+      navigation.navigate('OrderList');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Header */}
       <View style={styles.header}>
-        {[
-          {
-            icon: 'arrow-back' as const,
-            size: 24,
-            onPress: () => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                navigation.navigate('MainTabs', { screen: 'Home' });
-              }
-            },
-          },
-          {
-            icon: 'home-outline' as const,
-            size: 22,
-            onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }),
-          },
-        ].map((btn, idx) => (
-          <React.Fragment key={btn.icon}>
-            {idx === 1 && <Text style={styles.headerTitle}>Đánh giá đơn hàng</Text>}
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={btn.onPress}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name={btn.icon} size={btn.size} color="#0F172A" />
-            </TouchableOpacity>
-          </React.Fragment>
-        ))}
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Đánh giá đơn hàng</Text>
+        <View style={{ width: 32 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-        {/* Product Summary */}
-        <View style={styles.productCard}>
-          <Image
-            source={typeof productImage === 'string' ? { uri: productImage } : productImage}
-            style={styles.productThumb}
-          />
-          <View style={styles.productInfo}>
-            <Text style={styles.productTitle} numberOfLines={2}>
-              {productTitle}
-            </Text>
-            <Text style={styles.sellerText}>Người bán: {sellerName}</Text>
-            <Text style={styles.orderIdText}>Mã đơn: #{orderId}</Text>
+        {/* Compact Product & Rating Card */}
+        <View style={styles.combinedCard}>
+          <View style={styles.productMiniRow}>
+            <Image
+              source={typeof productImage === 'string' ? { uri: productImage } : productImage}
+              style={styles.productThumb}
+              contentFit="cover"
+            />
+            <View style={styles.productInfo}>
+              <Text style={styles.productTitle} numberOfLines={1}>
+                {productTitle}
+              </Text>
+              <Text style={styles.sellerSubText}>
+                Người bán: <Text style={styles.boldText}>{sellerName}</Text> ({sellerCampus})
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Rating Stars */}
-        <View style={styles.ratingCard}>
-          <Text style={styles.ratingPrompt}>Bạn cảm thấy giao dịch này như thế nào?</Text>
+          <View style={styles.divider} />
+
+          {/* Star Rating */}
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity
@@ -142,19 +196,18 @@ export const ReviewScreen: React.FC = () => {
               >
                 <Ionicons
                   name={star <= rating ? 'star' : 'star-outline'}
-                  size={34}
-                  color={star <= rating ? '#F59E0B' : '#CBD5E1'}
+                  size={36}
+                  color={star <= rating ? '#F59E0B' : '#E2E8F0'}
                 />
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.ratingLabel}>{ratingLabels[rating]}</Text>
+          <Text style={styles.ratingLabelText}>{ratingLabels[rating]}</Text>
         </View>
 
-        {/* Criteria Tags */}
-        <Text style={styles.sectionHeader}>TIÊU CHÍ NỔI BẬT</Text>
-        <View style={styles.tagsContainer}>
-          {criteriaList.map((tag) => {
+        {/* Quick Tag Chips */}
+        <View style={styles.tagsRow}>
+          {quickTags.map((tag) => {
             const isSelected = selectedTags.includes(tag);
             return (
               <TouchableOpacity
@@ -163,62 +216,96 @@ export const ReviewScreen: React.FC = () => {
                 activeOpacity={0.7}
                 onPress={() => toggleTag(tag)}
               >
-                <Ionicons
-                  name={isSelected ? 'checkmark-circle' : 'add-circle-outline'}
-                  size={15}
-                  color={isSelected ? '#EA580C' : '#64748B'}
-                />
-                <Text style={[styles.tagChipText, isSelected && styles.activeTagChipText]}>
-                  {tag}
+                <Text style={[styles.tagText, isSelected && styles.activeTagText]}>
+                  {isSelected ? `✓ ${tag}` : `+ ${tag}`}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Detailed Feedback Text */}
-        <Text style={styles.sectionHeader}>NHẬN XÉT CỦA BẠN</Text>
-        <View style={styles.commentBox}>
+        {/* Comment Box */}
+        <View style={styles.commentCard}>
           <TextInput
-            style={styles.textInput}
+            style={styles.commentInput}
             value={comment}
             onChangeText={setComment}
-            placeholder="Chia sẻ thêm về trải nghiệm nhận hàng tại trạm Safe-point..."
+            placeholder="Chia sẻ trải nghiệm sản phẩm, đóng gói, bàn giao..."
+            placeholderTextColor="#94A3B8"
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
           />
-        </View>
 
-        {/* Upload Proof Photos */}
-        <Text style={styles.sectionHeader}>HÌNH ẢNH THỰC TẾ ĐỒNG KIỂM</Text>
-        <View style={styles.photoRow}>
-          <TouchableOpacity
-            style={styles.addPhotoBtn}
-            onPress={() => Alert.alert('Đính kèm ảnh', 'Tải ảnh chụp tại trạm Safe-Point')}
-          >
-            <Ionicons name="camera-outline" size={26} color="#EA580C" />
-            <Text style={styles.addPhotoText}>Thêm ảnh</Text>
-          </TouchableOpacity>
+          {/* Media Attachments inline */}
+          <View style={styles.mediaRow}>
+            <TouchableOpacity
+              style={styles.addMediaBtn}
+              onPress={handlePickMedia}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="camera-outline" size={20} color="#EA580C" />
+              <Text style={styles.addMediaBtnText}>Ảnh / Video</Text>
+            </TouchableOpacity>
 
-          <View style={styles.samplePhotoBox}>
-            <Image
-              source={typeof productImage === 'string' ? { uri: productImage } : productImage}
-              style={styles.samplePhoto}
-            />
-            <View style={styles.photoVerifiedBadge}>
-              <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mediaScroll}>
+              {mediaList.map((item) => (
+                <View key={item.id} style={styles.mediaThumbBox}>
+                  <Image source={{ uri: item.uri }} style={styles.mediaThumb} contentFit="cover" />
+                  {item.isVideo && (
+                    <View style={styles.videoBadge}>
+                      <Ionicons name="play" size={8} color="#FFFFFF" />
+                      <Text style={styles.videoText}>{item.duration || 'Video'}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => handleRemoveMedia(item.id)}
+                  >
+                    <Ionicons name="close" size={10} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
           </View>
         </View>
 
+        {/* Reward Hint */}
+        <View style={styles.rewardHintRow}>
+          <Ionicons name="gift-outline" size={14} color="#D97706" />
+          <Text style={styles.rewardHintText}>
+            Thưởng: <Text style={styles.boldText}>+{bonusCoins} Xu</Text> ({hasVideo ? 'Đã có video bóc hộp' : 'Tải video unbox nhận +200 Xu'})
+          </Text>
+        </View>
+
+        {/* Compact Anonymous Checkbox */}
+        <TouchableOpacity
+          style={styles.anonymousRow}
+          activeOpacity={0.7}
+          onPress={() => setIsAnonymous(!isAnonymous)}
+        >
+          <Ionicons
+            name={isAnonymous ? 'checkbox' : 'square-outline'}
+            size={19}
+            color={isAnonymous ? '#EA580C' : '#94A3B8'}
+          />
+          <Text style={styles.anonymousLabel}>
+            Đánh giá ẩn danh{' '}
+            <Text style={styles.anonymousSubLabel}>
+              ({isAnonymous ? anonymousBuyerCode : (user?.name || 'Tên của bạn')})
+            </Text>
+          </Text>
+        </TouchableOpacity>
+
         {/* Submit Button */}
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
           activeOpacity={0.88}
           onPress={handleSubmitReview}
+          disabled={isSubmitting}
         >
-          <Ionicons name="send" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.submitBtnText}>Gửi đánh giá (+20 điểm Uy tín)</Text>
+          <Text style={styles.submitBtnText}>
+            {isSubmitting ? 'Đang gửi...' : 'Hoàn tất đánh giá'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -238,101 +325,135 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E8F0',
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 16.5, fontWeight: '800', color: '#0F172A' },
-  scrollBody: { paddingHorizontal: 16, paddingBottom: 40 },
-  productCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  scrollBody: { paddingHorizontal: 16, paddingBottom: 30 },
+  combinedCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
-    marginTop: 14,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    alignItems: 'center',
   },
-  productThumb: { width: 55, height: 55, borderRadius: 10, marginRight: 12 },
+  productMiniRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  productThumb: { width: 44, height: 44, borderRadius: 8, marginRight: 10, backgroundColor: '#F1F5F9' },
   productInfo: { flex: 1 },
   productTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  sellerText: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  orderIdText: { fontSize: 10.5, color: '#94A3B8', marginTop: 1 },
-  ratingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  ratingPrompt: { fontSize: 13.5, fontWeight: '700', color: '#0F172A' },
-  starsRow: { flexDirection: 'row', gap: 10, marginVertical: 12 },
+  sellerSubText: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  boldText: { fontWeight: '700', color: '#0F172A' },
+  divider: { height: 1, backgroundColor: '#F1F5F9', width: '100%', marginVertical: 12 },
+  starsRow: { flexDirection: 'row', gap: 8 },
   starBtn: { padding: 2 },
-  ratingLabel: { fontSize: 14, fontWeight: '800', color: '#EA580C' },
-  sectionHeader: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#94A3B8',
-    marginTop: 20,
-    marginBottom: 8,
-    marginLeft: 4,
-    letterSpacing: 0.5,
-  },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  ratingLabelText: { fontSize: 13, fontWeight: '700', color: '#EA580C', marginTop: 8 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   activeTagChip: { borderColor: '#FED7AA', backgroundColor: '#FFF7ED' },
-  tagChipText: { fontSize: 12, color: '#475569', fontWeight: '600' },
-  activeTagChipText: { color: '#EA580C', fontWeight: '700' },
-  commentBox: {
+  tagText: { fontSize: 11.5, color: '#64748B', fontWeight: '600' },
+  activeTagText: { color: '#EA580C', fontWeight: '700' },
+  commentCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  textInput: { fontSize: 13, color: '#0F172A', minHeight: 80, textAlignVertical: 'top' },
-  photoRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  addPhotoBtn: {
-    width: 75,
-    height: 75,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
+  commentInput: {
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
-  addPhotoText: { fontSize: 10, fontWeight: '700', color: '#EA580C', marginTop: 4 },
-  samplePhotoBox: { position: 'relative', width: 75, height: 75, borderRadius: 12, overflow: 'hidden' },
-  samplePhoto: { width: '100%', height: '100%' },
-  photoVerifiedBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#059669',
-    borderRadius: 8,
-    padding: 2,
-  },
-  submitBtn: {
-    backgroundColor: '#EA580C',
-    borderRadius: 14,
-    height: 48,
+  mediaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 26,
-    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
   },
+  addMediaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  addMediaBtnText: { fontSize: 11, fontWeight: '700', color: '#EA580C' },
+  mediaScroll: { flexDirection: 'row', gap: 6 },
+  mediaThumbBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mediaThumb: { width: '100%', height: '100%' },
+  videoBadge: {
+    position: 'absolute',
+    bottom: 2,
+    left: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 3,
+    borderRadius: 3,
+  },
+  videoText: { color: '#FFFFFF', fontSize: 7, fontWeight: '700' },
+  removeBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  rewardHintText: { fontSize: 11, color: '#B45309' },
+  anonymousRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
+  anonymousLabel: { fontSize: 12.5, fontWeight: '600', color: '#334155' },
+  anonymousSubLabel: { fontSize: 11.5, color: '#94A3B8', fontWeight: '400' },
+  submitBtn: {
+    backgroundColor: '#EA580C',
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });
 

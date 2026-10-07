@@ -56,7 +56,7 @@ export default function OrdersPage() {
     userData.kycRole === 'seller';
 
   const [activeMainTab, setActiveMainTab] = useState<'buying' | 'selling' | 'listings' | 'handoff'>('buying');
-  const [activeProgressFilter, setActiveProgressFilter] = useState<string>('shipping');
+  const [activeProgressFilter, setActiveProgressFilter] = useState<string>('all');
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -68,16 +68,21 @@ export default function OrdersPage() {
   const [selectedShipOrder, setSelectedShipOrder] = useState<OrderItem | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
-  // Thống kê số lượng đơn theo tiến trình
+  // Lấy tập đơn hàng tương ứng với Tab chính đang chọn (Đơn mua hay Đơn bán)
+  const currentTabOrders = React.useMemo(() => {
+    return activeMainTab === 'selling' ? sellingOrders : buyingOrders;
+  }, [activeMainTab, sellingOrders, buyingOrders]);
+
+  // Thống kê số lượng đơn theo tiến trình đồng bộ theo Tab đang mở
   const filterCounts = React.useMemo(() => {
     return {
-      qr: buyingOrders.filter((o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')).length,
-      packing: buyingOrders.filter((o) => o.status === 'processing').length,
-      shipping: buyingOrders.filter((o) => o.status === 'shipping').length,
-      inspecting: buyingOrders.filter((o) => o.status === 'delivered').length,
-      delivered: buyingOrders.filter((o) => o.status === 'delivered' || o.status === 'completed').length,
+      qr: currentTabOrders.filter((o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')).length,
+      packing: currentTabOrders.filter((o) => o.status === 'processing').length,
+      shipping: currentTabOrders.filter((o) => o.status === 'shipping').length,
+      inspecting: currentTabOrders.filter((o) => o.status === 'delivered').length,
+      delivered: currentTabOrders.filter((o) => o.status === 'delivered' || o.status === 'completed').length,
     };
-  }, [buyingOrders]);
+  }, [currentTabOrders]);
 
   // Lọc đơn mua theo tiến trình
   const filteredBuyingOrders = React.useMemo(() => {
@@ -101,6 +106,29 @@ export default function OrdersPage() {
     }
     return buyingOrders;
   }, [buyingOrders, activeProgressFilter]);
+
+  // Lọc đơn bán theo tiến trình
+  const filteredSellingOrders = React.useMemo(() => {
+    if (activeProgressFilter === 'all') return sellingOrders;
+    if (activeProgressFilter === 'qr') {
+      return sellingOrders.filter(
+        (o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')
+      );
+    }
+    if (activeProgressFilter === 'packing') {
+      return sellingOrders.filter((o) => o.status === 'processing');
+    }
+    if (activeProgressFilter === 'shipping') {
+      return sellingOrders.filter((o) => o.status === 'shipping');
+    }
+    if (activeProgressFilter === 'inspecting') {
+      return sellingOrders.filter((o) => o.status === 'delivered');
+    }
+    if (activeProgressFilter === 'delivered') {
+      return sellingOrders.filter((o) => o.status === 'delivered' || o.status === 'completed');
+    }
+    return sellingOrders;
+  }, [sellingOrders, activeProgressFilter]);
 
   // Danh sách tin đăng bán của Seller
   const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
@@ -244,11 +272,16 @@ export default function OrdersPage() {
             {/* Tabs */}
             <OrderTabs
               activeMainTab={activeMainTab}
-              onMainTabChange={setActiveMainTab}
+              onMainTabChange={(tab) => {
+                setActiveMainTab(tab);
+                setActiveProgressFilter('all');
+              }}
               activeProgressFilter={activeProgressFilter}
               onProgressFilterChange={setActiveProgressFilter}
-              ordersCount={buyingOrders.length}
+              ordersCount={activeMainTab === 'selling' ? sellingOrders.length : buyingOrders.length}
               sellingCount={sellingOrders.length}
+              listingsCount={myProducts.length}
+              handoffCount={orders.filter((o) => o.type === 'safe-handoff' && o.status !== 'completed').length}
               isSeller={isSeller}
               filterCounts={filterCounts}
             />
@@ -477,8 +510,20 @@ export default function OrdersPage() {
                       <p className="font-semibold text-slate-700">Bạn chưa có đơn bán nào cần đóng gói hoặc gửi hàng.</p>
                       <p>Khi có bạn sinh viên khác đặt mua món đồ của bạn, đơn sẽ hiển thị tại đây.</p>
                     </Card>
+                  ) : filteredSellingOrders.length === 0 ? (
+                    <Card className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-xs text-slate-500 space-y-3">
+                      <p className="font-semibold text-slate-700">Không tìm thấy đơn bán nào ở trạng thái này.</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setActiveProgressFilter('all')}
+                        className="rounded-xl border-slate-200 text-slate-700 text-xs px-4 py-1.5 cursor-pointer"
+                      >
+                        Xem tất cả ({sellingOrders.length} đơn)
+                      </Button>
+                    </Card>
                   ) : (
-                    sellingOrders.map((order) => (
+                    filteredSellingOrders.map((order) => (
                       <OrderCard
                         key={order.id}
                         order={order}
@@ -712,7 +757,12 @@ export default function OrdersPage() {
       />
       <OrderTrackingModal
         order={selectedTrackingOrder}
+        viewerRole={activeMainTab === 'selling' ? 'seller' : 'buyer'}
         onClose={() => setSelectedTrackingOrder(null)}
+        onStatusUpdated={(status) => {
+          showToast(`🛵 Bưu tá GHN đã phát hàng tới sảnh KTX (Trạng thái: ${status})! Kích hoạt 48h bao test cho người mua.`, 'success');
+          useOrderStore.getState().fetchOrders();
+        }}
       />
       <OrderShipModal
         order={selectedShipOrder}

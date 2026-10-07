@@ -18,6 +18,29 @@ import {
 } from './order.dto';
 import { calculateShippingFee } from './shipping-matrix';
 import { ghnService } from './ghn.service';
+import { CampusLocation } from '@prisma/client';
+
+/** Tự động trích xuất mã Campus FPT từ địa chỉ giao nhận */
+export function detectCampusFromAddress(address?: string): CampusLocation | null {
+  if (!address) return null;
+  const lower = address.toLowerCase();
+  if (lower.includes('hòa lạc') || lower.includes('hoa lac') || lower.includes('hà nội') || lower.includes('ha noi') || lower.includes('hol')) {
+    return 'HOL';
+  }
+  if (lower.includes('hồ chí minh') || lower.includes('tp.hcm') || lower.includes('hcm') || lower.includes('quận 9') || lower.includes('thủ đức') || lower.includes('cnc')) {
+    return 'HCM';
+  }
+  if (lower.includes('đà nẵng') || lower.includes('da nang') || lower.includes('dad')) {
+    return 'DAD';
+  }
+  if (lower.includes('quy nhơn') || lower.includes('quy nhon') || lower.includes('bình định') || lower.includes('qn')) {
+    return 'QN';
+  }
+  if (lower.includes('cần thơ') || lower.includes('can tho') || lower.includes('ct')) {
+    return 'CT';
+  }
+  return null;
+}
 
 /** B3-10: MongoDB ObjectId hợp lệ (tránh Prisma throw 500 với id rác) */
 const isValidObjectId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
@@ -722,8 +745,8 @@ export class OrderService {
    * luồng chuẩn vẫn là POST /api/webhooks/shipping (đã ký HMAC) trong shipping-webhook.service.
    */
   private static readonly ALLOWED_SHIPPING_TRANSITIONS: Record<string, string[]> = {
-    SHIPPING: ['PENDING', 'PAID'],
-    DELIVERED: ['SHIPPING'],
+    SHIPPING: ['PENDING', 'PAID', 'PROCESSING', 'SHIPPING'],
+    DELIVERED: ['SHIPPING', 'PENDING', 'PAID', 'PROCESSING'],
   };
 
   async updateShippingStatus(userId: string, orderId: string, input: UpdateShippingStatusInput) {
@@ -738,8 +761,8 @@ export class OrderService {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
-    if (order.sellerId !== userId) {
-      throw new AppError('Chỉ người bán mới có quyền cập nhật trạng thái vận đơn', 403, 'FORBIDDEN');
+    if (order.sellerId !== userId && order.buyerId !== userId) {
+      throw new AppError('Chỉ người tham gia đơn hàng mới có quyền cập nhật trạng thái vận đơn', 403, 'FORBIDDEN');
     }
 
     // B3-9: Chặn cập nhật vận đơn trên đơn hẹn gặp trực tiếp (không có thực thể giao hàng)
@@ -839,6 +862,11 @@ export class OrderService {
     });
 
     emitToUser(order.buyerId, 'order_shipping_updated', {
+      orderId,
+      status,
+      trackingCode: trackingCode || currentShipping.trackingCode,
+    });
+    emitToUser(order.sellerId, 'order_shipping_updated', {
       orderId,
       status,
       trackingCode: trackingCode || currentShipping.trackingCode,
@@ -1199,6 +1227,7 @@ export class OrderService {
       },
       include: {
         product: { select: { id: true, title: true, campus: true } },
+        buyer: { select: { id: true, profile: { select: { campus: true } } } },
       },
     });
 
@@ -1224,7 +1253,14 @@ export class OrderService {
     }
 
     const fromCampus = order.product?.campus || 'HOL';
-    const toCampus = (order.shipping as any)?.destinationCampus || fromCampus;
+    const addressCampus = detectCampusFromAddress(order.shipping?.shippingAddress);
+    const buyerProfileCampus = (order as any).buyer?.profile?.campus as CampusLocation | undefined;
+    const toCampus =
+      (order.shipping as any)?.destinationCampus ||
+      addressCampus ||
+      buyerProfileCampus ||
+      fromCampus;
+
     const matrixInfo = calculateShippingFee({
       orderType: order.orderType,
       fromCampus,

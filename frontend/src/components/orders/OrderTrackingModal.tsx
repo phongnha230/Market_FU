@@ -2,21 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { OrderItem } from '@/stores/orderStore';
-import { X, Truck, CheckCircle2, Clock, MapPin, Package, Phone } from 'lucide-react';
+import { X, Truck, CheckCircle2, Clock, MapPin, Package, Phone, RefreshCw, Sparkles } from 'lucide-react';
 import { orderService } from '@/services/orderService';
 import { Badge } from '@/components/ui';
 
 interface OrderTrackingModalProps {
   order: OrderItem | null;
   onClose: () => void;
+  onStatusUpdated?: (status: string) => void;
+  viewerRole?: 'buyer' | 'seller';
 }
 
 export default function OrderTrackingModal({
   order,
   onClose,
+  onStatusUpdated,
+  viewerRole = 'buyer',
 }: OrderTrackingModalProps) {
   const [liveTracking, setLiveTracking] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -55,6 +61,37 @@ export default function OrderTrackingModal({
     { title: 'Vận chuyển liên Hub', desc: partner, status: order.status === 'shipping' ? 'current' : order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
     { title: 'Giao hàng tới KTX', desc: 'Sảnh KTX điểm đến', status: order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
   ];
+
+  const handleSimulateDelivery = async () => {
+    try {
+      setSimulating(true);
+      await orderService.updateShippingStatus(order.id, {
+        status: 'DELIVERED',
+        trackingCode: trackingCode,
+        shippingPartner: partner,
+      });
+      const updated = await orderService.getOrderTracking(order.id || order.code.replace('#', ''));
+      if (updated) setLiveTracking(updated);
+      onStatusUpdated?.('DELIVERED');
+    } catch (err: any) {
+      console.error('Lỗi cập nhật bưu tá:', err);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const handleSyncTracking = async () => {
+    try {
+      setSyncing(true);
+      const updated = await orderService.getOrderTracking(order.id || order.code.replace('#', ''));
+      if (updated) setLiveTracking(updated);
+      if (updated?.status) onStatusUpdated?.(updated.status);
+    } catch (err: any) {
+      console.error('Lỗi đồng bộ:', err);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -192,6 +229,48 @@ export default function OrderTrackingModal({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Khối Trạm điều phối GHN & Mô phỏng Bưu tá phát hàng */}
+        {(order.status === 'shipping' || liveTracking?.status === 'SHIPPING') && (
+          <div className="mt-4 rounded-xl bg-orange-50/80 border border-orange-200/90 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Truck className="h-4 w-4 text-fpt-orange" />
+                <span>Tiến trình giao vận: {partner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncTracking}
+                disabled={syncing}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-fpt-orange hover:underline cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ GHN'}</span>
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              📦 <strong>Đơn hàng liên Campus:</strong> Kiện hàng đang được luân chuyển bởi {partner}. Khi bưu tá phát hàng tới KTX, hệ thống GHN (hoặc Webhook) sẽ tự động cập nhật đơn sang <strong>Đã giao tới sảnh KTX</strong> để kích hoạt 48 giờ bao test cho người mua.
+            </p>
+
+            {viewerRole === 'seller' && (
+              <div className="pt-2 border-t border-orange-200/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="text-[10px] text-slate-500 italic">
+                  * Mô phỏng bưu tá giao hàng (Dành cho Người bán / Bưu cục):
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSimulateDelivery}
+                  disabled={simulating}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95 shrink-0"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>{simulating ? 'Đang cập nhật...' : '🛵 [Bưu tá GHN] Đã phát tới KTX'}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

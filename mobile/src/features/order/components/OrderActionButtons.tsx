@@ -188,7 +188,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
 }) => {
   const isDisputed = orderStatus === 'disputed' || orderStatus === 'DISPUTED';
   const isCancelled = orderStatus === 'cancelled';
-  const canDispute = !isCancelled && !isDisputed;
+  const canDispute = !isSeller && !isCancelled && !isDisputed;
   const canCancel = orderStatus === 'escrow_holding';
 
   return (

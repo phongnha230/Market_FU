@@ -42,15 +42,18 @@ export const OrderDetailScreen: React.FC = () => {
   const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
 
   const product = useMemo(() => {
-    return route.params?.product || {
-      title: matchedOrder?.productTitle || 'Sản phẩm giao dịch',
-      price: matchedOrder?.price || 0,
-      priceStr: matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + 'đ' : '0đ',
-      image: matchedOrder?.productImage,
-      sellerName: matchedOrder?.sellerName || 'Người bán FPT',
-      sellerCohort: matchedOrder?.sellerCohort || '',
-      sellerCampus: matchedOrder?.sellerCampus || 'Campus FPT',
-    };
+    return (
+      route.params?.product || {
+        id: matchedOrder?.productId || '',
+        title: matchedOrder?.productTitle || 'Sản phẩm giao dịch',
+        price: matchedOrder?.price || 0,
+        priceStr: matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + 'đ' : '0đ',
+        image: matchedOrder?.productImage,
+        sellerName: matchedOrder?.sellerName || 'Người bán FPT',
+        sellerCohort: matchedOrder?.sellerCohort || '',
+        sellerCampus: matchedOrder?.sellerCampus || 'Campus FPT',
+      }
+    );
   }, [route.params?.product, matchedOrder]);
 
   const initialStatus =
@@ -111,7 +114,7 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus]);
 
   const safePoint = matchedOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
-  const isSeller = user?.role === 'SELLER' || user?.id === matchedOrder?.sellerId;
+  const isSeller = user?.role === 'SELLER' || (matchedOrder && user?.id === matchedOrder?.sellerId);
 
   const handleConfirmReceived = useCallback(() => {
     Alert.alert(
@@ -140,6 +143,8 @@ export const OrderDetailScreen: React.FC = () => {
                         productTitle: product.title,
                         sellerName: product.sellerName,
                         productImage: product.image,
+                        sellerCampus: product.sellerCampus,
+                        sellerCohort: product.sellerCohort,
                       }),
                   },
                 ]
@@ -172,19 +177,22 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus]);
 
   const handleOpenChat = useCallback(() => {
+    const activeProductId = matchedOrder?.productId || product.id;
     navigation.navigate('ChatDetail', {
       partner: {
+        id: matchedOrder?.sellerId || 'u-partner',
         name: product.sellerName || 'Người bán',
         cohort: product.sellerCohort || 'Sinh viên FPT',
         isOnline: true,
       },
       product: {
+        id: activeProductId,
         title: product.title,
         price: product.priceStr || '1.450.000đ',
         image: product.image,
       },
     });
-  }, [navigation, product]);
+  }, [navigation, product, matchedOrder]);
 
   const handleOpenDispute = useCallback(() => {
     navigation.navigate('Dispute', {
@@ -192,6 +200,7 @@ export const OrderDetailScreen: React.FC = () => {
       productTitle: product.title,
       sellerName: product.sellerName,
       price: product.priceStr || '1.450.000đ',
+      isCod: false,
     });
   }, [navigation, orderId, product]);
 
@@ -201,6 +210,8 @@ export const OrderDetailScreen: React.FC = () => {
       productTitle: product.title,
       sellerName: product.sellerName,
       productImage: product.image,
+      sellerCampus: product.sellerCampus,
+      sellerCohort: product.sellerCohort,
     });
   }, [navigation, orderId, product]);
 
@@ -249,11 +260,19 @@ export const OrderDetailScreen: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
         <OrderStatusTimeline orderStatus={orderStatus} />
         <OrderProductSummaryCard product={product} />
-        <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
-        <PackageProofRow onPress={() => setShowProofModal(true)} />
 
-        <Text style={styles.sectionHeader}>ĐIỂM HẸN & MÃ QR ĐỒNG KIỂM</Text>
-        <OrderSafePointQrCard safePoint={safePoint} orderId={orderId} />
+        {/* Chỉ hiện banner liên campus khi 2 campus khác nhau */}
+        {matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus && (
+          <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
+        )}
+
+        {/* Chỉ hiện mã QR đồng kiểm khi đơn đang trong quá trình bàn giao/chờ nhận */}
+        {orderStatus !== 'completed' && orderStatus !== 'cancelled' && (
+          <>
+            <Text style={styles.sectionHeader}>ĐIỂM HẸN & MÃ QR ĐỒNG KIỂM</Text>
+            <OrderSafePointQrCard safePoint={safePoint} orderId={orderId} />
+          </>
+        )}
 
         <OrderActionButtons
           orderStatus={orderStatus}

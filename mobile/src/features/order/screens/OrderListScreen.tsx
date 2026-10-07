@@ -43,9 +43,22 @@ const OrderCardItem: React.FC<{
   item: OrderItem;
   currentUserId: string;
   onPress: (item: OrderItem) => void;
-}> = React.memo(({ item, currentUserId, onPress }) => {
+  onDispute: (item: OrderItem) => void;
+  onReview: (item: OrderItem) => void;
+}> = React.memo(({ item, currentUserId, onPress, onDispute, onReview }) => {
   const isSaleForCurrent = item.sellerId === currentUserId;
+  const isBuyer = !isSaleForCurrent;
+  const isCompleted = item.status === 'COMPLETED';
+  const canBuyerDispute =
+    isBuyer &&
+    (item.status === 'COMPLETED' ||
+      item.status === 'ESCROW_PAID' ||
+      item.status === 'HANDOVER_CONFIRMED');
+  const canBuyerReview = isBuyer && isCompleted && !item.isReviewed;
+
   const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
+  const handleDispute = React.useCallback(() => onDispute(item), [item, onDispute]);
+  const handleReview = React.useCallback(() => onReview(item), [item, onReview]);
 
   return (
     <View style={styles.orderCard}>
@@ -110,11 +123,32 @@ const OrderCardItem: React.FC<{
         <Text style={styles.dateText}>{item.createdAt}</Text>
 
         <View style={styles.actionButtonsRow}>
-          {item.handshakeOtp && (
+          {item.handshakeOtp && !isCompleted && (
             <View style={styles.otpBadge}>
               <Ionicons name="key-outline" size={12} color="#64748B" />
               <Text style={styles.otpBadgeText}>OTP: {item.handshakeOtp}</Text>
             </View>
+          )}
+
+          {canBuyerDispute && (
+            <TouchableOpacity
+              style={styles.disputeBtn}
+              activeOpacity={0.8}
+              onPress={handleDispute}
+            >
+              <Text style={styles.disputeBtnText}>Trả hàng</Text>
+            </TouchableOpacity>
+          )}
+
+          {canBuyerReview && (
+            <TouchableOpacity
+              style={styles.reviewBtn}
+              activeOpacity={0.8}
+              onPress={handleReview}
+            >
+              <Ionicons name="star" size={12} color="#FFFFFF" style={{ marginRight: 2 }} />
+              <Text style={styles.reviewBtnText}>Đánh giá</Text>
+            </TouchableOpacity>
           )}
 
           <TouchableOpacity
@@ -122,7 +156,7 @@ const OrderCardItem: React.FC<{
             onPress={handlePress}
           >
             <Text style={styles.detailBtnText}>Chi tiết</Text>
-            <Ionicons name="chevron-forward" size={14} color="#EA580C" />
+            <Ionicons name="chevron-forward" size={13} color="#94A3B8" />
           </TouchableOpacity>
         </View>
       </View>
@@ -242,6 +276,7 @@ export const OrderListScreen: React.FC = () => {
     navigation.navigate('OrderDetail', {
       orderId: item.orderNumber || item.id,
       product: {
+        id: item.productId,
         title: item.productTitle,
         price: item.price,
         priceStr: formatPrice(item.price),
@@ -257,6 +292,27 @@ export const OrderListScreen: React.FC = () => {
     });
   }, [navigation]);
 
+  const handleDispute = React.useCallback((item: OrderItem) => {
+    navigation.navigate('Dispute', {
+      orderId: item.orderNumber || item.id,
+      productTitle: item.productTitle,
+      sellerName: item.sellerName,
+      price: formatPrice(item.totalAmount || item.price),
+      isCod: false,
+    });
+  }, [navigation]);
+
+  const handleReview = React.useCallback((item: OrderItem) => {
+    navigation.navigate('Review', {
+      orderId: item.orderNumber || item.id,
+      productTitle: item.productTitle,
+      sellerName: item.sellerName,
+      productImage: item.productImage,
+      sellerCampus: item.sellerCampus,
+      sellerCohort: item.sellerCohort,
+    });
+  }, [navigation]);
+
   const handleGoHome = React.useCallback(() => {
     navigation.navigate('MainTabs', { screen: 'Home' });
   }, [navigation]);
@@ -267,9 +323,11 @@ export const OrderListScreen: React.FC = () => {
         item={item}
         currentUserId={currentUserId}
         onPress={handleNavigateDetail}
+        onDispute={handleDispute}
+        onReview={handleReview}
       />
     ),
-    [currentUserId, handleNavigateDetail]
+    [currentUserId, handleNavigateDetail, handleDispute, handleReview]
   );
 
   const keyExtractor = React.useCallback(
@@ -515,17 +573,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#334155',
   },
+  disputeBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  disputeBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  reviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  reviewBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   detailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    gap: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
   },
   detailBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#EA580C',
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
   },
   emptyContainer: {
     alignItems: 'center',

@@ -49,12 +49,60 @@ export default function OrderCard({
     return num.toLocaleString('vi-VN') + ' đ';
   };
 
+  const isCodOrder =
+    order.payment?.paymentMethod === 'CASH' ||
+    Boolean(order.payment?.paymentMethod?.toLowerCase().includes('cod')) ||
+    (!order.payment?.isPaid &&
+      order.type === 'inter-campus' &&
+      !order.payment?.paymentMethod?.toLowerCase().includes('vietqr') &&
+      !order.payment?.paymentMethod?.toLowerCase().includes('payos'));
+
+  const getEscrowBadgeMeta = () => {
+    if (order.type === 'safe-handoff') {
+      return {
+        text: 'Xác thực QR Handshake',
+        className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      };
+    }
+    if (order.payment?.isPaid) {
+      return {
+        text: 'Đã cọc Escrow bảo hộ 48h',
+        className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      };
+    }
+    if (isCodOrder) {
+      return {
+        text: 'Thanh toán khi nhận hàng (COD)',
+        className: 'bg-sky-50 text-sky-800 border-sky-200',
+      };
+    }
+    return {
+      text: order.product.escrowBadge || 'Bảo chứng KTX 48h',
+      className: 'bg-amber-50 text-amber-800 border-amber-200',
+    };
+  };
+
+  const badgeMeta = getEscrowBadgeMeta();
+
+  const canShowImmediatePayment =
+    !isSellerViewer &&
+    onOpenPaymentModal &&
+    order.payment &&
+    !order.payment.isPaid &&
+    !isCodOrder &&
+    ((order.status as string) === 'pending' || order.status === 'processing');
+
   return (
     <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden py-0 gap-0">
       {/* Order Header */}
       <div className="p-4 sm:px-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-slate-50/50">
         <div className="flex items-center gap-2 flex-wrap text-xs">
           <span className="font-extrabold text-slate-900">{order.code}</span>
+          {isSellerViewer && (
+            <Badge className="bg-purple-100 text-purple-800 border border-purple-200 text-[10px] font-extrabold px-1.5 py-0.5 rounded shadow-none hover:bg-purple-100">
+              🏷️ ĐƠN BÁN HÀNG
+            </Badge>
+          )}
           <Badge
             variant="outline"
             className={`rounded text-[10px] font-bold px-2 py-0.5 border ${
@@ -82,31 +130,64 @@ export default function OrderCard({
 
       {/* Product Body */}
       <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-        <div className="relative h-24 w-24 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+        <Link
+          href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}
+          className="relative h-24 w-24 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 group block"
+        >
           <Image
             src={typeof order.product.imageUrl === 'string' && order.product.imageUrl ? order.product.imageUrl : ((order.product.imageUrl as any)?.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80')}
             alt={order.product.title}
             fill
-            className="object-cover"
+            className="object-cover group-hover:scale-105 transition-transform duration-200"
           />
           <Badge className="absolute top-1 left-1 rounded bg-slate-900/85 px-1 py-0.2 text-[9px] font-bold text-white border-none hover:bg-slate-900/85">
             {order.product.conditionBadge}
           </Badge>
-        </div>
+        </Link>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-2 flex-wrap">
-            <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug">
+            <Link
+              href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}
+              className="font-bold text-sm sm:text-base text-slate-900 leading-snug hover:text-fpt-orange transition-colors"
+            >
               {order.product.title}
-            </h3>
-            <div className="text-right shrink-0">
-              <div className="text-base sm:text-lg font-black text-slate-900">
-                {formatVND(order.product.price)}
+            </Link>
+            {isSellerViewer ? (
+              <div className="text-right shrink-0">
+                <span className="text-[10px] font-bold text-slate-500 block leading-none mb-0.5">
+                  Doanh thu thực nhận
+                </span>
+                <div className="text-base sm:text-lg font-black text-emerald-600">
+                  +{formatVND(order.product.price)}
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`rounded text-[10px] font-bold px-1.5 py-0.5 border ${
+                    order.status === 'completed'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : isCodOrder
+                      ? 'bg-sky-50 text-sky-800 border-sky-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  {order.status === 'completed'
+                    ? 'Đã quyết toán ví'
+                    : isCodOrder
+                    ? 'Chờ bưu tá thu COD'
+                    : 'Đang giữ trong Escrow'}
+                </Badge>
               </div>
-              <Badge variant="outline" className="rounded bg-emerald-50 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 border border-emerald-200 hover:bg-emerald-50">
-                {order.product.escrowBadge}
-              </Badge>
-            </div>
+            ) : (
+              <div className="text-right shrink-0">
+                <div className="text-base sm:text-lg font-black text-slate-900">
+                  {formatVND(order.product.price)}
+                </div>
+                <Badge variant="outline" className={`rounded text-[10px] font-bold px-1.5 py-0.5 border ${badgeMeta.className}`}>
+                  {badgeMeta.text}
+                </Badge>
+              </div>
+            )}
           </div>
 
           <p className="mt-1 text-xs text-slate-500 line-clamp-1">
@@ -225,117 +306,109 @@ export default function OrderCard({
       )}
 
       {/* Action Buttons Row */}
-      <div className="p-4 sm:px-5 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2.5 bg-slate-50/30">
-        {/* 1. Chat button */}
-        <Button
-          asChild
-          variant="outline"
-          className="h-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
-        >
-          <Link href={`/chat?seller=${encodeURIComponent(isSellerViewer ? ((order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT') : order.product.seller.name)}`}>
-            <MessageSquare className="h-3.5 w-3.5 text-fpt-orange" />
-            <span>{isSellerViewer ? 'Chat với người mua' : 'Chat với người bán'}</span>
-          </Link>
-        </Button>
+      <div className="p-3 sm:px-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/40">
+        <div className="text-xs text-slate-500 font-medium truncate w-full sm:w-auto">
+          {order.tracking?.currentLocation ? (
+            <span className="flex items-center gap-1 text-slate-600">
+              <Compass className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
+              <span className="truncate">{order.tracking.currentLocation}</span>
+            </span>
+          ) : (
+            <span>Mã vận đơn: <strong className="font-mono text-slate-800">{order.code}</strong></span>
+          )}
+        </div>
 
-        {/* 2. Dispute button (Buyer only) */}
-        {!isSellerViewer && (
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5"
-          >
-            <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-              <span>Khiếu nại / Trả hàng</span>
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap justify-end w-full sm:w-auto">
+          {/* Seller Action Buttons */}
+          {isSellerViewer ? (
+            <>
+              {((order.status as string) === 'pending' || order.status === 'processing') && onShipOrder && (
+                <Button
+                  type="button"
+                  onClick={() => onShipOrder(order)}
+                  className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <Truck className="h-3.5 w-3.5 text-white" />
+                  <span>Bàn giao GHN</span>
+                </Button>
+              )}
+              <Button
+                asChild
+                className="h-auto rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 flex-1 sm:flex-initial"
+              >
+                <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                  <span>Chi tiết đơn bán</span>
+                  <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Buyer: Urgent payment button only for pending online payments */}
+              {canShowImmediatePayment && (
+                <Button
+                  type="button"
+                  onClick={() => onOpenPaymentModal(order)}
+                  className="h-auto rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-orange-700 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
+                >
+                  <QrCode className="h-3.5 w-3.5 text-white" />
+                  <span>Thanh toán ngay</span>
+                </Button>
+              )}
 
-        {/* 3. Cancel order button (Buyer only when processing) */}
-        {!isSellerViewer && order.status === 'processing' && onCancelOrder && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onCancelOrder(order.id, order.code)}
-            className="h-auto rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <XCircle className="h-3.5 w-3.5 text-slate-400" />
-            <span>Hủy đơn</span>
-          </Button>
-        )}
+              {/* Buyer: Actions when DELIVERED or COMPLETED */}
+              {order.status === 'delivered' && (
+                <>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Yêu cầu trả hàng</span>
+                    </Link>
+                  </Button>
 
-        {/* 3.1. Payment button for unpaid orders (Buyer) */}
-        {!isSellerViewer && onOpenPaymentModal && order.payment && !order.payment.isPaid && order.status !== 'completed' && (
-          <Button
-            type="button"
-            onClick={() => onOpenPaymentModal(order)}
-            className="h-auto rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
-          >
-            <QrCode className="h-3.5 w-3.5 text-white" />
-            <span>Thanh toán ngay (QR / PayOS)</span>
-          </Button>
-        )}
+                  {!order.reviewed && (
+                    <Button
+                      asChild
+                      className="h-auto rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                        <Star className="h-3.5 w-3.5 fill-white text-white" />
+                        <span>Đánh giá</span>
+                      </Link>
+                    </Button>
+                  )}
+                </>
+              )}
 
-        {/* 4. Ship order button (Seller only when processing/shipping) */}
-        {isSellerViewer && onShipOrder && (order.status === 'processing' || order.status === 'shipping') && (
-          <Button
-            type="button"
-            onClick={() => onShipOrder(order)}
-            className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Truck className="h-3.5 w-3.5 text-white" />
-            <span>{order.status === 'shipping' ? 'Cập nhật vận đơn GHN' : 'Gửi hàng / Nhập mã GHN'}</span>
-          </Button>
-        )}
+              {order.status === 'completed' && !order.reviewed && (
+                <Button
+                  asChild
+                  className="h-auto rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <Star className="h-3.5 w-3.5 fill-white text-white" />
+                    <span>Đánh giá ngay</span>
+                  </Link>
+                </Button>
+              )}
 
-        {/* 5. Support AI bot */}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onOpenAiBot}
-          className="h-auto rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-        >
-          Hỗ trợ đơn
-        </Button>
-
-        {/* 6. Tracking detail button */}
-        {(order.tracking || order.type === 'inter-campus') && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenTracking(order)}
-            className="h-auto rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
-          >
-            <Compass className="h-3.5 w-3.5 text-slate-500" />
-            <span>Theo dõi hành trình chi tiết (Tracking)</span>
-          </Button>
-        )}
-
-        {/* 7. QR Handshake button */}
-        {order.type === 'safe-handoff' && order.status !== 'completed' && onOpenQrModal && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenQrModal(order)}
-            className="h-auto rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3.5 py-2 text-xs font-bold hover:bg-emerald-100 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <QrCode className="h-3.5 w-3.5 text-emerald-600" />
-            <span>{isSellerViewer ? 'Xác nhận Bàn giao (QR/OTP)' : 'Mã QR Bàn giao'}</span>
-          </Button>
-        )}
-
-        {/* 8. Confirm received button (Buyer only when shipping or delivered) */}
-        {!isSellerViewer && (order.status === 'shipping' || order.status === 'delivered') && (
-          <Button
-            type="button"
-            onClick={() => onConfirmReceived(order.code)}
-            className="h-auto rounded-xl bg-orange-700 px-4 py-2 text-xs font-bold text-white hover:bg-orange-800 transition active:scale-95 shadow-xs cursor-pointer flex items-center gap-1.5"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Đã nhận hàng an toàn</span>
-          </Button>
-        )}
+              {/* Buyer: Single primary button to view full order details */}
+              <Button
+                asChild
+                className="h-auto rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white px-4 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 flex-1 sm:flex-initial"
+              >
+                <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                  <span>Xem chi tiết đơn hàng</span>
+                  <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </Card>
   );

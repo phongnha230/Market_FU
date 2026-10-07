@@ -174,7 +174,14 @@ export const useOrderStore = create<OrderState>()(
                   title: bo.product?.title || 'Sản phẩm FPT Market',
                   subtitle: bo.product?.meetupLocation || 'Bàn giao trực tiếp campus',
                   price: bo.payment.price,
-                  escrowBadge: bo.orderType === 'SHIP_COD' ? 'Đã cọc Escrow bảo hộ 48h' : 'Xác thực QR Handshake',
+                  escrowBadge:
+                    bo.orderType === 'MEETUP'
+                      ? 'Xác thực QR Handshake'
+                      : bo.payment?.isPaid
+                      ? 'Đã cọc Escrow bảo hộ 48h'
+                      : bo.payment?.paymentMethod === 'CASH' || !bo.payment?.paymentMethod || (bo.payment?.paymentMethod && bo.payment.paymentMethod.toLowerCase().includes('cod'))
+                      ? 'Thanh toán khi nhận hàng (COD)'
+                      : 'Chờ nạp cọc Escrow (VietQR)',
                   conditionBadge: 'Like New',
                   imageUrl: bo.product?.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg',
                   seller: {
@@ -256,10 +263,11 @@ export const useOrderStore = create<OrderState>()(
         };
       },
 
-      createOrder: ({ product, type = 'inter-campus', deliveryNote }) => {
+      createOrder: ({ product, type = 'inter-campus', deliveryNote, paymentMethod }) => {
         const randomNum = Math.floor(10000 + Math.random() * 90000);
         const newCode = `#ORD-${randomNum}-CAMPUS`;
         const newId = `ord-${Date.now()}`;
+        const isOnlinePayment = paymentMethod?.toLowerCase().includes('vietqr') || paymentMethod?.toLowerCase().includes('payos');
 
         const newOrder: OrderItem = {
           id: newId,
@@ -273,7 +281,22 @@ export const useOrderStore = create<OrderState>()(
           status: 'shipping',
           statusText: type === 'inter-campus' ? 'Đang chuẩn bị đóng thùng KTX' : 'Chờ gặp tại điểm hẹn',
           statusColor: 'text-fpt-orange',
-          product,
+          payment: {
+            price: product.price,
+            shippingFee: type === 'inter-campus' ? 25000 : 0,
+            totalAmount: product.price + (type === 'inter-campus' ? 25000 : 0),
+            paymentMethod: paymentMethod || (type === 'inter-campus' ? 'Thanh toán khi nhận hàng (COD)' : 'Tiền mặt điểm hẹn'),
+            isPaid: false,
+          },
+          product: {
+            ...product,
+            escrowBadge:
+              type === 'safe-handoff'
+                ? 'Xác thực QR Handshake'
+                : isOnlinePayment
+                ? 'Chờ nạp cọc Escrow (VietQR)'
+                : 'Thanh toán khi nhận hàng (COD)',
+          },
           tracking:
             type === 'inter-campus'
               ? {
@@ -358,7 +381,37 @@ export const useOrderStore = create<OrderState>()(
       },
 
       getOrder: (idOrCode) => {
-        return get().orders.find((o) => o.id === idOrCode || o.code === idOrCode);
+        if (!idOrCode) return undefined;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const orders = get().orders;
+        const found = orders.find((o) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return (
+            o.id === target ||
+            o.code === target ||
+            oCodeClean === cleanTarget ||
+            oIdClean === cleanTarget
+          );
+        });
+        if (found) return found;
+
+        // Fallback kiểm tra các user orders khác trong store nếu có
+        for (const userOrders of Object.values(get().ordersByUser)) {
+          const match = userOrders.find((o) => {
+            const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+            const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+            return (
+              o.id === target ||
+              o.code === target ||
+              oCodeClean === cleanTarget ||
+              oIdClean === cleanTarget
+            );
+          });
+          if (match) return match;
+        }
+        return undefined;
       },
 
       resetOrders: () => set({ orders: [], activeUserId: null }),

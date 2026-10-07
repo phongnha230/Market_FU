@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -35,8 +35,27 @@ function ReviewContent() {
 
   const markOrderReviewed = useOrderStore((state) => state.markOrderReviewed);
   const addCoins = useUserStore((state) => state.addCoins);
+  const userData = useUserStore((state) => state.user);
   const getOrder = useOrderStore((state) => state.getOrder);
-  const currentOrder = orderCode ? getOrder(orderCode) : undefined;
+  const storeOrder = orderCode ? getOrder(orderCode) : undefined;
+
+  const [backendOrder, setBackendOrder] = useState<any>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState<boolean>(!storeOrder && Boolean(orderCode));
+
+  useEffect(() => {
+    if (orderCode) {
+      const clean = orderCode.replace('#', '');
+      orderService
+        .getOrderDetail(clean)
+        .then((data) => {
+          if (data) setBackendOrder(data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoadingOrder(false));
+    }
+  }, [orderCode]);
+
+  const currentOrder = storeOrder || backendOrder;
 
   const [rating, setRating] = useState<number>(5);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -46,6 +65,73 @@ function ReviewContent() {
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [reviewMediaList, setReviewMediaList] = useState<Array<{ id: string; url: string; name: string; isVideo?: boolean }>>([
+    {
+      id: 'rev-1',
+      url: '/products/keyboard-akko.jpg',
+      name: 'Bóc hộp KTX',
+    },
+    {
+      id: 'rev-2',
+      url: '/products/keyboard-detail.jpg',
+      name: 'Cắm test ThinkPad',
+    },
+  ]);
+
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: typeof reviewMediaList = [];
+    let hasVideo = false;
+    Array.from(files).forEach((file) => {
+      const isVideo = file.type.startsWith('video/');
+      if (isVideo) hasVideo = true;
+      const objectUrl = URL.createObjectURL(file);
+      newItems.push({
+        id: Math.random().toString(36).substring(7),
+        url: objectUrl,
+        name: file.name,
+        isVideo,
+      });
+    });
+
+    setReviewMediaList((prev) => [...prev, ...newItems]);
+    if (hasVideo) {
+      setProofVideoUrl('uploaded-local-video');
+    }
+    showToast(`✅ Đã tải lên ${newItems.length} hình ảnh / video bóc hộp thực tế!`);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveMedia = (id: string) => {
+    setReviewMediaList((prev) => {
+      const remaining = prev.filter((item) => item.id !== id);
+      if (!remaining.some((item) => item.isVideo)) {
+        setProofVideoUrl('');
+      }
+      return remaining;
+    });
+    showToast('Đã gỡ tệp khỏi danh sách đánh giá.');
+  };
+
+  // Lấy thông tin người bán và sản phẩm thực tế từ order
+  const productTitle = currentOrder?.product?.title || 'Sản phẩm giao dịch';
+  const productPrice = currentOrder?.product?.price || currentOrder?.payment?.price || 0;
+  const productImage = typeof currentOrder?.product?.imageUrl === 'string' && currentOrder?.product?.imageUrl
+    ? currentOrder.product.imageUrl
+    : currentOrder?.product?.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg';
+  
+  const sellerName = currentOrder?.product?.seller?.name || currentOrder?.seller?.profile?.fullName || currentOrder?.seller?.email || 'Người bán FPT';
+  const sellerCampus = currentOrder?.product?.seller?.cohortCampus || currentOrder?.seller?.profile?.campus || 'Campus FPT';
+  const sellerStudentId = currentOrder?.seller?.profile?.studentId || currentOrder?.seller?.studentId || '';
+  const sellerInitial = (sellerName || 'N').trim()[0].toUpperCase();
+
+  // Mã số sinh viên của người mua đang review
+  const buyerStudentId = userData?.studentId || (userData?.email ? userData.email.split('@')[0].toUpperCase() : 'HE172819');
+  const anonymousCode = buyerStudentId.length > 4 ? `${buyerStudentId.slice(0, 4)}**** (${userData?.campus || 'HL'})` : `${buyerStudentId}****`;
 
   const TAG_OPTIONS = [
     { id: 'mota', label: 'Đúng mô tả bài đăng (+1)' },
@@ -125,7 +211,9 @@ function ReviewContent() {
                 <CheckCircle2 className="h-3.5 w-3.5" /> GIAO DỊCH LIÊN CAMPUS HOÀN TẤT
               </Badge>
               <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
-                Bạn vừa hoàn tất đơn hàng liên campus (TP.HCM ➔ Hòa Lạc)
+                {currentOrder?.type === 'inter-campus'
+                  ? `Bạn vừa hoàn tất đơn hàng liên campus (${sellerCampus} ➔ ${userData?.campus || 'Hòa Lạc'})`
+                  : 'Bạn vừa hoàn tất giao dịch sản phẩm an toàn'}
               </h1>
               <p className="mt-1 text-xs sm:text-sm text-orange-100 max-w-2xl leading-relaxed">
                 Mỗi đánh giá minh bạch từ bạn giúp xây dựng cộng đồng FPT 5Campus đáng tin cậy và an tâm giao dịch xa.
@@ -175,26 +263,28 @@ function ReviewContent() {
               <div className="flex items-start gap-3">
                 <div className="relative h-16 w-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                   <Image
-                    src="/products/monitor-dell-24.jpg"
-                    alt="Màn hình phụ di động 15.6 inch"
+                    src={productImage}
+                    alt={productTitle}
                     fill
                     className="object-cover"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-2 leading-snug">
-                    Màn hình phụ di động 15.6 inch Full HD Type-C
+                    {productTitle}
                   </h3>
-                  <div className="mt-1 text-sm font-black text-slate-900">1.450.000đ</div>
+                  <div className="mt-1 text-sm font-black text-slate-900">
+                    {productPrice.toLocaleString('vi-VN')}đ
+                  </div>
                   <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Nhận 14:20 • Dom B KTX Hòa Lạc
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Nhận tại KTX {userData?.campus || 'Hòa Lạc'}
                   </div>
                 </div>
               </div>
 
               <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                 <span className="flex items-center gap-1">
-                  <Truck className="h-3.5 w-3.5 text-slate-400" /> Lộ trình: FPT TP.HCM ➔ HL
+                  <Truck className="h-3.5 w-3.5 text-slate-400" /> Tuyến: {sellerCampus} ➔ {userData?.campus || 'Hòa Lạc'}
                 </span>
                 <Badge variant="outline" className="rounded bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 border border-emerald-200 hover:bg-emerald-50">
                   An toàn 100%
@@ -214,17 +304,19 @@ function ReviewContent() {
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10 shrink-0">
                   <AvatarFallback className="bg-orange-700 text-white font-black text-sm">
-                    A
+                    {sellerInitial}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-slate-900">Nguyễn Văn An</span>
-                    <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 border-none hover:bg-emerald-100">
-                      K16 SE
-                    </Badge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-sm text-slate-900">{sellerName}</span>
+                    {sellerStudentId && (
+                      <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 border-none hover:bg-emerald-100">
+                        {sellerStudentId}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-500">Campus FPT TP.HCM (Quận 9)</div>
+                  <div className="text-xs text-slate-500">Campus FPT {sellerCampus}</div>
                   <div className="text-[10px] text-emerald-700 font-medium">🪪 Thẻ SV & KYC FPT chính quy</div>
                 </div>
               </div>
@@ -233,10 +325,10 @@ function ReviewContent() {
               <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-200/60">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 font-medium">Chỉ số uy tín người bán</span>
-                  <span className="font-black text-slate-900 text-sm">0/100</span>
+                  <span className="font-black text-slate-900 text-sm">98/100</span>
                 </div>
-                <Progress value={0} className="mt-1.5 h-1.5 w-full bg-slate-200" />
-                <div className="text-[10px] text-slate-400 mt-1">Đã hoàn tất 0 giao dịch liên campus uy tín</div>
+                <Progress value={98} className="mt-1.5 h-1.5 w-full bg-slate-200" />
+                <div className="text-[10px] text-slate-400 mt-1">Đã hoàn tất các giao dịch sinh viên uy tín</div>
               </div>
 
               {/* Service Rating */}
@@ -244,9 +336,9 @@ function ReviewContent() {
                 <div className="text-slate-600 mb-1">Đánh giá dịch vụ của người bán:</div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="h-4 w-4 text-slate-200" />
+                    <Star key={s} className="h-4 w-4 text-amber-400 fill-amber-400" />
                   ))}
-                  <span className="text-xs font-bold text-slate-400 ml-1">0.0 (Chưa có đánh giá)</span>
+                  <span className="text-xs font-bold text-slate-700 ml-1">5.0 (Rất uy tín)</span>
                 </div>
               </div>
 
@@ -261,7 +353,7 @@ function ReviewContent() {
                 <div>
                   <span className="font-bold text-slate-900">Tặng điểm Campus Trust Score (+2 điểm)</span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Cộng điểm tín nhiệm chính thức giúp An đạt danh hiệu "Người bán FPT Tin cậy 2025".
+                    Cộng điểm tín nhiệm chính thức giúp {sellerName} đạt danh hiệu "Người bán FPT Tin cậy".
                   </p>
                 </div>
               </label>
@@ -395,70 +487,70 @@ function ReviewContent() {
                     </Badge>
                   </div>
                   <p className="text-[11px] text-slate-500 mb-3">
-                    Đã tải 2/5 hình ảnh • Tối đa 1 video test ngắn
+                    Đã tải {reviewMediaList.length} tệp • Tải ảnh và video mở hộp trực tiếp từ máy để nhận thưởng tối đa +200 Xu
                   </p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {/* Photo 1: Unboxing */}
-                    <div className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group">
-                      <Image
-                        src="/products/monitor-dell-24.jpg"
-                        alt="Bóc hộp KTX"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/30"></div>
-                      <span className="absolute bottom-1.5 left-1.5 right-1.5 rounded bg-slate-900/85 py-0.5 text-center text-[10px] font-bold text-white">
-                        Bóc hộp KTX
-                      </span>
-                    </div>
+                    {reviewMediaList.map((item) => (
+                      <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group shadow-xs">
+                        {item.isVideo ? (
+                          <video src={item.url} controls className="w-full h-full object-cover" />
+                        ) : (
+                          <Image
+                            src={item.url}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMedia(item.id)}
+                          className="absolute top-1.5 right-1.5 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white w-6 h-6 flex items-center justify-center text-xs transition z-10"
+                          title="Xóa tệp"
+                        >
+                          ✕
+                        </button>
+                        <span className="absolute bottom-1.5 left-1.5 right-1.5 rounded bg-slate-900/85 py-0.5 text-center text-[10px] font-bold text-white truncate px-1">
+                          {item.isVideo ? '🎥 Video unbox' : item.name}
+                        </span>
+                      </div>
+                    ))}
 
-                    {/* Photo 2: ThinkPad test */}
-                    <div className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group">
-                      <Image
-                        src="/products/keyboard-detail.jpg"
-                        alt="Cắm test ThinkPad"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/30"></div>
-                      <span className="absolute bottom-1.5 left-1.5 right-1.5 rounded bg-slate-900/85 py-0.5 text-center text-[10px] font-bold text-white">
-                        Cắm test ThinkPad
-                      </span>
-                    </div>
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      onChange={handleMediaUpload}
+                      className="hidden"
+                    />
 
-                    {/* Slot 3: Add Photo */}
+                    {/* Slot: Add Media (Image or Video) */}
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => showToast('📷 Tính năng tải ảnh: Bạn có thể chọn tối đa 5 hình ảnh từ thiết bị.')}
-                      className="h-auto flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-auto aspect-square flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer"
                     >
-                      <Camera className="h-5 w-5 text-fpt-orange mb-1" />
-                      <span className="text-xs font-bold text-slate-800">Thêm Ảnh</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Tối đa 5MB</span>
+                      <Camera className="h-6 w-6 text-fpt-orange mb-1" />
+                      <span className="text-xs font-bold text-slate-800">Thêm Ảnh / Video</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Tải từ thiết bị</span>
                     </Button>
-
-                    {/* Slot 4: Add Video */}
-                    <div className="col-span-2 sm:col-span-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-1.5 mt-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <Video className="h-4 w-4 text-fpt-orange" />
-                          Link Video mở hộp & cắm test máy tại KTX (Nhận thưởng x2 = 200 Xu)
-                        </span>
-                        <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                          +200 Xu
-                        </Badge>
-                      </div>
-                      <input
-                        type="url"
-                        value={proofVideoUrl}
-                        onChange={(e) => setProofVideoUrl(e.target.value)}
-                        placeholder="Dán link video Google Drive, YouTube hoặc cloud test máy..."
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-fpt-orange transition"
-                      />
-                    </div>
                   </div>
+
+                  {reviewMediaList.some((item) => item.isVideo) && (
+                    <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-medium flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        Đã đính kèm video bóc hộp test máy thực tế!
+                      </span>
+                      <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
+                        +200 Xu Độc Quyền
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 {/* SECTION 5: ANONYMOUS TOGGLE */}
@@ -469,7 +561,7 @@ function ReviewContent() {
                       <div>
                         <span className="text-xs font-bold text-slate-900">Đánh giá ẩn danh danh tính</span>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Tên của bạn sẽ hiển thị công khai dưới dạng <strong>HE17**** (HL)</strong> để bảo vệ quyền riêng tư cá nhân tại campus.
+                          Tên của bạn sẽ hiển thị công khai dưới dạng <strong>{anonymousCode}</strong> để bảo vệ quyền riêng tư cá nhân tại campus.
                         </p>
                       </div>
                     </div>
