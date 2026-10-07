@@ -20,6 +20,7 @@ import { SuggestedProductItem } from '../components/AiAssistantProductCard';
 import { AiAssistantInputBar } from '../components/AiAssistantInputBar';
 import { AiAssistantHistoryModal } from '../components/AiAssistantHistoryModal';
 import { aiMobileService, AiSessionItem } from '../../../services/aiMobileService';
+import { productMobileService } from '../../../services/productMobileService';
 
 export type { ChatMessage, SuggestedProductItem };
 
@@ -43,32 +44,39 @@ const QUICK_PROMPTS = [
 const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => {
   if (!Array.isArray(rawProducts)) return [];
   return rawProducts.map((p, idx) => {
-    let conditionText = 'Đã qua sử dụng';
+    let conditionText = p.conditionBadge || 'Đã qua sử dụng';
     if (p.condition === 'NEW') conditionText = 'Mới 100%';
     else if (p.condition === 'LIKE_NEW') conditionText = 'Like New 99%';
     else if (p.condition === 'GOOD') conditionText = 'Tốt 90%';
     else if (p.condition === 'FAIR') conditionText = 'Khá 80%';
+    else if (typeof p.condition === 'string' && p.condition.length > 0) {
+      conditionText = p.condition;
+    }
 
     let imageSource: any;
-    if (
-      p.images &&
-      Array.isArray(p.images) &&
-      p.images.length > 0 &&
-      typeof p.images[0] === 'string' &&
-      p.images[0].startsWith('http')
-    ) {
-      imageSource = { uri: p.images[0] };
+    const firstImg = Array.isArray(p.images) && p.images.length > 0
+      ? p.images[0]
+      : (p.imageUrl || p.coverImage);
+
+    if (firstImg && typeof firstImg === 'object' && firstImg.uri) {
+      imageSource = firstImg;
+    } else if (firstImg && typeof firstImg === 'string' && (firstImg.startsWith('http') || firstImg.startsWith('data:'))) {
+      imageSource = { uri: firstImg };
+    } else if (typeof firstImg === 'number') {
+      imageSource = firstImg;
     } else {
       imageSource = require('../../../../assets/products/book-prf192.jpg');
     }
 
     return {
       id: p.id || `prod_${Date.now()}_${idx}`,
-      domTag: p.meetupLocation || p.campus || 'Campus FPT',
+      domTag: p.safePoint || p.meetupLocation || p.campus || 'Campus FPT',
       conditionBadge: conditionText,
       trustScore: '98% MSSV',
       title: p.title || 'Món đồ sinh viên FPT',
-      sellerInfo: p.categoryType ? `Danh mục: ${p.categoryType}` : `Sinh viên FPT ${p.campus || ''}`,
+      sellerInfo: p.categoryType
+        ? `Danh mục: ${p.categoryType}`
+        : (p.category ? `Danh mục: ${p.category}` : `Sinh viên FPT ${p.campus || ''}`),
       price:
         typeof p.price === 'number'
           ? `${p.price.toLocaleString('vi-VN')} đ`
@@ -79,15 +87,54 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
 };
 
 /**
- * Tạo câu trả lời thông minh offline / guest / fallback
+ * Tìm kiếm sản phẩm thực tế từ Database / Meilisearch qua Backend API (không dùng mock/hardcode)
+ */
+const searchDatabaseProducts = async (
+  queryText: string,
+  campus?: string
+): Promise<any[]> => {
+  try {
+    // 1. Tìm theo campus hiện tại
+    const productsInCampus = await productMobileService.getProducts({
+      search: queryText,
+      campus: campus,
+      limit: 6,
+    });
+    if (productsInCampus && productsInCampus.length > 0) {
+      return productsInCampus;
+    }
+    // 2. Nếu campus hiện tại không có, tìm toàn quốc (hỗ trợ Ship COD liên campus)
+    const allProducts = await productMobileService.getProducts({
+      search: queryText,
+      limit: 6,
+    });
+    return allProducts || [];
+  } catch (error) {
+    console.warn('searchDatabaseProducts error:', error);
+    return [];
+  }
+};
+
+/**
+ * Tạo câu trả lời thông minh FAQ / chính sách sàn (không hardcode sản phẩm)
  */
 const generateLocalBotReply = (
   query: string,
   campus: string = 'Hòa Lạc'
-): { reply: string; suggestedProducts?: any[] } => {
-  const q = query.toLowerCase();
+): { reply: string } => {
+  const q = query.toLowerCase().trim();
 
-  // 1. Mua hàng & Quy trình
+  // 1. Chào hỏi
+  if (
+    /\b(hi|hello|alo|hey)\b/i.test(q) ||
+    /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(q)
+  ) {
+    return {
+      reply: `Chào bạn! Tôi là Cóc AI - trợ lý sinh viên FPT tại cơ sở ${campus}. Tôi có thể giúp gì cho bạn hôm nay? (Tìm đồ học tập quanh KTX, hướng dẫn giao dịch an toàn, giải đáp chính sách Escrow...)`,
+    };
+  }
+
+  // 2. Mua hàng & Quy trình
   if (
     q.includes('cách mua') ||
     q.includes('quy trình mua') ||
@@ -99,7 +146,7 @@ const generateLocalBotReply = (
     };
   }
 
-  // 2. Trả hàng & Khiếu nại 48h
+  // 3. Trả hàng & Khiếu nại 48h
   if (
     q.includes('trả hàng') ||
     q.includes('hoàn tiền') ||
@@ -113,7 +160,7 @@ const generateLocalBotReply = (
     };
   }
 
-  // 3. Đăng ký bán / Thẻ sinh viên
+  // 4. Đăng ký bán / Thẻ sinh viên
   if (
     q.includes('bán') ||
     q.includes('seller') ||
@@ -126,7 +173,7 @@ const generateLocalBotReply = (
     };
   }
 
-  // 4. Safe Handoff & Điểm hẹn Campus
+  // 5. Safe Handoff & Điểm hẹn Campus
   if (
     q.includes('hẹn') ||
     q.includes('handoff') ||
@@ -140,44 +187,9 @@ const generateLocalBotReply = (
     };
   }
 
-  // 5. Gợi ý đồ học tập, giáo trình, phòng trọ KTX
-  if (
-    q.includes('giáo trình') ||
-    q.includes('sách') ||
-    q.includes('prf192') ||
-    q.includes('mas291') ||
-    q.includes('bàn') ||
-    q.includes('màn hình') ||
-    q.includes('tai nghe')
-  ) {
-    return {
-      reply: `Mình đã tìm thấy một số món đồ phù hợp tại Campus ${campus}. Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow. Bạn xem qua các món đồ bên dưới nhé!`,
-      suggestedProducts: [
-        {
-          id: 'item_sample_1',
-          title: 'Giáo trình PRF192 C Căn Bản FPT',
-          price: 45000,
-          condition: 'LIKE_NEW',
-          campus,
-          categoryType: 'Giáo trình & Sách PE',
-          meetupLocation: 'Dom A KTX',
-        },
-        {
-          id: 'item_sample_2',
-          title: 'Bàn gấp học bài chân sắt KTX',
-          price: 85000,
-          condition: 'GOOD',
-          campus,
-          categoryType: 'Đồ dùng KTX',
-          meetupLocation: 'Sảnh Alpha',
-        },
-      ],
-    };
-  }
-
-  // 6. Ngoài chuyên môn (Off-topic)
+  // 6. Ngoài chuyên môn (Off-topic) hoặc không tìm thấy mục đích cụ thể
   return {
-    reply: `🐸 Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ hỗ trợ các vấn đề về mua bán đồ cũ, mẹo kiểm tra đồ học tập, quy trình Safe Handoff, khiếu nại Escrow và điểm hẹn an toàn tại 5 cơ sở trường thôi nè!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ KTX, laptop, đồ điện tử...) hay cần hỗ trợ cách đặt cọc/khiếu nại, hãy nhắn cho mình nha!`,
+    reply: `🐸 Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình hỗ trợ bạn tra cứu đồ dùng thực tế trong database sinh viên FPT, hướng dẫn quy trình Safe Handoff, khiếu nại Escrow và điểm hẹn an toàn tại 5 cơ sở trường!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ KTX, chuột gaming, laptop, đồ điện tử...) hay cần hỗ trợ cách đặt cọc/khiếu nại, hãy nhắn cho mình nha!`,
   };
 };
 
@@ -417,9 +429,22 @@ export const AiAssistantScreen: React.FC = () => {
           setSessionId(newSessionId);
         }
 
-        const formattedProducts = aiRes.suggestedProducts
+        let formattedProducts = aiRes.suggestedProducts
           ? formatSuggestedProducts(aiRes.suggestedProducts)
           : [];
+
+        // Nếu Gemini không trả danh sách sản phẩm hoặc trả rỗng, kiểm tra xem người dùng có đang hỏi đồ không
+        if (formattedProducts.length === 0) {
+          const isGreeting =
+            /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
+            /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
+          if (!isGreeting) {
+            const dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
+            if (dbProducts.length > 0) {
+              formattedProducts = formatSuggestedProducts(dbProducts);
+            }
+          }
+        }
 
         const aiReply: ChatMessage = {
           id: `ai_${Date.now()}`,
@@ -445,13 +470,29 @@ export const AiAssistantScreen: React.FC = () => {
     }
 
     // Phản hồi cho khách (lượt dùng thử duy nhất) hoặc offline fallback
-    const { reply, suggestedProducts } = generateLocalBotReply(textToSend, currentCampus);
-    const guestReplyText = !isAuthenticated
-      ? `${reply}\n\n🔒 Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!`
-      : reply;
+    // Tự động tìm kiếm sản phẩm thực tế từ Database / Meilisearch
+    let dbProducts: any[] = [];
+    const isGreeting =
+      /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
+      /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
 
-    const formattedSampleProducts = suggestedProducts
-      ? formatSuggestedProducts(suggestedProducts)
+    if (!isGreeting) {
+      dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
+    }
+
+    const { reply } = generateLocalBotReply(textToSend, currentCampus);
+    let finalReplyText = reply;
+
+    if (dbProducts.length > 0) {
+      finalReplyText = `Mình đã tìm thấy ${dbProducts.length} món đồ phù hợp trên hệ thống Market FU (bao gồm cơ sở của bạn và hỗ trợ Ship COD liên campus). Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow. Bạn xem qua các món đồ bên dưới nhé!`;
+    }
+
+    const guestReplyText = !isAuthenticated
+      ? `${finalReplyText}\n\n🔒 Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!`
+      : finalReplyText;
+
+    const formattedSampleProducts = dbProducts.length > 0
+      ? formatSuggestedProducts(dbProducts)
       : [];
 
     const aiReply: ChatMessage = {

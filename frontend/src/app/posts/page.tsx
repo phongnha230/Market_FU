@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ChevronRight,
   Home,
-  ShieldCheck,
   X,
   SlidersHorizontal,
   LayoutGrid,
@@ -744,21 +743,6 @@ function PostsPageContent() {
                 </div>
               </div>
             )}
-
-            {/* Campus Direct Handoff Safety Tips Banner */}
-            <div className="mt-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div className="space-y-1 text-xs">
-                <h4 className="font-bold text-slate-900 text-sm">
-                  Mẹo giao dịch trực tiếp an toàn tại Campus
-                </h4>
-                <p className="text-slate-600 leading-relaxed">
-                  Ưu tiên hẹn gặp tại sảnh Dom KTX, Thư viện hoặc Căng-tin trong giờ hành chính. Luôn kiểm tra kỹ tình trạng giáo trình, sạc cáp thiết bị điện tử trước khi thanh toán. Báo cáo ngay nếu có dấu hiệu bán giá chênh lệch không lành mạnh.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </main>

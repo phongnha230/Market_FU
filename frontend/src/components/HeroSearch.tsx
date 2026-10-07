@@ -14,6 +14,8 @@ import {
   X,
   Clock,
   Hash,
+  GraduationCap,
+  BadgePercent,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +36,14 @@ const categoryOptions = [
 ];
 const trendingTags = HOT_TAGS.slice(0, 5);
 
+const ROTATING_KEYWORDS = [
+  'giáo trình & slide',
+  'đồ dùng ký túc xá',
+  'laptop & linh kiện',
+  'xe máy & xe bus pass',
+  'đồ decor phòng trọ',
+];
+
 import { useRouter } from 'next/navigation';
 
 export default function HeroSearch({
@@ -49,6 +59,21 @@ export default function HeroSearch({
   const [keyword, setKeyword] = useState('');
   const [campus, setCampus] = useState(initialCampus);
   const [category, setCategory] = useState('all');
+
+  // Dynamic Rotating Keywords (Đề xuất 3)
+  const [keywordIndex, setKeywordIndex] = useState(0);
+  const [isKeywordFading, setIsKeywordFading] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIsKeywordFading(true);
+      setTimeout(() => {
+        setKeywordIndex((prev) => (prev + 1) % ROTATING_KEYWORDS.length);
+        setIsKeywordFading(false);
+      }, 220);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, []);
 
   // Custom Dropdown states & refs
   const [isCampusOpen, setIsCampusOpen] = useState(false);
@@ -215,33 +240,56 @@ export default function HeroSearch({
   return (
     <section className="relative overflow-visible bg-gradient-to-b from-white via-orange-50/20 to-transparent py-8 sm:py-12 z-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Top Header Row with Trust Tag */}
-        <div className="space-y-2 max-w-3xl mb-6">
+        {/* Top Header Row with Proposal 3: Dynamic Rotating Headline (Anti-Slop Centered Layout) */}
+        <div className="space-y-4 max-w-4xl mx-auto text-center mb-8 sm:mb-10">
           {/* Campus Trust Badge */}
-          <Badge variant="fpt" className="gap-1.5 px-3 py-1 text-xs font-semibold normal-case">
-            <ShieldCheck className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200/90 bg-orange-50/90 px-3.5 py-1 text-xs font-semibold text-orange-700 shadow-2xs backdrop-blur-xs">
+            <ShieldCheck className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
             <span>Sàn giao dịch sinh viên FPT University</span>
-          </Badge>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] text-slate-500 font-medium">Toàn quốc</span>
+          </div>
 
-          {/* Main Headline */}
-          <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black tracking-tight text-slate-900 leading-tight">
-            Mua bán dễ dàng trong cộng đồng{' '}
-            <span className="text-fpt-orange block sm:inline">
-              FPT 5Campus
+          {/* Main Headline with Dynamic Rotating Keywords */}
+          <h1 className="text-3xl sm:text-4xl lg:text-[46px] font-black tracking-tight text-slate-900 leading-[1.25]">
+            Mua bán{' '}
+            <span
+              className={`inline-block text-fpt-orange transition-all duration-200 transform ${
+                isKeywordFading
+                  ? 'opacity-0 -translate-y-2 scale-95'
+                  : 'opacity-100 translate-y-0 scale-100'
+              }`}
+            >
+              {ROTATING_KEYWORDS[keywordIndex]}
             </span>
+            <br />
+            dễ dàng trong cộng đồng <span className="text-slate-900">FPT 5 Campus</span>
           </h1>
 
           {/* Sub-headline */}
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl font-normal">
-            Tìm đồ bạn cần, Bán đồ bạn không dùng. Kết nối cùng{' '}
-            <strong className="text-slate-800 font-semibold">{totalSellers.toLocaleString('vi-VN')} người bán</strong> và{' '}
-            <strong className="text-slate-800 font-semibold">{products.length.toLocaleString('vi-VN')} món đồ</strong> FPT
-            toàn quốc.
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto font-normal leading-relaxed">
+            Nền tảng kết nối trao đổi đồ dùng sinh hoạt, giáo trình và thiết bị công nghệ trực tiếp giữa sinh viên FPT. Tiết kiệm, minh bạch và an toàn ngay trong khuôn viên trường.
           </p>
+
+          {/* Trust Highlights - Centered Pills (Đề xuất 3) */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-slate-200/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs">
+              <GraduationCap className="h-3.5 w-3.5 text-fpt-orange" />
+              Email @fpt.edu.vn chính chủ
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-slate-200/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs">
+              <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+              Giao dịch tại 5 Campus
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-slate-200/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs">
+              <BadgePercent className="h-3.5 w-3.5 text-blue-600" />
+              0đ phí trung gian
+            </span>
+          </div>
         </div>
 
         {/* UNIFIED SEARCH BAR CONTAINER */}
-        <div ref={suggestRef} className="relative z-30">
+        <div ref={suggestRef} className="relative z-30 max-w-5xl mx-auto">
           <form
             onSubmit={handleSubmit}
             className="rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/80 transition-shadow focus-within:border-fpt-orange/40 focus-within:shadow-[0_8px_30px_rgb(242,112,36,0.1)]"
@@ -592,7 +640,7 @@ export default function HeroSearch({
         </div>
 
         {/* TRENDING TAGS ROW */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs max-w-5xl mx-auto">
           <span className="flex items-center gap-1 font-bold text-slate-500 uppercase tracking-wider text-[11px]">
             <TrendingUp className="h-3 w-3 text-fpt-orange" />
             XU HƯỚNG HOT:

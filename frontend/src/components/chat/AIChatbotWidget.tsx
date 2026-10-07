@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import { aiService } from '@/services/aiService';
+import { ProductService } from '@/services/productService';
 
 interface ChatMessage {
   id: string;
@@ -437,7 +438,10 @@ export default function AIChatbotWidget() {
     }
 
     // 6. Chào hỏi
-    if (q.includes('chào') || q.includes('hi') || q.includes('hello') || q.includes('ê') || q.includes('alo')) {
+    const isGreeting =
+      /\b(hi|hello|alo|hey)\b/i.test(q) ||
+      /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(q);
+    if (isGreeting) {
       return {
         reply: `Dạ chào Cóc-er! 🐸 Hôm nay bạn đang muốn tìm món đồ gì (giáo trình, laptop, màn hình, xe đạp...) hay cần hỗ trợ thủ tục mua bán tại campus nào nè?`,
         links: [
@@ -456,6 +460,67 @@ export default function AIChatbotWidget() {
         { label: '📦 Quản lý đơn hàng & Escrow', url: '/orders' }
       ]
     };
+  };
+
+  // Helper tìm kiếm sản phẩm thực tế từ hệ thống Market FU cho bot
+  const searchLocalProducts = async (
+    queryText: string
+  ): Promise<{ products: any[]; replyText: string } | null> => {
+    try {
+      const qNorm = queryText
+        .toLowerCase()
+        .replace(/gamming/gi, 'gaming')
+        .replace(/labtop/gi, 'laptop')
+        .replace(/màng hình/gi, 'màn hình')
+        .replace(/màn hinh/gi, 'màn hình')
+        .replace(/vo phuc/gi, 'võ phục');
+
+      const all = await ProductService.getAllProducts();
+      if (!all || all.length === 0) return null;
+
+      const stopWords = ['có', 'nào', 'liên', 'quan', 'đến', 'không', 'món', 'đồ', 'bạn', 'ơi', 'tìm', 'giúp', 'mua', 'bán', 'cho', 'mình', 'cần'];
+      const tokens = qNorm
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2 && !stopWords.includes(t));
+
+      if (tokens.length === 0) return null;
+
+      const matched = all.filter((p) => {
+        const titleNorm = (p.title || '').toLowerCase();
+        const descNorm = (p.description || '').toLowerCase();
+        const phrase = tokens.join(' ');
+        if (titleNorm.includes(phrase) || descNorm.includes(phrase)) return true;
+        return tokens.some((tk) => titleNorm.includes(tk) || descNorm.includes(tk));
+      });
+
+      if (matched.length > 0) {
+        const formatted = matched.slice(0, 5).map((p) => ({
+          id: p.id,
+          title: p.title,
+          price: p.price,
+          condition: p.condition,
+          campus: p.campus,
+          categoryType: p.category,
+          images: Array.isArray(p.images)
+            ? p.images.map((img: any) => (typeof img === 'string' ? { imageUrl: img } : img))
+            : [],
+        }));
+
+        const reply =
+          `Chào bạn! Mình đã tìm thấy ${matched.length} món đồ phù hợp trên hệ thống Market FU:\n` +
+          matched
+            .slice(0, 3)
+            .map((p, idx) => `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString('vi-VN')}đ (Campus: ${p.campus})`)
+            .join('\n') +
+          '\n\nBạn có thể nhấn vào thẻ sản phẩm bên dưới để xem chi tiết và liên hệ người bán nhé!';
+
+        return { products: formatted, replyText: reply };
+      }
+    } catch (e) {
+      console.warn('Local product search failed:', e);
+    }
+    return null;
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -516,6 +581,14 @@ export default function AIChatbotWidget() {
       const userCampus = useUserStore.getState().user.campus || 'Hòa Lạc';
       const aiRes = await aiService.assistantChat(query, userCampus, sessionId || undefined);
       if (aiRes && aiRes.reply) {
+        let finalProducts = aiRes.suggestedProducts || [];
+        if (finalProducts.length === 0) {
+          const localMatch = await searchLocalProducts(query);
+          if (localMatch && localMatch.products.length > 0) {
+            finalProducts = localMatch.products;
+          }
+        }
+
         const nextSessionId = aiRes.sessionId || sessionId;
         if (nextSessionId) {
           setSessionId(nextSessionId);
@@ -539,7 +612,7 @@ export default function AIChatbotWidget() {
                 { label: '🔍 Khám phá chợ đồ cũ', url: '/posts' },
                 { label: '🛡️ Điểm hẹn an toàn campus', url: '/safety' },
               ],
-          suggestedProducts: aiRes.suggestedProducts,
+          suggestedProducts: finalProducts.length > 0 ? finalProducts : undefined,
         };
         const updatedMsgs = [...nextMsgs, botMsg];
         setMessages(updatedMsgs);
@@ -552,33 +625,46 @@ export default function AIChatbotWidget() {
         }
         return;
       }
-    } catch {
-      // Fallback nếu API backend chưa sẵn sàng hoặc offline
+    } catch (err: any) {
+      console.warn('⚠️ [Backend AI Chat failed, falling back to local search]:', err?.message);
     }
 
-    setTimeout(() => {
-      const { reply, links } = generateBotReply(query);
-      const replyContent = isGuest
-        ? `${reply}\n\n🔒 *Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!*`
-        : reply;
+    // Fallback thông minh: Thử tìm món đồ tương ứng trong kho hàng của Market FU
+    const localMatch = await searchLocalProducts(query);
+    let fallbackReply = '';
+    let fallbackLinks: any[] | undefined;
+    let fallbackProducts: any[] | undefined;
 
-      const botMsg: ChatMessage = {
-        id: 'bot-' + Date.now(),
-        sender: 'bot',
-        text: replyContent,
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-        quickLinks: isGuest
-          ? [
-              { label: '👉 Đăng nhập để tiếp tục chat', url: `/login?redirect=${encodeURIComponent(pathname || '/')}` },
-              { label: '📝 Đăng ký tài khoản', url: `/login?mode=register&redirect=${encodeURIComponent(pathname || '/')}` },
-            ]
-          : links,
-      };
-      const updatedMsgs = [...nextMsgs, botMsg];
-      setMessages(updatedMsgs);
-      saveMessagesToStorage(updatedMsgs, sessionId);
-      setIsTyping(false);
-    }, 400);
+    if (localMatch) {
+      fallbackReply = localMatch.replyText;
+      fallbackProducts = localMatch.products;
+    } else {
+      const generated = generateBotReply(query);
+      fallbackReply = generated.reply;
+      fallbackLinks = generated.links;
+    }
+
+    const replyContent = isGuest
+      ? `${fallbackReply}\n\n🔒 *Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!*`
+      : fallbackReply;
+
+    const botMsg: ChatMessage = {
+      id: 'bot-' + Date.now(),
+      sender: 'bot',
+      text: replyContent,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      quickLinks: isGuest
+        ? [
+            { label: '👉 Đăng nhập để tiếp tục chat', url: `/login?redirect=${encodeURIComponent(pathname || '/')}` },
+            { label: '📝 Đăng ký tài khoản', url: `/login?mode=register&redirect=${encodeURIComponent(pathname || '/')}` },
+          ]
+        : fallbackLinks,
+      suggestedProducts: fallbackProducts,
+    };
+    const updatedMsgs = [...nextMsgs, botMsg];
+    setMessages(updatedMsgs);
+    saveMessagesToStorage(updatedMsgs, sessionId);
+    setIsTyping(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -903,7 +989,10 @@ export default function AIChatbotWidget() {
                                 const conditionInfo = p.condition ? CONDITION_LABELS[p.condition] : null;
                                 const campusName = p.campus ? (CAMPUS_LABELS[p.campus] || p.campus) : null;
                                 const categoryName = p.categoryType ? (CATEGORY_LABELS[p.categoryType] || p.categoryType) : null;
-                                const coverImage = p.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg';
+                                const coverImage =
+                                  (typeof p.images?.[0] === 'string'
+                                    ? p.images[0]
+                                    : p.images?.[0]?.imageUrl) || '/products/keyboard-akko.jpg';
 
                                 return (
                                   <Link

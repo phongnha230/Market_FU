@@ -4,6 +4,7 @@ import { ENV } from '../../config/env';
 import { AppError } from '../../middlewares/error.middleware';
 import { AssistantChatInput, QuerySessionsInput } from './ai.dto';
 import { checkContentModeration } from '../../utils/profanityFilter';
+import { searchProductsMeili } from '../../config/meilisearch';
 
 export class AiService {
   private genAI: GoogleGenerativeAI | null = null;
@@ -594,28 +595,110 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
     keyword?: string;
     category?: string;
   }) {
-    const where: any = { status: 'AVAILABLE' };
-
-    if (args.campus) {
-      where.campus = args.campus;
-    }
-    if (args.category) {
-      where.categoryType = args.category;
-    }
-    if (args.maxPrice || args.minPrice) {
-      where.price = {};
-      if (args.maxPrice) where.price.lte = args.maxPrice;
-      if (args.minPrice) where.price.gte = args.minPrice;
-    }
-    if (args.keyword) {
-      where.OR = [
-        { title: { contains: args.keyword, mode: 'insensitive' } },
-        { description: { contains: args.keyword, mode: 'insensitive' } },
-      ];
+    let rawKeyword = (args.keyword || '').trim();
+    if (rawKeyword) {
+      rawKeyword = rawKeyword
+        .replace(/gamming/gi, 'gaming')
+        .replace(/labtop/gi, 'laptop')
+        .replace(/màng hình/gi, 'màn hình')
+        .replace(/màn hinh/gi, 'màn hình')
+        .replace(/phím co/gi, 'phím cơ')
+        .replace(/vo phuc/gi, 'võ phục');
     }
 
-    const products = await prisma.product.findMany({
-      where,
+    // ── 1. TÌM KIẾM BẰNG MEILISEARCH ENGINE (Fuzzy Search + Typo Tolerance + Ranking cao cấp) ──
+    if (rawKeyword) {
+      try {
+        // Thử tìm trong campus hiện tại qua Meilisearch
+        let meiliRes = await searchProductsMeili(rawKeyword, {
+          campus: args.campus,
+          categoryType: args.category,
+          maxPrice: args.maxPrice,
+          minPrice: args.minPrice,
+          limit: 10,
+        });
+
+        // Nếu campus hiện tại không có, tự động tìm Toàn quốc (liên 5 campus) qua Meilisearch
+        if ((!meiliRes || meiliRes.productIds.length === 0) && args.campus) {
+          meiliRes = await searchProductsMeili(rawKeyword, {
+            categoryType: args.category,
+            maxPrice: args.maxPrice,
+            minPrice: args.minPrice,
+            limit: 10,
+          });
+        }
+
+        if (meiliRes && meiliRes.productIds.length > 0) {
+          const matchedProducts = await prisma.product.findMany({
+            where: {
+              id: { in: meiliRes.productIds },
+              status: 'AVAILABLE',
+            },
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              condition: true,
+              campus: true,
+              categoryType: true,
+              images: true,
+              meetupLocation: true,
+            },
+          });
+
+          // Sắp xếp lại danh sách theo đúng thứ tự Relevance Ranking của Meilisearch
+          const prodMap = new Map(matchedProducts.map((p) => [p.id, p]));
+          const sorted = meiliRes.productIds
+            .map((id) => prodMap.get(id))
+            .filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+          if (sorted.length > 0) {
+            return sorted;
+          }
+        }
+      } catch (meiliError) {
+        // Tự động chuyển tiếp sang MongoDB / Prisma fallback bên dưới nếu Meilisearch offline
+      }
+    }
+
+    // ── 2. FALLBACK SANG MONGODB PRISMA (Nếu Meilisearch offline hoặc không có kết quả) ──
+    const buildWhere = (includeCampus: boolean, includeCategory: boolean) => {
+      const where: any = { status: 'AVAILABLE' };
+
+      if (includeCampus && args.campus) {
+        where.campus = args.campus;
+      }
+      if (includeCategory && args.category) {
+        where.categoryType = args.category;
+      }
+      if (args.maxPrice || args.minPrice) {
+        where.price = {};
+        if (args.maxPrice) where.price.lte = args.maxPrice;
+        if (args.minPrice) where.price.gte = args.minPrice;
+      }
+      if (rawKeyword) {
+        const tokens = rawKeyword
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 2);
+
+        const orClauses: any[] = [
+          { title: { contains: rawKeyword, mode: 'insensitive' } },
+          { description: { contains: rawKeyword, mode: 'insensitive' } },
+        ];
+
+        tokens.forEach((tk) => {
+          orClauses.push({ title: { contains: tk, mode: 'insensitive' } });
+        });
+
+        where.OR = orClauses;
+      }
+      return where;
+    };
+
+    // Bước 1: Tìm đúng campus và đúng category
+    let products = await prisma.product.findMany({
+      where: buildWhere(true, true),
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -629,6 +712,44 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         meetupLocation: true,
       },
     });
+
+    // Bước 2: Nếu chưa có trong campus hiện tại, tự động tìm Toàn quốc (bỏ lọc campus)
+    if (products.length === 0 && args.campus) {
+      products = await prisma.product.findMany({
+        where: buildWhere(false, true),
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          condition: true,
+          campus: true,
+          categoryType: true,
+          images: true,
+          meetupLocation: true,
+        },
+      });
+    }
+
+    // Bước 3: Nếu vẫn chưa thấy, bỏ cả category để tìm thuần theo từ khóa
+    if (products.length === 0 && args.category) {
+      products = await prisma.product.findMany({
+        where: buildWhere(false, false),
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          condition: true,
+          campus: true,
+          categoryType: true,
+          images: true,
+          meetupLocation: true,
+        },
+      });
+    }
 
     return products;
   }
@@ -695,6 +816,7 @@ NGUYÊN TẮC BẢO MẬT & AN TOÀN TUYỆT ĐỐI (F-09 Guardrail):
 KIẾN THỨC NỀN TẢNG VỀ HỆ THỐNG:
 1. TÌM KIẾM SẢN PHẨM:
 Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập, BẮT BUỘC gọi function "search_products" để truy vấn cơ sở dữ liệu thực.
+- QUAN TRỌNG VỀ LIÊN CAMPUS: Sàn Market FU có hệ sinh thái 5 cơ sở trường FPT (Hòa Lạc, TP.HCM, Đà Nẵng, Quy Nhơn, Cần Thơ) và hỗ trợ giao hàng Ship COD / Đặt cọc Escrow an toàn giữa các campus. Nếu món đồ tìm thấy ở cơ sở khác (ví dụ sinh viên ở Hòa Lạc nhưng chuột gaming lại ở Cần Thơ), bạn HÃY BÁO RÕ món đồ đang có tại cơ sở đó (kèm tên, giá tiền, tình trạng) và hướng dẫn bạn có thể đặt mua qua hình thức Ship COD / Escrow có bảo hộ 48h kiểm tra máy nhé! TUYỆT ĐỐI KHÔNG ĐƯỢC bảo là không có đồ nếu search_products đã trả về kết quả!
 
 2. CÁC HÌNH THỨC MUA HÀNG TRÊN SÀN (Có 2 cách chính):
 - Cách 1: Giao dịch trực tiếp Safe Handoff (MEETUP): Dành cho 2 sinh viên cùng campus. Hẹn gặp tại các điểm Safe Handoff an toàn (Sảnh Alpha, Thư viện Beta, Cổng Dom KTX, Canteen...). Khi nhận hàng, người mua mở mã QR Handshake hoặc mã OTP 6 số để người bán quét/nhập xác nhận bàn giao tức thì. Thanh toán trực tiếp bằng tiền mặt hoặc chuyển khoản VietQR.
@@ -742,10 +864,10 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
               systemInstruction: systemPrompt,
               tools: [{ functionDeclarations: this.getFunctionDeclarations() as any }],
               safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
               ],
             });
 
