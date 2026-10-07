@@ -11,6 +11,10 @@ export interface ChatMessage {
   text?: string;
   time?: string;
   isRead?: boolean;
+  appointmentData?: {
+    location?: string;
+    timeSlot?: string;
+  };
 }
 
 export interface ChatPartner {

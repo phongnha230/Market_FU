@@ -19,12 +19,20 @@ export const SafeSuggestionCard: React.FC<SafeSuggestionCardProps> = ({ onSchedu
     </Text>
     <TouchableOpacity style={styles.scheduleBtn} activeOpacity={0.85} onPress={onSchedule}>
       <MaterialCommunityIcons name="calendar-clock" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-      <Text style={styles.scheduleText}>Tạo lịch hẹn Handoff lúc 16:30</Text>
+      <Text style={styles.scheduleText}>Chọn điểm hẹn & giờ gặp Safe-Handoff</Text>
     </TouchableOpacity>
   </View>
 );
 
-export const AppointmentCard: React.FC = () => (
+interface AppointmentCardProps {
+  location?: string;
+  timeSlot?: string;
+}
+
+export const AppointmentCard: React.FC<AppointmentCardProps> = ({
+  location = 'Sảnh Tòa Alpha (Trạm test có Camera)',
+  timeSlot = '16:30 Hôm nay (Sau ca 4)',
+}) => (
   <View style={styles.apptCard}>
     <View style={styles.apptHeader}>
       <View style={styles.apptCheck}>
@@ -38,17 +46,17 @@ export const AppointmentCard: React.FC = () => (
 
     <View style={styles.infoRow}>
       <Ionicons name="location-sharp" size={14} color="#EA580C" style={{ marginRight: 6 }} />
-      <Text style={styles.infoText}>Bàn test điện số 04 - Sảnh Tòa Alpha (Hola)</Text>
+      <Text style={styles.infoText}>{location}</Text>
     </View>
 
     <View style={styles.infoRow}>
       <Ionicons name="time" size={14} color="#1D4ED8" style={{ marginRight: 6 }} />
-      <Text style={styles.infoText}>16:30 Hôm nay (Sau ca 4)</Text>
+      <Text style={styles.infoText}>{timeSlot}</Text>
     </View>
 
     <TouchableOpacity
       style={styles.directBtn}
-      onPress={() => Alert.alert('Chỉ đường', 'Mở bản đồ vị trí Bàn test sảnh Alpha...')}
+      onPress={() => Alert.alert('Chỉ đường', `Mở bản đồ vị trí: ${location}`)}
     >
       <Ionicons name="navigate" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
       <Text style={styles.directText}>Chỉ đường đến trạm Safe-Point</Text>

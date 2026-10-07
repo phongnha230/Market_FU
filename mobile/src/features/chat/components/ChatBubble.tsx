@@ -22,7 +22,12 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onScheduleAppoi
   }
 
   if (message.type === 'appointment_confirmed') {
-    return <AppointmentCard />;
+    return (
+      <AppointmentCard
+        location={message.appointmentData?.location}
+        timeSlot={message.appointmentData?.timeSlot}
+      />
+    );
   }
 
   const isMe = message.type === 'text';
