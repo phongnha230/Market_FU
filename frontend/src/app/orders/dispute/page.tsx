@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -13,22 +13,75 @@ import DisputeEvidence from '@/components/dispute/DisputeEvidence';
 import DisputeSidebar from '@/components/dispute/DisputeSidebar';
 import { useMarket } from '@/context/MarketContext';
 import { useDisputeStore } from '@/stores/disputeStore';
+import { useUserStore } from '@/stores/userStore';
+import { orderService } from '@/services/orderService';
 
 function DisputeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderCodeParam = searchParams.get('code') || 'ORD-88392-HCM-HL';
+  const orderCodeParam = searchParams.get('code') || '';
   const cleanCode = orderCodeParam.startsWith('#') ? orderCodeParam : `#${orderCodeParam}`;
 
   const { updateOrderStatus, getOrder, showToast } = useMarket();
-  const matchedOrder = getOrder(cleanCode);
+  const storeOrder = getOrder(cleanCode);
+  const userData = useUserStore((state) => state.user);
+
+  const [backendOrder, setBackendOrder] = useState<any>(null);
+
+  useEffect(() => {
+    if (orderCodeParam) {
+      const clean = orderCodeParam.replace('#', '');
+      orderService
+        .getOrderDetail(clean)
+        .then((data) => {
+          if (data) setBackendOrder(data);
+        })
+        .catch(() => {});
+    }
+  }, [orderCodeParam]);
+
+  const matchedOrder = storeOrder || backendOrder;
+  const sellerName = matchedOrder?.product?.seller?.name || matchedOrder?.seller?.profile?.fullName || matchedOrder?.seller?.email || 'Người bán';
+  const productTitle = matchedOrder?.product?.title || 'Sản phẩm';
 
   // Form states
   const [resolutionPlan, setResolutionPlan] = useState<'return' | 'partial'>('return');
   const [selectedReason, setSelectedReason] = useState<string>('defect');
-  const [description, setDescription] = useState<string>(
-    'Màn hình nhận tại Dom B lúc 13:40 chiều nay, khi bóc hộp ra cắm thử cáp Type-C đi kèm vào ThinkPad T14 thì hoàn toàn không lên nguồn. Em đã đem ra bàn test kỹ thuật sảnh Alpha cắm qua củ sạc 65W chuẩn PD nhưng đèn nguồn chỉ nhấp nháy đỏ 2 lần rồi tắt hẳn, đồng thời xuất hiện vệt nứt ngầm góc dưới. Tình trạng khác xa mô tả 95% dùng tốt của bạn An K16.'
-  );
+  const [description, setDescription] = useState<string>('');
+
+  const isCodOrder =
+    matchedOrder?.payment?.paymentMethod === 'CASH' ||
+    Boolean(matchedOrder?.payment?.paymentMethod?.toLowerCase().includes('cod')) ||
+    (!matchedOrder?.payment?.isPaid && matchedOrder?.type === 'inter-campus');
+
+  useEffect(() => {
+    if (!productTitle) return;
+
+    const refundText = isCodOrder
+      ? 'Kính mong Sàn giữ đối soát COD và hỗ trợ hoàn tiền về STK Ngân hàng / Ví của em.'
+      : 'Kính mong Sàn tạm khóa Escrow và hỗ trợ hoàn tiền bảo hộ.';
+
+    switch (selectedReason) {
+      case 'defect':
+        setDescription(`Món hàng ${productTitle} nhận từ bạn ${sellerName} khi bóc hộp cắm test thực tế tại KTX thì không hoạt động bình thường, bị lỗi chức năng so với cam kết. ${refundText}`);
+        break;
+      case 'wrong-item':
+        setDescription(`Sản phẩm ${productTitle} nhận được khác hoàn toàn với hình ảnh, model và tình trạng mô tả trong bài đăng của bạn ${sellerName}. ${refundText}`);
+        break;
+      case 'damaged':
+        setDescription(`Kiện hàng ${productTitle} bị va đập, nứt vỡ/trầy xước nặng trong khâu vận chuyển khi nhận tại sảnh KTX. ${refundText}`);
+        break;
+      case 'missing':
+        setDescription(`Kiện hàng ${productTitle} bị thiếu các phụ kiện đi kèm/quà tặng theo thỏa thuận với người bán ${sellerName}. ${refundText}`);
+        break;
+      case 'fake':
+        setDescription(`Sau khi kiểm tra linh kiện và serial, em phát hiện món đồ không đúng chuẩn cam kết của bạn ${sellerName}. ${refundText}`);
+        break;
+      default:
+        setDescription(`Phát sinh vấn đề với sản phẩm ${productTitle} nhận từ bạn ${sellerName}. ${refundText}`);
+    }
+  }, [selectedReason, productTitle, sellerName, isCodOrder]);
+
   const [dropoffPoint, setDropoffPoint] = useState<'library' | 'meet'>('library');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

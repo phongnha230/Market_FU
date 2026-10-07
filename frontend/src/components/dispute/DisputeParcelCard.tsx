@@ -63,13 +63,17 @@ export default function DisputeParcelCard({
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback className="bg-fpt-orange text-white font-bold text-[10px]">
-              NM
+              {((order as any)?.buyer?.profile?.fullName || (order as any)?.buyer?.name || (order as any)?.buyerName || 'NM')[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
             <span className="text-[10px] text-slate-400 font-medium">NGƯỜI MUA (KHIẾU NẠI):</span>
-            <div className="font-bold text-slate-800">Người mua</div>
-            <div className="text-[10px] text-slate-500">Sinh viên FPT</div>
+            <div className="font-bold text-slate-800">
+              {(order as any)?.buyer?.profile?.fullName || (order as any)?.buyer?.name || (order as any)?.buyerName || 'Trần Đỗ Phong Nhã'}
+            </div>
+            <div className="text-[10px] text-slate-500">
+              {(order as any)?.buyer?.profile?.campus || (order as any)?.buyer?.campus || 'Campus Hòa Lạc'}
+            </div>
           </div>
         </div>
 

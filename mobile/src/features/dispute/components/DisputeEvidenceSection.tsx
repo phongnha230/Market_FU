@@ -37,15 +37,21 @@ const EvidenceThumbnail: React.FC<EvidenceThumbnailProps> = React.memo(({ item, 
 interface DisputeEvidenceSectionProps {
   evidenceList: EvidenceItem[];
   onRemoveEvidence: (id: string) => void;
+  onAddEvidence?: () => void;
 }
 
 export const DisputeEvidenceSection: React.FC<DisputeEvidenceSectionProps> = ({
   evidenceList,
   onRemoveEvidence,
+  onAddEvidence,
 }) => {
   const handleAddPress = useCallback(() => {
-    Alert.alert('Thêm bằng chứng', 'Tải lên video unbox hoặc ảnh chụp lỗi');
-  }, []);
+    if (onAddEvidence) {
+      onAddEvidence();
+    } else {
+      Alert.alert('Thêm bằng chứng', 'Tải lên video unbox hoặc ảnh chụp lỗi');
+    }
+  }, [onAddEvidence]);
 
   const renderHeader = useCallback(() => (
     <TouchableOpacity

@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DisputeHeader from '../components/DisputeHeader';
-import DisputeStatusBanner from '../components/DisputeStatusBanner';
 import DisputeTypeSelector from '../components/DisputeTypeSelector';
 import DisputeReasonSection from '../components/DisputeReasonSection';
 import DisputeEvidenceSection from '../components/DisputeEvidenceSection';
@@ -21,6 +20,7 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
   const productTitle = route.params?.productTitle;
   const sellerName = route.params?.sellerName;
   const price = route.params?.price;
+  const isCod = route.params?.isCod ?? false;
 
   const handleBack = () => {
     if (onGoBack) {
@@ -39,11 +39,12 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
     selectedReasons,
     toggleReason,
     evidenceList,
+    addEvidenceFromPicker,
     removeEvidence,
     description,
     setDescription,
     handleSubmit,
-  } = useDispute(handleBack, orderId);
+  } = useDispute(handleBack, orderId, productTitle, sellerName, isCod);
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
@@ -57,8 +58,8 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
           {orderId && (
             <View style={styles.orderContextCard}>
               <View style={styles.orderCodeRow}>
-                <Ionicons name="receipt" size={14} color="#DC2626" />
-                <Text style={styles.orderCodeText}>Đang khiếu nại đơn: #{orderId}</Text>
+                <Ionicons name="shield-checkmark" size={15} color="#DC2626" />
+                <Text style={styles.orderCodeText}>Đơn #{orderId} • Escrow bảo hộ</Text>
               </View>
               {productTitle && <Text style={styles.orderProductTitle} numberOfLines={1}>{productTitle}</Text>}
               <View style={styles.orderMetaRow}>
@@ -68,7 +69,6 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
             </View>
           )}
 
-          <DisputeStatusBanner />
           <DisputeTypeSelector selectedType={disputeType} onSelect={setDisputeType} />
           <DisputeReasonSection
             reasons={reasons}
@@ -80,6 +80,7 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
           <DisputeEvidenceSection
             evidenceList={evidenceList}
             onRemoveEvidence={removeEvidence}
+            onAddEvidence={addEvidenceFromPicker}
           />
         </ScrollView>
 

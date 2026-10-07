@@ -31,6 +31,50 @@ export default function DisputeEvidence({
   sellerName,
   onShowToast,
 }: DisputeEvidenceProps) {
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [evidenceList, setEvidenceList] = React.useState<Array<{ id: string; url: string; name: string; size: string; isVideo?: boolean }>>([
+    {
+      id: 'default-1',
+      url: '/products/keyboard-detail.jpg',
+      name: 'IMG_KiemTra_NgoaiQuan.jpg',
+      size: '2.8 MB • Vừa chụp',
+    },
+    {
+      id: 'default-2',
+      url: '/products/keyboard-akko.jpg',
+      name: 'IMG_TestPhim_KhongNhan.jpg',
+      size: '2.1 MB • Vừa chụp',
+    },
+  ]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newItems: typeof evidenceList = [];
+    Array.from(files).forEach((file) => {
+      const isVideo = file.type.startsWith('video/');
+      const objectUrl = URL.createObjectURL(file);
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      newItems.push({
+        id: Math.random().toString(36).substring(7),
+        url: objectUrl,
+        name: file.name,
+        size: `${sizeMb} MB • Vừa tải lên`,
+        isVideo,
+      });
+    });
+
+    setEvidenceList((prev) => [...prev, ...newItems]);
+    onShowToast(`✅ Đã tải lên ${newItems.length} tệp bằng chứng thực tế!`);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setEvidenceList((prev) => prev.filter((item) => item.id !== id));
+    onShowToast('Đã xóa tệp bằng chứng.');
+  };
+
   return (
     <>
       {/* SECTION 3: EVIDENCE ATTACHMENTS (PHOTOS & VIDEO) */}
@@ -52,43 +96,37 @@ export default function DisputeEvidence({
 
         {/* Media Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          {/* Photo 1: Sọc màn hình */}
-          <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-xs">
-            <div className="relative aspect-[16/10] w-full">
-              <Image
-                src="/products/keyboard-detail.jpg"
-                alt="IMG_Soc_ManHinh.jpg"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="p-2.5 bg-white flex items-center justify-between text-[11px]">
-              <div>
-                <div className="font-bold text-slate-800 truncate">IMG_Soc_ManHinh.jpg</div>
-                <span className="text-[10px] text-slate-400">2.8 MB • 14:15 Hôm nay</span>
+          {evidenceList.map((item) => (
+            <div key={item.id} className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-xs">
+              <div className="relative aspect-[16/10] w-full bg-slate-900">
+                {item.isVideo ? (
+                  <video src={item.url} controls className="w-full h-full object-cover" />
+                ) : (
+                  <Image
+                    src={item.url}
+                    alt={item.name}
+                    fill
+                    className="object-cover"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem(item.id)}
+                  className="absolute top-1.5 right-1.5 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white w-6 h-6 flex items-center justify-center text-xs transition"
+                  title="Xóa ảnh"
+                >
+                  ✕
+                </button>
               </div>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-            </div>
-          </div>
-
-          {/* Photo 2: Cắm nguồn không lên */}
-          <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-xs">
-            <div className="relative aspect-[16/10] w-full">
-              <Image
-                src="/products/monitor-dell-24.jpg"
-                alt="IMG_CapNguon_KhongLen.jpg"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="p-2.5 bg-white flex items-center justify-between text-[11px]">
-              <div>
-                <div className="font-bold text-slate-800 truncate">IMG_CapNguon_KhongLen.jpg</div>
-                <span className="text-[10px] text-slate-400">2.1 MB • 14:18 Hôm nay</span>
+              <div className="p-2.5 bg-white flex items-center justify-between text-[11px]">
+                <div className="min-w-0 pr-1">
+                  <div className="font-bold text-slate-800 truncate">{item.name}</div>
+                  <span className="text-[10px] text-slate-400">{item.size}</span>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
               </div>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
             </div>
-          </div>
+          ))}
 
           {/* Video Test Card */}
           <div className="relative rounded-2xl overflow-hidden border border-blue-200 bg-blue-50/60 p-3 shadow-xs flex flex-col justify-between">
@@ -104,30 +142,36 @@ export default function DisputeEvidence({
                 <Play className="h-4 w-4 fill-white ml-0.5" />
               </div>
               <span className="font-bold text-xs text-slate-800">
-                Test_nguon_SanhAlpha.mp4
+                Video_Unbox_KiemTra.mp4
               </span>
               <span className="text-[10px] text-slate-500">Thời lượng: 00:48</span>
             </div>
 
             <div className="rounded-lg bg-white/90 p-1.5 text-center text-[10px] font-medium text-slate-600">
-              Được quay tại Safe-Point Alpha
+              Được quay tại Safe-Point KTX
             </div>
           </div>
         </div>
+
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          onChange={handleFileUpload}
+          className="hidden"
+        />
 
         {/* Add more button */}
         <Button
           type="button"
           variant="outline"
-          onClick={() =>
-            onShowToast(
-              '📷 Tính năng tải thêm: Bạn có thể thêm tối đa 5 ảnh chụp góc máy.'
-            )
-          }
+          onClick={() => fileInputRef.current?.click()}
           className="h-auto w-full mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-fpt-orange hover:text-fpt-orange transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
         >
-          <Camera className="h-4 w-4" />
-          <span>Bổ sung thêm video unbox hoặc ảnh chụp bọc chống sốc</span>
+          <Camera className="h-4 w-4 text-fpt-orange" />
+          <span>Bấm để tải thêm ảnh chụp bóc hàng / video test thực tế từ máy</span>
         </Button>
       </Card>
 

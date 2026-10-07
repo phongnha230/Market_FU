@@ -17,10 +17,11 @@ export default function DisputeResolution({
   onReasonChange,
 }: DisputeResolutionProps) {
   const reasons = [
-    { id: 'defect', label: '✓ Lỗi kỹ thuật / Không lên nguồn / Sọc màn hình' },
-    { id: 'wrong-spec', label: 'Sai lệch thông số với bài đăng' },
-    { id: 'missing', label: 'Thiếu phụ kiện cáp Type-C & Nguồn' },
-    { id: 'damaged', label: 'Nứt vỡ do khâu vận chuyển CampusShip' },
+    { id: 'defect', label: 'Thiết bị lỗi chức năng / Không hoạt động khi cắm thử' },
+    { id: 'wrong-item', label: 'Giao sai sản phẩm / Khác xa hình ảnh và mô tả bài đăng' },
+    { id: 'damaged', label: 'Hàng bị bể vỡ / Trầy xước nặng trong quá trình vận chuyển' },
+    { id: 'missing', label: 'Thiếu phụ kiện / Quà tặng kèm theo như thỏa thuận' },
+    { id: 'fake', label: 'Nghi vấn hàng nhái / Không đúng thông số linh kiện cam kết' },
   ];
 
   return (
