@@ -8,6 +8,7 @@ import ProductGallery from '../components/ProductGallery';
 import ProductInfoCard from '../components/ProductInfoCard';
 import ProductSpecSection from '../components/ProductSpecSection';
 import ProductSellerSafePoint from '../components/ProductSellerSafePoint';
+import ProductDeliveryRouteCard from '../components/ProductDeliveryRouteCard';
 import ProductBottomBar from '../components/ProductBottomBar';
 import MakeOfferModal from '../components/MakeOfferModal';
 import { ReportModal } from '../../report/components/ReportModal';
@@ -61,6 +62,11 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
           }}
         />
         <ProductSpecSection specs={product.specs} description={product.description} />
+        <ProductDeliveryRouteCard
+          isSameCampus={actions.isSameCampus}
+          sellerCampus={product.campus || 'Hòa Lạc'}
+          safePointName={product.safePointInfo?.name}
+        />
         <ProductSellerSafePoint
           seller={product.seller}
           safePointInfo={product.safePointInfo}

@@ -3,12 +3,14 @@ import { Alert } from 'react-native';
 import { DEFAULT_PRODUCT_DETAIL, RELATED_PRODUCTS } from '../constants/product-detail.constants';
 import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { useProductStore } from '../../../stores/productStore';
+import { useUserStore } from '../../../stores/userStore';
 import { ProductDetailData } from '../types/product-detail.types';
 
 export const useProductDetail = (productId?: string) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { isFavorite, toggleFavorite } = useFavoriteStore();
   const { products } = useProductStore();
+  const { user } = useUserStore();
 
   const product: ProductDetailData = useMemo(() => {
     const found = products.find((p) => p.id === productId);
@@ -49,7 +51,18 @@ export const useProductDetail = (productId?: string) => {
 
   const isSaved = isFavorite(product.id);
 
+  const isOwnProduct = Boolean(
+    user && (
+      (user.id && (product.sellerId === user.id || product.seller?.id === user.id)) ||
+      (user.name && product.seller?.name && user.name.trim().toLowerCase() === product.seller.name.trim().toLowerCase())
+    )
+  );
+
   const handleToggleFavorite = () => {
+    if (isOwnProduct) {
+      Alert.alert('Thông báo', 'Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!');
+      return;
+    }
     toggleFavorite(product.id);
   };
 

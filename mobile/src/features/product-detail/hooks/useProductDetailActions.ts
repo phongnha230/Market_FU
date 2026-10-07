@@ -82,13 +82,15 @@ export function useProductDetailActions(
     }
   }, [navigation]);
 
-  const handleOpenBuyNow = useCallback(() => {
+  const handleOpenBuyNow = useCallback((mode?: 'meetup' | 'shipping') => {
     if (!checkActionEligibility('đặt cọc giao dịch ký quỹ Escrow')) return;
 
     const numericPrice =
       typeof product.price === 'number'
         ? product.price
         : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 1450000;
+
+    const finalMode = mode || (isSameCampus ? 'meetup' : 'shipping');
 
     navigation.navigate('Checkout', {
       product: {
@@ -102,7 +104,9 @@ export function useProductDetailActions(
         sellerCampus: product.campus || (isSameCampus ? 'Cơ sở Hòa Lạc' : 'Cơ sở khác'),
         sellerId: product.seller?.id || product.sellerId || '',
       },
-      isDifferentCampus: !isSameCampus,
+      isDifferentCampus: finalMode === 'shipping' || !isSameCampus,
+      type: finalMode,
+      safePoint: product.safePointInfo?.name || product.safePoint,
     });
   }, [checkActionEligibility, navigation, product, isSameCampus]);
 

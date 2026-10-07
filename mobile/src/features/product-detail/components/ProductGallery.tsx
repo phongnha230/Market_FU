@@ -3,6 +3,8 @@ import { View, Text, FlatList, Dimensions, StyleSheet, NativeSyntheticEvent, Nat
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
+import { resolveProductImage } from '../../../lib/imageResolver';
+
 const { width: SCREEN_W } = Dimensions.get('window');
 
 interface ProductGalleryProps {
@@ -26,7 +28,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
 
   const renderItem = useCallback(({ item: img }: ListRenderItemInfo<any>) => (
     <View style={styles.slide}>
-      <Image source={img} style={styles.image} contentFit="cover" transition={200} />
+      <Image source={resolveProductImage(img)} style={styles.image} contentFit="cover" transition={200} />
     </View>
   ), []);
 

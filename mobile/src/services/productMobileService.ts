@@ -34,13 +34,16 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
 
   let rawImages: any[] = [];
   if (Array.isArray(item.images) && item.images.length > 0) {
-    rawImages = item.images.map((img: any) =>
-      typeof img === 'string' ? img : img?.url || img?.imageUrl || ''
-    );
+    rawImages = item.images
+      .map((img: any) =>
+        typeof img === 'string' ? img : img?.url || img?.imageUrl || ''
+      )
+      .filter((img: any) => (typeof img === 'string' ? img.trim().length > 0 : Boolean(img)));
   } else if (item.imageUrl) {
     rawImages = [item.imageUrl];
-  } else {
-    rawImages = [require('../../assets/products/monitor-dell-24.jpg')];
+  }
+  if (rawImages.length === 0) {
+    rawImages = ['/products/monitor-dell-24.jpg'];
   }
 
   return {
