@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 interface SellerRecentOrdersSectionProps {
   recentSales?: Array<{
@@ -92,11 +93,7 @@ export const SellerRecentOrdersSection: React.FC<SellerRecentOrdersSectionProps>
 
               <View style={styles.orderMain}>
                 <Image
-                  source={
-                    item.productImage
-                      ? { uri: item.productImage }
-                      : require('../../../../assets/products/monitor-dell-24.jpg')
-                  }
+                  source={resolveProductImage(item.productImage)}
                   style={styles.orderThumb}
                   contentFit="cover"
                 />

@@ -7,12 +7,14 @@ interface KycHeaderTabsProps {
   activeTab: KycType;
   onSelectTab: (tab: KycType) => void;
   onClose: () => void;
+  isStudentVerified?: boolean;
 }
 
 export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
   activeTab,
   onSelectTab,
   onClose,
+  isStudentVerified,
 }) => {
   return (
     <>
@@ -62,6 +64,11 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
           <Text style={[styles.tabBtnText, activeTab === 'STUDENT' && styles.tabBtnTextActive]}>
             1. Sinh viên FPT
           </Text>
+          {isStudentVerified && (
+            <View style={styles.verifiedTabBadge}>
+              <Text style={styles.verifiedTabBadgeText}>✓ Đã xác thực</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -167,5 +174,17 @@ const styles = StyleSheet.create({
   tabBtnTextActive: {
     color: '#EA580C',
     fontWeight: '800',
+  },
+  verifiedTabBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    marginLeft: 2,
+  },
+  verifiedTabBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#15803D',
   },
 });

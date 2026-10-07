@@ -91,6 +91,16 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   const [studentFrontCard, setStudentFrontCard] = useState<string | null>(null);
   const [studentBackCard, setStudentBackCard] = useState<string | null>(null);
 
+  const isStudentVerified = Boolean(
+    user?.isKycVerified ||
+    user?.kycStatus === 'APPROVED' ||
+    ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+  );
+
+  const cohort = user?.cohort || (user?.studentId ? `K${user.studentId.replace(/\D/g, '').slice(0, 2)}` : '') || 'K19';
+  const [category, setCategory] = useState('Giáo trình & Tài liệu học IT');
+  const [citizenId, setCitizenId] = useState('');
+
   // Seller Tab Specific Fields
   const [storeName, setStoreName] = useState(user?.name ? `Góc Pass Đồ ${user.name}` : 'Góc Pass Đồ Campus');
   const [handoffSpot, setHandoffSpot] = useState(user?.dormRoom || 'Sảnh Tòa Alpha / Thư viện');
@@ -133,6 +143,10 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
     }
 
     if (activeTab === 'STUDENT') {
+      if (isStudentVerified) {
+        Alert.alert('Thông báo', 'Tài khoản của bạn đã được xác thực Thẻ Sinh Viên chính quy FPT rồi.');
+        return;
+      }
       if (!studentFrontCard) {
         Alert.alert('Thiếu ảnh thẻ', 'Vui lòng chụp hoặc tải ảnh mặt trước Thẻ Sinh Viên FPT.');
         return;
@@ -207,6 +221,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   }, [
     studentId,
     activeTab,
+    isStudentVerified,
     studentFrontCard,
     bankAccount,
     agreedTerms,
@@ -234,6 +249,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
             activeTab={activeTab}
             onSelectTab={setActiveTab}
             onClose={onClose}
+            isStudentVerified={isStudentVerified}
           />
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -249,16 +265,27 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 setCampus={setCampus}
                 major={major}
                 setMajor={setMajor}
+                cohort={cohort}
                 studentFrontCard={studentFrontCard}
                 setStudentFrontCard={setStudentFrontCard}
                 studentBackCard={studentBackCard}
                 setStudentBackCard={setStudentBackCard}
                 onPickImage={pickImage}
+                isStudentVerified={isStudentVerified}
+                onUpgradeToSeller={() => setActiveTab('SELLER')}
               />
             ) : (
               <KycSellerTabForm
+                fullName={fullName}
+                studentId={studentId}
+                campus={campus}
+                major={major}
+                cohort={cohort}
+                isStudentVerified={isStudentVerified}
                 storeName={storeName}
                 setStoreName={setStoreName}
+                category={category}
+                setCategory={setCategory}
                 handoffSpot={handoffSpot}
                 setHandoffSpot={setHandoffSpot}
                 bankName={bankName}
@@ -267,6 +294,8 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 setBankAccount={setBankAccount}
                 bankAccountName={bankAccountName}
                 setBankAccountName={setBankAccountName}
+                citizenId={citizenId}
+                setCitizenId={setCitizenId}
                 citizenFrontCard={citizenFrontCard}
                 setCitizenFrontCard={setCitizenFrontCard}
                 citizenBackCard={citizenBackCard}
@@ -285,6 +314,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
             isSubmitting={isSubmitting}
             activeTab={activeTab}
             onSubmit={handleSubmit}
+            isStudentVerified={isStudentVerified}
           />
         </View>
       </KeyboardAvoidingView>

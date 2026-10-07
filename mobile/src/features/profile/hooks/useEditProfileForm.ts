@@ -10,6 +10,7 @@ interface ProfileFormData {
   name: string;
   studentId: string;
   campus: string;
+  cohort: string;
   major: string;
   phone: string;
   dormRoom: string;
@@ -19,19 +20,27 @@ interface ProfileFormData {
   accountName: string;
 }
 
-const getInitialFormData = (user: any): ProfileFormData => ({
-  avatar: user?.avatarUrl || user?.avatar || '',
-  name: user?.name || '',
-  studentId: user?.studentId || '',
-  campus: user?.campus || 'HÒA LẠC',
-  major: user?.major || '',
-  phone: user?.phone || '',
-  dormRoom: user?.dormRoom || user?.roomNumber || '',
-  bio: user?.bio || '',
-  bankName: user?.bankAccount?.bankName || 'MB',
-  accountNo: user?.bankAccount?.accountNo || '',
-  accountName: user?.bankAccount?.accountName || user?.name?.toUpperCase() || '',
-});
+const getInitialFormData = (user: any): ProfileFormData => {
+  const derivedCohort =
+    user?.cohort ||
+    (user?.studentId ? `K${user.studentId.replace(/\D/g, '').slice(0, 2)}` : '') ||
+    'K18';
+
+  return {
+    avatar: user?.avatarUrl || user?.avatar || '',
+    name: user?.name || '',
+    studentId: user?.studentId || '',
+    campus: user?.campus || 'HÒA LẠC',
+    cohort: derivedCohort,
+    major: user?.major || 'Kỹ thuật phần mềm (SE)',
+    phone: user?.phone || '',
+    dormRoom: user?.dormRoom || user?.roomNumber || '',
+    bio: user?.bio || '',
+    bankName: user?.bankAccount?.bankName || 'MB',
+    accountNo: user?.bankAccount?.accountNo || '',
+    accountName: user?.bankAccount?.accountName || user?.name?.toUpperCase() || '',
+  };
+};
 
 async function pickAvatarFromSource(source: 'camera' | 'library'): Promise<string | null> {
   if (source === 'camera') {
@@ -62,11 +71,9 @@ async function pickAvatarFromSource(source: 'camera' | 'library'): Promise<strin
   return null;
 }
 
-function buildProfileUpdatePayload(params: ProfileFormData) {
+function buildProfileUpdatePayload(params: ProfileFormData, isVerified: boolean) {
   const updates: any = {
     name: params.name.trim(),
-    campus: params.campus,
-    major: params.major.trim(),
     phone: params.phone.trim(),
     dormRoom: params.dormRoom.trim(),
     roomNumber: params.dormRoom.trim(),
@@ -74,6 +81,12 @@ function buildProfileUpdatePayload(params: ProfileFormData) {
     avatar: params.avatar || undefined,
     avatarUrl: params.avatar || undefined,
   };
+
+  // Cố định campus nếu đã là sinh viên xác thực (giống hệt Web).
+  // Chỉ cho phép chọn đổi cơ sở nếu tài khoản chưa xác thực Thẻ SV.
+  if (!isVerified) {
+    updates.campus = params.campus;
+  }
 
   if (params.accountNo.trim()) {
     updates.bankAccount = {
@@ -131,13 +144,25 @@ export function useEditProfileForm(
     );
   }, [updateField]);
 
+  const isVerified = useMemo(() => {
+    if (!user) return false;
+    if ((user.role as string) === 'UNVERIFIED' || !user.studentId) {
+      return false;
+    }
+    return Boolean(
+      user.isKycVerified === true ||
+      user.kycStatus === 'APPROVED' ||
+      ((user.role as string) !== 'UNVERIFIED' && user.studentId)
+    );
+  }, [user]);
+
   const handleSave = useCallback(async () => {
     if (!formData.name.trim()) {
       Alert.alert('Lỗi', 'Họ và tên sinh viên không được để trống.');
       return;
     }
 
-    const updates = buildProfileUpdatePayload(formData);
+    const updates = buildProfileUpdatePayload(formData, isVerified);
     const res = await updateUserProfile(updates);
     if (res.success) {
       Alert.alert('Thành công', 'Hồ sơ sinh viên đã được cập nhật thành công!');
@@ -146,7 +171,7 @@ export function useEditProfileForm(
     } else {
       Alert.alert('Lỗi', res.message || 'Không thể cập nhật hồ sơ');
     }
-  }, [formData, updateUserProfile, onSaveSuccess, onClose]);
+  }, [formData, isVerified, updateUserProfile, onSaveSuccess, onClose]);
 
   const isEduEmail = useMemo(() => {
     const email = user?.email?.toLowerCase() || '';
@@ -170,6 +195,7 @@ export function useEditProfileForm(
     studentId: formData.studentId,
     campus: formData.campus,
     setCampus,
+    cohort: formData.cohort,
     major: formData.major,
     setMajor,
     phone: formData.phone,
@@ -186,6 +212,7 @@ export function useEditProfileForm(
     setAccountName,
     userEmail: user?.email || '',
     isEduEmail,
+    isVerified,
     isLoading,
     handlePickAvatar,
     handleSave,

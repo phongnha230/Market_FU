@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import productMobileService from '../../../services/productMobileService';
 import { useUserStore } from '../../../stores/userStore';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 export type BoostPlanId = 'BUMP' | 'PIN_24H' | 'RENEW';
 
@@ -176,7 +177,7 @@ interface ProductInfoCardProps {
 const ProductInfoCard: React.FC<ProductInfoCardProps> = React.memo(({ product }) => (
   <View style={styles.productCard}>
     <Image
-      source={product.image || require('../../../../assets/products/monitor-dell-24.jpg')}
+      source={resolveProductImage(product.image)}
       style={styles.productThumb}
       contentFit="cover"
     />

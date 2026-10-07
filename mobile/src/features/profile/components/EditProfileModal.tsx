@@ -14,7 +14,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EditProfileAvatarSection } from './EditProfileAvatarSection';
 import { EditProfileAcademicSection } from './EditProfileAcademicSection';
 import { EditProfileContactSection } from './EditProfileContactSection';
-import { EditProfileBankSection } from './EditProfileBankSection';
 import { useEditProfileForm } from '../hooks/useEditProfileForm';
 
 interface EditProfileModalProps {
@@ -29,21 +28,6 @@ const CAMPUSES = [
   'ĐÀ NẴNG',
   'CẦN THƠ',
   'QUY NHƠN',
-];
-
-const VIETNAMESE_BANKS = [
-  { code: 'MB', name: 'MB Bank (Quân Đội)' },
-  { code: 'VCB', name: 'Vietcombank' },
-  { code: 'TCB', name: 'Techcombank' },
-  { code: 'TPB', name: 'TPBank' },
-  { code: 'VPB', name: 'VPBank' },
-  { code: 'ACB', name: 'ACB Á Châu' },
-  { code: 'BIDV', name: 'BIDV' },
-  { code: 'CTG', name: 'VietinBank' },
-  { code: 'VBA', name: 'Agribank' },
-  { code: 'TIMO', name: 'Timo Digital' },
-  { code: 'CAKE', name: 'Cake by VPBank' },
-  { code: 'OCB', name: 'OCB Phương Đông' },
 ];
 
 const EditProfileHeader: React.FC<{ onClose: () => void }> = React.memo(({ onClose }) => (
@@ -133,8 +117,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               campus={form.campus}
               onCampusChange={form.setCampus}
               campuses={CAMPUSES}
+              cohort={form.cohort}
               major={form.major}
               onMajorChange={form.setMajor}
+              isVerified={form.isVerified}
             />
 
             <EditProfileContactSection
@@ -144,16 +130,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onDormRoomChange={form.setDormRoom}
               bio={form.bio}
               onBioChange={form.setBio}
-            />
-
-            <EditProfileBankSection
-              bankName={form.bankName}
-              onBankNameChange={form.setBankName}
-              accountNo={form.accountNo}
-              onAccountNoChange={form.setAccountNo}
-              accountName={form.accountName}
-              onAccountNameChange={form.setAccountName}
-              banks={VIETNAMESE_BANKS}
             />
           </ScrollView>
 

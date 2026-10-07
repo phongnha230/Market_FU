@@ -23,14 +23,26 @@ export const reviewMobileService = {
   },
 
   /**
-   * Lấy danh sách đánh giá của 1 sinh viên/người bán
+   * Lấy danh sách đánh giá của 1 sinh viên/người bán (kèm thống kê sao)
    */
-  async getUserReviews(userId: string): Promise<any[]> {
+  async getUserReviews(
+    userId: string,
+    params?: { type?: 'received' | 'given' | 'all'; rating?: number; hasImages?: boolean }
+  ): Promise<{
+    reviews: any[];
+    stats?: {
+      totalReceived: number;
+      averageRating: number | null;
+      ratingDistribution: Record<number, number>;
+    };
+  }> {
     try {
-      const res = await apiClient.get<ApiResponse<any[]>>(`/reviews/user/${userId}`);
-      return res.data?.data || [];
+      const res = await apiClient.get<ApiResponse<any>>(`/reviews/user/${userId}`, { params });
+      const reviews = Array.isArray(res.data?.data) ? res.data?.data : (res.data?.data as any)?.reviews || [];
+      const stats = (res.data as any)?.meta?.stats || null;
+      return { reviews, stats };
     } catch {
-      return [];
+      return { reviews: [], stats: undefined };
     }
   },
 };

@@ -10,15 +10,20 @@ interface OrderStat {
 }
 
 interface OrdersOverviewSectionProps {
+  title?: string;
   stats: OrderStat[];
   onPressStatus?: (id: string) => void;
 }
 
-export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({ stats, onPressStatus }) => {
+export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({
+  title = 'Đơn mua của tôi',
+  stats,
+  onPressStatus,
+}) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Đơn hàng & Giao dịch của tôi</Text>
+        <Text style={styles.title}>{title}</Text>
         <TouchableOpacity activeOpacity={0.7} onPress={() => onPressStatus && onPressStatus('all')}>
           <Text style={styles.seeAll}>Xem lịch sử ›</Text>
         </TouchableOpacity>

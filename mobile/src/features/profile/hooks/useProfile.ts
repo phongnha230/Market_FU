@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
-import { SETTING_ITEMS, ORDER_STATS } from '../constants/profile.constants';
+import { SETTING_ITEMS } from '../constants/profile.constants';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { useCampusStore } from '../../../stores/useCampusStore';
 import { useKycStore } from '../../../stores/kycStore';
+import { useOrderStore } from '../../../stores/orderStore';
 import { profileMobileService } from '../../../services/profileMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 
@@ -13,6 +14,7 @@ export const useProfile = () => {
   const navigation = useNavigation<any>();
   const { user, logout, updateUserProfile } = useAuthStore();
   const { currentCampus } = useCampusStore();
+  const { orders, fetchOrders } = useOrderStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   /**
@@ -36,9 +38,12 @@ export const useProfile = () => {
    */
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await syncProfileFromBackend();
+    await Promise.all([
+      syncProfileFromBackend(),
+      fetchOrders().catch(() => {}),
+    ]);
     setIsRefreshing(false);
-  }, [syncProfileFromBackend]);
+  }, [syncProfileFromBackend, fetchOrders]);
 
   /**
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
@@ -46,6 +51,7 @@ export const useProfile = () => {
   useEffect(() => {
     // 1. Tự động đồng bộ 1 lần khi màn hình khởi tạo
     syncProfileFromBackend();
+    fetchOrders().catch(() => {});
 
     // 2. Đăng ký listener sự kiện Socket từ Admin Backend
     const unsubscribe = socketMobileService.onKycStatusUpdated(async (data) => {
@@ -85,7 +91,52 @@ export const useProfile = () => {
     return () => {
       unsubscribe();
     };
-  }, [syncProfileFromBackend, updateUserProfile, user?.coins]);
+  }, [syncProfileFromBackend, fetchOrders, updateUserProfile, user?.coins]);
+
+  const isSeller = user?.role === 'SELLER';
+  const userId = user?.id || '';
+
+  /**
+   * Tính toán số lượng đơn hàng theo dữ liệu thực tế của user (không dùng mock data ảo)
+   */
+  const dynamicOrderStats = useMemo(() => {
+    if (!userId) {
+      return [
+        { id: 'o1', label: isSeller ? 'Chờ duyệt' : 'Chờ xác nhận', count: 0, icon: 'time-outline' },
+        { id: 'o2', label: 'Chờ Handoff', count: 0, icon: 'hand-left-outline' },
+        { id: 'o3', label: 'Đang giao', count: 0, icon: 'bicycle-outline' },
+        { id: 'o4', label: 'Đã hoàn tất', count: 0, icon: 'checkmark-done-outline' },
+      ];
+    }
+
+    // Nếu là Seller: tính đơn bán của mình hoặc đơn mua. Nếu là Buyer: chỉ tính đơn mua của mình.
+    const myOrders = orders.filter((o) =>
+      isSeller ? (o.sellerId === userId || o.buyerId === userId) : (o.buyerId === userId)
+    );
+
+    const pendingCount = myOrders.filter(
+      (o) => o.status === 'PENDING_SAFEPOINT' || (o.status as any) === 'PENDING'
+    ).length;
+
+    const escrowCount = myOrders.filter(
+      (o) => o.status === 'ESCROW_PAID' || (o.status as any) === 'PAID'
+    ).length;
+
+    const shippingCount = myOrders.filter(
+      (o) => o.status === 'HANDOVER_CONFIRMED' || (o.status as any) === 'SHIPPING' || (o.status as any) === 'DELIVERED'
+    ).length;
+
+    const completedCount = myOrders.filter(
+      (o) => o.status === 'COMPLETED'
+    ).length;
+
+    return [
+      { id: 'o1', label: isSeller ? 'Chờ duyệt' : 'Chờ xác nhận', count: pendingCount, icon: 'time-outline' },
+      { id: 'o2', label: 'Chờ Handoff', count: escrowCount, icon: 'hand-left-outline' },
+      { id: 'o3', label: 'Đang giao', count: shippingCount, icon: 'bicycle-outline' },
+      { id: 'o4', label: 'Đã hoàn tất', count: completedCount, icon: 'checkmark-done-outline' },
+    ];
+  }, [orders, userId, isSeller]);
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
@@ -107,7 +158,7 @@ export const useProfile = () => {
     user,
     currentCampus,
     settingItems: SETTING_ITEMS,
-    orderStats: ORDER_STATS,
+    orderStats: dynamicOrderStats,
     isRefreshing,
     onRefresh,
     syncProfileFromBackend,

@@ -16,8 +16,17 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
   productsCount,
   reviewsCount,
 }) => {
+  const sellerName = profile?.fullName || paramSellerName || 'Sinh viên FPT';
+  const dealCount = typeof profile?.dealCount === 'number' ? profile.dealCount : 0;
+  const rating = typeof profile?.rating === 'number' ? profile.rating : null;
+  const reputationScore = profile?.reputationScore ?? 100;
+  const campus = profile?.campus || 'HÒA LẠC';
+  const cohort = profile?.cohort || 'Sinh viên FPT';
+  const bio = profile?.bio || 'Sinh viên FPT giao lưu pass đồ tử tế, có thể hẹn test máy tại Safe-Point campus.';
+
   return (
     <View style={styles.profileCard}>
+      {/* 1. Header Row: Avatar + Identity */}
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
           {profile?.avatarUrl ? (
@@ -25,79 +34,117 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>
-                {(profile?.fullName || paramSellerName).charAt(0).toUpperCase()}
+                {sellerName.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
-          {profile?.role === 'SELLER' && (
-            <View style={styles.starBadge}>
-              <Ionicons name="star" size={12} color="#FFFFFF" />
-            </View>
-          )}
+          {/* Online green dot */}
+          <View style={styles.onlineDot} />
         </View>
 
         <View style={styles.profileTextCol}>
           <View style={styles.nameRow}>
             <Text style={styles.sellerName} numberOfLines={1}>
-              {profile?.fullName || paramSellerName}
+              {sellerName}
             </Text>
-            <Ionicons name="checkmark-circle" size={16} color="#059669" style={{ marginLeft: 4 }} />
+            <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginLeft: 4 }} />
           </View>
 
           <View style={styles.tagRow}>
             <View style={styles.campusChip}>
-              <Ionicons name="location-sharp" size={11} color="#EA580C" />
-              <Text style={styles.campusChipText}>{profile?.campus || 'HÒA LẠC'}</Text>
+              <Ionicons name="location-sharp" size={10} color="#EA580C" />
+              <Text style={styles.campusChipText}>{campus}</Text>
             </View>
-            <View style={styles.roleChip}>
-              <Text style={styles.roleChipText}>
-                {profile?.role === 'SELLER' ? 'TOP SELLER' : 'SINH VIÊN FPT'}
-              </Text>
+            <View style={styles.cohortChip}>
+              <Text style={styles.cohortChipText}>{cohort}</Text>
+            </View>
+            <View style={styles.verifiedChip}>
+              <Text style={styles.verifiedChipText}>KYC SV</Text>
             </View>
           </View>
 
-          <Text style={styles.reputationText}>
-            🛡️ Điểm uy tín Campus: <Text style={styles.reputationScore}>{profile?.reputationScore ?? 100}/100</Text>
+          {/* Bio snippet */}
+          <Text style={styles.bioText} numberOfLines={2}>
+            {bio}
           </Text>
         </View>
       </View>
 
-      {/* Quick Stats Grid */}
+      {/* 2. Real Trust Metrics 4-Box Grid (Không số ảo) */}
       <View style={styles.statsGrid}>
+        {/* Box 1: Điểm tín nhiệm */}
         <View style={styles.statBox}>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="shield-checkmark" size={12} color="#059669" />
+            <Text style={styles.statLabel}>Tín nhiệm</Text>
+          </View>
+          <Text style={[styles.statNum, { color: '#059669' }]}>
+            {reputationScore}
+            <Text style={styles.statSub}>/100</Text>
+          </Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        {/* Box 2: Đang rao bán */}
+        <View style={styles.statBox}>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="pricetags-outline" size={12} color="#475569" />
+            <Text style={styles.statLabel}>Đang bán</Text>
+          </View>
           <Text style={styles.statNum}>{productsCount}</Text>
-          <Text style={styles.statLabel}>Đang bán</Text>
         </View>
+
         <View style={styles.statDivider} />
+
+        {/* Box 3: Đã giao dịch (THẬT TỪ DB) */}
         <View style={styles.statBox}>
-          <Text style={styles.statNum}>18</Text>
-          <Text style={styles.statLabel}>Đã bán</Text>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="cube-outline" size={12} color="#EA580C" />
+            <Text style={styles.statLabel}>Đã bán</Text>
+          </View>
+          <Text style={[styles.statNum, { color: '#EA580C' }]}>
+            {dealCount}
+            <Text style={styles.statSub}> đơn</Text>
+          </Text>
         </View>
+
         <View style={styles.statDivider} />
+
+        {/* Box 4: Đánh giá sao (THẬT TỪ DB) */}
         <View style={styles.statBox}>
-          <Text style={styles.statNum}>4.9 ⭐</Text>
-          <Text style={styles.statLabel}>Đánh giá ({reviewsCount})</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statBox}>
-          <Text style={styles.statNum}>99%</Text>
-          <Text style={styles.statLabel}>Phản hồi nhanh</Text>
+          <View style={styles.statHeaderRow}>
+            <Ionicons name="star" size={12} color="#D97706" />
+            <Text style={styles.statLabel}>Đánh giá</Text>
+          </View>
+          {reviewsCount > 0 && rating !== null ? (
+            <Text style={[styles.statNum, { color: '#D97706' }]}>
+              {rating}
+              <Text style={styles.statSub}> ⭐</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.statNum, { color: '#94A3B8', fontSize: 12 }]}>
+              Chưa có
+            </Text>
+          )}
         </View>
       </View>
 
-      {/* Trust Assurances */}
+      {/* 3. Safety Guarantees Pill Bar */}
       <View style={styles.trustBanner}>
         <View style={styles.trustItem}>
-          <Ionicons name="shield-checkmark" size={14} color="#059669" />
-          <Text style={styles.trustText}>Thẻ SV đã duyệt KYC</Text>
+          <Ionicons name="checkmark-done-circle" size={13} color="#059669" />
+          <Text style={styles.trustText}>Thẻ SV xác thực</Text>
         </View>
+        <View style={styles.trustDot} />
         <View style={styles.trustItem}>
-          <Ionicons name="camera" size={14} color="#059669" />
-          <Text style={styles.trustText}>Giao dịch Safe-Point 24/7</Text>
+          <Ionicons name="shield-checkmark" size={13} color="#059669" />
+          <Text style={styles.trustText}>Safe-Point 24/7</Text>
         </View>
+        <View style={styles.trustDot} />
         <View style={styles.trustItem}>
-          <Ionicons name="lock-closed" size={14} color="#059669" />
-          <Text style={styles.trustText}>Ký quỹ Escrow bảo lãnh</Text>
+          <Ionicons name="lock-closed" size={13} color="#059669" />
+          <Text style={styles.trustText}>Bảo lãnh Escrow</Text>
         </View>
       </View>
     </View>
@@ -107,51 +154,54 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
 const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 16,
+    marginBottom: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   avatarRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
   avatarWrap: {
     position: 'relative',
-    marginRight: 14,
+    marginRight: 12,
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#EA580C',
+    borderColor: '#F1F5F9',
   },
   avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#EA580C',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
     color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
   },
-  starBadge: {
+  onlineDot: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#EA580C',
-    alignItems: 'center',
-    justifyContent: 'center',
+    bottom: 1,
+    right: 1,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
@@ -167,12 +217,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.2,
   },
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 5,
+    marginBottom: 6,
+    flexWrap: 'wrap',
   },
   campusChip: {
     flexDirection: 'row',
@@ -182,53 +234,77 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     gap: 3,
+    borderWidth: 0.5,
+    borderColor: '#FFEDD5',
   },
   campusChipText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: '#EA580C',
   },
-  roleChip: {
-    backgroundColor: '#EFF6FF',
+  cohortChip: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  roleChipText: {
-    fontSize: 10.5,
+  cohortChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  verifiedChip: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#A7F3D0',
+  },
+  verifiedChipText: {
+    fontSize: 9.5,
     fontWeight: '700',
-    color: '#2563EB',
-  },
-  reputationText: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  reputationScore: {
     color: '#059669',
-    fontWeight: '800',
+  },
+  bioText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
   },
   statsGrid: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   statBox: {
     flex: 1,
     alignItems: 'center',
   },
-  statNum: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+  statHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: '#64748B',
-    marginTop: 2,
+    fontWeight: '600',
+  },
+  statNum: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  statSub: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   statDivider: {
     width: 1,
@@ -237,13 +313,14 @@ const styles = StyleSheet.create({
   },
   trustBanner: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'space-around',
     backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#DCFCE7',
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
   },
   trustItem: {
     flexDirection: 'row',
@@ -251,8 +328,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   trustText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#15803D',
   },
+  trustDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#86EFAC',
+  },
 });
+
+export default SellerHeroCard;

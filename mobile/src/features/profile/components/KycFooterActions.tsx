@@ -8,6 +8,7 @@ interface KycFooterActionsProps {
   isSubmitting: boolean;
   activeTab: KycType;
   onSubmit: () => void;
+  isStudentVerified?: boolean;
 }
 
 export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
@@ -15,7 +16,13 @@ export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
   isSubmitting,
   activeTab,
   onSubmit,
+  isStudentVerified,
 }) => {
+  // Nếu đã xác thực sinh viên chính quy và đang ở tab Sinh viên -> không hiển thị nút nộp lại
+  if (activeTab === 'STUDENT' && isStudentVerified) {
+    return null;
+  }
+
   return (
     <View style={styles.sheetFooter}>
       <TouchableOpacity

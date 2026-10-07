@@ -8,7 +8,7 @@ export const SETTING_ITEMS: SettingItem[] = [
     iconBg: '#DCFCE7',
     iconColor: '#059669',
     title: 'Xác minh Thẻ SV & KYC',
-    subtitle: 'Đã duyệt cơ sở Hòa Lạc (ID: 017842)',
+    subtitle: 'Xác thực sinh viên & tài khoản giao dịch',
     chevron: true,
   },
   {
@@ -18,9 +18,7 @@ export const SETTING_ITEMS: SettingItem[] = [
     iconBg: '#FFF7ED',
     iconColor: '#EA580C',
     title: 'Kho Voucher & Đổi thưởng...',
-    subtitle: '14 mã giảm giá quán ăn & phụ kiện Hola',
-    badge: '14 mới',
-    badgeColor: '#EA580C',
+    subtitle: 'Ưu đãi & voucher ăn uống Hola',
     chevron: true,
   },
   {
@@ -40,8 +38,7 @@ export const SETTING_ITEMS: SettingItem[] = [
     iconBg: '#FEF2F2',
     iconColor: '#DC2626',
     title: 'Trung tâm Khiếu nại & Hoàn tiền...',
-    subtitle: '1 yêu cầu hoàn cọc tai nghe đang xử lý',
-    dotAlert: true,
+    subtitle: 'Theo dõi tiến trình khiếu nại & hoàn cọc Escrow',
     chevron: true,
   },
   {
@@ -51,7 +48,7 @@ export const SETTING_ITEMS: SettingItem[] = [
     iconBg: '#F5F3FF',
     iconColor: '#7C3AED',
     title: 'Cài đặt thông báo & Bảo mật',
-    subtitle: '2FA qua email FPT Edu & SMS OTP',
+    subtitle: 'Email FPT Edu & thông báo giao dịch',
     chevron: true,
   },
   {
@@ -61,7 +58,7 @@ export const SETTING_ITEMS: SettingItem[] = [
     iconBg: '#F8FAFC',
     iconColor: '#475569',
     title: 'Đổi mật khẩu tài khoản',
-    subtitle: 'Cập nhật lần cuối 45 ngày trước',
+    subtitle: 'Bảo mật tài khoản cá nhân',
     chevron: true,
   },
   {
@@ -77,8 +74,8 @@ export const SETTING_ITEMS: SettingItem[] = [
 ];
 
 export const ORDER_STATS = [
-  { id: 'o1', label: 'Chờ duyệt', count: 1, icon: 'time-outline' },
-  { id: 'o2', label: 'Chờ Handoff', count: 2, icon: 'hand-left-outline' },
+  { id: 'o1', label: 'Chờ duyệt', count: 0, icon: 'time-outline' },
+  { id: 'o2', label: 'Chờ Handoff', count: 0, icon: 'hand-left-outline' },
   { id: 'o3', label: 'Đang giao', count: 0, icon: 'bicycle-outline' },
-  { id: 'o4', label: 'Đã hoàn tất', count: 18, icon: 'checkmark-done-outline' },
+  { id: 'o4', label: 'Đã hoàn tất', count: 0, icon: 'checkmark-done-outline' },
 ];

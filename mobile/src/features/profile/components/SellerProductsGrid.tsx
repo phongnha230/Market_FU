@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
+import { resolveProductImage } from '../../../lib/imageResolver';
+
 interface SellerProductsGridProps {
   products: any[];
   onSelectProduct: (id: string) => void;
@@ -32,11 +34,7 @@ export const SellerProductsGrid: React.FC<SellerProductsGridProps> = ({
           onPress={() => onSelectProduct(item.id)}
         >
           <Image
-            source={
-              typeof item.images?.[0] === 'string'
-                ? { uri: item.images[0] }
-                : item.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg')
-            }
+            source={resolveProductImage(item.images?.[0])}
             style={styles.productThumb}
             contentFit="cover"
           />

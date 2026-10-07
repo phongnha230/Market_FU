@@ -52,7 +52,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     } else if (id === 's5') {
       navigation.navigate('NotificationSettings');
     } else if (id === 's6') {
-      navigation.navigate('AccountSettings');
+      navigation.navigate('ChangePassword');
     } else if (id === 's7') {
       navigation.navigate('About');
     } else {
@@ -60,8 +60,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  const handleOpenOrderList = () => {
-    navigation.navigate('OrderList');
+  const isSeller = user?.role === 'SELLER';
+  const orderSectionTitle = isSeller ? 'Đơn hàng & Giao dịch của tôi' : 'Đơn mua của tôi';
+
+  const handleOpenOrderList = (statusId?: string) => {
+    let initialTab = 'all';
+    if (statusId === 'o1' || statusId === 'o2') {
+      initialTab = 'escrow';
+    } else if (statusId === 'o4') {
+      initialTab = 'completed';
+    }
+    navigation.navigate('OrderList', { initialTab });
   };
 
   return (
@@ -141,6 +150,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <CampusWalletCard
           onWithdrawPress={() => setShowWithdrawModal(true)}
           onDepositPress={() => setShowDepositModal(true)}
+          onKycPress={() => {
+            setKycRole('SELLER');
+            setShowKycModal(true);
+          }}
         />
 
 
@@ -162,7 +175,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name="chevron-forward" size={18} color="#E11D48" />
         </TouchableOpacity>
 
-        <OrdersOverviewSection stats={orderStats} onPressStatus={handleOpenOrderList} />
+        <OrdersOverviewSection
+          title={orderSectionTitle}
+          stats={orderStats}
+          onPressStatus={handleOpenOrderList}
+        />
 
         <View style={styles.settingsSection}>
           <Text style={styles.sectionTitle}>Tùy chọn & Hỗ trợ sinh viên</Text>
