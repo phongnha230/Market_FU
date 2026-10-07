@@ -13,6 +13,9 @@ export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export const queryUserReviewsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+  type: z.enum(['received', 'given', 'all']).default('received'),
+  hasImages: z.coerce.boolean().optional(),
 });
 
 export type QueryUserReviewsInput = z.infer<typeof queryUserReviewsSchema>;

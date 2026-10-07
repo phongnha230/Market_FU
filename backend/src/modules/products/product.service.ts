@@ -519,6 +519,10 @@ export class ProductService {
       throw new AppError('Món đồ không tồn tại', 404, 'PRODUCT_NOT_FOUND');
     }
 
+    if (product.sellerId === userId) {
+      throw new AppError('Bạn không thể tự yêu thích sản phẩm do chính bạn đăng bán', 400, 'SELF_FAVORITE_NOT_ALLOWED');
+    }
+
     const existingFavorite = await prisma.productFavorite.findUnique({
       where: {
         userId_productId: {
@@ -903,6 +907,10 @@ export class ProductService {
 
     if (!product) {
       throw new AppError('Món đồ không tồn tại', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    if (product.sellerId === userId) {
+      throw new AppError('Bạn không thể tự yêu thích sản phẩm do chính bạn đăng bán', 400, 'SELF_FAVORITE_NOT_ALLOWED');
     }
 
     const existingFavorite = await prisma.productFavorite.findUnique({

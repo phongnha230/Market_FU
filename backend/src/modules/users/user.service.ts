@@ -171,19 +171,55 @@ export class UserService {
       ? user.email
       : user.email.replace(/(.{2})(.*)(?=@)/, (_m, p1, p2) => p1 + '*'.repeat(Math.max(p2.length, 3)));
 
+    // Tính toán số liệu thống kê THẬT 100% từ Database
+    const [dealCount, reviewAgg, activeListingsCount] = await Promise.all([
+      prisma.order.count({
+        where: {
+          sellerId: user.id,
+          status: { in: ['COMPLETED', 'DELIVERED'] },
+        },
+      }),
+      prisma.review.aggregate({
+        where: {
+          revieweeId: user.id,
+          isPublic: true,
+        },
+        _avg: { rating: true },
+        _count: { id: true },
+      }),
+      prisma.product.count({
+        where: {
+          sellerId: user.id,
+          status: 'AVAILABLE',
+        },
+      }),
+    ]);
+
+    const reviewCount = reviewAgg._count.id;
+    const rating = reviewAgg._avg.rating ? Number(reviewAgg._avg.rating.toFixed(1)) : null;
+
     return {
       id: user.id,
       email: safeEmail,
       fullName: user.profile?.fullName,
       avatarUrl: user.profile?.avatarUrl,
-      avatarBadge: user.profile?.avatarBadge,
-      phoneNumber: isPrivileged ? user.profile?.phoneNumber : user.profile?.phoneNumber,
+      phoneNumber: isPrivileged
+        ? user.profile?.phoneNumber
+        : user.profile?.phoneNumber
+          ? user.profile.phoneNumber.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
+          : undefined,
       role: user.role,
       campus: user.profile?.campus,
-      campusCoins: user.profile?.campusCoins ?? 0,
+      campusCoins: isPrivileged ? (user.profile?.campusCoins ?? 0) : undefined,
       reputationScore: user.profile?.reputationScore ?? 100,
-      kyc: user.profile?.kyc,
-      bankAccount: user.profile?.bankAccount,
+      dealCount,
+      reviewCount,
+      rating,
+      activeListingsCount,
+      kyc: user.profile?.kyc ? {
+        status: user.profile.kyc.status,
+      } : (user.email.endsWith('@fpt.edu.vn') ? { status: 'APPROVED' } : undefined),
+      bankAccount: isPrivileged ? user.profile?.bankAccount : undefined,
       isActive: user.isActive,
       createdAt: user.createdAt,
     };

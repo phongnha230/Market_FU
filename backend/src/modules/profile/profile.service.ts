@@ -474,28 +474,78 @@ export class ProfileService {
    * Xem hồ sơ công khai của một người bán / sinh viên khác
    */
   async getPublicProfile(targetUserId: string) {
-    const profile = await prisma.profile.findUnique({
-      where: { userId: targetUserId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            role: true,
-            createdAt: true,
-            _count: {
-              select: {
-                products: { where: { status: 'AVAILABLE' } },
-                receivedReviews: true,
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(targetUserId);
+    let profile = null;
+    if (isObjectId) {
+      profile = await prisma.profile.findFirst({
+        where: {
+          OR: [{ userId: targetUserId }, { id: targetUserId }],
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              role: true,
+              createdAt: true,
+              _count: {
+                select: {
+                  products: { where: { status: 'AVAILABLE' } },
+                  receivedReviews: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    }
+
+    if (!profile) {
+      profile = await prisma.profile.findFirst({
+        where: {
+          fullName: targetUserId,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              role: true,
+              createdAt: true,
+              _count: {
+                select: {
+                  products: { where: { status: 'AVAILABLE' } },
+                  receivedReviews: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
 
     if (!profile) {
       throw new AppError('Không tìm thấy người bán', 404, 'SELLER_NOT_FOUND');
     }
+
+    // Tính toán số liệu thống kê THẬT 100% từ Database
+    const [dealCount, reviewAgg] = await Promise.all([
+      prisma.order.count({
+        where: {
+          sellerId: profile.userId,
+          status: { in: ['COMPLETED', 'DELIVERED'] },
+        },
+      }),
+      prisma.review.aggregate({
+        where: {
+          revieweeId: profile.userId,
+          isPublic: true,
+        },
+        _avg: { rating: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const reviewCount = reviewAgg._count.id;
+    const rating = reviewAgg._avg.rating ? Number(reviewAgg._avg.rating.toFixed(1)) : null;
 
     return {
       id: profile.id,
@@ -504,9 +554,15 @@ export class ProfileService {
       avatarUrl: profile.avatarUrl,
       avatarBadge: profile.avatarBadge,
       campus: profile.campus,
+      cohort: profile.cohort,
+      major: profile.major,
+      bio: profile.bio,
       reputationScore: profile.reputationScore,
       role: profile.user.role,
       createdAt: profile.user.createdAt,
+      dealCount,
+      rating,
+      reviewCount,
       _count: profile.user._count,
     };
   }

@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { reviewService } from './review.service';
 import { createReviewSchema, queryUserReviewsSchema } from './review.dto';
@@ -21,16 +21,24 @@ export class ReviewController {
 
   /**
    * GET /api/reviews/user/:userId
-   * Lấy danh sách đánh giá công khai của một User
+   * Lấy danh sách đánh giá công khai của một User (kèm thống kê sao)
    */
-  async getUserReviews(req: AuthRequest, res: Response, next: NextFunction) {
+  async getUserReviews(req: Request, res: Response, next: NextFunction) {
     try {
       const query = queryUserReviewsSchema.parse(req.query);
-      const { reviews, pagination } = await reviewService.getUserReviews(
+      const result = await reviewService.getUserReviews(
         req.params.userId as string,
         query
       );
-      return sendPaginated(res, reviews, pagination);
+      return sendPaginated(
+        res,
+        result.reviews,
+        {
+          ...result.pagination,
+          stats: result.stats,
+        },
+        200
+      );
     } catch (error) {
       next(error);
     }

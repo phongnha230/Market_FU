@@ -228,23 +228,68 @@ export class ReviewService {
    * 2. Lấy danh sách đánh giá công khai của một User (hiển thị trên trang cá nhân Profile)
    */
   async getUserReviews(userId: string, query: QueryUserReviewsInput) {
-    const { page = 1, limit = 20 } = query;
+    const { page = 1, limit = 20, rating, type = 'received', hasImages } = query;
     const skip = (page - 1) * limit;
 
-    const where = {
-      revieweeId: userId,
+    const isObjectId = isValidObjectId(userId);
+    let targetUserId = userId;
+    if (!isObjectId) {
+      const found = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: userId.trim().toLowerCase() },
+            { profile: { fullName: userId.trim() } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (found) targetUserId = found.id;
+    }
+
+    const baseWhere: Prisma.ReviewWhereInput = {
+      isPublic: true,
+      ...(rating ? { rating } : {}),
+      ...(hasImages ? { images: { isEmpty: false } } : {}),
+    };
+
+    if (type === 'given') {
+      baseWhere.reviewerId = targetUserId;
+    } else if (type === 'all') {
+      baseWhere.OR = [
+        { revieweeId: targetUserId },
+        { reviewerId: targetUserId },
+      ];
+    } else {
+      // Default: 'received'
+      baseWhere.revieweeId = targetUserId;
+    }
+
+    const receivedStatsWhere = {
+      revieweeId: targetUserId,
       isPublic: true,
     };
 
-    const [total, reviews] = await Promise.all([
-      prisma.review.count({ where }),
+    const [total, reviews, allReceivedReviews] = await Promise.all([
+      prisma.review.count({ where: baseWhere }),
       prisma.review.findMany({
-        where,
+        where: baseWhere,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
           reviewer: {
+            select: {
+              id: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                },
+              },
+            },
+          },
+          reviewee: {
             select: {
               id: true,
               profile: {
@@ -270,10 +315,33 @@ export class ReviewService {
           },
         },
       }),
+      prisma.review.findMany({
+        where: receivedStatsWhere,
+        select: { rating: true },
+      }),
     ]);
+
+    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let sumRating = 0;
+    allReceivedReviews.forEach((r) => {
+      sumRating += r.rating;
+      if (r.rating in distribution) {
+        distribution[r.rating as keyof typeof distribution]++;
+      }
+    });
+
+    const averageRating =
+      allReceivedReviews.length > 0
+        ? Number((sumRating / allReceivedReviews.length).toFixed(1))
+        : null;
 
     return {
       reviews,
+      stats: {
+        totalReceived: allReceivedReviews.length,
+        averageRating,
+        ratingDistribution: distribution,
+      },
       pagination: {
         page,
         limit,

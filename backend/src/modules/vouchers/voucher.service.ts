@@ -35,15 +35,70 @@ export class VoucherService {
       ];
     }
 
-    const [total, vouchers] = await Promise.all([
-      prisma.voucher.count({ where }),
-      prisma.voucher.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: [{ coinCost: 'asc' }, { createdAt: 'desc' }],
-      }),
-    ]);
+    let total = await prisma.voucher.count({ where });
+
+    // Tự động khởi tạo kho Voucher mặc định của Campus nếu database chưa có
+    if (total === 0 && !partner && !search) {
+      const overallCount = await prisma.voucher.count();
+      if (overallCount === 0) {
+        await prisma.voucher.createMany({
+          data: [
+            {
+              title: 'Voucher Cơm Căn Tin 10.000đ',
+              description: 'Áp dụng cho mọi suất cơm trưa/tối tại Căng-tin Tòa Gamma (Hola) và Canteen Q.9 (HCM).',
+              partner: 'CANTEEN',
+              coinCost: 10,
+              discountValue: 10000,
+              quantity: 85,
+              imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
+              validDays: 14,
+              isActive: true,
+            },
+            {
+              title: 'Giảm 15.000đ Passio Coffee Campus',
+              description: 'Áp dụng cho mọi món nước Cà phê sữa, Trà đào hạt sen size L tại quầy Passio trong trường.',
+              partner: 'PASSIO',
+              coinCost: 15,
+              discountValue: 15000,
+              quantity: 120,
+              imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80',
+              validDays: 30,
+              isActive: true,
+            },
+            {
+              title: 'Phiếu Mua Hàng 20.000đ 7-Eleven KTX',
+              description: 'Giảm trực tiếp khi mua bánh mì, xúc xích nướng, đồ uống giải khát tại 7-Eleven sảnh KTX.',
+              partner: 'SEVEN_ELEVEN',
+              coinCost: 20,
+              discountValue: 20000,
+              quantity: 40,
+              imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
+              validDays: 20,
+              isActive: true,
+            },
+            {
+              title: 'Miễn Phí Vận Chuyển CampusShip',
+              description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
+              partner: 'OTHER',
+              coinCost: 25,
+              discountValue: 25000,
+              quantity: 200,
+              imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
+              validDays: 45,
+              isActive: true,
+            },
+          ],
+        });
+        total = await prisma.voucher.count({ where });
+      }
+    }
+
+    const vouchers = await prisma.voucher.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: [{ coinCost: 'asc' }, { createdAt: 'desc' }],
+    });
 
     return {
       vouchers,
