@@ -3,7 +3,7 @@ import apiClient, { ApiResponse } from './apiClient';
 export interface AiChatResponse {
   reply: string;
   sessionId: string;
-  recommendedProducts?: any[];
+  suggestedProducts?: any[];
 }
 
 export interface AiVisionScanResult {
@@ -12,6 +12,15 @@ export interface AiVisionScanResult {
   estimatedPrice?: number;
   condition?: string;
   description?: string;
+}
+
+export interface AiSessionItem {
+  id: string;
+  title: string;
+  campus?: string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: Array<{ content: string; createdAt: string }>;
 }
 
 export const aiMobileService = {
@@ -29,18 +38,56 @@ export const aiMobileService = {
         campus,
         sessionId,
       });
+      const data = res.data?.data;
+      const reply =
+        data?.message?.content ||
+        data?.reply ||
+        (typeof data?.message === 'string' ? data.message : 'Em đã hiểu rồi ạ!');
+      const resolvedSessionId =
+        data?.session?.id || data?.sessionId || sessionId || `ai_sess_${Date.now()}`;
+      const suggestedProducts = data?.suggestedProducts || data?.recommendedProducts || [];
+
       return {
-        reply: res.data?.data?.reply || res.data?.data?.message || 'Em đã hiểu rồi ạ!',
-        sessionId: res.data?.data?.sessionId || sessionId || `ai_sess_${Date.now()}`,
-        recommendedProducts: res.data?.data?.recommendedProducts || [],
+        reply,
+        sessionId: resolvedSessionId,
+        suggestedProducts,
       };
     } catch (e: any) {
       console.log('⚠️ [Backend AI Chat offline, using local fallback]:', e?.message);
       return {
-        reply: `Chào bạn! Mình là AI Assistant hỗ trợ Marketplace cơ sở ${campus}. Bạn muốn tìm giáo trình PE/FE, đồ phòng KTX hay phụ kiện công nghệ nào?`,
+        reply: `Chào bạn! Mình là Cóc AI hỗ trợ Marketplace FPT ${campus}. Bạn muốn tìm giáo trình PE/FE, đồ phòng KTX, hay cần hướng dẫn điểm hẹn an toàn Safe-Point?`,
         sessionId: sessionId || `ai_sess_${Date.now()}`,
-        recommendedProducts: [],
+        suggestedProducts: [],
       };
+    }
+  },
+
+  /**
+   * Lấy danh sách các phiên chat của người dùng
+   */
+  async getUserSessions(page = 1, limit = 20): Promise<AiSessionItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>('/ai/sessions', {
+        params: { page, limit },
+      });
+      const list = res.data?.data || [];
+      return Array.isArray(list) ? list : [];
+    } catch (e: any) {
+      console.log('⚠️ [Get AI Sessions error]:', e?.message);
+      return [];
+    }
+  },
+
+  /**
+   * Lấy chi tiết lịch sử tin nhắn của một phiên chat
+   */
+  async getSessionDetail(sessionId: string): Promise<any | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(`/ai/sessions/${sessionId}`);
+      return res.data?.data || null;
+    } catch (e: any) {
+      console.log('⚠️ [Get AI Session Detail error]:', e?.message);
+      return null;
     }
   },
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,29 +10,176 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCampusStore } from '../../../stores/useCampusStore';
 import { useAuthStore } from '../../../stores/useAuthStore';
-import { AiAssistantGuestFallback } from '../components/AiAssistantGuestFallback';
 import { AiAssistantTopBar } from '../components/AiAssistantTopBar';
 import { AiAssistantQuickPrompts } from '../components/AiAssistantQuickPrompts';
 import { AiAssistantMessageItem, ChatMessage } from '../components/AiAssistantMessageItem';
 import { SuggestedProductItem } from '../components/AiAssistantProductCard';
 import { AiAssistantInputBar } from '../components/AiAssistantInputBar';
+import { AiAssistantHistoryModal } from '../components/AiAssistantHistoryModal';
+import { aiMobileService, AiSessionItem } from '../../../services/aiMobileService';
 
 export type { ChatMessage, SuggestedProductItem };
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'm1',
   sender: 'ai',
-  text: 'Chào bạn! Tôi là trợ lý chuyên sâu FPT Campus Marketplace được tích hợp Gemini AI. Tôi có thể hỗ trợ bạn định giá đồ dùng, tìm đồ học tập quanh KTX, hoặc hướng dẫn giao dịch an toàn tại trạm Safe-Point. Bạn cần hỗ trợ gì hôm nay?',
+  text: 'Chào bạn! Tôi là Cóc AI - trợ lý chuyên sâu FPT Campus Marketplace. Tôi có thể hỗ trợ bạn định giá đồ dùng, tìm đồ học tập quanh KTX, hoặc hướng dẫn giao dịch an toàn tại trạm Safe-Point. Bạn cần hỗ trợ gì hôm nay?',
   time: 'Vừa xong',
 };
 
 const QUICK_PROMPTS = [
   '📚 Định giá giáo trình PRF192 cũ?',
-  '🛡️ Check uy tín MSSV người bán',
+  '🛡️ Quy trình khiếu nại & hoàn tiền 48h',
+  '📍 Điểm hẹn Safe Handoff ở Campus',
   '⚡ Tìm điểm cắm sạc test đồ điện tử',
 ];
+
+/**
+ * Format sản phẩm từ backend hoặc gợi ý sang SuggestedProductItem
+ */
+const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => {
+  if (!Array.isArray(rawProducts)) return [];
+  return rawProducts.map((p, idx) => {
+    let conditionText = 'Đã qua sử dụng';
+    if (p.condition === 'NEW') conditionText = 'Mới 100%';
+    else if (p.condition === 'LIKE_NEW') conditionText = 'Like New 99%';
+    else if (p.condition === 'GOOD') conditionText = 'Tốt 90%';
+    else if (p.condition === 'FAIR') conditionText = 'Khá 80%';
+
+    let imageSource: any;
+    if (
+      p.images &&
+      Array.isArray(p.images) &&
+      p.images.length > 0 &&
+      typeof p.images[0] === 'string' &&
+      p.images[0].startsWith('http')
+    ) {
+      imageSource = { uri: p.images[0] };
+    } else {
+      imageSource = require('../../../../assets/products/book-prf192.jpg');
+    }
+
+    return {
+      id: p.id || `prod_${Date.now()}_${idx}`,
+      domTag: p.meetupLocation || p.campus || 'Campus FPT',
+      conditionBadge: conditionText,
+      trustScore: '98% MSSV',
+      title: p.title || 'Món đồ sinh viên FPT',
+      sellerInfo: p.categoryType ? `Danh mục: ${p.categoryType}` : `Sinh viên FPT ${p.campus || ''}`,
+      price:
+        typeof p.price === 'number'
+          ? `${p.price.toLocaleString('vi-VN')} đ`
+          : `${p.price || 0} đ`,
+      image: imageSource,
+    };
+  });
+};
+
+/**
+ * Tạo câu trả lời thông minh offline / guest / fallback
+ */
+const generateLocalBotReply = (
+  query: string,
+  campus: string = 'Hòa Lạc'
+): { reply: string; suggestedProducts?: any[] } => {
+  const q = query.toLowerCase();
+
+  // 1. Mua hàng & Quy trình
+  if (
+    q.includes('cách mua') ||
+    q.includes('quy trình mua') ||
+    q.includes('mua hàng') ||
+    q.includes('đặt hàng')
+  ) {
+    return {
+      reply: `Trên sàn Market FU hiện có 2 hình thức mua hàng chính an toàn cho sinh viên:\n\n1️⃣ Giao dịch trực tiếp Safe Handoff (MEETUP):\n• Hẹn gặp tại trạm Safe-Point (Sảnh Alpha, Thư viện Beta, Cổng Dom KTX...).\n• Người mua đưa Mã QR Handshake hoặc OTP cho người bán để xác nhận nhận hàng.\n\n2️⃣ Giao hàng Ship COD / Đặt cọc Escrow:\n• Tiền được nạp vào ví trung gian Escrow của sàn bảo vệ an toàn.\n• Người mua có 48 giờ dùng thử (Golden Test Period) để test máy móc trước khi giải ngân cho người bán!`,
+    };
+  }
+
+  // 2. Trả hàng & Khiếu nại 48h
+  if (
+    q.includes('trả hàng') ||
+    q.includes('hoàn tiền') ||
+    q.includes('khiếu nại') ||
+    q.includes('hỏng') ||
+    q.includes('lỗi') ||
+    q.includes('nứt')
+  ) {
+    return {
+      reply: `🛡️ Quy trình Trả hàng & Khiếu nại Escrow 48h:\n\n1️⃣ Thời hạn vàng 48 Giờ: Bạn có 48 giờ sau khi nhận đồ để cắm sạc/test máy.\n2️⃣ Khóa tiền tức thì: Vào Quản lý đơn hàng -> Bấm "Khiếu nại & Trả hàng", hệ thống sẽ lập tức đóng băng tiền trong ví Escrow.\n3️⃣ Tải video bằng chứng unboxing hoặc test lỗi.\n4️⃣ Phương án: Hoàn tiền 100% hoặc thỏa thuận bồi thường một phần (20-50%). Admin sẽ phân xử sau 24h nếu 2 bên chưa thống nhất!`,
+    };
+  }
+
+  // 3. Đăng ký bán / Thẻ sinh viên
+  if (
+    q.includes('bán') ||
+    q.includes('seller') ||
+    q.includes('thẻ sv') ||
+    q.includes('thẻ sinh viên') ||
+    q.includes('xác thực')
+  ) {
+    return {
+      reply: `📢 Để đăng ký bán đồ và bảo đảm an toàn sinh viên FPT:\n\n1️⃣ Vào mục Hồ sơ cá nhân -> Chọn "Nâng cấp thành Người bán".\n2️⃣ Tải lên ảnh Thẻ sinh viên FPT (mặt trước) để đối soát MSSV chính quy.\n3️⃣ Sau khi duyệt (2-4 giờ), bạn mở khóa quyền đăng tin và quản lý đồ bán!`,
+    };
+  }
+
+  // 4. Safe Handoff & Điểm hẹn Campus
+  if (
+    q.includes('hẹn') ||
+    q.includes('handoff') ||
+    q.includes('campus') ||
+    q.includes('địa điểm') ||
+    q.includes('sạc') ||
+    q.includes('test')
+  ) {
+    return {
+      reply: `📍 Điểm hẹn giao dịch an toàn (Safe Handoff Points):\n\n• Hà Nội (Hòa Lạc): Sảnh Tòa Alpha (có bàn test điện 220V + HDMI), Bàn chờ Thư viện Beta, Căn tin Gamma.\n• TP.HCM (Quận 9): Sảnh lớn Tòa A, Khu vực ghế đá Canteen trung tâm.\n• Đà Nẵng: Sảnh chính F-Complex, Thư viện Tầng 2.\n• Cần Thơ & Quy Nhơn: Sảnh lễ tân hành chính, Quầy bảo vệ cổng chính.\n\n🛡️ Tất cả vị trí đều có camera an ninh 24/7 và bảo vệ túc trực!`,
+    };
+  }
+
+  // 5. Gợi ý đồ học tập, giáo trình, phòng trọ KTX
+  if (
+    q.includes('giáo trình') ||
+    q.includes('sách') ||
+    q.includes('prf192') ||
+    q.includes('mas291') ||
+    q.includes('bàn') ||
+    q.includes('màn hình') ||
+    q.includes('tai nghe')
+  ) {
+    return {
+      reply: `Mình đã tìm thấy một số món đồ phù hợp tại Campus ${campus}. Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow. Bạn xem qua các món đồ bên dưới nhé!`,
+      suggestedProducts: [
+        {
+          id: 'item_sample_1',
+          title: 'Giáo trình PRF192 C Căn Bản FPT',
+          price: 45000,
+          condition: 'LIKE_NEW',
+          campus,
+          categoryType: 'Giáo trình & Sách PE',
+          meetupLocation: 'Dom A KTX',
+        },
+        {
+          id: 'item_sample_2',
+          title: 'Bàn gấp học bài chân sắt KTX',
+          price: 85000,
+          condition: 'GOOD',
+          campus,
+          categoryType: 'Đồ dùng KTX',
+          meetupLocation: 'Sảnh Alpha',
+        },
+      ],
+    };
+  }
+
+  // 6. Ngoài chuyên môn (Off-topic)
+  return {
+    reply: `🐸 Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ hỗ trợ các vấn đề về mua bán đồ cũ, mẹo kiểm tra đồ học tập, quy trình Safe Handoff, khiếu nại Escrow và điểm hẹn an toàn tại 5 cơ sở trường thôi nè!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ KTX, laptop, đồ điện tử...) hay cần hỗ trợ cách đặt cọc/khiếu nại, hãy nhắn cho mình nha!`,
+  };
+};
 
 export const AiAssistantScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -40,13 +187,208 @@ export const AiAssistantScreen: React.FC = () => {
   const { currentCampus } = useCampusStore();
   const { user, isAuthenticated } = useAuthStore();
 
+  const userKey = isAuthenticated && user?.id ? user.id : 'guest';
+  const storageMessagesKey = `@fu_market_aichat_messages_${userKey}`;
+  const storageSessionKey = `@fu_market_aichat_session_${userKey}`;
+  const GUEST_COUNT_KEY = '@fu_market_aichat_guest_count';
+
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [inputText, setInputText] = useState<string>('');
+  const [guestQuestionCount, setGuestQuestionCount] = useState<number>(0);
+
+  // Modal lịch sử phiên chat
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [sessionsList, setSessionsList] = useState<AiSessionItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const flatListRef = useRef<FlatList>(null);
 
-  const handleSendMessage = (customText?: string) => {
-    const textToSend = customText || inputText.trim();
+  // 1. Đọc số câu hỏi guest từ AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem(GUEST_COUNT_KEY)
+      .then((val) => {
+        if (val) {
+          const num = parseInt(val, 10);
+          setGuestQuestionCount(isNaN(num) ? 0 : num);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 2. Load tin nhắn & session đã lưu cho user hiện tại
+  useEffect(() => {
+    const loadSavedState = async () => {
+      try {
+        const [savedMsgsStr, savedSessId] = await Promise.all([
+          AsyncStorage.getItem(storageMessagesKey),
+          AsyncStorage.getItem(storageSessionKey),
+        ]);
+
+        if (savedMsgsStr) {
+          const parsed = JSON.parse(savedMsgsStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        } else {
+          setMessages([WELCOME_MESSAGE]);
+        }
+
+        if (savedSessId) {
+          setSessionId(savedSessId);
+        } else {
+          setSessionId(null);
+        }
+      } catch (e) {
+        console.log('Error loading saved chat state:', e);
+      }
+    };
+
+    loadSavedState();
+  }, [storageMessagesKey, storageSessionKey]);
+
+  // Lưu tin nhắn & session ID vào AsyncStorage
+  const saveChatState = async (nextMsgs: ChatMessage[], nextSessId?: string | null) => {
+    try {
+      await AsyncStorage.setItem(storageMessagesKey, JSON.stringify(nextMsgs));
+      if (nextSessId !== undefined) {
+        if (nextSessId) {
+          await AsyncStorage.setItem(storageSessionKey, nextSessId);
+        } else {
+          await AsyncStorage.removeItem(storageSessionKey);
+        }
+      }
+    } catch (e) {
+      console.log('Error saving chat state:', e);
+    }
+  };
+
+  // 3. Tải danh sách sessions khi mở History Modal
+  const handleOpenHistory = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Đăng nhập để xem lịch sử',
+        'Lịch sử các phiên trò chuyện chỉ được lưu khi bạn đã đăng nhập tài khoản sinh viên FPT.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
+    setHistoryModalVisible(true);
+    setLoadingHistory(true);
+    try {
+      const list = await aiMobileService.getUserSessions();
+      setSessionsList(list);
+    } catch {
+      setSessionsList([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // 4. Chọn và xem lại một session cũ
+  const handleSelectSession = async (selectedSessionId: string) => {
+    setLoadingHistory(true);
+    try {
+      const detail = await aiMobileService.getSessionDetail(selectedSessionId);
+      if (detail && detail.messages && Array.isArray(detail.messages)) {
+        const formatted: ChatMessage[] = detail.messages.map((m: any) => ({
+          id: m.id || `msg_${Date.now()}_${Math.random()}`,
+          sender: m.senderRole === 'USER' ? 'user' : 'ai',
+          text: m.content,
+          time: m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'Vừa xong',
+          campusHeader: m.senderRole === 'MODEL' ? `GEMINI AI - ${currentCampus}` : undefined,
+          suggestedProducts:
+            m.suggestedProducts && m.suggestedProducts.length > 0
+              ? formatSuggestedProducts(m.suggestedProducts)
+              : undefined,
+          actionChips:
+            m.senderRole === 'MODEL'
+              ? [
+                  { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
+                  { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
+                ]
+              : undefined,
+        }));
+
+        const finalMsgs = [WELCOME_MESSAGE, ...formatted];
+        setMessages(finalMsgs);
+        setSessionId(selectedSessionId);
+        await saveChatState(finalMsgs, selectedSessionId);
+        setHistoryModalVisible(false);
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Không thể tải chi tiết phiên trò chuyện.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // 5. Bắt đầu phiên chat mới
+  const handleStartNewChat = async () => {
+    setMessages([WELCOME_MESSAGE]);
+    setSessionId(null);
+    await saveChatState([WELCOME_MESSAGE], null);
+    setHistoryModalVisible(false);
+  };
+
+  // 6. Gửi tin nhắn
+  const handleSendMessage = async (customText?: string) => {
+    const textToSend = (customText || inputText).trim();
     if (!textToSend) return;
+
+    // --- CHECK QUOTA KHÁCH VÃNG LAI ---
+    if (!isAuthenticated) {
+      // Nếu khách đã dùng hết 1 câu -> Chặn từ câu thứ 2
+      if (guestQuestionCount >= 1) {
+        const userMsg: ChatMessage = {
+          id: `u_${Date.now()}`,
+          sender: 'user',
+          text: textToSend,
+          time: 'Vừa xong',
+        };
+
+        const lockMsg: ChatMessage = {
+          id: `lock_${Date.now()}`,
+          sender: 'ai',
+          time: 'Vừa xong',
+          campusHeader: 'GIỚI HẠN DÙNG THỬ 1 CÂU',
+          text: '🔒 Bạn đã dùng hết 1 lượt hỏi thử miễn phí dành cho khách.\n\nVui lòng đăng nhập tài khoản Sinh viên FPT để tiếp tục trò chuyện cùng Trợ lý AI, tra cứu hàng nghìn món đồ KTX và lưu lịch sử phiên chat không giới hạn!',
+          actionChips: [
+            { id: 'login_now', label: '👉 Đăng nhập ngay', icon: 'log-in-outline', color: '#EA580C' },
+            { id: 'register_now', label: '📝 Đăng ký tài khoản', icon: 'person-add-outline', color: '#2563EB' },
+          ],
+        };
+
+        const nextMsgs = [...messages, userMsg, lockMsg];
+        setMessages(nextMsgs);
+        saveChatState(nextMsgs, sessionId);
+        setInputText('');
+
+        Alert.alert(
+          '🔒 Yêu cầu đăng nhập',
+          'Bạn đã sử dụng hết 1 lượt hỏi thử miễn phí. Vui lòng đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn!',
+          [
+            { text: 'Để sau', style: 'cancel' },
+            { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+          ]
+        );
+        return;
+      }
+
+      // Khách hỏi câu đầu tiên -> Tăng biến đếm và lưu lại
+      const nextCount = guestQuestionCount + 1;
+      setGuestQuestionCount(nextCount);
+      AsyncStorage.setItem(GUEST_COUNT_KEY, String(nextCount)).catch(() => {});
+    }
 
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
@@ -55,91 +397,162 @@ export const AiAssistantScreen: React.FC = () => {
       time: 'Vừa xong',
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const nextMsgs = [...messages, userMsg];
+    setMessages(nextMsgs);
     setInputText('');
+    saveChatState(nextMsgs, sessionId);
 
-    // Call backend Gemini AI Assistant
-    import('../../../services/aiMobileService').then(async ({ aiMobileService }) => {
-      try {
-        const aiRes = await aiMobileService.chatWithAssistant(textToSend, currentCampus);
+    // Xử lý gửi tin nhắn AI
+    try {
+      if (isAuthenticated) {
+        // Đã đăng nhập -> Gọi backend Gemini AI Assistant với sessionId hiện tại
+        const aiRes = await aiMobileService.chatWithAssistant(
+          textToSend,
+          currentCampus,
+          sessionId || undefined
+        );
+
+        const newSessionId = aiRes.sessionId || sessionId;
+        if (newSessionId) {
+          setSessionId(newSessionId);
+        }
+
+        const formattedProducts = aiRes.suggestedProducts
+          ? formatSuggestedProducts(aiRes.suggestedProducts)
+          : [];
+
         const aiReply: ChatMessage = {
           id: `ai_${Date.now()}`,
           sender: 'ai',
           time: 'Vừa xong',
           campusHeader: `GEMINI AI - ${currentCampus}`,
           text: aiRes.reply,
+          suggestedProducts: formattedProducts.length > 0 ? formattedProducts : undefined,
           actionChips: [
             { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
             { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
           ],
         };
-        setMessages((prev) => [...prev, aiReply]);
+
+        const finalMsgs = [...nextMsgs, aiReply];
+        setMessages(finalMsgs);
+        saveChatState(finalMsgs, newSessionId);
         flatListRef.current?.scrollToEnd({ animated: true });
-      } catch {
-        const aiReply: ChatMessage = {
-          id: `ai_${Date.now()}`,
-          sender: 'ai',
-          time: 'Vừa xong',
-          campusHeader: `PHÂN TÍCH TỰ ĐỘNG - ${currentCampus}`,
-          text: `Tôi đã quét dữ liệu nội bộ tại campus ${currentCampus} cho yêu cầu "${textToSend}". Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow.`,
-          actionChips: [
-            { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
-            { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
-          ],
-        };
-        setMessages((prev) => [...prev, aiReply]);
-        flatListRef.current?.scrollToEnd({ animated: true });
+        return;
       }
-    });
+    } catch {
+      // Backend offline hoặc lỗi mạng -> Rơi vào fallback thông minh cục bộ
+    }
+
+    // Phản hồi cho khách (lượt dùng thử duy nhất) hoặc offline fallback
+    const { reply, suggestedProducts } = generateLocalBotReply(textToSend, currentCampus);
+    const guestReplyText = !isAuthenticated
+      ? `${reply}\n\n🔒 Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!`
+      : reply;
+
+    const formattedSampleProducts = suggestedProducts
+      ? formatSuggestedProducts(suggestedProducts)
+      : [];
+
+    const aiReply: ChatMessage = {
+      id: `ai_${Date.now()}`,
+      sender: 'ai',
+      time: 'Vừa xong',
+      campusHeader: `TRỢ LÝ AI - ${currentCampus}`,
+      text: guestReplyText,
+      suggestedProducts: formattedSampleProducts.length > 0 ? formattedSampleProducts : undefined,
+      actionChips: !isAuthenticated
+        ? [
+            { id: 'login_now', label: '👉 Đăng nhập để tiếp tục', icon: 'log-in-outline', color: '#EA580C' },
+          ]
+        : [
+            { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
+            { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
+          ],
+    };
+
+    const finalMsgs = [...nextMsgs, aiReply];
+    setMessages(finalMsgs);
+    saveChatState(finalMsgs, sessionId);
+    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
-  const handleProductDetail = useCallback((item: SuggestedProductItem) => {
-    if (navigation && navigation.navigate) {
-      navigation.navigate('ProductDetail', { productId: item.id });
-    }
-  }, [navigation]);
+  const handleProductDetail = useCallback(
+    (item: SuggestedProductItem) => {
+      if (navigation && navigation.navigate) {
+        navigation.navigate('ProductDetail', { productId: item.id });
+      }
+    },
+    [navigation]
+  );
 
-  const handleContactSeller = useCallback((item: SuggestedProductItem) => {
-    if (navigation && navigation.navigate) {
-      navigation.navigate('ContextualChatAuth', {
-        product: {
-          title: item.title,
-          price: item.price,
-          location: item.domTag,
-          image: item.image,
-        },
-        sellerName: 'Nguyễn Văn An',
-        sellerCohort: 'K16 SE',
-      });
-    }
-  }, [navigation]);
+  const handleContactSeller = useCallback(
+    (item: SuggestedProductItem) => {
+      if (!isAuthenticated) {
+        Alert.alert(
+          'Đăng nhập để liên hệ',
+          'Vui lòng đăng nhập tài khoản sinh viên FPT để nhắn tin trao đổi với người bán.',
+          [
+            { text: 'Để sau', style: 'cancel' },
+            { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+          ]
+        );
+        return;
+      }
 
-  const handleActionChip = useCallback((chipId: string) => {
-    if (chipId === 'compare') {
-      Alert.alert(
-        '📊 So sánh màn hình',
-        '• Dell SE2422H: Tần số quét 75Hz, tấm nền VA độ tương phản sâu, chân đế chắc chắn, phù hợp code & xem phim.\n\n• LG 24MK430H: Tấm nền IPS màu sắc chuẩn đồ họa, góc nhìn rộng 178°, phù hợp thiết kế & đa nhiệm.'
-      );
-    } else if (chipId === 'location') {
-      Alert.alert(
-        '📍 Bàn Test Sảnh Alpha',
-        'Vị trí: Ngay sảnh chính tòa Alpha (cạnh bảo vệ).\nTrang bị: Bàn test có 4 ổ điện 220V, cổng HDMI/Type-C, camera an ninh 360° hỗ trợ ghi nhận tình trạng bàn giao máy.'
-      );
-    } else {
-      Alert.alert('Trợ lý AI', 'Đã lưu yêu cầu của bạn.');
-    }
-  }, []);
+      if (navigation && navigation.navigate) {
+        navigation.navigate('ContextualChatAuth', {
+          product: {
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            location: item.domTag,
+            image: item.image,
+          },
+          sellerName: 'Sinh viên FPT',
+          sellerCohort: 'FPT University',
+        });
+      }
+    },
+    [isAuthenticated, navigation]
+  );
+
+  const handleActionChip = useCallback(
+    (chipId: string) => {
+      if (chipId === 'login_now' || chipId === 'register_now') {
+        navigation.navigate('Login');
+      } else if (chipId === 'compare') {
+        Alert.alert(
+          '📊 So sánh thiết bị',
+          '• Màn hình Dell: Độ tương phản sâu, chân đế chắc chắn, phù hợp code bài tập PE.\n\n• Màn hình LG IPS: Màu sắc chuẩn đồ họa, góc nhìn rộng 178°, phù hợp thiết kế & đa nhiệm.'
+        );
+      } else if (chipId === 'safe_point' || chipId === 'location') {
+        Alert.alert(
+          '📍 Bàn Test Sảnh Alpha',
+          'Vị trí: Ngay sảnh chính tòa Alpha (cạnh phòng bảo vệ).\nTrang bị: Bàn test có 4 ổ điện 220V, cổng HDMI/Type-C, camera an ninh 360° hỗ trợ ghi nhận tình trạng bàn giao máy.'
+        );
+      } else if (chipId === 'escrow') {
+        Alert.alert(
+          '🛡️ Tạm giữ tiền Escrow',
+          'Cơ chế bảo vệ 48h: Tiền người mua thanh toán được tạm khóa an toàn. Bạn có 48h để cắm sạc test đồ. Nếu lỗi hỏng, tiền được hoàn 100%!'
+        );
+      } else {
+        Alert.alert('Trợ lý AI', 'Đã lưu yêu cầu của bạn.');
+      }
+    },
+    [navigation]
+  );
 
   const handleResetChat = () => {
     Alert.alert(
-      '🔄 Làm mới hội thoại',
-      'Bạn có muốn xóa lịch sử cuộc trò chuyện hiện tại để bắt đầu phiên mới không?',
+      '🔄 Cuộc trò chuyện mới',
+      'Bạn có muốn bắt đầu một phiên chat mới không? (Phiên hiện tại vẫn được lưu trong lịch sử)',
       [
         { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Làm mới',
+          text: 'Tạo mới',
           onPress: () => {
-            setMessages([WELCOME_MESSAGE]);
+            handleStartNewChat();
           },
         },
       ]
@@ -162,7 +575,7 @@ export const AiAssistantScreen: React.FC = () => {
     ({ item }: { item: ChatMessage }) => (
       <AiAssistantMessageItem
         message={item}
-        userName={user?.name || 'Quân'}
+        userName={user?.name || 'Bạn'}
         onProductDetail={handleProductDetail}
         onContactSeller={handleContactSeller}
         onActionChip={handleActionChip}
@@ -175,24 +588,12 @@ export const AiAssistantScreen: React.FC = () => {
     () => (
       <View style={styles.timestampContainer}>
         <View style={styles.timestampPill}>
-          <Text style={styles.timestampText}>Hôm nay • FPT Hòa Lạc Hub</Text>
+          <Text style={styles.timestampText}>Hôm nay • FPT {currentCampus || 'Hòa Lạc'} Hub</Text>
         </View>
       </View>
     ),
-    []
+    [currentCampus]
   );
-
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.screen}>
-        <AiAssistantGuestFallback
-          insetsTop={insets.top}
-          onLogin={() => navigation.navigate('Login')}
-          onBack={handleBack}
-        />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.screen}>
@@ -204,6 +605,7 @@ export const AiAssistantScreen: React.FC = () => {
         onNotification={() => navigation.navigate('Notification')}
         onProfile={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
         onResetChat={handleResetChat}
+        onOpenHistory={handleOpenHistory}
         onOpenFilters={() =>
           Alert.alert(
             '🎛️ Bộ lọc thông minh',
@@ -246,6 +648,17 @@ export const AiAssistantScreen: React.FC = () => {
           insetsBottom={insets.bottom}
         />
       </KeyboardAvoidingView>
+
+      {/* Modal Lịch sử các phiên trò chuyện */}
+      <AiAssistantHistoryModal
+        visible={historyModalVisible}
+        sessions={sessionsList}
+        currentSessionId={sessionId}
+        loading={loadingHistory}
+        onClose={() => setHistoryModalVisible(false)}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleStartNewChat}
+      />
     </View>
   );
 };

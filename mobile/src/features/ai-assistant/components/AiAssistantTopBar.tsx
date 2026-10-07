@@ -10,6 +10,7 @@ interface AiAssistantTopBarProps {
   onNotification: () => void;
   onProfile: () => void;
   onResetChat: () => void;
+  onOpenHistory?: () => void;
   onOpenFilters: () => void;
 }
 
@@ -21,6 +22,7 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
   onNotification,
   onProfile,
   onResetChat,
+  onOpenHistory,
   onOpenFilters,
 }) => {
   return (
@@ -83,7 +85,7 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
             <View style={styles.aiTitleTagRow}>
               <Text style={styles.aiTitle}>Trợ lý AI Campus</Text>
               <View style={styles.gptBadge}>
-                <Text style={styles.gptBadgeText}>GPT-4o</Text>
+                <Text style={styles.gptBadgeText}>Gemini AI</Text>
               </View>
             </View>
             <Text style={styles.aiStatusSub}>🟢 Online 24/7 • 5Campus Sync</Text>
@@ -91,8 +93,21 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
         </View>
 
         <View style={styles.aiToolBtns}>
-          <TouchableOpacity style={styles.toolIconBtn} activeOpacity={0.7} onPress={onResetChat}>
-            <Ionicons name="reload" size={18} color="#475569" />
+          {onOpenHistory && (
+            <TouchableOpacity
+              style={styles.toolIconBtn}
+              activeOpacity={0.7}
+              onPress={onOpenHistory}
+            >
+              <Ionicons name="time-outline" size={18} color="#475569" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.toolIconBtn}
+            activeOpacity={0.7}
+            onPress={onResetChat}
+          >
+            <Ionicons name="add-circle-outline" size={19} color="#EA580C" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.toolIconBtn}
