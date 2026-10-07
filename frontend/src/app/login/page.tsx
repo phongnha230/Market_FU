@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import LoginForm from '@/components/auth/LoginForm';
 import RegisterForm, { RegisterData } from '@/components/auth/RegisterForm';
 import OtpVerificationStep from '@/components/auth/OtpVerificationStep';
@@ -38,6 +39,9 @@ export default function LoginPage() {
   // Register sub-step: 'form' | 'otp'
   const [registerStep, setRegisterStep] = useState<'form' | 'otp'>('form');
   const [pendingRegisterData, setPendingRegisterData] = useState<RegisterData | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Demo switcher for login: 'normal' | 'error' | 'loading'
   const [demoState, setDemoState] = useState<'normal' | 'error' | 'loading'>('normal');
@@ -134,9 +138,129 @@ export default function LoginPage() {
     }
   };
 
-  const handleProceedToOtp = (data: RegisterData) => {
-    setPendingRegisterData(data);
-    setRegisterStep('otp');
+  // Thực hiện gọi Backend POST /api/auth/google với ID Token
+  const executeGoogleLogin = async (idToken: string) => {
+    setIsGoogleLoading(true);
+    setDemoState('loading');
+    try {
+      const res = await authService.loginWithGoogle(idToken);
+
+      // Nếu tài khoản có vai trò ADMIN từ Backend
+      if (res?.user?.role === 'ADMIN') {
+        const adminProfile = {
+          name: res.user.profile?.fullName || res.user.email?.split('@')[0] || 'Quản trị viên',
+          email: res.user.email,
+          role: 'superadmin' as const,
+          campus: 'all' as const,
+          avatarInitial: (res.user.profile?.fullName || 'A')[0].toUpperCase(),
+          permissions: [
+            'posts.approve',
+            'posts.reject',
+            'posts.delete',
+            'kyc.approve',
+            'kyc.reject',
+            'users.manage',
+            'users.trust_score',
+            'reports.handle',
+            'safehandoff.manage',
+            'settings.system',
+          ],
+        };
+        useAdminStore.setState({ admin: adminProfile, isLoggedIn: true });
+        document.cookie = 'admin_logged_in=true; Max-Age=86400; path=/; SameSite=strict';
+        showToast('🛡️ Đăng nhập Google quyền Quản trị viên BQT thành công! Đang vào dashboard...', 'success');
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 800);
+        return;
+      }
+
+      showToast('🎉 Đăng nhập Google thành công! Chào mừng bạn trở lại FPT 5Campus.', 'success');
+      setTimeout(() => {
+        router.push('/');
+      }, 800);
+    } catch (err: any) {
+      setDemoState('normal');
+      showToast(err?.message || 'Đăng nhập Google thất bại. Vui lòng kiểm tra lại.', 'error');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // Khởi tạo Google Identity Services (GIS)
+  const initGoogleAuth = () => {
+    const clientId =
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+      '663740442323-t83hnbr1ov37avr41volic86ea29ks41.apps.googleusercontent.com';
+    const google = typeof window !== 'undefined' ? (window as any).google : undefined;
+    if (google?.accounts?.id) {
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: any) => {
+            if (response?.credential) {
+              executeGoogleLogin(response.credential);
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      } catch (err) {
+        console.warn('Lỗi khởi tạo Google Auth:', err);
+      }
+    }
+  };
+
+  const handleProceedToOtp = async (data: RegisterData) => {
+    setRegisterError(null);
+    setIsRegisterLoading(true);
+    try {
+      showToast('Đang kiểm tra thông tin & gửi mã OTP...', 'info');
+      const campusMap: Record<string, string> = {
+        'Hòa Lạc': 'HOL',
+        'Hồ Chí Minh': 'HCM',
+        'Đà Nẵng': 'DAD',
+        'Quy Nhơn': 'QN',
+        'Cần Thơ': 'CT',
+      };
+      await authService.sendRegisterOtp({
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+        studentId: data.studentId,
+        campus: campusMap[data.campus] || 'HOL',
+      });
+      setPendingRegisterData(data);
+      setRegisterStep('otp');
+      showToast('✉️ Mã OTP 6 số đã được gửi tới email của bạn (hiệu lực trong 5 phút)', 'success');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi mã OTP xác thực';
+      setRegisterError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setIsRegisterLoading(false);
+    }
+  };
+
+  const handleResendRegisterOtp = async () => {
+    if (!pendingRegisterData?.email) return;
+    try {
+      showToast('Đang gửi lại mã OTP mới...', 'info');
+      await authService.resendRegisterOtp(pendingRegisterData.email);
+      showToast(`✉️ Đã gửi lại mã OTP mới tới ${pendingRegisterData.email}`, 'success');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi lại mã OTP';
+      showToast(msg, 'error');
+      throw err;
+    }
   };
 
   const handleRegisterOtpSuccess = async (otp: string) => {
@@ -384,6 +508,8 @@ export default function LoginPage() {
                     setRegisterStep('form');
                   }}
                   onLoginSuccess={handleLoginSuccess}
+                  onGoogleSuccess={executeGoogleLogin}
+                  isGoogleLoading={isGoogleLoading}
                   onFptMailSso={handleFptMailSso}
                   demoState={demoState}
                   setDemoState={setDemoState}
@@ -436,6 +562,13 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+
+      {/* Google Identity Services Script */}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={initGoogleAuth}
+      />
 
       {/* 3. BOTTOM FOOTER */}
       <footer className="w-full bg-white border-t border-slate-100 py-4 text-center text-xs text-slate-400">
