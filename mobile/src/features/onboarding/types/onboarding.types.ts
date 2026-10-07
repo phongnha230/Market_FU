@@ -10,14 +10,16 @@ export interface OnboardingFeature {
 }
 
 export interface Onboarding1ScreenProps {
-  onNext: () => void;
-  onSkip: () => void;
+  onNext?: () => void;
+  onSkip?: () => void;
+  navigation?: any;
 }
 
 export interface Onboarding2ScreenProps {
-  onNext: () => void;
-  onBack: () => void;
-  onSkip: () => void;
+  onNext?: () => void;
+  onBack?: () => void;
+  onSkip?: () => void;
+  navigation?: any;
 }
 
 export interface Onboarding3ScreenProps {
