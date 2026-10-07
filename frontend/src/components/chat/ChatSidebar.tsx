@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Conversation } from '@/types/chat';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Search,
   CheckCircle2,
@@ -10,12 +11,21 @@ import {
   SlidersHorizontal,
   ShieldCheck,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
+
+function getInitials(name?: string): string {
+  if (!name) return 'SV';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 interface ChatSidebarProps {
   conversations: Conversation[];
   selectedConvId?: string | null;
   onSelectConv: (id: string) => void;
+  onDeleteConv?: (id: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   filterTab: 'all' | 'buy' | 'sell' | 'unread';
@@ -36,6 +46,7 @@ export default function ChatSidebar({
   onMarkAllRead,
   onShowToast,
   isSeller = false,
+  onDeleteConv,
 }: ChatSidebarProps) {
   // Tính toán số lượng thực tế từ danh sách hội thoại
   const totalUnread = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
@@ -175,80 +186,95 @@ export default function ChatSidebar({
             return (
               <div
                 key={conv.id}
-              onClick={() => onSelectConv(conv.id)}
-              className={`relative flex items-start gap-3 p-3.5 border-b border-slate-100 transition cursor-pointer hover:bg-slate-50 ${
-                isSelected ? 'bg-orange-50/60' : 'bg-white'
-              }`}
-            >
-              {/* Active Indicator Bar - Always visible on selected conversation */}
-              {isSelected && (
-                <span className="absolute left-0 top-0 bottom-0 w-1 bg-fpt-orange rounded-r" />
-              )}
-
-              {/* Avatar */}
-              <div className="relative shrink-0">
-                <div className="relative h-11 w-11 rounded-full overflow-hidden border border-slate-200 bg-slate-100">
-                  <Image
-                    src={conv.avatar}
-                    alt={conv.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                {conv.isOnline && (
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
+                onClick={() => onSelectConv(conv.id)}
+                className={`group relative flex items-start gap-3 p-3.5 border-b border-slate-100 transition cursor-pointer hover:bg-slate-50 ${
+                  isSelected ? 'bg-orange-50/60' : 'bg-white'
+                }`}
+              >
+                {/* Active Indicator Bar - Always visible on selected conversation */}
+                {isSelected && (
+                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-fpt-orange rounded-r" />
                 )}
-              </div>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate flex items-center gap-1">
-                    {conv.name}
-                    {conv.verified && (
-                      <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                    )}
-                  </h4>
-                  <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                    {conv.time}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                  <span className="rounded bg-slate-100 px-1 py-0.2 text-[10px] font-semibold text-slate-700">
-                    {conv.roleLabel}
-                  </span>
-                  <span className="truncate">{conv.cohortCampus}</span>
-                </div>
-
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="text-xs text-slate-600 truncate leading-snug">
-                    {conv.lastMessage}
-                  </p>
-                  {conv.unreadCount ? (
-                    <span className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white">
-                      {conv.unreadCount}
-                    </span>
-                  ) : (
-                    <CheckCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                {/* Avatar */}
+                <div className="relative shrink-0">
+                  <Avatar className="h-11 w-11 border border-slate-200">
+                    <AvatarImage src={conv.avatar} alt={conv.name} />
+                    <AvatarFallback className="bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-xs">
+                      {getInitials(conv.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {conv.isOnline && (
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
                   )}
                 </div>
-              </div>
 
-              {/* Product thumbnail */}
-              {conv.productImage && (
-                <div className="relative h-9 w-9 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-                  <Image
-                    src={conv.productImage}
-                    alt="Product"
-                    fill
-                    className="object-cover"
-                  />
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate flex items-center gap-1">
+                      {conv.name}
+                      {conv.verified && (
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                      )}
+                    </h4>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {conv.time}
+                      </span>
+                      {onDeleteConv && (
+                        <button
+                          type="button"
+                          title="Xóa cuộc trò chuyện này"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteConv(conv.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-50 hover:text-rose-600 rounded-lg text-slate-400 transition cursor-pointer"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                    <span className="rounded bg-slate-100 px-1 py-0.2 text-[10px] font-semibold text-slate-700">
+                      {conv.roleLabel}
+                    </span>
+                    <span className="truncate">{conv.cohortCampus}</span>
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-xs text-slate-600 truncate leading-snug">
+                      {conv.lastMessage}
+                    </p>
+                    {conv.unreadCount ? (
+                      <span className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-fpt-orange text-[10px] font-bold text-white">
+                        {conv.unreadCount}
+                      </span>
+                    ) : (
+                      <CheckCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          );
-        })
+
+                {/* Product thumbnail (Safe with fallback, never broken) */}
+                {conv.productImage && conv.productImage.trim().length > 0 && (
+                  <div className="relative h-9 w-9 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                    <img
+                      src={conv.productImage}
+                      alt="Product"
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })
       )}
       </div>
 

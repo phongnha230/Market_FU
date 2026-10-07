@@ -4,7 +4,15 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight } from 'lucide-react';
+
+function getInitials(name?: string): string {
+  if (!name) return 'SV';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 interface MessageHistoryProps {
   messages: ChatMessage[];
@@ -49,6 +57,107 @@ export default function MessageHistory({
         </div>
 
         {messages.map((msg) => {
+          if (msg.productTicket) {
+            const ticket = msg.productTicket;
+            const isMe = msg.sender === 'me';
+            return (
+              <div key={msg.id} className="flex justify-center my-3">
+                <div className="w-full max-w-md rounded-2xl border-2 border-orange-200/90 bg-gradient-to-b from-orange-50/70 via-white to-white p-4 shadow-xs space-y-3">
+                  {/* Ticket Header */}
+                  <div className="flex items-center justify-between border-b border-orange-200/60 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-fpt-orange text-white flex items-center justify-center shadow-xs shrink-0">
+                        <Ticket className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-orange-600 block">
+                          FPT Market Ticket
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 leading-tight">
+                          {isMe ? 'Thẻ hỏi mua sản phẩm' : 'Yêu cầu hỏi mua từ khách hàng'}
+                        </h4>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Đang trao đổi
+                    </span>
+                  </div>
+
+                  {/* Product Details Box */}
+                  <div className="flex gap-3 rounded-xl bg-white border border-slate-200/90 p-2.5 shadow-2xs">
+                    <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-100 bg-slate-100 shrink-0">
+                      <Image
+                        src={ticket.imageUrl || '/products/keyboard-akko.jpg'}
+                        alt={ticket.title}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h5 className="text-xs font-bold text-slate-900 line-clamp-1" title={ticket.title}>
+                          {ticket.title}
+                        </h5>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-sm font-extrabold text-fpt-orange">
+                            {ticket.price?.toLocaleString('vi-VN')} đ
+                          </span>
+                          {ticket.conditionBadge && (
+                            <span className="rounded bg-orange-100 px-1.5 py-0.2 text-[9px] font-bold text-orange-800">
+                              {ticket.conditionBadge}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                        <MapPin className="h-3 w-3 text-fpt-orange shrink-0" />
+                        <span className="truncate">{ticket.location || 'Campus FPT'}</span>
+                        {ticket.sellerName && (
+                          <span className="truncate text-slate-400"> • {ticket.sellerName}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Message Note attached to ticket */}
+                  {msg.text && (
+                    <div className="rounded-xl bg-orange-50 border border-orange-200/60 px-3 py-2 text-xs text-slate-700 leading-relaxed font-medium">
+                      💬 &quot;{msg.text}&quot;
+                    </div>
+                  )}
+
+                  {/* Quick Ticket Action Buttons */}
+                  <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-100">
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <span>Gửi lúc {msg.time}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {ticket.id && (
+                        <Link
+                          href={`/posts/${encodeURIComponent(ticket.id)}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-fpt-orange transition py-1 px-2 rounded-lg hover:bg-slate-100"
+                        >
+                          <span>Xem tin đăng</span>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                      {!isSeller && (productId || ticket.id) && (
+                        <Link
+                          href={`/checkout?productId=${encodeURIComponent((productId || ticket.id) as string)}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white px-3 py-1.5 text-xs font-bold shadow-xs transition active:scale-98"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                          <span>Đặt mua ngay</span>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           if (msg.isOfferAccepted) {
             const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
             return (
@@ -192,13 +301,13 @@ export default function MessageHistory({
               className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {!isMe && (
-                <div className="relative h-7 w-7 rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 mb-1">
-                  <Image
-                    src={partnerAvatar}
-                    alt={partnerName}
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative shrink-0 mb-1">
+                  <Avatar className="h-7 w-7 border border-slate-200">
+                    <AvatarImage src={partnerAvatar} alt={partnerName} />
+                    <AvatarFallback className="bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-[10px]">
+                      {getInitials(partnerName)}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               )}
 

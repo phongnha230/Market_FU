@@ -1,3 +1,14 @@
+export interface ProductTicket {
+  id?: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  imageUrl: string;
+  conditionBadge?: string;
+  location?: string;
+  sellerName?: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'other' | 'me';
@@ -8,6 +19,7 @@ export interface ChatMessage {
   isOfferRejected?: boolean;
   offerPrice?: string;
   numericOfferPrice?: number;
+  productTicket?: ProductTicket;
 }
 
 export interface Conversation {

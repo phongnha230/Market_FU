@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useUserStore } from './userStore';
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
+export type MessageType = 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
 
 export interface ChatMessage {
   id: string;
@@ -14,6 +14,7 @@ export interface ChatMessage {
   mediaUrl?: string;
   offerPrice?: number;
   meetupLocation?: string;
+  productTicket?: any;
   isRead: boolean;
   createdAt: string;
 }
@@ -47,15 +48,19 @@ import { chatService, BackendConversation, BackendMessage } from '@/services/cha
 import { socketClient } from '@/services/socketClient';
 
 interface ChatState {
+  conversationsByUser: Record<string, ChatConversation[]>;
+  activeUserId: string | null;
   conversations: ChatConversation[];
   messagesByConversation: Record<string, ChatMessage[]>;
   activeConversationId: string | null;
 
   // Actions
+  setActiveUser: (userId: string | null) => void;
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
   initSocketListeners: () => () => void;
   setActiveConversation: (conversationId: string) => void;
+  addOrUpdateConversation: (conversation: ChatConversation, initialMessages?: ChatMessage[]) => string;
   sendMessage: (params: {
     conversationId: string;
     senderId?: string;
@@ -65,12 +70,14 @@ interface ChatState {
     mediaUrl?: string;
     offerPrice?: number;
     meetupLocation?: string;
+    productTicket?: any;
   }) => ChatMessage;
   sendOfferPrice: (conversationId: string, offerPrice: number) => ChatMessage;
   proposeMeetupLocation: (conversationId: string, location: string) => ChatMessage;
   markAsRead: (conversationId: string) => void;
   getTotalUnreadCount: () => number;
   getConversationMessages: (conversationId: string) => ChatMessage[];
+  deleteConversation: (conversationId: string) => void;
   resetChat: () => void;
 }
 
@@ -86,47 +93,114 @@ const dummyStorage = {
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
+      conversationsByUser: {},
+      activeUserId: null,
       conversations: [],
       messagesByConversation: {},
       activeConversationId: null,
 
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim().toLowerCase() : null;
+        const state = get();
+        const userConvs = uId && state.conversationsByUser[uId] ? state.conversationsByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          conversations: userConvs,
+          activeConversationId: null,
+        });
+      },
+
       fetchConversations: async () => {
+        const state = get();
+        const uId = state.activeUserId;
+        if (!uId) {
+          set({ conversations: [] });
+          return;
+        }
+
         try {
           const res = await chatService.getConversations();
           if (res.conversations) {
-            const mapped: ChatConversation[] = res.conversations.map((c) => ({
-              id: c.id,
-              buyerId: c.buyerId,
-              sellerId: c.sellerId,
-              productId: c.productId,
-              product: {
-                id: c.product?.id || c.productId,
-                title: c.product?.title || 'Sản phẩm FPT Market',
-                price: c.product?.price || 0,
-                imageUrl: c.product?.images?.[0] || '/products/keyboard-akko.jpg',
-                status: (c.product?.status as any) || 'AVAILABLE',
+            const mapped: ChatConversation[] = res.conversations
+              // Loại bỏ các hội thoại mock rác rỗng không có người hoặc không có tin nhắn thực
+              .filter((c: any) => {
+                const partner = c.otherParty || c.otherUser;
+                const partnerProfile = partner?.profile || partner;
+                const pName = partnerProfile?.fullName || partner?.fullName;
+                const isOrphan =
+                  (!c.product && !c.productId) ||
+                  ((!c.messages || c.messages.length === 0) &&
+                    (!c.lastMessageText || c.lastMessageText === 'Bắt đầu cuộc trò chuyện') &&
+                    (!pName || pName === 'Sinh viên FPT'));
+                return !isOrphan;
+              })
+              .map((c: any) => {
+                const partner = c.otherParty || c.otherUser;
+                const partnerProfile = partner?.profile || partner;
+                const partnerName =
+                  partnerProfile?.fullName ||
+                  partnerProfile?.name ||
+                  partner?.fullName ||
+                  partner?.email?.split('@')[0] ||
+                  'Sinh viên FPT';
+
+                const rawImages = c.product?.images || [];
+                const firstImg = Array.isArray(rawImages) ? rawImages[0] : rawImages;
+                const prodImg =
+                  typeof firstImg === 'object'
+                    ? firstImg?.imageUrl || firstImg?.url || ''
+                    : firstImg || c.product?.imageUrl || '';
+
+                const partnerAvatar =
+                  partnerProfile?.avatarUrl ||
+                  partner?.avatarUrl ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerName)}&background=ea580c&color=fff&bold=true&size=200`;
+
+                return {
+                  id: c.id,
+                  buyerId: c.buyerId,
+                  sellerId: c.sellerId,
+                  productId: c.productId,
+                  product: {
+                    id: c.product?.id || c.productId,
+                    title: c.product?.title || 'Sản phẩm FPT Market',
+                    price: c.product?.price || 0,
+                    imageUrl: prodImg || '/products/book-prf192.jpg',
+                    status: (c.product?.status as any) || 'AVAILABLE',
+                  },
+                  otherUser: {
+                    id: partner?.id || '',
+                    name: partnerName,
+                    avatarUrl: partnerAvatar,
+                    campus: partnerProfile?.campus || 'Hòa Lạc',
+                    cohort: partner?.studentVerification?.studentId || partnerProfile?.cohort || 'K18',
+                    isOnline: true,
+                  },
+                  lastMessageText: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
+                  lastMessageAt: c.lastMessageAt
+                    ? new Date(c.lastMessageAt).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Vừa xong',
+                  unreadCount: c.unreadCount || 0,
+                };
+              });
+            set((st) => ({
+              conversations: mapped,
+              conversationsByUser: {
+                ...st.conversationsByUser,
+                [uId]: mapped,
               },
-              otherUser: {
-                id: c.otherUser?.id || '',
-                name: c.otherUser?.fullName || 'Sinh viên FPT',
-                avatarUrl: c.otherUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
-                campus: c.otherUser?.campus || 'Hòa Lạc',
-                cohort: c.otherUser?.studentVerification?.studentId || 'K17',
-                isOnline: true,
-              },
-              lastMessageText: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
-              lastMessageAt: c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
-              unreadCount: c.unreadCount || 0,
             }));
-            set({ conversations: mapped });
 
             // Truy vấn trạng thái Presence thực tế từ Redis/Server
             const otherUserIds = mapped.map((c) => c.otherUser.id).filter(Boolean);
             if (otherUserIds.length > 0) {
               socketClient.checkPresence(otherUserIds).then((presenceMap) => {
                 if (presenceMap) {
-                  set((state) => ({
-                    conversations: state.conversations.map((c) => {
+                  set((st) => {
+                    const updated = st.conversations.map((c) => {
                       const p = presenceMap[c.otherUser.id];
                       return p
                         ? {
@@ -137,8 +211,15 @@ export const useChatStore = create<ChatState>()(
                             },
                           }
                         : c;
-                    }),
-                  }));
+                    });
+                    return {
+                      conversations: updated,
+                      conversationsByUser: {
+                        ...st.conversationsByUser,
+                        [uId]: updated,
+                      },
+                    };
+                  });
                 }
               }).catch(() => {});
             }
@@ -250,6 +331,56 @@ export const useChatStore = create<ChatState>()(
         get().fetchMessages(conversationId);
       },
 
+      addOrUpdateConversation: (conversation, initialMessages = []) => {
+        const state = get();
+        const uId = state.activeUserId;
+
+        // Tìm hội thoại hiện có theo ID hoặc theo Product + Đối tác
+        const existing = state.conversations.find((c) => {
+          if (c.id === conversation.id) return true;
+          const samePartner =
+            (conversation.otherUser?.id && c.otherUser?.id === conversation.otherUser.id) ||
+            (conversation.otherUser?.name &&
+              c.otherUser?.name.toLowerCase().trim() === conversation.otherUser.name.toLowerCase().trim());
+
+          if (conversation.productId && c.productId) {
+            return c.productId === conversation.productId && samePartner;
+          }
+          return samePartner;
+        });
+
+        if (existing) {
+          const currentMsgs = state.messagesByConversation[existing.id] || [];
+          if (currentMsgs.length === 0 && initialMessages.length > 0) {
+            set((st) => ({
+              messagesByConversation: {
+                ...st.messagesByConversation,
+                [existing.id]: initialMessages.map((m) => ({ ...m, conversationId: existing.id })),
+              },
+            }));
+          }
+          return existing.id;
+        }
+
+        // Tạo hội thoại mới và lưu bền vững vào store
+        const updatedList = [conversation, ...state.conversations];
+        set((st) => ({
+          conversations: updatedList,
+          conversationsByUser: uId
+            ? {
+                ...st.conversationsByUser,
+                [uId]: updatedList,
+              }
+            : st.conversationsByUser,
+          messagesByConversation: {
+            ...st.messagesByConversation,
+            [conversation.id]: initialMessages.map((m) => ({ ...m, conversationId: conversation.id })),
+          },
+        }));
+
+        return conversation.id;
+      },
+
       sendMessage: ({
         conversationId,
         senderId = useUserStore.getState().user.id || 'user-current',
@@ -259,6 +390,7 @@ export const useChatStore = create<ChatState>()(
         mediaUrl,
         offerPrice,
         meetupLocation,
+        productTicket,
       }) => {
         const newMsg: ChatMessage = {
           id: `msg-${Date.now()}`,
@@ -266,10 +398,17 @@ export const useChatStore = create<ChatState>()(
           senderId,
           senderRole,
           messageType,
-          text: text || (messageType === 'OFFER_PRICE' ? `Đề xuất giá: ${offerPrice?.toLocaleString('vi-VN')}đ` : `Hẹn gặp tại: ${meetupLocation}`),
+          text:
+            text ||
+            (messageType === 'OFFER_PRICE'
+              ? `Đề xuất giá: ${offerPrice?.toLocaleString('vi-VN')}đ`
+              : messageType === 'PRODUCT_TICKET'
+              ? `Hỏi mua sản phẩm: ${productTicket?.title || ''}`
+              : `Hẹn gặp tại: ${meetupLocation}`),
           mediaUrl,
           offerPrice,
           meetupLocation,
+          productTicket,
           isRead: true,
           createdAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         };
@@ -285,9 +424,16 @@ export const useChatStore = create<ChatState>()(
                 }
               : c
           );
+          const uId = state.activeUserId;
 
           return {
             conversations: updatedConversations,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updatedConversations,
+                }
+              : state.conversationsByUser,
             messagesByConversation: {
               ...state.messagesByConversation,
               [conversationId]: [...currentMsgs, newMsg],
@@ -356,11 +502,32 @@ export const useChatStore = create<ChatState>()(
       },
 
       getTotalUnreadCount: () => {
-        return get().conversations.reduce((sum, c) => sum + c.unreadCount, 0);
+        const state = get();
+        if (!state.activeUserId) return 0;
+        return state.conversations.reduce((sum, c) => sum + c.unreadCount, 0);
       },
 
       getConversationMessages: (conversationId) => {
         return get().messagesByConversation[conversationId] || [];
+      },
+
+      deleteConversation: (conversationId: string) => {
+        chatService.deleteConversation(conversationId).catch(() => {});
+        set((state) => {
+          const updated = state.conversations.filter((c) => c.id !== conversationId);
+          const uId = state.activeUserId;
+          return {
+            conversations: updated,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updated,
+                }
+              : state.conversationsByUser,
+            activeConversationId:
+              state.activeConversationId === conversationId ? null : state.activeConversationId,
+          };
+        });
       },
 
       resetChat: () =>
@@ -368,17 +535,40 @@ export const useChatStore = create<ChatState>()(
           conversations: [],
           messagesByConversation: {},
           activeConversationId: null,
+          activeUserId: null,
         }),
     }),
     {
       name: 'fu_market_chat_storage',
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
       onRehydrateStorage: () => (state) => {
-        // Clear dummy conversations from older localStorage
-        if (state?.conversations?.some((c) => c.id === 'conv-1' || c.id === 'conv-2')) {
-          state.conversations = state.conversations.filter((c) => c.id !== 'conv-1' && c.id !== 'conv-2');
-          if (state.activeConversationId === 'conv-1' || state.activeConversationId === 'conv-2') {
+        if (state) {
+          if (!state.conversationsByUser || typeof state.conversationsByUser !== 'object') {
+            state.conversationsByUser = {};
+          }
+          if (!state.activeUserId) {
+            state.conversations = [];
             state.activeConversationId = null;
+          } else {
+            state.conversations = state.conversationsByUser[state.activeUserId] || [];
+          }
+
+          // Clear dummy conversations from older localStorage
+          if (state.conversations?.some((c) => c.id === 'conv-1' || c.id === 'conv-2')) {
+            state.conversations = state.conversations.filter((c) => c.id !== 'conv-1' && c.id !== 'conv-2');
+            if (state.activeConversationId === 'conv-1' || state.activeConversationId === 'conv-2') {
+              state.activeConversationId = null;
+            }
+          }
+
+          // Clear orphan dummy mock conversations ("Sinh viên FPT" with no real messages or broken images)
+          if (state.conversations?.some((c) => c.otherUser?.name === 'Sinh viên FPT' && (!c.lastMessageText || c.lastMessageText === 'Bắt đầu cuộc trò chuyện'))) {
+            state.conversations = state.conversations.filter(
+              (c) => !(c.otherUser?.name === 'Sinh viên FPT' && (!c.lastMessageText || c.lastMessageText === 'Bắt đầu cuộc trò chuyện'))
+            );
+            if (state.activeUserId && state.conversationsByUser[state.activeUserId]) {
+              state.conversationsByUser[state.activeUserId] = state.conversations;
+            }
           }
         }
       },

@@ -27,4 +27,7 @@ router.post(
 // 5. Đánh dấu đã đọc tin nhắn
 router.patch('/conversations/:id/read', chatController.markAsRead);
 
+// 6. Xóa cuộc trò chuyện
+router.delete('/conversations/:id', chatController.deleteConversation);
+
 export default router;

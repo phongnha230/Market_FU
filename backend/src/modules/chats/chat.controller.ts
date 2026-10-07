@@ -103,6 +103,21 @@ export class ChatController {
       next(error);
     }
   };
+
+  /**
+   * DELETE /api/chats/conversations/:id
+   * Xóa một cuộc trò chuyện
+   */
+  deleteConversation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const conversationId = req.params.id as string;
+      const result = await chatService.deleteConversation(authReq.user!.userId, conversationId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const chatController = new ChatController();

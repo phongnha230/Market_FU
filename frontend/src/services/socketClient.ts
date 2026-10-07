@@ -155,7 +155,7 @@ class SocketClient {
   sendMessage(payload: {
     conversationId: string;
     text?: string;
-    type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
+    type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
     mediaUrl?: string;
     offerPrice?: number;
     meetupLocation?: string;

@@ -573,6 +573,33 @@ export class ChatService {
       modifiedCount: updated.count,
     };
   }
+
+  /**
+   * 6. Xóa cuộc hội thoại
+   */
+  async deleteConversation(userId: string, conversationId: string) {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new AppError('Cuộc trò chuyện không tồn tại', 404, 'CONVERSATION_NOT_FOUND');
+    }
+
+    if (conversation.buyerId !== userId && conversation.sellerId !== userId) {
+      throw new AppError('Bạn không có quyền xóa cuộc trò chuyện này', 403, 'FORBIDDEN');
+    }
+
+    await prisma.message.deleteMany({
+      where: { conversationId },
+    });
+
+    await prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    return { success: true, conversationId };
+  }
 }
 
 export const chatService = new ChatService();

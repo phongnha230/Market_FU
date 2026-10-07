@@ -33,7 +33,7 @@ export interface BackendMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
+  type: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
   text?: string;
   mediaUrl?: string;
   offerPrice?: number;
@@ -96,7 +96,7 @@ export const chatService = {
     conversationId: string,
     payload: {
       text?: string;
-      type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION';
+      type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
       offerPrice?: number;
       meetupLocation?: string;
     },
@@ -131,6 +131,14 @@ export const chatService = {
   async markAsRead(conversationId: string): Promise<any> {
     const response = await apiClient.patch<ApiResponse<any>>(
       `/chats/conversations/${conversationId}/read`
+    );
+    return response.data.data;
+  },
+
+  // 6. Xóa cuộc trò chuyện
+  async deleteConversation(conversationId: string): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>(
+      `/chats/conversations/${conversationId}`
     );
     return response.data.data;
   },

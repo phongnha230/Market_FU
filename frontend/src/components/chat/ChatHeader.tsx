@@ -1,30 +1,38 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { Conversation } from '@/types/chat';
-import { ShieldCheck, Info, MoreVertical } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { ShieldCheck, Info, Trash2 } from 'lucide-react';
+
+function getInitials(name?: string): string {
+  if (!name) return 'SV';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 interface ChatHeaderProps {
   conversation: Conversation;
   onShowToast: (msg: string) => void;
+  onDeleteConv?: (id: string) => void;
 }
 
 export default function ChatHeader({
   conversation,
   onShowToast,
+  onDeleteConv,
 }: ChatHeaderProps) {
   return (
     <div className="shrink-0 px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
-          <Image
-            src={conversation.avatar}
-            alt={conversation.name}
-            fill
-            className="object-cover"
-          />
+        <div className="relative h-10 w-10 shrink-0">
+          <Avatar className="h-10 w-10 border border-slate-200">
+            <AvatarImage src={conversation.avatar} alt={conversation.name} />
+            <AvatarFallback className="bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-xs">
+              {getInitials(conversation.name)}
+            </AvatarFallback>
+          </Avatar>
           <span
             className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white ${
               conversation.isOnline ? 'bg-emerald-500' : 'bg-slate-400'
@@ -60,35 +68,33 @@ export default function ChatHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Link
-          href="/profile"
-          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs"
-        >
-          Xem hồ sơ
-        </Link>
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
+          title="Thông tin sinh viên"
           onClick={() =>
             onShowToast(
-              'ℹ️ Thông tin người bán: Sinh viên K18, 0 giao dịch thành công, tỷ lệ phản hồi 0%.'
+              `ℹ️ ${conversation.name} • ${conversation.cohortCampus || 'FPT Campus'} • Đã xác minh sinh viên FPT.`
             )
           }
           className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
         >
           <Info className="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            onShowToast(
-              '⚙️ Tùy chọn: Chặn người dùng, Báo cáo lừa đảo, Xóa hội thoại.'
-            )
-          }
-          className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+        {onDeleteConv && (
+          <button
+            type="button"
+            title="Xóa cuộc trò chuyện này"
+            onClick={() => {
+              if (window.confirm('Bạn có chắc chắn muốn xóa cuộc trò chuyện này?')) {
+                onDeleteConv(conversation.id);
+              }
+            }}
+            className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );
