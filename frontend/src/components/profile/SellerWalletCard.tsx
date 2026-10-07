@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Wallet,
   CreditCard,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import { useWalletStore } from '@/stores/walletStore';
+import { orderService } from '@/services/orderService';
 import WithdrawalModal from '@/components/modals/WithdrawalModal';
 
 interface SellerWalletCardProps {
@@ -28,10 +29,33 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
   const [modalInitialTab, setModalInitialTab] = useState<'withdraw' | 'history'>('withdraw');
   const [showEscrowInfo, setShowEscrowInfo] = useState(false);
 
+  // Dữ liệu doanh thu và ký quỹ Escrow thực tế từ API đơn hàng
+  const [sellerAnalytics, setSellerAnalytics] = useState<any>(null);
+
+  const fetchAnalytics = () => {
+    orderService
+      .getSellerAnalytics()
+      .then((data) => {
+        if (data) {
+          setSellerAnalytics(data);
+          if (typeof data.availableBalance === 'number') {
+            walletStore.setEscrowBalances(data.availableBalance, data.pendingEscrow || 0);
+          }
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  // FPT Coin: Điểm thưởng dùng để MUA HÀNG & giảm giá (KHÔNG quy đổi rút tiền mặt)
   const userCoins = currentUser.coins || 0;
-  const availableVnd = userCoins * 1000; // 1 Xu = 1.000 VNĐ
-  const frozenCoins = walletStore.frozenCoins || 0;
-  const frozenVnd = frozenCoins * 1000;
+
+  // Tiền bán hàng Escrow (VNĐ): ĐƯỢC RÚT VỀ TÀI KHOẢN NGÂN HÀNG
+  const availableVnd = sellerAnalytics?.availableBalance ?? walletStore.availableEscrowBalance ?? 0;
+  const frozenVnd = sellerAnalytics?.pendingEscrow ?? walletStore.pendingEscrowBalance ?? 0;
 
   const handleOpenWithdraw = () => {
     setModalInitialTab('withdraw');
@@ -110,24 +134,27 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
 
         {/* Financial Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4">
-          {/* 1. SỐ DƯ KHẢ DỤNG */}
-          <div className="rounded-xl border border-amber-200/90 bg-linear-to-br from-amber-50/70 to-orange-50/70 p-4 flex flex-col justify-between">
+          {/* 1. SỐ DƯ DOANH THU ESCROW KHẢ DỤNG */}
+          <div className="rounded-xl border border-emerald-200/90 bg-linear-to-br from-emerald-50/70 to-teal-50/70 p-4 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-900">Số dư khả dụng</span>
-                <span className="rounded-full bg-white/90 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  Số dư Escrow khả dụng
+                </span>
+                <span className="rounded-full bg-white/90 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                   Rút ngay
                 </span>
               </div>
-              <div className="text-xl sm:text-2xl font-black text-amber-950 mt-2 tracking-tight">
-                {availableVnd.toLocaleString('vi-VN')} <span className="text-xs font-bold text-amber-700">đ</span>
+              <div className="text-xl sm:text-2xl font-black text-emerald-950 mt-2 tracking-tight">
+                {availableVnd.toLocaleString('vi-VN')} <span className="text-xs font-bold text-emerald-700">đ</span>
               </div>
-              <div className="text-[11px] font-semibold text-amber-800/80 mt-0.5">
-                Tương đương {userCoins.toLocaleString('vi-VN')} FPT Coin
+              <div className="text-[11px] font-semibold text-emerald-800/80 mt-0.5">
+                Doanh thu bán đồ đã giải ngân
               </div>
             </div>
-            <p className="text-[10px] text-amber-700/80 mt-3 pt-2 border-t border-amber-200/60">
-              ✓ Tiền đã giải ngân từ các đơn hoàn tất
+            <p className="text-[10px] text-emerald-700/80 mt-3 pt-2 border-t border-emerald-200/60">
+              ✓ Tiền từ các đơn bán hoàn tất an toàn
             </p>
           </div>
 
@@ -180,6 +207,29 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
           </div>
         </div>
 
+        {/* FPT Coin Wallet Distinction Banner */}
+        <div className="mt-3.5 rounded-xl border border-amber-200/80 bg-amber-50/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shrink-0">
+              <Coins className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-amber-950">Ví FPT Coin mua sắm:</span>
+                <span className="font-black text-amber-900 bg-white/90 border border-amber-200 px-2 py-0.5 rounded-full text-xs">
+                  {userCoins.toLocaleString('vi-VN')} Xu
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800/80 mt-0.5">
+                Điểm thưởng sinh viên tích lũy từ điểm danh & KYC • Chỉ dùng để mua hàng & giảm giá thanh toán (Không rút về ATM)
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-amber-700 bg-amber-100/70 border border-amber-200/60 px-2.5 py-1 rounded-lg shrink-0 text-center">
+            🪙 Dùng mua hàng & voucher
+          </span>
+        </div>
+
         {/* Action Button Strip */}
         <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -207,7 +257,9 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
         isOpen={isWithdrawalModalOpen}
         onClose={() => setIsWithdrawalModalOpen(false)}
         initialTab={modalInitialTab}
+        availableEscrowBalance={availableVnd}
         onSuccess={() => {
+          fetchAnalytics();
           if (onShowToast) {
             onShowToast('🎉 Đã gửi yêu cầu rút tiền về tài khoản ngân hàng thành công!');
           }

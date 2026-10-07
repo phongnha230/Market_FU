@@ -25,6 +25,7 @@ interface WithdrawalModalProps {
   onClose: () => void;
   initialTab?: 'withdraw' | 'history';
   onSuccess?: () => void;
+  availableEscrowBalance?: number;
 }
 
 const POPULAR_BANKS = [
@@ -45,6 +46,7 @@ export default function WithdrawalModal({
   onClose,
   initialTab = 'withdraw',
   onSuccess,
+  availableEscrowBalance,
 }: WithdrawalModalProps) {
   const currentUser = useUserStore((state) => state.user);
   const walletStore = useWalletStore();
@@ -64,9 +66,12 @@ export default function WithdrawalModal({
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Tính số dư khả dụng (1 Xu = 1.000 VNĐ)
+  // Số dư doanh thu Escrow khả dụng có thể rút (VNĐ)
+  // Tuyệt đối không quy đổi từ FPT Coin (Coin chỉ dùng mua hàng & giảm giá)
+  const availableVnd = typeof availableEscrowBalance === 'number'
+    ? availableEscrowBalance
+    : (walletStore.availableEscrowBalance || 0);
   const userCoins = currentUser.coins || 0;
-  const availableVnd = userCoins * 1000;
 
   useEffect(() => {
     if (isOpen) {
@@ -144,11 +149,10 @@ export default function WithdrawalModal({
       // 2. Gửi yêu cầu rút tiền lên Backend
       const res = await profileService.createWithdrawal(numAmount).catch(() => null);
 
-      // 3. Khấu trừ số dư Xu trong store để UI cập nhật tức thì (1 Coin = 1.000 VNĐ)
-      const coinsToDeduct = Math.floor(numAmount / 1000);
-      useUserStore.getState().addCoins(-coinsToDeduct);
+      // 3. Khấu trừ số dư Doanh thu Escrow trong walletStore local (KHÔNG TRỪ COINS)
+      walletStore.requestWithdrawal(numAmount);
 
-      // 4. Lưu vào walletStore local
+      // 4. Lưu vào lịch sử local
       const newReq = {
         id: res?.id || `wd-${Date.now()}`,
         userId: currentUser.id || 'current-user',
@@ -161,7 +165,6 @@ export default function WithdrawalModal({
         status: 'PENDING' as const,
         createdAt: new Date().toISOString(),
       };
-      walletStore.requestWithdrawal(numAmount);
       setWithdrawalHistory((prev) => [newReq, ...prev]);
 
       setSuccessMsg(`Tạo lệnh rút ${numAmount.toLocaleString('vi-VN')} đ thành công! BQT sẽ đối soát và giải ngân tự động trong 24h.`);
@@ -228,22 +231,35 @@ export default function WithdrawalModal({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
-          {/* AVAILABLE BALANCE BANNER */}
-          <div className="rounded-xl border border-amber-200/80 bg-linear-to-r from-amber-50 to-orange-50 p-4">
+          {/* AVAILABLE ESCROW BALANCE BANNER */}
+          <div className="rounded-xl border border-emerald-200/80 bg-linear-to-r from-emerald-50/70 to-teal-50/70 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Coins className="h-5 w-5 text-amber-600" />
-                <span className="text-xs font-bold text-amber-900">Số dư ví khả dụng:</span>
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-950">Số dư doanh thu Escrow khả dụng:</span>
               </div>
-              <span className="text-xs text-amber-700 font-medium">Quy đổi: 1 Xu = 1.000 VNĐ</span>
+              <span className="text-[11px] text-emerald-800 font-bold bg-white/90 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                Bảo lãnh an toàn P2P
+              </span>
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <div className="text-2xl font-black text-amber-950 tracking-tight">
-                {availableVnd.toLocaleString('vi-VN')} <span className="text-sm font-bold text-amber-700">đ</span>
+              <div className="text-2xl font-black text-emerald-950 tracking-tight">
+                {availableVnd.toLocaleString('vi-VN')} <span className="text-sm font-bold text-emerald-700">đ</span>
               </div>
-              <div className="rounded-full bg-white/90 border border-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 shadow-2xs">
-                {userCoins.toLocaleString('vi-VN')} Xu
-              </div>
+              <span className="text-[11px] font-semibold text-emerald-700">
+                ✓ Tiền bán hàng đã giải ngân từ đơn hoàn tất
+              </span>
+            </div>
+          </div>
+
+          {/* POLICY EXPLANATION: COIN VS ESCROW */}
+          <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs text-amber-950 leading-relaxed flex items-start gap-2.5">
+            <Coins className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-bold text-amber-900">Phân biệt Ví Escrow & FPT Coin ({userCoins.toLocaleString('vi-VN')} Xu):</strong>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                FPT Coin là điểm tích lũy dùng để <strong>mua hàng / giảm giá đơn hàng</strong> và không được hỗ trợ rút tiền mặt. Lệnh rút tiền này áp dụng cho <strong>Doanh thu bán hàng thực tế</strong> sau khi người mua đã nhận đồ an toàn.
+              </p>
             </div>
           </div>
 

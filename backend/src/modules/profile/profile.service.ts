@@ -577,21 +577,10 @@ export class ProfileService {
       throw new AppError('Số tiền rút không hợp lệ', 400, 'INVALID_AMOUNT');
     }
 
-    // Tự động chuẩn hóa: Nếu người dùng nhập Xu (< 1000) hay VNĐ (>= 1000)
-    // Quy ước hệ thống 5Campus: 1 Xu = 1.000 VNĐ
-    let coinsToDeduct: number;
-    let vndAmount: number;
-
-    if (inputAmount >= 1000) {
-      vndAmount = Math.floor(inputAmount);
-      coinsToDeduct = Math.ceil(vndAmount / 1000);
-    } else {
-      coinsToDeduct = Math.floor(inputAmount);
-      vndAmount = coinsToDeduct * 1000;
-    }
+    const vndAmount = Math.floor(inputAmount);
 
     if (vndAmount < 10000) {
-      throw new AppError('Số tiền rút tối thiểu là 10.000 VNĐ (tương đương 10 Xu)', 400, 'MINIMUM_WITHDRAWAL');
+      throw new AppError('Số tiền rút tối thiểu là 10.000 VNĐ', 400, 'MINIMUM_WITHDRAWAL');
     }
 
     const profile = await prisma.profile.findUnique({ where: { userId } });
@@ -619,49 +608,39 @@ export class ProfileService {
       );
     }
 
-    // Thực thi trong ACID Transaction với điều kiện nguyên tử
+    // Thực thi trong ACID Transaction: Kiểm tra số dư Doanh thu Escrow khả dụng
+    // (FPT Coin chỉ dùng mua hàng & giảm giá, chỉ có Doanh thu Escrow từ đơn COMPLETED mới được rút)
     const withdrawal = await prisma.$transaction(async (tx) => {
-      // 1. Kiểm tra lại số dư Xu tức thời trong transaction để chặn race-condition
-      const freshProfile = await tx.profile.findUnique({
-        where: { userId },
-        select: { campusCoins: true, bankAccount: true },
+      // 1. Tính toán tổng doanh thu từ các đơn hàng bán đã hoàn tất (COMPLETED)
+      const completedOrders = await tx.order.findMany({
+        where: { sellerId: userId, status: 'COMPLETED' },
+        select: { payment: true },
       });
+      const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.payment?.price || 0), 0);
 
-      if (!freshProfile || freshProfile.campusCoins < coinsToDeduct) {
+      // 2. Tính các khoản rút tiền đang chờ duyệt hoặc đã duyệt
+      const activeWithdrawals = await tx.withdrawalRequest.findMany({
+        where: { userId, status: { in: ['PENDING', 'APPROVED'] } },
+        select: { amount: true },
+      });
+      const totalWithdrawn = activeWithdrawals.reduce((sum, w) => sum + w.amount, 0);
+      const availableEscrow = Math.max(0, totalRevenue - totalWithdrawn);
+
+      if (availableEscrow < vndAmount) {
         throw new AppError(
-          `Số dư Xu hiện tại (${freshProfile?.campusCoins || 0} Xu) không đủ để rút ${vndAmount.toLocaleString('vi-VN')} VNĐ (cần ${coinsToDeduct} Xu)`,
+          `Số dư doanh thu Escrow khả dụng (${availableEscrow.toLocaleString('vi-VN')} VNĐ) không đủ để rút ${vndAmount.toLocaleString('vi-VN')} VNĐ. Lưu ý: FPT Coin chỉ dùng để mua hàng, không thể quy đổi rút tiền mặt.`,
           400,
-          'INSUFFICIENT_COINS'
+          'INSUFFICIENT_ESCROW_BALANCE'
         );
       }
-
-      // 2. Khấu trừ Xu ngay lập tức để khóa số dư
-      const updatedProf = await tx.profile.update({
-        where: { userId },
-        data: {
-          campusCoins: { decrement: coinsToDeduct },
-        },
-      });
 
       // 3. Tạo bản ghi WithdrawalRequest với trạng thái PENDING
       const req = await tx.withdrawalRequest.create({
         data: {
           userId,
           amount: vndAmount,
-          bankAccount: freshProfile.bankAccount || profile.bankAccount!,
+          bankAccount: profile.bankAccount!,
           status: 'PENDING',
-        },
-      });
-
-      // 4. Ghi sổ cái CoinTransaction
-      await tx.coinTransaction.create({
-        data: {
-          userId,
-          amount: -coinsToDeduct,
-          balanceAfter: updatedProf.campusCoins,
-          type: 'WITHDRAWAL',
-          description: `Tạo yêu cầu rút ${vndAmount.toLocaleString('vi-VN')} VNĐ (${coinsToDeduct} Xu) về ${profile.bankAccount!.bankName} (${profile.bankAccount!.accountNo})`,
-          referenceId: req.id,
         },
       });
 
@@ -1058,26 +1037,7 @@ export class ProfileService {
     const isApprove = input.status === 'APPROVED';
 
     const updated = await prisma.$transaction(async (tx) => {
-      // Nếu REJECTED -> Hoàn lại Xu/tiền cho người dùng
-      if (!isApprove) {
-        const refundCoins = Math.ceil(req.amount / 1000);
-        const prof = await tx.profile.update({
-          where: { userId: req.userId },
-          data: { campusCoins: { increment: refundCoins } },
-        });
-
-        await tx.coinTransaction.create({
-          data: {
-            userId: req.userId,
-            amount: refundCoins,
-            balanceAfter: prof.campusCoins,
-            type: 'ADMIN_ADJUSTMENT',
-            description: `Hoàn ${refundCoins} Xu do lệnh rút tiền bị từ chối (${input.adminNote || 'Sai thông tin STK'})`,
-            referenceId: req.id,
-          },
-        });
-      }
-
+      // Khi REJECTED: Trạng thái chuyển sang REJECTED nên khoản tiền tự động quay về số dư Escrow khả dụng
       return tx.withdrawalRequest.update({
         where: { id: withdrawalId },
         data: {

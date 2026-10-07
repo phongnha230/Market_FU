@@ -45,12 +45,15 @@ export interface WithdrawalRequest {
 
 interface WalletState {
   campusCoins: number;
-  frozenCoins: number; // Xu đang tạm giữ cho đơn Escrow đang chờ
+  frozenCoins: number; // Xu đang tạm giữ cho các giao dịch nội bộ
+  availableEscrowBalance: number; // Tiền thật (VNĐ) từ doanh thu bán hàng Escrow đã giải ngân, có thể rút về ATM
+  pendingEscrowBalance: number; // Tiền cọc Escrow (VNĐ) đang bảo lưu an toàn tại sàn
   bankAccount: BankAccount | null;
   transactions: CoinTransaction[];
   withdrawalRequests: WithdrawalRequest[];
 
   // Actions
+  setEscrowBalances: (available: number, pending: number) => void;
   topUpCoins: (amount: number, paymentMethod?: string) => void;
   addCoins: (amount: number, type: CoinTransactionType, description: string, referenceId?: string) => void;
   deductCoins: (amount: number, type: CoinTransactionType, description: string, referenceId?: string) => boolean;
@@ -78,9 +81,13 @@ export const useWalletStore = create<WalletState>()(
     (set, get) => ({
       campusCoins: 0,
       frozenCoins: 0,
+      availableEscrowBalance: 0,
+      pendingEscrowBalance: 0,
       bankAccount: null,
       transactions: [],
       withdrawalRequests: [],
+
+      setEscrowBalances: (available, pending) => set({ availableEscrowBalance: available, pendingEscrowBalance: pending }),
 
       topUpCoins: (amount, paymentMethod = 'VietQR') => {
         set((state) => {
@@ -175,41 +182,28 @@ export const useWalletStore = create<WalletState>()(
         if (!state.bankAccount) {
           return { success: false, message: 'Vui lòng liên kết tài khoản ngân hàng trước khi rút tiền!' };
         }
-        // 1 FPT Coin = 1.000 VNĐ
-        const coinsRequired = Math.ceil(amount / 1000);
-        if (state.campusCoins < coinsRequired) {
-          return { success: false, message: `Số dư ví không đủ! Cần tối thiểu ${coinsRequired} FPT Coin.` };
+        if (state.availableEscrowBalance < amount) {
+          return {
+            success: false,
+            message: `Số dư doanh thu Escrow khả dụng không đủ! Hiện tại bạn có ${state.availableEscrowBalance.toLocaleString('vi-VN')} đ.`,
+          };
         }
 
         const newReq: WithdrawalRequest = {
           id: `wdr-${Date.now()}`,
-          userId: 'user-default',
+          userId: useUserStore.getState().user.id || 'user-current',
           amount,
           bankAccount: state.bankAccount,
           status: 'PENDING',
           createdAt: 'Vừa xong',
         };
 
-        set((s) => {
-          const newBalance = s.campusCoins - coinsRequired;
-          const newTx: CoinTransaction = {
-            id: `tx-${Date.now()}`,
-            userId: useUserStore.getState().user.id || 'user-current',
-            amount: -coinsRequired,
-            balanceAfter: newBalance,
-            type: 'WITHDRAWAL',
-            description: `Yêu cầu rút ${amount.toLocaleString('vi-VN')}đ về ${state.bankAccount?.bankName}`,
-            referenceId: newReq.id,
-            createdAt: 'Vừa xong',
-          };
-          return {
-            campusCoins: newBalance,
-            withdrawalRequests: [newReq, ...s.withdrawalRequests],
-            transactions: [newTx, ...s.transactions],
-          };
-        });
+        set((s) => ({
+          availableEscrowBalance: Math.max(0, s.availableEscrowBalance - amount),
+          withdrawalRequests: [newReq, ...s.withdrawalRequests],
+        }));
 
-        return { success: true, message: 'Đã gửi yêu cầu rút tiền thành công! Admin sẽ duyệt trong 24h.' };
+        return { success: true, message: 'Đã gửi yêu cầu rút tiền thành công! BQT sẽ đối soát và giải ngân trong 24h.' };
       },
 
       cancelWithdrawal: (requestId) => {
@@ -217,44 +211,35 @@ export const useWalletStore = create<WalletState>()(
         const req = state.withdrawalRequests.find((r) => r.id === requestId && r.status === 'PENDING');
         if (!req) return false;
 
-        const coinsToRefund = Math.ceil(req.amount / 1000);
         set((s) => ({
-          campusCoins: s.campusCoins + coinsToRefund,
+          availableEscrowBalance: s.availableEscrowBalance + req.amount,
           withdrawalRequests: s.withdrawalRequests.map((r) =>
             r.id === requestId ? { ...r, status: 'REJECTED', adminNote: 'Người dùng tự hủy yêu cầu' } : r
           ),
-          transactions: [
-            {
-              id: `tx-${Date.now()}`,
-              userId: useUserStore.getState().user.id || 'user-current',
-              amount: coinsToRefund,
-              balanceAfter: s.campusCoins + coinsToRefund,
-              type: 'ADMIN_ADJUSTMENT',
-              description: `Hoàn ${coinsToRefund} Coin do hủy lệnh rút tiền`,
-              referenceId: requestId,
-              createdAt: 'Vừa xong',
-            },
-            ...s.transactions,
-          ],
         }));
 
         return true;
       },
 
       processWithdrawalByAdmin: (requestId, approve, adminNote) => {
-        set((s) => ({
-          withdrawalRequests: s.withdrawalRequests.map((r) => {
-            if (r.id === requestId) {
-              return {
-                ...r,
-                status: approve ? 'APPROVED' : 'REJECTED',
-                adminNote: adminNote || (approve ? 'Admin đã duyệt chuyển khoản' : 'Yêu cầu bị từ chối'),
-                processedAt: 'Vừa xong',
-              };
-            }
-            return r;
-          }),
-        }));
+        set((s) => {
+          const req = s.withdrawalRequests.find((r) => r.id === requestId);
+          const shouldRefund = !approve && req && req.status === 'PENDING';
+          return {
+            availableEscrowBalance: shouldRefund ? s.availableEscrowBalance + req.amount : s.availableEscrowBalance,
+            withdrawalRequests: s.withdrawalRequests.map((r) => {
+              if (r.id === requestId) {
+                return {
+                  ...r,
+                  status: approve ? 'APPROVED' : 'REJECTED',
+                  adminNote: adminNote || (approve ? 'Admin đã duyệt chuyển khoản' : 'Yêu cầu bị từ chối'),
+                  processedAt: 'Vừa xong',
+                };
+              }
+              return r;
+            }),
+          };
+        });
       },
 
       getTransactionsByType: (type) => {
