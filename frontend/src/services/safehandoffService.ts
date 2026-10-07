@@ -96,4 +96,78 @@ export const safehandoffService = {
     const res = await apiClient.delete<ApiResponse<{ success: boolean; message: string }>>(`/safe-handoff/${id}`);
     return res.data.data;
   },
+
+  /**
+   * Admin xem danh sách giao dịch hẹn gặp Safe-Handoff (MEETUP)
+   */
+  async getMeetupTransactions(params?: {
+    campus?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ orders: MeetupOrderTransaction[]; stats: MeetupStats; pagination?: any }> {
+    const res = await apiClient.get<ApiResponse<MeetupOrderTransaction[]>>('/safe-handoff/transactions', {
+      params,
+    });
+    const meta: any = res.data?.meta || {};
+    return {
+      orders: res.data?.data || [],
+      stats: meta.stats || { total: 0, completed: 0, pending: 0, cancelled: 0 },
+      pagination: meta.pagination,
+    };
+  },
 };
+
+export interface MeetupOrderTransaction {
+  id: string;
+  orderCode: string;
+  orderType: 'MEETUP';
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  handshake?: {
+    handshakeOtp?: string;
+    isVerified: boolean;
+    verifiedAt?: string | null;
+  } | null;
+  payment?: {
+    price: number;
+    shippingFee: number;
+    totalAmount: number;
+    paymentMethod?: string;
+    isPaid: boolean;
+  } | null;
+  product?: {
+    id: string;
+    title: string;
+    price: number;
+    images?: Array<{ imageUrl: string }>;
+    campus?: string;
+    meetupLocation?: string | null;
+  } | null;
+  buyer?: {
+    id: string;
+    email: string;
+    profile?: {
+      fullName: string;
+      phoneNumber?: string | null;
+      campus?: string;
+    } | null;
+  } | null;
+  seller?: {
+    id: string;
+    email: string;
+    profile?: {
+      fullName: string;
+      phoneNumber?: string | null;
+      campus?: string;
+    } | null;
+  } | null;
+}
+
+export interface MeetupStats {
+  total: number;
+  completed: number;
+  pending: number;
+  cancelled: number;
+}

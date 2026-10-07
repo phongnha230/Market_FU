@@ -483,6 +483,114 @@ export class SafeHandoffService {
       })
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }
+
+  /**
+   * Admin xem danh sách giao dịch hẹn gặp Safe-Handoff (MEETUP)
+   */
+  async getMeetupTransactions(params: {
+    campus?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { campus = 'ALL', status = 'ALL', page = 1, limit = 50 } = params;
+    const skip = (page - 1) * limit;
+
+    const baseWhere: any = {
+      orderType: 'MEETUP',
+    };
+
+    if (campus && campus !== 'ALL') {
+      baseWhere.product = {
+        campus: campus as any,
+      };
+    }
+
+    if (status && status !== 'ALL') {
+      if (status === 'COMPLETED') {
+        baseWhere.status = { in: ['COMPLETED', 'DELIVERED'] };
+      } else if (status === 'PENDING') {
+        baseWhere.status = { in: ['PENDING', 'PAID'] };
+      } else if (status === 'CANCELLED') {
+        baseWhere.status = { in: ['CANCELLED', 'DISPUTED'] };
+      } else {
+        baseWhere.status = status as any;
+      }
+    }
+
+    const statsWhere: any =
+      campus && campus !== 'ALL'
+        ? { orderType: 'MEETUP', product: { campus: campus as any } }
+        : { orderType: 'MEETUP' };
+
+    const [totalAll, completedCount, pendingCount, cancelledCount, orders, total] = await Promise.all([
+      prisma.order.count({ where: statsWhere }),
+      prisma.order.count({ where: { ...statsWhere, status: { in: ['COMPLETED', 'DELIVERED'] } } }),
+      prisma.order.count({ where: { ...statsWhere, status: { in: ['PENDING', 'PAID'] } } }),
+      prisma.order.count({ where: { ...statsWhere, status: { in: ['CANCELLED', 'DISPUTED'] } } }),
+      prisma.order.findMany({
+        where: baseWhere,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              images: true,
+              campus: true,
+              meetupLocation: true,
+            },
+          },
+          buyer: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  phoneNumber: true,
+                  campus: true,
+                },
+              },
+            },
+          },
+          seller: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  phoneNumber: true,
+                  campus: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.order.count({ where: baseWhere }),
+    ]);
+
+    return {
+      orders,
+      stats: {
+        total: totalAll,
+        completed: completedCount,
+        pending: pendingCount,
+        cancelled: cancelledCount,
+      },
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }
 
 export const safeHandoffService = new SafeHandoffService();

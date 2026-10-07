@@ -10,6 +10,9 @@ router.get('/', safeHandoffController.getHubs);
 // 2. Tìm trạm Safe-Handoff gần nhất (Redis Geospatial, đặt trước :id)
 router.get('/nearby', safeHandoffController.getNearbyHubs);
 
+// 2b. Admin xem danh sách giao dịch hẹn gặp Safe-Handoff (đặt trước :id)
+router.get('/transactions', authenticate, authorize('ADMIN'), safeHandoffController.getMeetupTransactions);
+
 // 3. Chi tiết 1 trạm
 router.get('/:id', safeHandoffController.getHubById);
 

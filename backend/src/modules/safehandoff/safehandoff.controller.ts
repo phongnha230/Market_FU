@@ -99,6 +99,32 @@ export class SafeHandoffController {
       next(error);
     }
   };
+
+  /**
+   * Admin xem danh sách giao dịch hẹn gặp Safe-Handoff (MEETUP)
+   */
+  getMeetupTransactions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const campus = (req.query.campus as string) || 'ALL';
+      const status = (req.query.status as string) || 'ALL';
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      const result = await safeHandoffService.getMeetupTransactions({
+        campus,
+        status,
+        page,
+        limit,
+      });
+
+      return sendSuccess(res, result.orders, {
+        stats: result.stats,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const safeHandoffController = new SafeHandoffController();
