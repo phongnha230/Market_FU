@@ -153,7 +153,7 @@ function CheckoutContent() {
           title: post.title,
           price: post.price,
           imageUrl: post.imageUrl || '/products/monitor-dell-24.jpg',
-          campus: post.location || 'HCM',
+          campus: post.campus || post.campusTag || post.seller?.cohort || post.location || 'QN',
           conditionBadge: post.badges?.[0] || 'Like New',
           description: post.description || post.title,
           sellerName: post.seller?.name || 'Sinh viên FPT',
