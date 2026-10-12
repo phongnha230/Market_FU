@@ -38,8 +38,11 @@ interface UserState {
   isAuthenticated: boolean;
   isLoading: boolean;
   registeredAccounts: AccountRecord[];
+  hasCompletedOnboarding: boolean;
 
   // Actions
+  completeOnboarding: () => void;
+  resetOnboarding: () => void;
   loadRegisteredAccounts: () => Promise<AccountRecord[]>;
   login: (identifier: string, password?: string) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
   loginAsRole: (role: RoleSelectType) => Promise<{ success: boolean; message: string; user?: UserProfile }>;
@@ -74,6 +77,10 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
       isLoading: false,
       registeredAccounts: [],
+      hasCompletedOnboarding: false,
+
+      completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+      resetOnboarding: () => set({ hasCompletedOnboarding: false }),
 
       loadRegisteredAccounts: async () => {
         const accounts = await accountStorage.getAllAccounts();
@@ -96,6 +103,7 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
                 token: backendRes.token,
                 isAuthenticated: true,
+                hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
               await get().loadRegisteredAccounts();
@@ -122,6 +130,7 @@ export const useUserStore = create<UserState>()(
             user: loggedUser,
             token,
             isAuthenticated: true,
+            hasCompletedOnboarding: true,
           });
           syncUserToStores(loggedUser.id);
           await get().loadRegisteredAccounts();
@@ -167,6 +176,7 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
                 token: backendRes.token,
                 isAuthenticated: true,
+                hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
               await get().loadRegisteredAccounts();
@@ -187,6 +197,7 @@ export const useUserStore = create<UserState>()(
             user: testUser,
             token,
             isAuthenticated: true,
+            hasCompletedOnboarding: true,
           });
           syncUserToStores(testUser.id);
           await get().loadRegisteredAccounts();
@@ -273,6 +284,7 @@ export const useUserStore = create<UserState>()(
             user: newUser,
             token,
             isAuthenticated: true,
+            hasCompletedOnboarding: true,
           });
           syncUserToStores(newUser.id);
           await get().loadRegisteredAccounts();
@@ -331,6 +343,7 @@ export const useUserStore = create<UserState>()(
           token,
           refreshToken: refreshToken !== undefined ? refreshToken : get().refreshToken,
           isAuthenticated: !!token,
+          hasCompletedOnboarding: true,
         });
         if (user && user.id) {
           syncUserToStores(user.id);

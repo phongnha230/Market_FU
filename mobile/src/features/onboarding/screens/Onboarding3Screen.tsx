@@ -16,6 +16,7 @@ import { OnboardingFloatingBubbles } from '../components/OnboardingFloatingBubbl
 import { OnboardingEscrowTimeline } from '../components/OnboardingEscrowTimeline';
 import { ONBOARDING_GUARANTEES } from '../constants/onboarding.constants';
 import { Onboarding3ScreenProps } from '../types/onboarding.types';
+import { useUserStore } from '../../../stores/userStore';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const isSmallScreen = SCREEN_H < 720;
@@ -31,6 +32,7 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
   const navigation = propNav || hookNav;
 
   const handleStartHome = () => {
+    useUserStore.getState().completeOnboarding();
     if (onFinish) {
       onFinish();
     } else if (navigation?.replace) {
@@ -49,6 +51,7 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
   };
 
   const handleSkip = () => {
+    useUserStore.getState().completeOnboarding();
     if (onSkip) {
       onSkip();
     } else if (navigation?.replace) {

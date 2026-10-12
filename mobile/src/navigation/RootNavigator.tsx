@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
+import { useUserStore } from '../stores/userStore';
 import {
   Onboarding1Screen,
   Onboarding2Screen,
@@ -45,10 +47,38 @@ import { navigationRef } from './navigationRef';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator = () => {
+  const { isAuthenticated, hasCompletedOnboarding } = useUserStore();
+  const [isHydrated, setIsHydrated] = useState(
+    useUserStore.persist?.hasHydrated ? useUserStore.persist.hasHydrated() : true
+  );
+
+  useEffect(() => {
+    if (useUserStore.persist?.onFinishHydration) {
+      const unsub = useUserStore.persist.onFinishHydration(() => {
+        setIsHydrated(true);
+      });
+      if (useUserStore.persist.hasHydrated()) {
+        setIsHydrated(true);
+      }
+      return () => unsub();
+    }
+  }, []);
+
+  if (!isHydrated) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#EA580C" />
+      </View>
+    );
+  }
+
+  const initialRouteName =
+    isAuthenticated || hasCompletedOnboarding ? 'MainTabs' : 'Onboarding1';
+
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
-        initialRouteName="Onboarding1"
+        initialRouteName={initialRouteName}
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',

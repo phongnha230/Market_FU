@@ -25,6 +25,7 @@ import {
 } from '../constants/onboarding.constants';
 import { Onboarding2ScreenProps } from '../types/onboarding.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
+import { useUserStore } from '../../../stores/userStore';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const isSmallScreen = SCREEN_H < 720;
@@ -70,6 +71,7 @@ export const Onboarding2Screen: React.FC<Onboarding2ScreenProps & { navigation?:
   };
 
   const handleSkip = () => {
+    useUserStore.getState().completeOnboarding();
     if (onSkip) {
       onSkip();
     } else if (navigation?.replace) {

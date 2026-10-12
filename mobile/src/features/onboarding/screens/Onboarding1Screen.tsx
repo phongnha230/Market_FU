@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { OnboardingTopCapsule } from '../components/OnboardingTopCapsule';
 import { OnboardingFloatingBubbles } from '../components/OnboardingFloatingBubbles';
 import { Onboarding1ScreenProps } from '../types/onboarding.types';
+import { useUserStore } from '../../../stores/userStore';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const isSmallScreen = SCREEN_H < 720;
@@ -40,6 +41,7 @@ export const Onboarding1Screen: React.FC<Onboarding1ScreenProps & { navigation?:
   };
 
   const handleSkip = () => {
+    useUserStore.getState().completeOnboarding();
     if (onSkip) {
       onSkip();
     } else if (navigation?.replace) {
