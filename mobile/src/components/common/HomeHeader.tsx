@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { resolveAvatarImage } from '../../lib/imageResolver';
 
 export interface HomeHeaderProps {
   userName?: string;
@@ -89,7 +90,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
             {isAuthenticated ? (
               avatarUrl ? (
                 <Image
-                  source={{ uri: avatarUrl }}
+                  source={resolveAvatarImage(avatarUrl)}
                   style={styles.avatar}
                   contentFit="cover"
                   transition={200}

@@ -36,16 +36,16 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
   let kycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED' = 'NONE';
   const statusUpper = String(kyc.status || '').toUpperCase();
 
-  if (statusUpper === 'APPROVED' || isEdu) {
-    kycStatus = 'APPROVED';
-  } else if (statusUpper === 'PENDING') {
+  if (statusUpper === 'PENDING') {
     kycStatus = 'PENDING';
   } else if (statusUpper === 'REJECTED') {
     kycStatus = 'REJECTED';
+  } else if (statusUpper === 'APPROVED' || isEdu) {
+    kycStatus = 'APPROVED';
   }
 
   const role: 'BUYER' | 'SELLER' | 'ADMIN' = user.role === 'SELLER' ? 'SELLER' : 'BUYER';
-  const isKycVerified = kycStatus === 'APPROVED' || role === 'SELLER';
+  const isKycVerified = (kycStatus === 'APPROVED' || role === 'SELLER') && kycStatus !== 'PENDING';
 
   const rawBank = profile.bankAccount || user.bankAccount;
   const bankAccount = rawBank?.accountNo
@@ -73,7 +73,14 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
     rating: profile.rating || 5.0,
     reputationPoints: user.reputationScore ?? profile.reputationScore ?? 100,
     coins: user.campusCoins ?? profile.campusCoins ?? 0,
-    avatarUrl: profile.avatarUrl || user.avatarUrl || '',
+    avatarUrl:
+      profile.avatarUrl ||
+      user.avatarUrl ||
+      profile.avatar ||
+      user.avatar ||
+      (role === 'SELLER'
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'),
     avatarBadge: role === 'SELLER' ? 'TOP_SELLER' : undefined,
     bankAccount,
   };

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface ProfileAvatarProps {
   avatarUrl?: string;
@@ -25,7 +26,11 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = React.memo(({
       activeOpacity={0.8}
     >
       {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+        <Image
+          source={resolveAvatarImage(avatarUrl)}
+          style={styles.avatar}
+          contentFit="cover"
+        />
       ) : (
         <View style={styles.avatarPlaceholder}>
           <Text style={styles.avatarInitial}>

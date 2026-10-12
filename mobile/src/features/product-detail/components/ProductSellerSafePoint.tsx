@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { ProductDetailData } from '../types/product-detail.types';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface ProductSellerSafePointProps {
   seller: ProductDetailData['seller'];
@@ -26,6 +28,8 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
     navigation.navigate('SafePointHubs');
   };
 
+  const sellerAvatar = seller.avatarUrl || (seller as any)?.avatar;
+
   return (
     <View style={styles.container}>
       {/* 1. Seller Profile */}
@@ -35,7 +39,15 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
         onPress={handleViewShop}
       >
         <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color="#FFFFFF" />
+          {sellerAvatar ? (
+            <Image
+              source={resolveAvatarImage(sellerAvatar)}
+              style={styles.avatarImg}
+              contentFit="cover"
+            />
+          ) : (
+            <Ionicons name="person" size={20} color="#FFFFFF" />
+          )}
         </View>
         <View style={styles.sellerInfo}>
           <View style={styles.sellerNameRow}>
@@ -79,7 +91,8 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   sellerCard: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F27024', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F27024', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: '100%', height: '100%' },
   sellerInfo: { flex: 1, marginLeft: 12 },
   sellerNameRow: { flexDirection: 'row', alignItems: 'center' },
   sellerName: { fontSize: 13.5, fontWeight: '800', color: '#0F172A' },

@@ -270,8 +270,7 @@ export default function CreatePostPage() {
   const isSeller =
     currentUser.role === 'SELLER' ||
     currentUser.role === 'ADMIN' ||
-    currentUser.kycStatus === 'approved_seller' ||
-    currentUser.kycRole === 'seller';
+    currentUser.kycStatus === 'approved_seller';
   const isEduEmail = Boolean(
     currentUser.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     currentUser.email?.toLowerCase().endsWith('@fe.edu.vn')

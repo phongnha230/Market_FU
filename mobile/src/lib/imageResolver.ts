@@ -101,3 +101,64 @@ export function resolveProductImage(source: any): any {
 
   return DEFAULT_PRODUCT_FALLBACK;
 }
+
+export const DEFAULT_AVATAR_URL =
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80';
+
+/**
+ * Phân giải ảnh đại diện Avatar cho Mobile.
+ * Hỗ trợ:
+ * 1. String URL (http, https, /uploads/..., uploads/..., data:, file:)
+ * 2. Object { uri: '...' }
+ * 3. Local require asset (number)
+ * 4. Fallback mặc định an toàn khi rỗng/lỗi
+ */
+export function resolveAvatarImage(source: any, fallbackUrl: string = DEFAULT_AVATAR_URL): any {
+  if (!source) {
+    return { uri: fallbackUrl };
+  }
+
+  if (typeof source === 'number') {
+    return source;
+  }
+
+  if (typeof source === 'object') {
+    if (typeof source.uri === 'string') {
+      const uri = source.uri.trim();
+      if (!uri) return { uri: fallbackUrl };
+      return resolveAvatarImage(uri, fallbackUrl);
+    }
+    return source;
+  }
+
+  if (typeof source === 'string') {
+    const trimmed = source.trim();
+    if (!trimmed) return { uri: fallbackUrl };
+
+    if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+      const cleanUpload = trimmed.replace(/^\/+/, '');
+      const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+      return { uri: `${baseUrl}/${cleanUpload}` };
+    }
+
+    if (trimmed.includes('api.marketfu.com/uploads/')) {
+      const uploadPath = trimmed.split('api.marketfu.com/')[1];
+      const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+      return { uri: `${baseUrl}/${uploadPath}` };
+    }
+
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return { uri: trimmed };
+    }
+
+    return { uri: fallbackUrl };
+  }
+
+  return { uri: fallbackUrl };
+}
+

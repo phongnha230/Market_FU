@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface SellerHeroCardProps {
   profile: any;
@@ -24,13 +25,19 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
   const cohort = profile?.cohort || 'Sinh viên FPT';
   const bio = profile?.bio || 'Sinh viên FPT giao lưu pass đồ tử tế, có thể hẹn test máy tại Safe-Point campus.';
 
+  const avatarSource = profile?.avatarUrl || profile?.avatar;
+
   return (
     <View style={styles.profileCard}>
       {/* 1. Header Row: Avatar + Identity */}
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
-          {profile?.avatarUrl ? (
-            <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} contentFit="cover" />
+          {avatarSource ? (
+            <Image
+              source={resolveAvatarImage(avatarSource)}
+              style={styles.avatar}
+              contentFit="cover"
+            />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>

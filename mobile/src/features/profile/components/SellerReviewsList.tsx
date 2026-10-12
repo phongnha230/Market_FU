@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface RatingStats {
   totalReceived: number;
@@ -152,7 +153,11 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
         <View style={styles.reviewsList}>
           {reviews.map((rev) => {
             const reviewerName = rev.reviewerName || rev.reviewer?.profile?.fullName || 'Sinh viên FPT';
-            const reviewerAvatar = rev.reviewerAvatar || rev.reviewer?.profile?.avatarUrl;
+            const rawAvatar =
+              rev.reviewerAvatar ||
+              rev.reviewer?.profile?.avatarUrl ||
+              rev.reviewer?.avatarUrl ||
+              rev.reviewer?.avatar;
             const reviewerCampus = rev.reviewerCampus || rev.reviewer?.profile?.campus || 'FPT Campus';
             const initial = reviewerName.charAt(0).toUpperCase();
 
@@ -161,8 +166,12 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
                 {/* Header: Avatar, Name, Stars */}
                 <View style={styles.reviewHeader}>
                   <View style={styles.avatarWrap}>
-                    {reviewerAvatar ? (
-                      <Image source={{ uri: reviewerAvatar }} style={styles.reviewerAvatar} contentFit="cover" />
+                    {rawAvatar ? (
+                      <Image
+                        source={resolveAvatarImage(rawAvatar)}
+                        style={styles.reviewerAvatar}
+                        contentFit="cover"
+                      />
                     ) : (
                       <View style={styles.reviewerAvatarPlaceholder}>
                         <Text style={styles.reviewerInitial}>{initial}</Text>

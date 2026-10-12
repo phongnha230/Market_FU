@@ -41,6 +41,7 @@ async function main() {
             campus: CampusLocation.HOL,
             campusCoins: 500, // Đủ Xu để test giảm giá đơn hàng hoặc đổi Voucher
             reputationScore: 100,
+            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
             kyc: {
               studentId: 'HE170001',
               cardImageUrl: 'https://api.marketfu.com/uploads/sample-student-card.webp',
@@ -74,6 +75,7 @@ async function main() {
       where: { userId: buyerId },
       update: {
         campusCoins: 500,
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
         kyc: {
           studentId: 'HE170001',
           cardImageUrl: 'https://api.marketfu.com/uploads/sample-student-card.webp',
@@ -94,6 +96,7 @@ async function main() {
         campus: CampusLocation.HOL,
         campusCoins: 500,
         reputationScore: 100,
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
         kyc: {
           studentId: 'HE170001',
           cardImageUrl: 'https://api.marketfu.com/uploads/sample-student-card.webp',
@@ -129,6 +132,7 @@ async function main() {
             campus: CampusLocation.HOL,
             campusCoins: 500,
             reputationScore: 100,
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
             kyc: {
               studentId: 'SE172819',
               cardImageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
@@ -168,6 +172,7 @@ async function main() {
             campus: CampusLocation.HOL,
             campusCoins: 0,
             reputationScore: 100,
+            avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80',
             kyc: {
               studentId: '',
               cardImageUrl: '',
@@ -203,6 +208,7 @@ async function main() {
             campusCoins: 1000, // Đủ Xu để test Đẩy tin / Ghim bài viết
             reputationScore: 100,
             avatarBadge: 'TOP_SELLER',
+            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
             kyc: {
               studentId: 'SE160002',
               cardImageUrl: 'https://api.marketfu.com/uploads/sample-seller-card.webp',
@@ -237,6 +243,7 @@ async function main() {
       update: {
         campusCoins: 1000,
         avatarBadge: 'TOP_SELLER',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
         kyc: {
           studentId: 'SE160002',
           cardImageUrl: 'https://api.marketfu.com/uploads/sample-seller-card.webp',
@@ -258,6 +265,7 @@ async function main() {
         campusCoins: 1000,
         reputationScore: 100,
         avatarBadge: 'TOP_SELLER',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
         kyc: {
           studentId: 'SE160002',
           cardImageUrl: 'https://api.marketfu.com/uploads/sample-seller-card.webp',

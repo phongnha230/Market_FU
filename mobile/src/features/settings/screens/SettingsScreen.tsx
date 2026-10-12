@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Switch } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -84,7 +86,15 @@ export const SettingsScreen: React.FC = () => {
         {/* Profile Summary Mini */}
         <View style={styles.userCard}>
           <View style={styles.avatarBox}>
-            <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
+            {user?.avatarUrl || user?.avatar ? (
+              <Image
+                source={resolveAvatarImage(user?.avatarUrl || user?.avatar)}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
+            )}
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{user?.name || 'Sinh viên FPT'}</Text>
@@ -222,6 +232,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: { fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
   userInfo: { flex: 1 },

@@ -95,10 +95,17 @@ export default function ProfilePage() {
     userData.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     userData.email?.toLowerCase().endsWith('@fe.edu.vn')
   );
-  const isUnverified = userData.role === 'UNVERIFIED' || (!isEduEmail && userData.kycStatus === 'unverified');
-  const isVerifiedStudent = !isUnverified && (isEduEmail || userData.role === 'BUYER' || userData.role === 'SELLER' || userData.kycStatus === 'approved_student' || userData.kycStatus === 'approved_seller');
   const isPendingStudent = userData.kycStatus === 'pending';
   const isRejectedStudent = userData.kycStatus === 'rejected';
+  const isVerifiedStudent =
+    !isPendingStudent &&
+    !isRejectedStudent &&
+    (isEduEmail ||
+      userData.role === 'SELLER' ||
+      userData.role === 'ADMIN' ||
+      userData.kycStatus === 'approved_student' ||
+      userData.kycStatus === 'approved_seller');
+  const isUnverified = !isVerifiedStudent && !isPendingStudent && !isRejectedStudent;
   const favorites = useFavoriteStore((state) => state.favorites);
   const orders = useOrderStore((state) => state.orders);
   const updateProfile = useUserStore((state) => state.updateProfile);

@@ -137,7 +137,7 @@ export const ReviewScreen: React.FC = () => {
 
       Alert.alert(
         '🎉 Cảm ơn bạn!',
-        `Đánh giá đã được ghi nhận. Bạn được cộng +${bonusCoins} Xu và +20 Điểm Uy tín Campus.`,
+        `Đánh giá đã được ghi nhận. Bạn được cộng +${bonusCoins} FPT Xu vào tài khoản.${bonusCoins === 200 ? ' (Thưởng video test đồ)' : ''}`,
         [
           {
             text: 'Đóng',
