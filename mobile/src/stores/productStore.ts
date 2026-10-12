@@ -154,13 +154,9 @@ export const useProductStore = create<ProductState>()(
           products: state.products.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         }));
 
-<<<<<<< Updated upstream
-        productMobileService.updateProduct(id, partial as any).catch(() => {});
-=======
         productMobileService.updateProduct(id, partial as any).catch((err) => {
           console.log('⚠️ [Mobile updateProduct error]:', err?.message);
         });
->>>>>>> Stashed changes
       },
 
       deleteProduct: (id) => {
@@ -168,13 +164,9 @@ export const useProductStore = create<ProductState>()(
           products: state.products.filter((p) => p.id !== id),
         }));
 
-<<<<<<< Updated upstream
-        productMobileService.deleteProduct(id).catch(() => {});
-=======
         productMobileService.deleteProduct(id).catch((err) => {
           console.log('⚠️ [Mobile deleteProduct error]:', err?.message);
         });
->>>>>>> Stashed changes
       },
 
       getUserProducts: (sellerId: string) => {
