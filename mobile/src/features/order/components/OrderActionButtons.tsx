@@ -100,7 +100,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     );
   }
 
-  if (!isSeller && orderStatus === 'escrow_holding') {
+  if (!isSeller && (orderStatus === 'escrow_holding' || orderStatus === 'delivered' || orderStatus === 'DELIVERED')) {
     return (
       <TouchableOpacity
         style={styles.confirmReceivedBtn}
@@ -205,8 +205,8 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
 }) => {
   const isDisputed = orderStatus === 'disputed' || orderStatus === 'DISPUTED';
   const isCancelled = orderStatus === 'cancelled';
-  const canDispute = !isSeller && !isCancelled && !isDisputed;
-  const canCancel = orderStatus === 'escrow_holding';
+  const canDispute = !isSeller && !isCancelled && !isDisputed && (orderStatus === 'delivered' || orderStatus === 'DELIVERED' || orderStatus === 'completed' || orderStatus === 'COMPLETED');
+  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT' || orderStatus === 'ESCROW_PAID');
 
   return (
     <View style={styles.actionContainer}>

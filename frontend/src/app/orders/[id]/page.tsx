@@ -189,8 +189,8 @@ export default function OrderDetailPage() {
     if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
     try {
       await orderService.cancelOrder(order.id, 'Người dùng hủy đơn qua giao diện');
-      updateOrderStatus(order.code, 'processing', 'Đã hủy đơn hàng');
-      setOrder((prev) => (prev ? { ...prev, status: 'processing', statusText: 'Đã hủy đơn hàng' } : null));
+      updateOrderStatus(order.code, 'cancelled', 'Đã hủy đơn hàng');
+      setOrder((prev) => (prev ? { ...prev, status: 'cancelled', statusText: 'Đã hủy đơn hàng' } : null));
       showToast('Đã hủy đơn hàng thành công.', 'info');
       router.push('/orders');
     } catch (err: any) {
@@ -273,7 +273,7 @@ export default function OrderDetailPage() {
   const isOrderDelivered = order.status === 'delivered';
   const isOrderShipping = order.status === 'shipping';
   const isOrderCompleted = order.status === 'completed';
-  const isOrderPending = (order.status as string) === 'pending';
+  const isOrderPending = order.status === 'pending' || (order.status === 'processing' && !order.payment?.isPaid && order.payment?.paymentMethod !== 'CASH');
   const isOrderProcessing = order.status === 'processing';
   const isOrderDisputed = order.status === 'disputed';
 
@@ -931,7 +931,19 @@ export default function OrderDetailPage() {
               {/* SELLER SPECIFIC ACTIONS */}
               {isSellerViewer ? (
                 <div className="space-y-2.5">
-                  {(isOrderPending || isOrderProcessing) && (
+                  {!isCodOrder && !order.payment?.isPaid && (
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+                      <p className="font-bold flex items-center gap-1.5 text-xs text-amber-900">
+                        <Clock className="h-4 w-4 text-amber-600" />
+                        <span>Chờ Người mua hoàn tất thanh toán Escrow</span>
+                      </p>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        Đơn hàng thanh toán trực tuyến. Nút bàn giao bưu cục sẽ tự động kích hoạt ngay khi Người mua nạp cọc thành công vào Escrow.
+                      </p>
+                    </div>
+                  )}
+
+                  {(isCodOrder || order.payment?.isPaid) && (isOrderPending || isOrderProcessing) && order.type === 'inter-campus' && (
                     <Button
                       type="button"
                       onClick={() => setIsShipModalOpen(true)}
@@ -1092,7 +1104,7 @@ export default function OrderDetailPage() {
                         >
                           <Link href={`/orders/review?code=${encodeURIComponent(cleanCode)}`}>
                             <Star className="h-4 w-4 mr-1.5 fill-white" />
-                            <span>Đánh giá sản phẩm (+50 Coins)</span>
+                            <span>Đánh giá sản phẩm (+100 Xu / +200 Xu video)</span>
                           </Link>
                         </Button>
                       ) : (

@@ -59,6 +59,8 @@ export const OrderDetailScreen: React.FC = () => {
   const initialStatus =
     matchedOrder?.status === 'COMPLETED'
       ? 'completed'
+      : matchedOrder?.status === 'DELIVERED'
+      ? 'delivered'
       : matchedOrder?.status === 'CANCELLED'
       ? 'cancelled'
       : matchedOrder?.status === 'DISPUTED'
@@ -76,6 +78,7 @@ export const OrderDetailScreen: React.FC = () => {
         .then((order) => {
           if (!isMounted || !order) return;
           if (order.status === 'COMPLETED') setOrderStatus('completed');
+          else if (order.status === 'DELIVERED') setOrderStatus('delivered');
           else if (order.status === 'CANCELLED') setOrderStatus('cancelled');
           else if (order.status === 'DISPUTED') setOrderStatus('disputed');
           else setOrderStatus('escrow_holding');

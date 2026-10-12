@@ -38,8 +38,10 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   let status: OrderItem['status'] = 'PENDING_SAFEPOINT';
   const backendStatus = String(item.status || '').toUpperCase();
 
-  if (backendStatus === 'COMPLETED' || backendStatus === 'DELIVERED') {
+  if (backendStatus === 'COMPLETED') {
     status = 'COMPLETED';
+  } else if (backendStatus === 'DELIVERED') {
+    status = 'DELIVERED';
   } else if (backendStatus === 'DISPUTED') {
     status = 'DISPUTED';
   } else if (backendStatus === 'PAID' || backendStatus === 'ESCROW_PAID') {
@@ -58,6 +60,10 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
     statusLabel = '✅ Giao dịch hoàn tất';
+  } else if (status === 'DELIVERED') {
+    statusColor = '#10B981';
+    statusBg = '#ECFDF5';
+    statusLabel = '🛵 Đã phát tới sảnh KTX (48h bao test)';
   } else if (status === 'ESCROW_PAID') {
     statusColor = '#EA580C';
     statusBg = '#FFF7ED';

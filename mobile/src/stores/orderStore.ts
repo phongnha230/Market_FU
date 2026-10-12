@@ -23,6 +23,7 @@ export interface OrderItem {
     | 'PENDING_SAFEPOINT'
     | 'ESCROW_PAID'
     | 'HANDOVER_CONFIRMED'
+    | 'DELIVERED'
     | 'COMPLETED'
     | 'CANCELLED'
     | 'DISPUTED';

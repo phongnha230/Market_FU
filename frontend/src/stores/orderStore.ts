@@ -17,7 +17,7 @@ export interface OrderItem {
   appointmentTime?: string;
   meetupLocation?: string;
   safePointHubId?: string;
-  status: 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed' | 'cancelled';
+  status: 'pending' | 'shipping' | 'delivered' | 'processing' | 'completed' | 'disputed' | 'cancelled';
   statusText: string;
   statusColor: string;
   reviewed?: boolean;
@@ -120,7 +120,7 @@ export const useOrderStore = create<OrderState>()(
           if (res.orders) {
             const mapped: OrderItem[] = res.orders.map((bo) => {
               const statusMap: Record<string, OrderItem['status']> = {
-                PENDING: 'processing',
+                PENDING: 'pending',
                 PAID: 'processing',
                 SHIPPING: 'shipping',
                 DELIVERED: 'delivered',

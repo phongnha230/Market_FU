@@ -52,8 +52,7 @@ export default function OrdersPage() {
   const isSeller =
     userData.role === 'SELLER' ||
     userData.role === 'ADMIN' ||
-    userData.kycStatus === 'approved_seller' ||
-    userData.kycRole === 'seller';
+    userData.kycStatus === 'approved_seller';
 
   // Lấy mã sinh viên chính xác từ hồ sơ tài khoản hiện tại
   const currentStudentId =
