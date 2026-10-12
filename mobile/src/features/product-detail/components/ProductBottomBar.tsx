@@ -9,6 +9,8 @@ interface ProductBottomBarProps {
   onBuyNow: (mode?: 'meetup' | 'shipping') => void;
   isOwnProduct?: boolean;
   onManageOwnProduct?: () => void;
+  isSoldOrReserved?: boolean;
+  status?: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
 }
 
 export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
@@ -18,10 +20,35 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
   onBuyNow,
   isOwnProduct,
   onManageOwnProduct,
+  isSoldOrReserved,
+  status,
 }) => {
   return (
     <View style={styles.container}>
-      {isOwnProduct ? (
+      {isSoldOrReserved ? (
+        // SẢN PHẨM ĐÃ BÁN / ĐÃ ĐÓNG / ĐANG HẸN CỌC: Vô hiệu hóa mua & chat
+        <View style={styles.soldProductBox}>
+          <View style={styles.soldHeaderRow}>
+            <View style={[styles.soldIconBox, status === 'SOLD' ? styles.soldIconBoxRed : styles.soldIconBoxAmber]}>
+              <Ionicons
+                name={status === 'SOLD' ? 'checkmark-circle' : 'time'}
+                size={18}
+                color={status === 'SOLD' ? '#DC2626' : '#D97706'}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.soldNoticeTitle}>
+                {status === 'SOLD' ? 'Món đồ này đã được bán thành công' : 'Món đồ này đang có bạn hẹn cọc'}
+              </Text>
+              <Text style={styles.soldNoticeSub}>
+                {status === 'SOLD'
+                  ? 'Giao dịch đã hoàn tất. Bạn không cần nhắn tin cho người bán nữa.'
+                  : 'Sản phẩm tạm thời khóa giao dịch để chờ bàn giao.'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : isOwnProduct ? (
         // SELLER XEM BÀI CỦA CHÍNH MÌNH: Cảnh báo chống gian lận & Quản lý bài đăng
         <View style={styles.ownProductBox}>
           <View style={styles.ownHeaderRow}>
@@ -289,6 +316,43 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12.5,
     fontWeight: '700',
+  },
+  // Hộp thông báo sản phẩm đã bán / đang hẹn cọc
+  soldProductBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+  },
+  soldHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  soldIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldIconBoxRed: {
+    backgroundColor: '#FEE2E2',
+  },
+  soldIconBoxAmber: {
+    backgroundColor: '#FEF3C7',
+  },
+  soldNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  soldNoticeSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 15,
   },
 });
 

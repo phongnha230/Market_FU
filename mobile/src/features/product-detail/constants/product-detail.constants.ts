@@ -25,6 +25,7 @@ export const DEFAULT_PRODUCT_DETAIL: ProductDetailData = {
   seller: {
     id: 's1',
     name: 'Vũ Hải',
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
     major: 'K17 Kỹ thuật phần mềm (SE)',
     rating: '4.9 ★',
     soldCount: 12,

@@ -79,6 +79,8 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         onMakeOffer={actions.handleOpenOfferModal}
         onBuyNow={actions.handleOpenBuyNow}
         isOwnProduct={actions.isOwnProduct}
+        isSoldOrReserved={product.isSoldOrReserved}
+        status={product.status}
         onManageOwnProduct={() =>
           navigation.navigate('EditListing', {
             productId: product.id,

@@ -34,6 +34,8 @@ export interface ProductDetailData {
   campus?: string;
   sellerId?: string;
   sellerCohort?: string;
+  status?: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
+  isSoldOrReserved?: boolean;
   safePointInfo: {
     name: string;
     desc: string;

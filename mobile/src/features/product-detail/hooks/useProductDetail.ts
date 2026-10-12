@@ -32,6 +32,8 @@ export const useProductDetail = (productId?: string) => {
       campus: found.campus,
       sellerId: found.sellerId,
       sellerCohort: found.sellerCohort,
+      status: found.status,
+      isSoldOrReserved: found.status === 'SOLD' || found.status === 'RESERVED' || found.status === 'HIDDEN',
       seller: {
         id: found.sellerId,
         name: found.sellerName,
