@@ -11,6 +11,8 @@ interface FavoriteState {
   setActiveUser: (userId: string | null) => void;
   fetchFavorites: () => Promise<string[]>;
   toggleFavorite: (productId: string) => void;
+  removeFavorite: (productId: string) => void;
+  clearSoldFavorites: (soldIds: string[]) => number;
   isFavorite: (productId: string) => boolean;
   getFavorites: () => string[];
 }
@@ -46,6 +48,22 @@ export const useFavoriteStore = create<FavoriteState>()(
             const serverIds = serverFavs.map((p) => p.id);
             const { favoritesByUser, activeUserId } = get();
             const currentId = activeUserId || 'anonymous';
+
+            // Đồng bộ dữ liệu chi tiết của các sản phẩm yêu thích này vào productStore
+            if (serverFavs.length > 0) {
+              import('./productStore').then(({ useProductStore }) => {
+                const store = useProductStore.getState();
+                const existingMap = new Map(store.products.map((p) => [p.id, p]));
+                serverFavs.forEach((favProd) => {
+                  existingMap.set(favProd.id, {
+                    ...(existingMap.get(favProd.id) || {}),
+                    ...favProd,
+                  });
+                });
+                useProductStore.setState({ products: Array.from(existingMap.values()) });
+              }).catch(() => {});
+            }
+
             set({
               favoriteIds: serverIds,
               favoritesByUser: {
@@ -83,6 +101,55 @@ export const useFavoriteStore = create<FavoriteState>()(
         import('../services/productMobileService').then(({ productMobileService }) => {
           productMobileService.toggleFavorite(id).catch(() => {});
         });
+      },
+
+      removeFavorite: (id: string) => {
+        const { favoritesByUser, activeUserId } = get();
+        const currentId = activeUserId || 'anonymous';
+        const currentList = favoritesByUser[currentId] || [];
+        if (!currentList.includes(id)) return;
+
+        const updatedList = currentList.filter((item) => item !== id);
+        set({
+          favoriteIds: updatedList,
+          favoritesByUser: {
+            ...favoritesByUser,
+            [currentId]: updatedList,
+          },
+        });
+
+        import('../services/productMobileService').then(({ productMobileService }) => {
+          productMobileService.toggleFavorite(id).catch(() => {});
+        });
+      },
+
+      clearSoldFavorites: (soldIds: string[]) => {
+        const { favoritesByUser, activeUserId } = get();
+        const currentId = activeUserId || 'anonymous';
+        const currentList = favoritesByUser[currentId] || [];
+        const soldSet = new Set(soldIds);
+
+        const updatedList = currentList.filter((id) => !soldSet.has(id));
+        const removedCount = currentList.length - updatedList.length;
+
+        if (removedCount > 0) {
+          set({
+            favoriteIds: updatedList,
+            favoritesByUser: {
+              ...favoritesByUser,
+              [currentId]: updatedList,
+            },
+          });
+
+          // Đồng bộ xóa trên Backend cho từng id đã bán
+          import('../services/productMobileService').then(({ productMobileService }) => {
+            soldIds.forEach((id) => {
+              productMobileService.toggleFavorite(id).catch(() => {});
+            });
+          });
+        }
+
+        return removedCount;
       },
 
       isFavorite: (id: string) => {

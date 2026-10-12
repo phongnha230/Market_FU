@@ -62,8 +62,26 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
           <Ionicons name="heart" size={16} color="#DC2626" />
         </TouchableOpacity>
 
+        {/* Sold Overlay Banner */}
+        {product.isSoldOrReserved && (
+          <View style={[
+            styles.statusOverlayBanner,
+            product.status === 'SOLD' ? styles.soldOverlayBanner : styles.reservedOverlayBanner
+          ]}>
+            <Ionicons
+              name={product.status === 'SOLD' ? 'checkmark-circle' : 'time'}
+              size={13}
+              color="#FFFFFF"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.statusOverlayBannerText}>
+              {product.status === 'SOLD' ? 'ĐÃ BÁN (HẾT HÀNG)' : 'ĐANG HẸN CỌC'}
+            </Text>
+          </View>
+        )}
+
         {/* Negotiating Banner */}
-        {product.negotiatingBanner && (
+        {!product.isSoldOrReserved && product.negotiatingBanner && (
           <View style={styles.negotiatingBanner}>
             <Text style={styles.negotiatingBannerText}>Đang thương lượng</Text>
           </View>
@@ -73,21 +91,43 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
       {/* Product Info */}
       <View style={styles.productInfoBox}>
         <View style={styles.priceRow}>
-          <Text style={styles.productPrice}>{product.price}</Text>
+          <Text style={[styles.productPrice, product.status === 'SOLD' && styles.soldPriceText]}>
+            {product.price}
+          </Text>
           {product.originalPrice && (
             <Text style={styles.originalPrice}>{product.originalPrice}</Text>
           )}
         </View>
 
-        <Text style={styles.productTitle} numberOfLines={2}>
+        <Text style={[styles.productTitle, product.status === 'SOLD' && styles.soldTitleText]} numberOfLines={2}>
           {product.title}
         </Text>
 
         {/* Status indicator / Badge */}
         {product.statusText && (
           <View style={styles.stockStatusRow}>
-            <View style={styles.greenStockDot} />
-            <Text style={styles.stockStatusText}>{product.statusText}</Text>
+            <View
+              style={[
+                styles.greenStockDot,
+                product.status === 'SOLD'
+                  ? styles.redStockDot
+                  : product.status === 'RESERVED'
+                  ? styles.amberStockDot
+                  : styles.greenStockDot,
+              ]}
+            />
+            <Text
+              style={[
+                styles.stockStatusText,
+                product.status === 'SOLD'
+                  ? styles.redStockText
+                  : product.status === 'RESERVED'
+                  ? styles.amberStockText
+                  : styles.greenStockText,
+              ]}
+            >
+              {product.statusText}
+            </Text>
           </View>
         )}
 
@@ -106,8 +146,24 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
           </View>
         )}
 
-        {/* Action Button */}
-        {product.actionType === 'chat_now' && (
+        {/* Action Button: Nếu sản phẩm ĐÃ BÁN hoặc ĐANG HẸN CỌC -> Khóa nhắn tin, chuyển sang Xem chi tiết hoặc báo đã bán */}
+        {product.isSoldOrReserved ? (
+          <TouchableOpacity
+            style={styles.actionDisabledSoldBtn}
+            activeOpacity={0.8}
+            onPress={handleCardPress}
+          >
+            <Ionicons
+              name={product.status === 'SOLD' ? 'bag-check-outline' : 'lock-closed-outline'}
+              size={13}
+              color="#64748B"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.actionDisabledSoldBtnText}>
+              {product.status === 'SOLD' ? 'Đã bán • Xem lại tin' : 'Đã hẹn cọc • Xem tin'}
+            </Text>
+          </TouchableOpacity>
+        ) : product.actionType === 'chat_now' ? (
           <TouchableOpacity
             style={styles.actionChatNowBtn}
             activeOpacity={0.88}
@@ -116,9 +172,7 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
             <Ionicons name="chatbubble-ellipses" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
             <Text style={styles.actionChatNowBtnText}>Nhắn tin ngay</Text>
           </TouchableOpacity>
-        )}
-
-        {product.actionType === 'chat' && (
+        ) : product.actionType === 'chat' ? (
           <TouchableOpacity
             style={styles.actionChatBtn}
             activeOpacity={0.8}
@@ -127,9 +181,7 @@ export const SavedProductCard: React.FC<SavedProductCardProps> = React.memo(({
             <Ionicons name="chatbubble-outline" size={13} color="#1E40AF" style={{ marginRight: 4 }} />
             <Text style={styles.actionChatBtnText}>Nhắn tin</Text>
           </TouchableOpacity>
-        )}
-
-        {product.actionType === 'detail' && (
+        ) : (
           <TouchableOpacity
             style={styles.actionDetailBtn}
             activeOpacity={0.8}
@@ -345,5 +397,65 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#475569',
+  },
+  // Overlay banners cho trạng thái ĐÃ BÁN / HẸN CỌC
+  statusOverlayBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 4.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOverlayBanner: {
+    backgroundColor: 'rgba(220, 38, 38, 0.88)',
+  },
+  reservedOverlayBanner: {
+    backgroundColor: 'rgba(217, 119, 6, 0.88)',
+  },
+  statusOverlayBannerText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  soldPriceText: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  soldTitleText: {
+    color: '#64748B',
+  },
+  redStockDot: {
+    backgroundColor: '#DC2626',
+  },
+  amberStockDot: {
+    backgroundColor: '#D97706',
+  },
+  greenStockText: {
+    color: '#059669',
+  },
+  redStockText: {
+    color: '#DC2626',
+  },
+  amberStockText: {
+    color: '#D97706',
+  },
+  actionDisabledSoldBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  actionDisabledSoldBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });

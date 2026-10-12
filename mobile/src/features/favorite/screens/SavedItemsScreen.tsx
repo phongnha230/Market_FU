@@ -28,9 +28,14 @@ export interface SavedProductItem {
   statusBadge?: string;
   actionType: 'chat_now' | 'chat' | 'detail';
   image: any;
-  category: 'all' | 'books' | 'tech';
+  category: string;
   negotiatingBanner?: boolean;
   interestedCount?: number;
+  status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
+  isSoldOrReserved: boolean;
+  sellerId?: string;
+  sellerName?: string;
+  sellerAvatar?: string;
 }
 
 const INITIAL_SAVED_PRODUCTS: SavedProductItem[] = [];
@@ -39,6 +44,8 @@ const CATEGORY_CHIPS = [
   { id: 'all', label: 'Tất cả' },
   { id: 'books', label: 'Giáo trình & Sách' },
   { id: 'tech', label: 'Đồ công nghệ' },
+  { id: 'fashion', label: 'Thời trang & Đồng phục' },
+  { id: 'living', label: 'Đồ gia dụng KTX' },
 ];
 
 export interface SavedItemsScreenProps {
@@ -54,28 +61,84 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   const [showPriceAlert, setShowPriceAlert] = useState<boolean>(true);
   const [sortOrder, setSortOrder] = useState<'newest' | 'price'>('newest');
 
+  // Tự động kéo mới danh sách tin yêu thích từ Backend khi mở màn hình
+  React.useEffect(() => {
+    import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
+      useFavoriteStore.getState().fetchFavorites().catch(() => {});
+    });
+  }, []);
+
   const products = React.useMemo(() => {
     const list: SavedProductItem[] = [];
 
     favoriteIds.forEach((favId) => {
       const sp = storeProducts.find((p) => p.id === favId);
       if (sp) {
+        const isSold = sp.status === 'SOLD';
+        const isReserved = sp.status === 'RESERVED';
+        const isClosed = isSold || isReserved || sp.status === 'HIDDEN';
+
+        let statusText = 'Còn hàng';
+        if (isSold) {
+          statusText = 'Đã bán';
+        } else if (isReserved) {
+          statusText = 'Đang hẹn cọc';
+        } else if (sp.status === 'HIDDEN') {
+          statusText = 'Đã ẩn';
+        }
+
         list.push({
           id: sp.id,
           title: sp.title,
           price: sp.price.toLocaleString('vi-VN') + 'đ',
+          originalPrice: sp.originalPrice ? sp.originalPrice.toLocaleString('vi-VN') + 'đ' : undefined,
           locationTag: `${sp.campus} - ${sp.safePoint || 'Safe-Point'}`,
-          statusText: sp.status === 'AVAILABLE' ? 'Còn hàng' : 'Đã bán/hẹn',
-          statusBadge: sp.condition,
-          actionType: 'chat',
+          statusText,
+          statusBadge: isSold ? 'Đã giao dịch' : sp.condition,
+          actionType: isClosed ? 'detail' : 'chat',
           image: sp.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
-          category: sp.category === 'books' ? 'books' : 'tech',
+          category: sp.category || 'tech',
+          status: sp.status,
+          isSoldOrReserved: isClosed,
+          sellerId: sp.sellerId,
+          sellerName: sp.sellerName,
+          sellerAvatar: sp.sellerAvatar,
         });
       }
     });
 
     return list;
   }, [favoriteIds, storeProducts]);
+
+  const soldItemsCount = React.useMemo(() => {
+    return products.filter((p) => p.isSoldOrReserved).length;
+  }, [products]);
+
+  const handleCleanSold = useCallback(() => {
+    const soldIds = products.filter((p) => p.isSoldOrReserved).map((p) => p.id);
+    if (soldIds.length === 0) {
+      Alert.alert('✨ Thông báo', 'Tất cả sản phẩm trong danh sách yêu thích hiện đều còn hàng!');
+      return;
+    }
+
+    Alert.alert(
+      '🧹 Dọn tin đã bán',
+      `Bạn có muốn xóa ${soldIds.length} món đồ đã bán hoặc đã hẹn cọc khỏi danh sách yêu thích?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Dọn sạch',
+          style: 'destructive',
+          onPress: () => {
+            import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
+              const removed = useFavoriteStore.getState().clearSoldFavorites(soldIds);
+              Alert.alert('✅ Thành công', `Đã dọn ${removed} món đã bán khỏi danh sách tin đã lưu.`);
+            });
+          },
+        },
+      ]
+    );
+  }, [products]);
 
   const handleToggleLove = useCallback((id: string, title: string) => {
     Alert.alert(
@@ -101,8 +164,34 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   }, [navigation]);
 
   const handleActionPress = useCallback((p: SavedProductItem) => {
+    // Nếu sản phẩm đã bán/đã hẹn cọc thì chỉ xem chi tiết, không mở chat
+    if (p.isSoldOrReserved) {
+      handleProductPress(p);
+      return;
+    }
+
+    if (navigation && navigation.navigate && p.sellerId) {
+      const numericPrice = parseInt(p.price.replace(/\D/g, ''), 10) || 0;
+      navigation.navigate('ChatDetail', {
+        partner: {
+          id: p.sellerId,
+          name: p.sellerName || 'Người bán FPT',
+          avatar: p.sellerAvatar || '',
+          cohort: 'K17 FPT',
+          isOnline: true,
+        },
+        product: {
+          id: p.id,
+          title: p.title,
+          price: p.price,
+          image: p.image,
+        },
+      });
+      return;
+    }
+
     handleProductPress(p);
-  }, [handleProductPress]);
+  }, [handleProductPress, navigation]);
 
   const handleSafePointPress = () => {
     Alert.alert(
@@ -203,7 +292,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
         showsVerticalScrollIndicator={false}
       >
         {/* ═══════════════════════════════════════════════════════════
-            3. SUMMARY STRIP: 8 món đồ đã lưu
+            3. SUMMARY STRIP: Số lượng đồ đã lưu & Nút dọn tin đã bán
         ═══════════════════════════════════════════════════════════ */}
         <View style={styles.summaryStrip}>
           <View style={styles.summaryLeft}>
@@ -211,12 +300,24 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
               <Ionicons name="bookmark" size={14} color="#EA580C" />
             </View>
             <Text style={styles.summaryText}>
-              Bạn đã lưu <Text style={styles.boldOrange}>{products.length}</Text> món đồ tại Hòa Lạc & TP.HCM
+              Đã lưu <Text style={styles.boldOrange}>{products.length}</Text> món đồ •{' '}
+              {soldItemsCount > 0 ? (
+                <Text style={styles.boldRedText}>{soldItemsCount} món đã bán</Text>
+              ) : (
+                <Text style={styles.boldGreenText}>Tất cả còn hàng</Text>
+              )}
             </Text>
           </View>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Ionicons name="options-outline" size={18} color="#64748B" />
-          </TouchableOpacity>
+          {soldItemsCount > 0 && (
+            <TouchableOpacity
+              style={styles.cleanSoldBtn}
+              activeOpacity={0.8}
+              onPress={handleCleanSold}
+            >
+              <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.cleanSoldBtnText}>Dọn tin ({soldItemsCount})</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ═══════════════════════════════════════════════════════════
@@ -424,6 +525,27 @@ const styles = StyleSheet.create({
   boldOrange: {
     color: '#EA580C',
     fontWeight: '900',
+  },
+  boldRedText: {
+    color: '#DC2626',
+    fontWeight: '800',
+  },
+  boldGreenText: {
+    color: '#059669',
+    fontWeight: '800',
+  },
+  cleanSoldBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  cleanSoldBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   // 5. Category Chips Scroll
