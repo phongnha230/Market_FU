@@ -72,8 +72,16 @@ function ChatContent() {
     currentUser.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     currentUser.email?.toLowerCase().endsWith('@fe.edu.vn')
   );
-  const isKycVerified = isEduEmail || currentUser.kycStatus === 'approved_student' || currentUser.kycStatus === 'approved_seller';
-  const isSeller = currentUser.kycStatus === 'approved_seller' || currentUser.kycRole === 'seller';
+  const isKycVerified =
+    isEduEmail ||
+    currentUser.role === 'SELLER' ||
+    currentUser.role === 'ADMIN' ||
+    currentUser.kycStatus === 'approved_student' ||
+    currentUser.kycStatus === 'approved_seller';
+  const isSeller =
+    currentUser.role === 'SELLER' ||
+    currentUser.role === 'ADMIN' ||
+    currentUser.kycStatus === 'approved_seller';
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
   const chatStore = useChatStore();
@@ -158,29 +166,6 @@ function ChatContent() {
 
     const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-    const initialTicketMsg: any = {
-      id: `msg-ticket-${Date.now()}`,
-      conversationId: newConvId,
-      senderId: currentUser.id || currentUser.studentId || 'buyer-me',
-      senderRole: 'buyer',
-      messageType: 'PRODUCT_TICKET',
-      text: `Chào bạn! Mình quan tâm đến món đồ "${resolvedTitle}" (${resolvedPrice.toLocaleString('vi-VN')} đ). Bạn còn bán không ạ?`,
-      productTicket: ticket,
-      isRead: true,
-      createdAt: nowStr,
-    };
-
-    const initialReplyMsg: any = {
-      id: `msg-reply-${Date.now() + 1}`,
-      conversationId: newConvId,
-      senderId: userIdParam || 'seller-partner',
-      senderRole: 'seller',
-      messageType: 'TEXT',
-      text: `Chào bạn! Mình là ${resolvedName}. Món đồ "${resolvedTitle}" vẫn còn nhé, bạn muốn trao đổi thêm hay hẹn xem đồ tại sảnh campus nào?`,
-      isRead: true,
-      createdAt: nowStr,
-    };
-
     const newConv: any = {
       id: newConvId,
       buyerId: currentUser.id || currentUser.studentId || 'buyer',
@@ -201,12 +186,12 @@ function ChatContent() {
         cohort: resolvedCohortCampus,
         isOnline: true,
       },
-      lastMessageText: initialReplyMsg.text,
+      lastMessageText: 'Bắt đầu cuộc trò chuyện',
       lastMessageAt: nowStr,
       unreadCount: 0,
     };
 
-    const actualId = chatStore.addOrUpdateConversation(newConv, [initialTicketMsg, initialReplyMsg]);
+    const actualId = chatStore.addOrUpdateConversation(newConv, []);
     setSelectedConvId(actualId);
 
     // Đồng bộ phía backend nếu có kết nối
@@ -271,6 +256,7 @@ function ChatContent() {
               locationNote: c.otherUser?.campus || 'Campus',
               imageUrl: c.product?.imageUrl || '/products/keyboard-akko.jpg',
               suggestedOffer: `${Math.round((c.product?.price || 100000) * 0.9).toLocaleString('vi-VN')} đ`,
+              status: (c.product?.status as any) || 'AVAILABLE',
             },
             messages: storeMsgs.length > 0
               ? (() => {
@@ -290,13 +276,14 @@ function ChatContent() {
 
                     // Kiểm tra xem sau tin nhắn này có phản hồi đồng ý hoặc từ chối hay không
                     const laterMsgs = storeMsgs.slice(idx + 1);
-                    const isLaterAccepted = laterMsgs.some((later) =>
+                    const acceptMsgItem = laterMsgs.find((later) =>
                       Boolean(
                         later.text?.includes('[OFFER_ACCEPTED]') ||
                         later.text?.toLowerCase().includes('đồng ý mức giá') ||
                         later.text?.toLowerCase().includes('đồng ý chốt')
                       )
                     );
+                    const isLaterAccepted = Boolean(acceptMsgItem);
                     const isLaterRejected = laterMsgs.some((later) =>
                       Boolean(
                         later.text?.includes('[OFFER_REJECTED]') ||
@@ -308,6 +295,27 @@ function ChatContent() {
                     // Thẻ đề xuất giá ban đầu sẽ đổi trạng thái khi có tin nhắn sau phản hồi
                     const isOfferAccepted = hasOfferPrice ? (isLaterAccepted || isAcceptMsg) : isAcceptMsg;
                     const isOfferRejected = hasOfferPrice ? isLaterRejected : false;
+
+                    // Xác định thời điểm chấp nhận deal để tính hạn 30 phút
+                    let offerAcceptedAt: number | undefined;
+                    if (isOfferAccepted) {
+                      const targetMsg = acceptMsgItem || (isAcceptMsg ? m : undefined);
+                      if (targetMsg?.createdAt) {
+                        const parsed = new Date(targetMsg.createdAt).getTime();
+                        if (!isNaN(parsed) && parsed > 0) {
+                          offerAcceptedAt = parsed;
+                        }
+                      }
+                      if (!offerAcceptedAt) {
+                        offerAcceptedAt = Date.now();
+                      }
+                    }
+
+                    const isOfferExpired = Boolean(
+                      isOfferAccepted &&
+                      offerAcceptedAt &&
+                      Date.now() - offerAcceptedAt > 30 * 60 * 1000
+                    );
 
                     // Đảm bảo có mức giá hiển thị nếu tin nhắn có đề xuất
                     let displayPrice = m.offerPrice ? `${m.offerPrice.toLocaleString('vi-VN')} đ` : undefined;
@@ -330,6 +338,8 @@ function ChatContent() {
                       time: m.createdAt,
                       isOfferAccepted,
                       isOfferRejected,
+                      isOfferExpired,
+                      offerAcceptedAt,
                       offerPrice: displayPrice,
                       numericOfferPrice: numPrice,
                       productTicket: m.productTicket,
@@ -398,31 +408,7 @@ function ChatContent() {
       return;
     }
 
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      sender: 'me',
-      text,
-      time: timeStr,
-    };
-
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === activeConv.id) {
-          return {
-            ...c,
-            lastMessage: `Bạn: ${text}`,
-            time: timeStr,
-            messages: [...c.messages, newMsg],
-          };
-        }
-        return c;
-      })
-    );
-
-    // Gửi qua socket và lưu backend
+    // Gửi qua chatStore (tự động cập nhật optimistic UI và truyền realtime qua Socket/REST)
     chatStore.sendMessage({
       conversationId: activeConv.id,
       text,
@@ -430,29 +416,6 @@ function ChatContent() {
     });
 
     setInputText('');
-
-    // Nếu là phòng demo dynamicRoom, kích hoạt giả lập phản hồi ngắn gọn
-    const isMockRoom = activeConv.id.startsWith('conv-');
-    if (isMockRoom) {
-      setIsTypingOther(true);
-      setTimeout(() => {
-        setIsTypingOther(false);
-        const autoReplies = [
-          'Okie bạn nha! Mình đã note lại thông tin.',
-          'Nhất trí nhé bạn, có gì tới sảnh Alpha hoặc Passio alo mình!',
-          'Được luôn, mình đang mang đồ theo người đây.',
-        ];
-        const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
-        
-        chatStore.sendMessage({
-          conversationId: activeConv.id,
-          senderId: activeConv.id,
-          senderRole: 'seller',
-          messageType: 'TEXT',
-          text: replyText,
-        });
-      }, 1500);
-    }
   };
 
   const handleAcceptOffer = (msgId: string, offerPrice: number) => {
@@ -686,13 +649,11 @@ function ChatContent() {
                       onOfferPrice={(offer) => {
                         const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
                         chatStore.sendOfferPrice(activeConv.id, numericPrice);
-                        handleSendMessage(`Mình gửi đề nghị thương lượng giá: ${offer}`);
                         showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
                       }}
                       onScheduleMeeting={() => {
                         const defaultLocation = 'Sảnh Alpha / Cổng KTX';
                         chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
-                        handleSendMessage('Mình hẹn điểm gặp bàn giao đồ tại Sảnh Alpha hoặc Cổng KTX nhé!');
                         showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
                       }}
                     />
@@ -707,6 +668,7 @@ function ChatContent() {
                   isTyping={isTypingOther}
                   containerRef={chatMessagesContainerRef}
                   productId={activeConv.pinnedProduct?.id}
+                  productStatus={activeConv.pinnedProduct?.status}
                   isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                   onAcceptOffer={handleAcceptOffer}
                   onRejectOffer={handleRejectOffer}

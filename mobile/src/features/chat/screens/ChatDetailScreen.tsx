@@ -84,6 +84,8 @@ export const ChatDetailScreen: React.FC = () => {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const inputTextRef = useRef(inputText);
+  const initialOfferUiHandledRef = useRef(false);
+  const initialOfferApiHandledRef = useRef(false);
 
   useEffect(() => {
     inputTextRef.current = inputText;
@@ -111,13 +113,34 @@ export const ChatDetailScreen: React.FC = () => {
         try {
           const remoteMsgs = await chatMobileService.getMessages(activeConvId, currentUserId);
           if (isMounted && remoteMsgs && remoteMsgs.length > 0) {
-            const hasAccepted = remoteMsgs.some(
+            const acceptMsg = remoteMsgs.find(
               (m) => m.message?.includes('[OFFER_ACCEPTED]') || m.message?.toLowerCase().includes('đồng ý chốt')
             );
+            const hasAccepted = Boolean(acceptMsg);
             const hasRejected = remoteMsgs.some(
               (m) => m.message?.includes('[OFFER_REJECTED]') || m.message?.toLowerCase().includes('từ chối đề xuất')
             );
-            const defaultOfferStatus = hasAccepted ? 'accepted' : (hasRejected ? 'declined' : 'pending');
+
+            // Kiểm tra trạng thái khả dụng của món đồ và hạn 30 phút
+            const isProductUnavailable = Boolean((product as any)?.status && (product as any).status !== 'AVAILABLE');
+            let isOfferExpired = false;
+            if (acceptMsg?.createdAt) {
+              const diffMs = Date.now() - new Date(acceptMsg.createdAt).getTime();
+              if (diffMs > 30 * 60 * 1000) {
+                isOfferExpired = true;
+              }
+            }
+
+            let defaultOfferStatus: 'pending' | 'accepted' | 'declined' | 'expired' | 'unavailable' = 'pending';
+            if (isProductUnavailable) {
+              defaultOfferStatus = 'unavailable';
+            } else if (isOfferExpired) {
+              defaultOfferStatus = 'expired';
+            } else if (hasAccepted) {
+              defaultOfferStatus = 'accepted';
+            } else if (hasRejected) {
+              defaultOfferStatus = 'declined';
+            }
 
             const mapped: MessageItem[] = remoteMsgs.map((m) => {
               const msgType: any = m.messageType === 'OFFER_PRICE' ? 'offer' : (m.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
@@ -234,21 +257,25 @@ export const ChatDetailScreen: React.FC = () => {
   // If navigated with initial offer from MakeOfferModal
   useEffect(() => {
     if (initialOffer) {
-      const offerMsg: MessageItem = {
-        id: 'offer-' + Date.now(),
-        sender: 'me',
-        type: 'offer',
-        text: initialOffer.message,
-        time: 'Vừa xong',
-        offerData: {
-          originalPrice: initialOffer.originalPrice || 480000,
-          offeredPrice: initialOffer.offeredPrice || 430000,
-          status: 'pending',
-        },
-      };
-      setMessages((prev) => [...prev, offerMsg]);
+      if (!initialOfferUiHandledRef.current) {
+        initialOfferUiHandledRef.current = true;
+        const offerMsg: MessageItem = {
+          id: 'offer-' + Date.now(),
+          sender: 'me',
+          type: 'offer',
+          text: initialOffer.message,
+          time: 'Vừa xong',
+          offerData: {
+            originalPrice: initialOffer.originalPrice || 480000,
+            offeredPrice: initialOffer.offeredPrice || 430000,
+            status: 'pending',
+          },
+        };
+        setMessages((prev) => [...prev, offerMsg]);
+      }
 
-      if (conversationId && initialOffer.offeredPrice) {
+      if (conversationId && initialOffer.offeredPrice && !initialOfferApiHandledRef.current) {
+        initialOfferApiHandledRef.current = true;
         chatMobileService.sendOfferPrice(conversationId, initialOffer.offeredPrice).catch(() => {});
       }
     }

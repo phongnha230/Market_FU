@@ -262,12 +262,15 @@ export const useChatStore = create<ChatState>()(
         const cleanupMsg = socketClient.onReceiveMessage((savedMsg) => {
           if (!savedMsg?.conversationId) return;
           const conversationId = savedMsg.conversationId;
+          const savedId = savedMsg.id || savedMsg._id;
+          const incomingSenderId = savedMsg.senderId || savedMsg.sender?.id;
+
           const newMsg: ChatMessage = {
-            id: savedMsg.id || `msg-${Date.now()}`,
+            id: savedId || `msg-${Date.now()}`,
             conversationId,
-            senderId: savedMsg.senderId,
+            senderId: incomingSenderId,
             senderRole: 'buyer',
-            messageType: savedMsg.type || 'TEXT',
+            messageType: savedMsg.messageType || savedMsg.type || 'TEXT',
             text: savedMsg.text,
             mediaUrl: savedMsg.mediaUrl,
             offerPrice: savedMsg.offerPrice,
@@ -278,7 +281,28 @@ export const useChatStore = create<ChatState>()(
 
           set((state) => {
             const currentMsgs = state.messagesByConversation[conversationId] || [];
+            // Bỏ qua nếu tin nhắn với ID này đã tồn tại
             if (currentMsgs.some((m) => m.id === newMsg.id)) return state;
+
+            // Nếu tin nhắn do chính user gửi và đang có bản optimistic tạm thời (id bắt đầu bằng msg-), thay thế bằng ID chính thức
+            const currentUserId = state.activeUserId;
+            const isMe = incomingSenderId === currentUserId;
+            const optimisticIndex = isMe
+              ? currentMsgs.findIndex(
+                  (m) =>
+                    m.id.startsWith('msg-') &&
+                    m.text === newMsg.text &&
+                    (m.offerPrice === newMsg.offerPrice || (!m.offerPrice && !newMsg.offerPrice))
+                )
+              : -1;
+
+            let updatedMsgs: ChatMessage[];
+            if (optimisticIndex !== -1) {
+              updatedMsgs = [...currentMsgs];
+              updatedMsgs[optimisticIndex] = newMsg;
+            } else {
+              updatedMsgs = [...currentMsgs, newMsg];
+            }
 
             const updatedConversations = state.conversations.map((c) =>
               c.id === conversationId
@@ -295,7 +319,7 @@ export const useChatStore = create<ChatState>()(
               conversations: updatedConversations,
               messagesByConversation: {
                 ...state.messagesByConversation,
-                [conversationId]: [...currentMsgs, newMsg],
+                [conversationId]: updatedMsgs,
               },
             };
           });
@@ -441,8 +465,8 @@ export const useChatStore = create<ChatState>()(
           };
         });
 
-        // Bắn Socket realtime
-        socketClient.sendMessage({
+        // Ưu tiên gửi realtime qua Socket.IO nếu đang kết nối; chỉ fallback REST API khi mất kết nối Socket
+        const isSocketSent = socketClient.sendMessage({
           conversationId,
           text: newMsg.text,
           type: messageType,
@@ -451,21 +475,22 @@ export const useChatStore = create<ChatState>()(
           meetupLocation,
         });
 
-        // Backup lưu REST API
-        chatService
-          .sendMessage(conversationId, {
-            text: newMsg.text,
-            type: messageType,
-            offerPrice,
-            meetupLocation,
-          })
-          .catch(() => {});
+        if (!isSocketSent) {
+          // Backup lưu REST API khi Socket offline
+          chatService
+            .sendMessage(conversationId, {
+              text: newMsg.text,
+              type: messageType,
+              offerPrice,
+              meetupLocation,
+            })
+            .catch(() => {});
+        }
 
         return newMsg;
       },
 
       sendOfferPrice: (conversationId, offerPrice) => {
-        socketClient.sendOfferPrice(conversationId, offerPrice);
         return get().sendMessage({
           conversationId,
           messageType: 'OFFER_PRICE',
@@ -475,7 +500,6 @@ export const useChatStore = create<ChatState>()(
       },
 
       proposeMeetupLocation: (conversationId, location) => {
-        socketClient.sendMeetupLocation(conversationId, location);
         return get().sendMessage({
           conversationId,
           messageType: 'MEETUP_LOCATION',

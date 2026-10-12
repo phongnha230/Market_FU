@@ -11,7 +11,7 @@ export interface MessageItem {
   offerData?: {
     originalPrice: number;
     offeredPrice: number;
-    status: 'pending' | 'accepted' | 'declined';
+    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'unavailable';
   };
   safePointData?: {
     location: string;
@@ -82,11 +82,21 @@ const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
 
         {/* Status / Actions */}
         <View style={styles.offerFooter}>
-          {offerData.status === 'accepted' ? (
+          {offerData.status === 'unavailable' ? (
+            <View style={styles.declinedBadge}>
+              <Ionicons name="alert-circle" size={12} color="#DC2626" />
+              <Text style={styles.declinedText}>Món đồ đã có người khác đặt mua</Text>
+            </View>
+          ) : offerData.status === 'expired' ? (
+            <View style={[styles.declinedBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+              <Ionicons name="time" size={12} color="#B45309" />
+              <Text style={[styles.declinedText, { color: '#B45309' }]}>Thỏa thuận đã hết hạn (30 phút)</Text>
+            </View>
+          ) : offerData.status === 'accepted' ? (
             <View style={styles.statusCol}>
               <View style={styles.acceptedBadge}>
                 <Ionicons name="checkmark-circle" size={12} color="#059669" />
-                <Text style={styles.acceptedText}>Đã chốt mức giá này</Text>
+                <Text style={styles.acceptedText}>Đã chốt mức giá này (Ưu đãi 30p)</Text>
               </View>
               {isMe && onCheckoutOffer && (
                 <TouchableOpacity

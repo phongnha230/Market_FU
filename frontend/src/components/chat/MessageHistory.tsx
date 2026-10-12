@@ -5,13 +5,47 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle } from 'lucide-react';
 
 function getInitials(name?: string): string {
   if (!name) return 'SV';
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function OfferCountdown({ acceptedAt }: { acceptedAt?: number }) {
+  const [timeLeft, setTimeLeft] = React.useState<number>(() => {
+    if (!acceptedAt) return 30 * 60;
+    return Math.max(0, Math.floor((acceptedAt + 30 * 60 * 1000 - Date.now()) / 1000));
+  });
+
+  React.useEffect(() => {
+    if (!acceptedAt) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((acceptedAt + 30 * 60 * 1000 - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [acceptedAt]);
+
+  if (timeLeft <= 0) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+        <Clock className="h-3 w-3" /> Hết hạn 30p
+      </span>
+    );
+  }
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded-md">
+      <Clock className="h-3 w-3 text-emerald-600" />
+      Còn {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+    </span>
+  );
 }
 
 interface MessageHistoryProps {
@@ -21,6 +55,7 @@ interface MessageHistoryProps {
   isTyping: boolean;
   containerRef?: React.Ref<HTMLDivElement>;
   productId?: string;
+  productStatus?: string;
   isSeller?: boolean;
   onAcceptOffer?: (msgId: string, offerPrice: number) => void;
   onRejectOffer?: (msgId: string, offerPrice: number) => void;
@@ -33,6 +68,7 @@ export default function MessageHistory({
   isTyping,
   containerRef,
   productId,
+  productStatus,
   isSeller,
   onAcceptOffer,
   onRejectOffer,
@@ -160,6 +196,71 @@ export default function MessageHistory({
 
           if (msg.isOfferAccepted) {
             const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
+            const isProductUnavailable = Boolean(productStatus && productStatus !== 'AVAILABLE');
+            const isExpired = Boolean(
+              msg.isOfferExpired ||
+              (msg.offerAcceptedAt && Date.now() - msg.offerAcceptedAt > 30 * 60 * 1000)
+            );
+
+            // 1. Trường hợp sản phẩm đã bị người khác mua trước (First-Come-First-Served)
+            if (isProductUnavailable) {
+              return (
+                <div key={msg.id} className="flex justify-center my-2.5">
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-xl bg-slate-400 text-white flex items-center justify-center shrink-0">
+                        <AlertCircle className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-slate-800 text-xs flex items-center justify-between">
+                          <span>Món đồ đã có người mua</span>
+                          <span className="rounded bg-rose-100 text-rose-800 text-[10px] font-bold px-1.5 py-0.5">
+                            Đã bán / Giữ chỗ
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Giá thỏa thuận trước đó: <span className="line-through">{msg.offerPrice}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
+                      Rất tiếc! Sinh viên khác đã nhanh tay thanh toán / đặt mua món đồ này trước.
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // 2. Trường hợp đã quá hạn 30 phút mà chưa tạo đơn hàng
+            if (isExpired) {
+              return (
+                <div key={msg.id} className="flex justify-center my-2.5">
+                  <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-amber-950 text-xs flex items-center justify-between">
+                          <span>Thỏa thuận giá đã hết hạn</span>
+                          <span className="rounded bg-amber-200/70 text-amber-800 text-[10px] font-bold px-1.5 py-0.5">
+                            Quá 30 phút
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-amber-800 font-medium">
+                          Giá từng chốt: <span className="line-through">{msg.offerPrice}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-700 flex items-center justify-between">
+                      <span>Ưu đãi quá 30 phút. Vui lòng thương lượng lại!</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // 3. Trường hợp bình thường: Còn trong hạn 30 phút và sản phẩm vẫn AVAILABLE
             return (
               <div key={msg.id} className="flex justify-center my-2.5">
                 <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200/90 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
@@ -168,8 +269,9 @@ export default function MessageHistory({
                       <CheckCircle2 className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-extrabold text-emerald-950 text-xs">
-                        Đã chốt giá thỏa thuận
+                      <div className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
+                        <span>Đã chốt giá thỏa thuận</span>
+                        <OfferCountdown acceptedAt={msg.offerAcceptedAt} />
                       </div>
                       <div className="text-[11px] text-emerald-800 font-medium">
                         Giá chốt: <strong className="text-emerald-700 font-extrabold text-xs">{msg.offerPrice}</strong>
@@ -178,7 +280,10 @@ export default function MessageHistory({
                   </div>
 
                   {!isSeller && productId && numericPrice > 0 && (
-                    <div className="pt-2 border-t border-emerald-200/60 flex justify-end">
+                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
+                      <span className="text-[10px] text-emerald-700 font-medium">
+                        Giữ ưu đãi trong 30 phút
+                      </span>
                       <Link
                         href={`/checkout?productId=${encodeURIComponent(productId)}&agreedPrice=${numericPrice}`}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition active:scale-95"

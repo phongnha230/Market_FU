@@ -4,6 +4,7 @@ export const DEFAULT_PARTNER: ChatPartner = {
   id: '',
   name: 'Người dùng FPT',
   major: 'Sinh viên FPT',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
   isOnline: false,
 };
 

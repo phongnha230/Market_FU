@@ -150,7 +150,15 @@ class SocketClient {
   }
 
   /**
-   * Gửi tin nhắn qua Socket
+   * Kiểm tra xem Socket có đang kết nối thành công không
+   */
+  isConnected(): boolean {
+    const socket = this.getSocket();
+    return Boolean(socket && socket.connected);
+  }
+
+  /**
+   * Gửi tin nhắn qua Socket (trả về true nếu gửi thành công qua Socket)
    */
   sendMessage(payload: {
     conversationId: string;
@@ -159,11 +167,13 @@ class SocketClient {
     mediaUrl?: string;
     offerPrice?: number;
     meetupLocation?: string;
-  }) {
+  }): boolean {
     const socket = this.getSocket();
     if (socket && socket.connected) {
       socket.emit('send_message', payload);
+      return true;
     }
+    return false;
   }
 
   /**

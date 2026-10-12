@@ -17,6 +17,8 @@ export interface ChatMessage {
   image?: string;
   isOfferAccepted?: boolean;
   isOfferRejected?: boolean;
+  isOfferExpired?: boolean;
+  offerAcceptedAt?: number;
   offerPrice?: string;
   numericOfferPrice?: number;
   productTicket?: ProductTicket;
@@ -45,6 +47,7 @@ export interface Conversation {
     locationNote: string;
     imageUrl: string;
     suggestedOffer: string;
+    status?: string;
   };
   messages: ChatMessage[];
 }

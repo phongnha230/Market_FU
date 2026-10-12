@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatPartner } from '../types/chat.types';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface ChatHeaderProps {
   partner: ChatPartner;
@@ -9,6 +11,8 @@ interface ChatHeaderProps {
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({ partner, onGoBack }) => {
+  const partnerAvatar = partner.avatarUrl || (partner as any)?.avatar;
+
   return (
     <View style={styles.header}>
       {onGoBack && (
@@ -22,7 +26,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ partner, onGoBack }) => 
       )}
 
       <View style={styles.avatar}>
-        <Ionicons name="person" size={18} color="#FFFFFF" />
+        {partnerAvatar ? (
+          <Image
+            source={resolveAvatarImage(partnerAvatar)}
+            style={styles.avatarImg}
+            contentFit="cover"
+          />
+        ) : (
+          <Ionicons name="person" size={18} color="#FFFFFF" />
+        )}
         {partner.isOnline && <View style={styles.onlineDot} />}
       </View>
 
@@ -53,7 +65,8 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: 8, padding: 2 },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F27024', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#FFFFFF' },
+  avatarImg: { width: '100%', height: '100%', borderRadius: 19 },
+  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#FFFFFF', zIndex: 2 },
   info: { flex: 1, marginLeft: 10 },
   name: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   status: { fontSize: 10.5, color: '#64748B', marginTop: 1 },
