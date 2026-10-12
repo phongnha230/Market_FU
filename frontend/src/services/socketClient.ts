@@ -38,15 +38,9 @@ class SocketClient {
     if (typeof window === 'undefined') return null;
 
     const token = useUserStore.getState().accessToken;
-    if (!token) {
-      if (this.socket) {
-        this.disconnect();
-      }
-      return null;
-    }
 
-    // Nếu token đã hết hạn theo exp JWT thì không kết nối socket và thông báo
-    if (isJwtExpired(token)) {
+    // Nếu token đã hết hạn theo exp JWT thì logout và clear token
+    if (token && isJwtExpired(token)) {
       this.disconnect();
       useUserStore.getState().logout();
       useAuthAlertStore
@@ -67,7 +61,7 @@ class SocketClient {
 
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
-        auth: { token },
+        auth: { token: token || undefined },
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,

@@ -6,11 +6,13 @@ import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProductStore } from '../../../stores/productStore';
 import { ProductCardProps } from '../../../components/common/ProductCard';
 import { resolveProductImage } from '../../../lib/imageResolver';
+import { socketMobileService } from '../../../services/socketMobileService';
+import { adaptBackendProductToMobile } from '../../../services/productMobileService';
 
 export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   const { currentCampus, campuses, setCampusByIndex } = useCampusStore();
   const { user } = useAuthStore();
-  const { products: storeProducts, fetchProducts } = useProductStore();
+  const { products: storeProducts, fetchProducts, addProductFromRemote, updateProduct } = useProductStore();
   const [selectedFilter, setSelectedFilter] = useState(0);
 
   // Lưu trữ previous initialSearch để cập nhật state trong render theo chuẩn React
@@ -26,6 +28,33 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   useEffect(() => {
     fetchProducts().catch(() => {});
   }, [fetchProducts]);
+
+  // Lắng nghe Realtime Socket: Khi Web (hoặc thiết bị khác) đăng/cập nhật sản phẩm
+  useEffect(() => {
+    const unsubCreated = socketMobileService.onProductCreated((rawProduct) => {
+      try {
+        console.log('⚡ [Mobile Realtime]: Nhận bài đăng mới từ Web/Hệ thống:', rawProduct?.title);
+        const adapted = adaptBackendProductToMobile(rawProduct);
+        addProductFromRemote(adapted);
+      } catch (e: any) {
+        console.log('⚠️ [Mobile Socket parse created error]:', e?.message);
+      }
+    });
+
+    const unsubUpdated = socketMobileService.onProductUpdated((rawProduct) => {
+      try {
+        const adapted = adaptBackendProductToMobile(rawProduct);
+        updateProduct(adapted.id, adapted);
+      } catch (e: any) {
+        console.log('⚠️ [Mobile Socket parse updated error]:', e?.message);
+      }
+    });
+
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+    };
+  }, [addProductFromRemote, updateProduct]);
 
   // Tìm kiếm thông minh Meilisearch Engine có Debounce (350ms)
   useEffect(() => {

@@ -395,7 +395,7 @@ export class OrderService {
           orderType,
           status: 'PENDING',
           warrantyHours: orderType === 'SHIP_COD' ? 48 : 24,
-          appointmentTime: appointmentTime ? new Date(appointmentTime) : undefined,
+          ...(appointmentTime ? { appointmentTime: new Date(appointmentTime) } : {}),
           meetupLocation: meetupLocation || safePoint || (orderType === 'MEETUP' ? product.meetupLocation : undefined),
           safePointHubId: safePointHubId || undefined,
           payment: {
