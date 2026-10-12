@@ -84,6 +84,7 @@ export interface CreateOrderParams {
   safePoint?: string;
   appointmentTime?: string;
   safePointHubId?: string;
+  voucherCode?: string;
   paymentMethod?: 'VIETQR' | 'PAYOS_WEB' | 'CASH';
   shipping?: {
     receiverName: string;

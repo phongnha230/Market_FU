@@ -14,6 +14,7 @@ export const createOrderSchema = z
     meetupLocation: z.string().max(200, 'Địa điểm hẹn không quá 200 ký tự').optional(),
     appointmentTime: z.string().optional(),
     safePointHubId: z.string().optional(),
+    voucherCode: z.string().trim().max(100).optional(),
     shipping: z
       .object({
         receiverName: z.string().min(2, 'Tên người nhận phải có ít nhất 2 ký tự'),

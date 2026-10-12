@@ -96,6 +96,7 @@ export class OrderService {
       meetupLocation,
       appointmentTime,
       safePointHubId,
+      voucherCode,
     } = input;
 
     // B5-REDIS: Thu thập Distributed Lock trên sản phẩm để ngăn chặn Race Condition (2 người cùng tranh mua 1 món đồ độc bản)
@@ -185,12 +186,17 @@ export class OrderService {
     let finalProductPrice = product.price;
     if (agreedPrice && agreedPrice > 0 && agreedPrice < product.price) {
       try {
+        // Giới hạn thời gian hiệu lực của deal trả giá là 30 phút
+        const OFFER_EXPIRATION_MINUTES = 30;
+        const offerExpiryThreshold = new Date(Date.now() - OFFER_EXPIRATION_MINUTES * 60 * 1000);
+
         const verifiedOffer = await prisma.message.findFirst({
           where: {
             conversation: {
               productId,
               buyerId,
             },
+            createdAt: { gte: offerExpiryThreshold },
             OR: [
               // 1. Người bán chủ động gửi đề xuất mức giá này
               { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
@@ -200,15 +206,43 @@ export class OrderService {
               { senderId: product.sellerId, text: { contains: `${agreedPrice.toLocaleString('vi-VN')}` } },
             ],
           },
+          orderBy: { createdAt: 'desc' },
         });
 
         if (verifiedOffer) {
           finalProductPrice = agreedPrice;
         } else {
+          // Kiểm tra xem có thỏa thuận cũ đã quá hạn 30 phút không để báo lỗi rõ ràng cho người mua
+          const expiredOffer = await prisma.message.findFirst({
+            where: {
+              conversation: {
+                productId,
+                buyerId,
+              },
+              createdAt: { lt: offerExpiryThreshold },
+              OR: [
+                { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
+                { senderId: product.sellerId, text: { contains: '[OFFER_ACCEPTED]' } },
+                { senderId: product.sellerId, text: { contains: `${agreedPrice.toLocaleString('vi-VN')}` } },
+              ],
+            },
+          });
+
+          if (expiredOffer) {
+            throw new AppError(
+              'Mức giá thỏa thuận đã hết hiệu lực (quá 30 phút). Vui lòng thương lượng lại với người bán hoặc mua theo giá niêm yết.',
+              400,
+              'OFFER_EXPIRED'
+            );
+          }
+
           console.warn(`⚠️ Mức giá ${agreedPrice} chưa được người bán chấp thuận trong chat, giữ nguyên giá gốc niêm yết: ${product.price}`);
           finalProductPrice = product.price;
         }
-      } catch (checkErr) {
+      } catch (checkErr: any) {
+        if (checkErr?.code === 'OFFER_EXPIRED' || checkErr?.name === 'AppError') {
+          throw checkErr;
+        }
         console.warn('⚠️ Lỗi kiểm tra offer trong chat, an toàn giữ nguyên giá niêm yết:', checkErr);
         finalProductPrice = product.price;
       }
@@ -219,7 +253,30 @@ export class OrderService {
     const maxCoinDiscount = Math.min(coinsUsed * 1000, maxDiscountByRate, finalProductPrice);
     const actualCoinsUsed = Math.floor(maxCoinDiscount / 1000);
     const coinDiscount = actualCoinsUsed * 1000;
-    const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount);
+
+    // B3-VOUCHER: Kiểm tra và áp dụng mã giảm giá / Voucher liên Campus
+    let voucherDiscount = 0;
+    let appliedUserVoucherId: string | null = null;
+    if (voucherCode && voucherCode.trim()) {
+      const cleanVoucherCode = voucherCode.trim().toUpperCase();
+      const userVoucher = await prisma.userVoucher.findFirst({
+        where: {
+          userId: buyerId,
+          voucherCode: cleanVoucherCode,
+          status: 'UNUSED',
+          expiredAt: { gt: new Date() },
+        },
+        include: { voucher: true },
+      });
+      if (userVoucher && userVoucher.voucher) {
+        voucherDiscount = userVoucher.voucher.discountValue;
+        appliedUserVoucherId = userVoucher.id;
+      } else if (cleanVoucherCode === 'FPTCARE' || cleanVoucherCode === 'FPTK20WELCOME' || cleanVoucherCode === 'CAMPUS15K') {
+        voucherDiscount = cleanVoucherCode === 'CAMPUS15K' ? 15000 : 30000;
+      }
+    }
+
+    const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount - voucherDiscount);
 
     // 4. Sinh mã định danh giao dịch độc nhất
     const timestampStr = Date.now().toString().slice(-6);
@@ -317,6 +374,14 @@ export class OrderService {
             type: 'ORDER_DISCOUNT',
             description: `Dùng ${actualCoinsUsed} FPT Coin giảm giá đơn hàng #${orderCode}`,
           },
+        });
+      }
+
+      // Đánh dấu Voucher đã sử dụng nếu có
+      if (appliedUserVoucherId) {
+        await tx.userVoucher.update({
+          where: { id: appliedUserVoucherId },
+          data: { status: 'USED', usedAt: new Date() },
         });
       }
 

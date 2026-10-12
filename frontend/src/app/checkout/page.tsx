@@ -286,6 +286,7 @@ function CheckoutContent() {
           meetupLocation: isMeetup ? selectedHub : undefined,
           safePoint: isMeetup ? selectedHub : undefined,
           appointmentTime: appointmentIso,
+          voucherCode: isMeetup ? undefined : 'CAMPUS15K',
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined
