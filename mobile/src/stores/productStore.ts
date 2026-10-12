@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { productMobileService } from '../services/productMobileService';
 
 export interface ProductItem {
   id: string;
@@ -9,6 +10,7 @@ export interface ProductItem {
   originalPrice?: number;
   condition: string;
   category: string;
+  categoryType?: string;
   images: any[];
   campus: string;
   sellerId: string;
@@ -35,6 +37,8 @@ export interface FetchProductsFilter {
   category?: string;
   search?: string;
   hashtag?: string;
+  limit?: number;
+  page?: number;
 }
 
 interface ProductState {
@@ -56,11 +60,21 @@ export const useProductStore = create<ProductState>()(
       fetchProducts: async (filter?: string | FetchProductsFilter) => {
         try {
           set({ isLoading: true });
-          const { productMobileService } = await import('../services/productMobileService');
-          const params =
-            typeof filter === 'string'
-              ? { campus: filter }
-              : filter || {};
+          let params: FetchProductsFilter = {};
+          if (typeof filter === 'string') {
+            const cleanFilter = filter.trim().toUpperCase();
+            if (cleanFilter && cleanFilter !== 'TẤT CẢ' && cleanFilter !== 'ALL') {
+              params = { campus: filter };
+            }
+          } else if (filter && typeof filter === 'object') {
+            params = { ...filter };
+            if (params.campus && (params.campus.toUpperCase() === 'TẤT CẢ' || params.campus.toUpperCase() === 'ALL')) {
+              delete params.campus;
+            }
+            if (params.category && (params.category.toUpperCase() === 'TẤT CẢ' || params.category.toUpperCase() === 'ALL')) {
+              delete params.category;
+            }
+          }
           const liveProducts = await productMobileService.getProducts(params);
           if (Array.isArray(liveProducts)) {
             set({ products: liveProducts });
@@ -89,32 +103,30 @@ export const useProductStore = create<ProductState>()(
         }));
 
         // Gửi ngầm lên backend nếu có kết nối
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService
-            .createProduct({
-              title: newProdData.title,
-              price: newProdData.price,
-              condition: newProdData.condition,
-              category: newProdData.category,
-              images: newProdData.images,
-              campus: newProdData.campus,
-              safePoint: newProdData.safePoint,
-              allowNegotiate: newProdData.allowNegotiate,
-              campusShipEnabled: newProdData.campusShipEnabled,
-              description: newProdData.description,
-              hashtags: newProdData.hashtags,
-            })
-            .then((live) => {
-              if (live?.id) {
-                set((state) => ({
-                  products: state.products.map((p) =>
-                    p.id === newProduct.id ? { ...p, id: live.id } : p
-                  ),
-                }));
-              }
-            })
-            .catch(() => {});
-        });
+        productMobileService
+          .createProduct({
+            title: newProdData.title,
+            price: newProdData.price,
+            condition: newProdData.condition,
+            category: newProdData.category,
+            images: newProdData.images,
+            campus: newProdData.campus,
+            safePoint: newProdData.safePoint,
+            allowNegotiate: newProdData.allowNegotiate,
+            campusShipEnabled: newProdData.campusShipEnabled,
+            description: newProdData.description,
+            hashtags: newProdData.hashtags,
+          })
+          .then((live) => {
+            if (live?.id) {
+              set((state) => ({
+                products: state.products.map((p) =>
+                  p.id === newProduct.id ? { ...p, id: live.id } : p
+                ),
+              }));
+            }
+          })
+          .catch(() => {});
 
         return newProduct;
       },
@@ -124,9 +136,7 @@ export const useProductStore = create<ProductState>()(
           products: state.products.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         }));
 
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.updateProduct(id, partial as any).catch(() => {});
-        });
+        productMobileService.updateProduct(id, partial as any).catch(() => {});
       },
 
       deleteProduct: (id) => {
@@ -134,9 +144,7 @@ export const useProductStore = create<ProductState>()(
           products: state.products.filter((p) => p.id !== id),
         }));
 
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.deleteProduct(id).catch(() => {});
-        });
+        productMobileService.deleteProduct(id).catch(() => {});
       },
 
       getUserProducts: (sellerId: string) => {

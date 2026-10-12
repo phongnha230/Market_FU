@@ -46,6 +46,18 @@ export const useExplore = () => {
     fetchProducts().catch(() => {});
   }, [fetchProducts]);
 
+  useEffect(() => {
+    if (route.params?.category) {
+      setSelectedCategory(route.params.category);
+    }
+    if (route.params?.campus) {
+      setSelectedCampus(route.params.campus);
+    }
+    if (route.params?.searchKeyword !== undefined) {
+      setSearchText(route.params.searchKeyword);
+    }
+  }, [route.params]);
+
   const filteredProducts = useMemo(() => {
     const list = storeProducts.filter((product) => {
       // 1. Tìm kiếm văn bản (Tiêu đề, người bán, điểm hẹn, hashtag)
@@ -61,20 +73,37 @@ export const useExplore = () => {
 
       // 2. Lọc theo Campus
       if (selectedCampus && selectedCampus !== 'all') {
-        const cLower = product.campus.toLowerCase();
-        if (selectedCampus === 'hol' && !cLower.includes('hòa lạc') && !cLower.includes('hol')) return false;
-        if (selectedCampus === 'hcm' && !cLower.includes('hồ chí minh') && !cLower.includes('hcm')) return false;
-        if (selectedCampus === 'dad' && !cLower.includes('đà nẵng') && !cLower.includes('dad')) return false;
-        if (selectedCampus === 'ct' && !cLower.includes('cần thơ') && !cLower.includes('ct')) return false;
-        if (selectedCampus === 'qn' && !cLower.includes('quy nhơn') && !cLower.includes('qn')) return false;
+        const cLower = (product.campus || '').toLowerCase();
+        const locLower = (product.safePoint || '').toLowerCase();
+        const combined = `${cLower} ${locLower}`;
+
+        if (selectedCampus === 'hol' && !combined.includes('hòa lạc') && !combined.includes('hol') && !combined.includes('alpha') && !combined.includes('beta')) return false;
+        if (selectedCampus === 'hcm' && !combined.includes('hồ chí minh') && !combined.includes('hcm') && !combined.includes('sài gòn') && !combined.includes('quận 9')) return false;
+        if (selectedCampus === 'dad' && !combined.includes('đà nẵng') && !combined.includes('dad')) return false;
+        if (selectedCampus === 'ct' && !combined.includes('cần thơ') && !combined.includes('ct') && !combined.includes('gamma')) return false;
+        if (selectedCampus === 'qn' && !combined.includes('quy nhơn') && !combined.includes('qn') && !combined.includes('ai hub')) return false;
       }
 
       // 3. Lọc theo danh mục
       if (selectedCategory && selectedCategory !== 'all') {
-        if (selectedCategory === 'it' && product.category !== 'it' && product.category !== 'electronics') return false;
-        if (selectedCategory === 'books' && product.category !== 'books' && product.category !== 'book') return false;
-        if (selectedCategory === 'dom' && product.category !== 'dom') return false;
-        if (selectedCategory === 'vovinam' && product.category !== 'vovinam') return false;
+        const cat = selectedCategory.toLowerCase();
+        const prodCat = (product.category || '').toLowerCase();
+        const prodCatType = (product.categoryType || '').toLowerCase();
+        const prodTitle = product.title.toLowerCase();
+
+        if (cat === 'it') {
+          const isIt = prodCat === 'it' || prodCat === 'electronics' || prodCatType === 'electronics' || prodTitle.includes('phím') || prodTitle.includes('chuột') || prodTitle.includes('màn hình');
+          if (!isIt) return false;
+        } else if (cat === 'books') {
+          const isBook = prodCat === 'books' || prodCat === 'book' || prodCatType === 'books' || prodTitle.includes('giáo trình') || prodTitle.includes('sách');
+          if (!isBook) return false;
+        } else if (cat === 'dom') {
+          const isDom = prodCat === 'dom' || prodCat === 'dorm_item' || prodCatType === 'dorm_item' || prodTitle.includes('ktx') || prodTitle.includes('nồi') || prodTitle.includes('tủ lạnh') || prodTitle.includes('bàn');
+          if (!isDom) return false;
+        } else if (cat === 'vovinam') {
+          const isVovinam = prodCat === 'vovinam' || prodCat === 'clothing' || prodCatType === 'clothing' || prodTitle.includes('vovinam') || prodTitle.includes('võ phục');
+          if (!isVovinam) return false;
+        }
       }
 
       // 4. Lọc theo tầm giá

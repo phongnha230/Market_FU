@@ -22,17 +22,17 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     setSearchText(initialSearch || '');
   }
 
-  // Tự động tải sản phẩm từ Backend khi đổi Campus hoặc khi mount
+  // Tự động tải toàn bộ sản phẩm từ Backend để đồng bộ như trên Frontend
   useEffect(() => {
-    fetchProducts(currentCampus).catch(() => {});
-  }, [currentCampus, fetchProducts]);
+    fetchProducts().catch(() => {});
+  }, [fetchProducts]);
 
   // Tìm kiếm thông minh Meilisearch Engine có Debounce (350ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmed = searchText.trim();
       if (!trimmed) {
-        fetchProducts(currentCampus).catch(() => {});
+        fetchProducts().catch(() => {});
         return;
       }
 
@@ -40,14 +40,13 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       const cleanKeyword = isHashtag ? trimmed.replace(/^#+/, '').trim() : trimmed;
 
       fetchProducts({
-        campus: currentCampus,
         search: isHashtag ? undefined : cleanKeyword,
         hashtag: isHashtag ? cleanKeyword : undefined,
       }).catch(() => {});
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchText, currentCampus, fetchProducts]);
+  }, [searchText, fetchProducts]);
 
   const selectedCampusIndex = useMemo(() => {
     const idx = campuses.indexOf(currentCampus);
@@ -75,17 +74,72 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   }, [storeProducts, currentCampus]);
 
   const filteredProducts = useMemo(() => {
-    let list = combinedProducts;
+    let list = [...combinedProducts];
 
-    if (selectedFilter === 1) {
-      // Gần bạn / Safe-point
-      list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom'));
+    // Tab "TẤT CẢ" (selectedFilter === 0):
+    // Hiển thị toàn bộ sản phẩm trên toàn quốc (giống Frontend), ưu tiên đưa sản phẩm của cơ sở hiện tại lên đầu
+    if (selectedFilter === 0) {
+      if (currentCampus && currentCampus !== 'TẤT CẢ') {
+        const campLower = currentCampus.toLowerCase();
+        const isMatchCampus = (p: typeof list[0]) => {
+          const combined = `${p.location} ${p.title}`.toLowerCase();
+          if (campLower.includes('hòa lạc') || campLower.includes('hol')) {
+            return combined.includes('hòa lạc') || combined.includes('hol') || combined.includes('dom') || combined.includes('alpha') || combined.includes('beta');
+          }
+          if (campLower.includes('quy nhơn') || campLower.includes('qn')) {
+            return combined.includes('quy nhơn') || combined.includes('qn') || combined.includes('ai hub');
+          }
+          if (campLower.includes('cần thơ') || campLower.includes('ct')) {
+            return combined.includes('cần thơ') || combined.includes('ct') || combined.includes('gamma');
+          }
+          if (campLower.includes('hồ chí minh') || campLower.includes('hcm')) {
+            return combined.includes('hồ chí minh') || combined.includes('hcm') || combined.includes('sài gòn') || combined.includes('quận 9');
+          }
+          if (campLower.includes('đà nẵng') || campLower.includes('dad')) {
+            return combined.includes('đà nẵng') || combined.includes('dad');
+          }
+          return combined.includes(campLower);
+        };
+
+        const currentCampusItems = list.filter(isMatchCampus);
+        const otherCampusItems = list.filter((p) => !isMatchCampus(p));
+        list = [...currentCampusItems, ...otherCampusItems];
+      }
+    } else if (selectedFilter === 1) {
+      // Gần bạn / Safe-point: lọc theo cơ sở cụ thể hoặc trạm Safe-point
+      if (currentCampus && currentCampus !== 'TẤT CẢ') {
+        const campLower = currentCampus.toLowerCase();
+        list = list.filter((p) => {
+          const combined = `${p.location} ${p.title}`.toLowerCase();
+          if (campLower.includes('hòa lạc') || campLower.includes('hol')) {
+            return combined.includes('hòa lạc') || combined.includes('hol') || combined.includes('dom') || combined.includes('alpha') || combined.includes('beta');
+          }
+          if (campLower.includes('quy nhơn') || campLower.includes('qn')) {
+            return combined.includes('quy nhơn') || combined.includes('qn') || combined.includes('ai hub');
+          }
+          if (campLower.includes('cần thơ') || campLower.includes('ct')) {
+            return combined.includes('cần thơ') || combined.includes('ct') || combined.includes('gamma');
+          }
+          if (campLower.includes('hồ chí minh') || campLower.includes('hcm')) {
+            return combined.includes('hồ chí minh') || combined.includes('hcm') || combined.includes('sài gòn') || combined.includes('quận 9');
+          }
+          if (campLower.includes('đà nẵng') || campLower.includes('dad')) {
+            return combined.includes('đà nẵng') || combined.includes('dad');
+          }
+          return combined.includes(campLower);
+        });
+      } else {
+        list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom') || p.location.includes('Hub'));
+      }
     } else if (selectedFilter === 2) {
       // Đồ KTX
       list = list.filter((p: any) =>
         (p.hashtags && p.hashtags.some((t: string) => t.toLowerCase().includes('ktx') || t.toLowerCase().includes('dorm'))) ||
         p.title.toLowerCase().includes('ktx') ||
-        p.location.toLowerCase().includes('dom')
+        p.location.toLowerCase().includes('dom') ||
+        p.title.toLowerCase().includes('tủ lạnh') ||
+        p.title.toLowerCase().includes('nồi') ||
+        p.title.toLowerCase().includes('bàn')
       );
     } else if (selectedFilter === 3) {
       // Pass rẻ (< 100k)
@@ -109,7 +163,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
 
       return matchTitle || matchSeller || matchLocation || matchHashtags;
     });
-  }, [searchText, combinedProducts, selectedFilter]);
+  }, [searchText, combinedProducts, selectedFilter, currentCampus]);
 
   return {
     selectedCampus: selectedCampusIndex,

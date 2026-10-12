@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { profileMobileService } from '../services/profileMobileService';
 
 export interface WalletTransaction {
   id: string;
@@ -110,17 +111,15 @@ export const useWalletStore = create<WalletState>()(
         }));
 
         // Bắn ngầm lên Backend /profile/withdrawals
-        import('../services/profileMobileService').then(({ profileMobileService }) => {
-          profileMobileService
-            .submitWithdrawal({
-              amount,
-              bankName: bankInfo.bankName,
-              accountNumber: bankInfo.accountNo,
-              accountHolderName: bankInfo.accountName,
-              note: `Rút tiền từ Mobile App - ${newTx.referenceCode}`,
-            })
-            .catch(() => {});
-        });
+        profileMobileService
+          .submitWithdrawal({
+            amount,
+            bankName: bankInfo.bankName,
+            accountNumber: bankInfo.accountNo,
+            accountHolderName: bankInfo.accountName,
+            note: `Rút tiền từ Mobile App - ${newTx.referenceCode}`,
+          })
+          .catch(() => {});
 
         return {
           success: true,

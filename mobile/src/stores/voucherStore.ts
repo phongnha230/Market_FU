@@ -2,7 +2,16 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useWalletStore } from './walletStore';
-import { useUserStore } from './userStore';
+import { voucherMobileService } from '../services/voucherMobileService';
+
+const getUserStore = () => {
+  try {
+    const { useUserStore } = require('./userStore');
+    return useUserStore;
+  } catch {
+    return null;
+  }
+};
 
 export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
@@ -129,7 +138,6 @@ export const useVoucherStore = create<VoucherState>()(
       fetchAvailableVouchers: async () => {
         try {
           set({ isLoading: true });
-          const { voucherMobileService } = await import('../services/voucherMobileService');
           const list = await voucherMobileService.getVouchers();
           if (Array.isArray(list) && list.length > 0) {
             set({ availableVouchers: list });
@@ -144,7 +152,6 @@ export const useVoucherStore = create<VoucherState>()(
       fetchMyVouchers: async () => {
         try {
           set({ isLoading: true });
-          const { voucherMobileService } = await import('../services/voucherMobileService');
           const my = await voucherMobileService.getMyVouchers();
           const { activeUserId, myVouchersByUser } = get();
           const currentId = activeUserId || 'anonymous';
@@ -193,14 +200,14 @@ export const useVoucherStore = create<VoucherState>()(
         }
 
         try {
-          const { voucherMobileService } = await import('../services/voucherMobileService');
           const res = await voucherMobileService.redeemVoucher(voucherId);
 
           // Trừ Xu trong walletStore và userStore
           useWalletStore.getState().deductCoins(item.coinCost);
-          const currentUser = useUserStore.getState().user;
-          if (currentUser) {
-            useUserStore.getState().updateUser({
+          const userStore = getUserStore()?.getState();
+          const currentUser = userStore?.user;
+          if (currentUser && userStore?.updateUser) {
+            userStore.updateUser({
               coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
             });
           }
@@ -228,9 +235,10 @@ export const useVoucherStore = create<VoucherState>()(
         } catch (err: any) {
           // Fallback ngoại tuyến (Optimistic Offline)
           useWalletStore.getState().deductCoins(item.coinCost);
-          const currentUser = useUserStore.getState().user;
-          if (currentUser) {
-            useUserStore.getState().updateUser({
+          const userStore = getUserStore()?.getState();
+          const currentUser = userStore?.user;
+          if (currentUser && userStore?.updateUser) {
+            userStore.updateUser({
               coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
             });
           }
@@ -316,7 +324,6 @@ export const useVoucherStore = create<VoucherState>()(
 
         // Gọi API backend vô hiệu hóa voucher
         try {
-          const { voucherMobileService } = await import('../services/voucherMobileService');
           await voucherMobileService.useVoucher(target.voucherCode);
         } catch (e: any) {
           console.log('⚠️ [Voucher used offline]:', e?.message);

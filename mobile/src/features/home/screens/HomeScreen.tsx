@@ -15,6 +15,7 @@ import SafePointWidget from '../components/SafePointWidget';
 import { TrendingSearchesBanner } from '../components/TrendingSearchesBanner';
 import useHomeFeed from '../hooks/useHomeFeed';
 import { useUserStore } from '../../../stores/userStore';
+import { useCampusStore } from '../../../stores/useCampusStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
 import { HomeScreenProps } from '../types/home.types';
@@ -27,6 +28,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
+  const currentCampus = useCampusStore((state) => state.currentCampus);
   const unreadNotificationCount = useNotificationStore((state) => state.notifications.filter((n) => n.unread).length);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -146,24 +148,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           categories={categories}
           onCategoryPress={(cat) => {
             if (cat.id === '5') {
-              // Bấm "Đăng bán" trong category grid
-              if (!isAuthenticated) {
-                setAuthModalMode('auth');
-                setAuthModalTitle('Yêu cầu đăng nhập');
-                setAuthModalMessage('Bạn cần đăng nhập tài khoản Người Bán (Seller) để đăng bán đồ cũ.');
-                setAuthModalVisible(true);
-                return;
+              // Bấm "Pass đồ gấp" -> Lọc theo tab Pass rẻ hoặc mở đăng bài nếu là seller
+              setSelectedFilter(3);
+            } else {
+              const catMap: Record<string, string> = {
+                '1': 'books',
+                '2': 'it',
+                '3': 'dom',
+                '4': 'vovinam',
+              };
+              const targetCat = catMap[cat.id];
+              if (targetCat && navigation && navigation.navigate) {
+                navigation.navigate('MainTabs', {
+                  screen: 'Explore',
+                  params: { category: targetCat },
+                });
               }
-              if (user?.role !== 'SELLER') {
-                setAuthModalMode('seller');
-                setAuthModalTitle('Chỉ dành cho Người Bán (Seller)');
-                setAuthModalMessage('Theo quy định Chợ Market FU, chỉ tài khoản Người Bán (Seller) mới có quyền đăng bán đồ và mở gian hàng.');
-                setAuthModalVisible(true);
-                return;
-              }
-              if (onPostPress) onPostPress();
-              else if (onTabChange) onTabChange('post');
-              else navigation.navigate('MainTabs', { screen: 'PostItem' });
             }
           }}
         />
@@ -182,7 +182,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             }}
           />
         )}
-        <FeedHeader />
+        <FeedHeader
+          title={
+            currentCampus === 'TẤT CẢ'
+              ? 'Tin mới trên toàn quốc'
+              : `Tin mới tại ${currentCampus === 'HÒA LẠC' ? 'Hola' : currentCampus} & Toàn quốc`
+          }
+          subtitle="Trao đổi tiện lợi trong campus & ship toàn quốc"
+          onSeeAllPress={() => navigation.navigate('MainTabs', { screen: 'Explore' })}
+        />
         <FeedFilterChips filters={feedFilters} selectedIndex={selectedFilter} onSelect={setSelectedFilter} />
 
         {products.length === 0 ? (

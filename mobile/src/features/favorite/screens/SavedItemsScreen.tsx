@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useKho } from '../../../context/KhoContext';
+import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { SavedProductCard } from '../components/SavedProductCard';
 import { SavedItemsEmptyState } from '../components/SavedItemsEmptyState';
 import { SavedItemsTopNav } from '../components/SavedItemsTopNav';
@@ -63,9 +64,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
 
   // Tự động kéo mới danh sách tin yêu thích từ Backend khi mở màn hình
   React.useEffect(() => {
-    import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
-      useFavoriteStore.getState().fetchFavorites().catch(() => {});
-    });
+    useFavoriteStore.getState().fetchFavorites().catch(() => {});
   }, []);
 
   const products = React.useMemo(() => {
@@ -130,10 +129,8 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           text: 'Dọn sạch',
           style: 'destructive',
           onPress: () => {
-            import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
-              const removed = useFavoriteStore.getState().clearSoldFavorites(soldIds);
-              Alert.alert('✅ Thành công', `Đã dọn ${removed} món đã bán khỏi danh sách tin đã lưu.`);
-            });
+            const removed = useFavoriteStore.getState().clearSoldFavorites(soldIds);
+            Alert.alert('✅ Thành công', `Đã dọn ${removed} món đã bán khỏi danh sách tin đã lưu.`);
           },
         },
       ]

@@ -12,7 +12,7 @@ export const CAMPUS_LIST: CampusChipItem[] = [
   { id: 'hcm', name: 'Hồ Chí Minh', shortLabel: 'Hồ Chí Minh (HCM)', storeValue: 'TP.HCM' },
   { id: 'dn', name: 'Đà Nẵng', shortLabel: 'Đà Nẵng (ĐN)', storeValue: 'ĐÀ NẴNG' },
   { id: 'ct', name: 'Cần Thơ', shortLabel: 'Cần Thơ (CT)', storeValue: 'CẦN THƠ' },
-  { id: 'qn', name: 'Quy Nhơn', shortLabel: 'Quy Nhơn (QN)', storeValue: 'HÒA LẠC' },
+  { id: 'qn', name: 'Quy Nhơn', shortLabel: 'Quy Nhơn (QN)', storeValue: 'QUY NHƠN' },
 ];
 
 function generateRandomCaptcha(): string {

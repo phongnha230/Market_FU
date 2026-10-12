@@ -8,6 +8,7 @@ import { useOrderStore } from './orderStore';
 import { useVoucherStore } from './voucherStore';
 import { useKycStore } from './kycStore';
 import { useWalletStore } from './walletStore';
+import { useProductStore } from './productStore';
 
 export type { UserProfile, AccountRecord };
 
@@ -21,9 +22,7 @@ const syncUserToStores = (userId: string | null) => {
 
     // Đồng bộ tức thời danh sách đơn hàng & sản phẩm từ Backend
     useOrderStore.getState().fetchOrders().catch(() => {});
-    import('./productStore').then(({ useProductStore }) => {
-      useProductStore.getState().fetchProducts().catch(() => {});
-    });
+    useProductStore.getState().fetchProducts().catch(() => {});
   } catch (e) {
     // Non-blocking sync error prevention
   }

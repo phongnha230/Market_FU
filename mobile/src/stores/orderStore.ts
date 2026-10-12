@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useWalletStore } from './walletStore';
 import { generate4DigitOtp } from '../lib/backendMappers';
+import { orderMobileService } from '../services/orderMobileService';
 
 export interface OrderItem {
   id: string;
@@ -83,7 +84,6 @@ export const useOrderStore = create<OrderState>()(
       fetchOrders: async () => {
         try {
           set({ isLoading: true });
-          const { orderMobileService } = await import('../services/orderMobileService');
           const liveOrders = await orderMobileService.getOrders();
           if (Array.isArray(liveOrders)) {
             set({ orders: liveOrders });
@@ -116,23 +116,21 @@ export const useOrderStore = create<OrderState>()(
           orders: [newOrder, ...state.orders],
         }));
 
-        import('../services/orderMobileService').then(({ orderMobileService }) => {
-          orderMobileService
-            .createOrder({
-              productId: (orderData as any).productId || 'prod_dell_24',
-              orderType: (orderData as any).orderType || ((orderData as any).isDifferentCampus ? 'SHIP_COD' : 'MEETUP'),
-              paymentMethod: ((orderData as any).paymentMethod as any) || 'VIETQR',
-              safePoint: orderData.safePoint,
-              isDifferentCampus: (orderData as any).isDifferentCampus,
-              shipping: (orderData as any).shipping || {
-                receiverName: orderData.buyerName || 'Sinh viên FPT',
-                receiverPhone: '0901234567',
-                shippingAddress: orderData.safePoint || 'Sảnh Tòa Alpha',
-                destinationCampus: orderData.buyerCampus,
-              },
-            })
-            .catch(() => {});
-        });
+        orderMobileService
+          .createOrder({
+            productId: (orderData as any).productId || 'prod_dell_24',
+            orderType: (orderData as any).orderType || ((orderData as any).isDifferentCampus ? 'SHIP_COD' : 'MEETUP'),
+            paymentMethod: ((orderData as any).paymentMethod as any) || 'VIETQR',
+            safePoint: orderData.safePoint,
+            isDifferentCampus: (orderData as any).isDifferentCampus,
+            shipping: (orderData as any).shipping || {
+              receiverName: orderData.buyerName || 'Sinh viên FPT',
+              receiverPhone: '0901234567',
+              shippingAddress: orderData.safePoint || 'Sảnh Tòa Alpha',
+              destinationCampus: orderData.buyerCampus,
+            },
+          })
+          .catch(() => {});
 
         return newOrder;
       },
@@ -197,9 +195,7 @@ export const useOrderStore = create<OrderState>()(
           useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
         }
 
-        import('../services/orderMobileService').then(({ orderMobileService }) => {
-          orderMobileService.verifyHandshake(orderId, cleanInput).catch(() => {});
-        });
+        orderMobileService.verifyHandshake(orderId, cleanInput).catch(() => {});
 
         return {
           success: true,
@@ -238,9 +234,7 @@ export const useOrderStore = create<OrderState>()(
           ),
         }));
 
-        import('../services/orderMobileService').then(({ orderMobileService }) => {
-          orderMobileService.createDispute(orderId, reason).catch(() => {});
-        });
+        orderMobileService.createDispute(orderId, reason).catch(() => {});
       },
 
       getBuyerOrders: (buyerId: string) => {
