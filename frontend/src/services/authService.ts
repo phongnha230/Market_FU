@@ -116,11 +116,17 @@ export const authService = {
   },
 
   // 6. Xác nhận OTP & Đặt lại mật khẩu mới
-  async resetPassword(email: string, otp: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    email: string,
+    otp: string,
+    newPassword: string,
+    confirmPassword?: string
+  ): Promise<{ message: string }> {
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/reset-password', {
       email,
       otp,
       newPassword,
+      confirmPassword: confirmPassword || newPassword,
     });
     return response.data.data;
   },

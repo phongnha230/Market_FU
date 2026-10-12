@@ -12,8 +12,10 @@ import {
   ShieldCheck,
   ArrowRight,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import OtpVerificationStep from './OtpVerificationStep';
+import { authService } from '@/services/authService';
 
 interface ForgotPasswordFormProps {
   onSwitchToLogin: () => void;
@@ -29,10 +31,13 @@ export default function ForgotPasswordForm({
   // Sub-step: 'email' | 'otp' | 'new-password'
   const [step, setStep] = useState<'email' | 'otp' | 'new-password'>('email');
 
-  const [email, setEmail] = useState('namntk17@fe.edu.vn');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -42,26 +47,60 @@ export default function ForgotPasswordForm({
   const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
   const isStrongPassword = hasMinLen && hasUpper && hasNumber && hasSpecial;
 
-  // Step 1: Submit Email
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  // Step 1: Submit Email -> Gọi API gửi OTP tới mail
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (!isValidEmail) {
       onShowToast('Vui lòng nhập đúng định dạng email (Gmail, FE Mail...)!', 'warning');
       return;
     }
-    onShowToast(`Đã gửi mã xác minh OTP 6 số đến email ${email}!`, 'info');
-    setStep('otp');
+
+    setIsLoading(true);
+    try {
+      const res = await authService.forgotPassword(email.trim());
+      onShowToast(res?.message || `Đã gửi mã xác minh OTP 6 số đến email ${email.trim()}!`, 'success');
+      setStep('otp');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi mã OTP khôi phục mật khẩu';
+      setErrorMessage(msg);
+      onShowToast(msg, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Step 2: OTP Verified
-  const handleOtpVerified = (otp: string) => {
-    onShowToast('Xác thực OTP danh tính thành công! Mời bạn tạo mật khẩu mới.', 'success');
+  // Step 2a: Gửi lại mã OTP qua email
+  const handleResendOtp = async () => {
+    try {
+      const res = await authService.forgotPassword(email.trim());
+      onShowToast(res?.message || `Đã gửi lại mã OTP mới tới email ${email.trim()}`, 'success');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi lại mã OTP';
+      onShowToast(msg, 'error');
+      throw err;
+    }
+  };
+
+  // Step 2b: Nhập mã OTP thành công -> chuyển sang tạo mật khẩu mới
+  const handleOtpVerified = (enteredOtp: string) => {
+    setOtp(enteredOtp);
+    onShowToast('Đã ghi nhận mã OTP! Mời bạn tạo mật khẩu mới.', 'success');
     setStep('new-password');
   };
 
-  // Step 3: Set New Password
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  // Step 3: Gửi API đặt mật khẩu mới
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (!isStrongPassword) {
       onShowToast('Mật khẩu chưa đạt chuẩn an toàn. Vui lòng hoàn thành các tiêu chí màu đỏ bên dưới!', 'error');
       return;
@@ -70,8 +109,32 @@ export default function ForgotPasswordForm({
       onShowToast('Xác nhận mật khẩu mới không khớp!', 'error');
       return;
     }
-    onShowToast('Đã đặt lại mật khẩu mới thành công! Vui lòng đăng nhập lại.', 'success');
-    onResetSuccess(email, newPassword);
+
+    setIsLoading(true);
+    try {
+      await authService.resetPassword(email.trim(), otp.trim(), newPassword, confirmPassword);
+      onShowToast('Đã đặt lại mật khẩu mới thành công! Vui lòng đăng nhập lại.', 'success');
+      onResetSuccess(email.trim(), newPassword);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể đặt lại mật khẩu';
+      setErrorMessage(msg);
+      onShowToast(msg, 'error');
+      const errCode = err?.code || err?.response?.data?.error?.code;
+      if (
+        errCode === 'INVALID_OTP' ||
+        errCode === 'OTP_EXPIRED' ||
+        errCode === 'OTP_EXPIRED_OR_NOT_FOUND' ||
+        msg.toLowerCase().includes('otp')
+      ) {
+        setStep('otp');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (step === 'otp') {
@@ -82,6 +145,7 @@ export default function ForgotPasswordForm({
         subtitle={<>Nhập mã OTP 6 số đã gửi đến email <strong className="text-slate-800">{email}</strong> để tiếp tục.</>}
         onVerifySuccess={handleOtpVerified}
         onBack={() => setStep('email')}
+        onResendOtp={handleResendOtp}
         onShowToast={onShowToast}
       />
     );
@@ -93,11 +157,11 @@ export default function ForgotPasswordForm({
         <div>
           <button
             type="button"
-            onClick={() => setStep('email')}
+            onClick={() => setStep('otp')}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-3 cursor-pointer"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Quay lại</span>
+            <span>Quay lại nhập OTP</span>
           </button>
 
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -108,6 +172,13 @@ export default function ForgotPasswordForm({
             Tài khoản: <strong className="text-slate-800">{email}</strong>
           </p>
         </div>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex items-start gap-2 text-xs text-rose-800 animate-in fade-in duration-150">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handlePasswordSubmit} className="space-y-3.5">
           <div>
@@ -121,7 +192,8 @@ export default function ForgotPasswordForm({
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Tối thiểu 8 ký tự"
                 required
-                className="w-full rounded-xl border border-slate-200 p-3 pr-10 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+                disabled={isLoading}
+                className="w-full rounded-xl border border-slate-200 p-3 pr-10 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition disabled:bg-slate-50"
               />
               <button
                 type="button"
@@ -143,7 +215,8 @@ export default function ForgotPasswordForm({
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Nhập lại mật khẩu mới"
               required
-              className="w-full rounded-xl border border-slate-200 p-3 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-200 p-3 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition disabled:bg-slate-50"
             />
           </div>
 
@@ -263,10 +336,20 @@ export default function ForgotPasswordForm({
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3.5 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3.5 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
           >
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Lưu mật khẩu & Đăng nhập ngay</span>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Đang lưu mật khẩu mới...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Lưu mật khẩu & Đăng nhập ngay</span>
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -294,6 +377,13 @@ export default function ForgotPasswordForm({
         </p>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex items-start gap-2 text-xs text-rose-800 animate-in fade-in duration-150">
+          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleEmailSubmit} className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-1.5 text-xs">
@@ -311,7 +401,8 @@ export default function ForgotPasswordForm({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="se172819@fe.edu.vn hoặc gmail..."
               required
-              className="w-full rounded-xl border border-slate-200 p-3 pr-10 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition"
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-200 p-3 pr-10 text-xs sm:text-sm text-slate-800 outline-none focus:border-fpt-orange focus:ring-2 focus:ring-orange-100 transition disabled:bg-slate-50"
             />
             {isValidEmail && (
               <CheckCircle2 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
@@ -321,10 +412,20 @@ export default function ForgotPasswordForm({
 
         <button
           type="submit"
-          className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3.5 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+          disabled={isLoading}
+          className="w-full rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange py-3.5 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-98 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
         >
-          <span>Gửi mã OTP xác nhận danh tính</span>
-          <ArrowRight className="h-4 w-4" />
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Đang gửi mã OTP...</span>
+            </>
+          ) : (
+            <>
+              <span>Gửi mã OTP xác nhận danh tính</span>
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </form>
 

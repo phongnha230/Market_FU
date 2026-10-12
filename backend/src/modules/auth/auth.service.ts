@@ -810,12 +810,12 @@ export class AuthService {
       include: { profile: true },
     });
 
-    if (!user || !user.isActive) {
-      // Bảo mật (F-04): Trả về phản hồi đồng nhất, chống User Enumeration dò quét email sinh viên
-      return {
-        email,
-        message: 'Nếu email tồn tại trong hệ thống, mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
-      };
+    if (!user) {
+      throw new AppError('Email này chưa được đăng ký tài khoản trong hệ thống.', 404, 'USER_NOT_FOUND');
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa.', 403, 'ACCOUNT_LOCKED');
     }
 
     // Sinh mã OTP ngẫu nhiên 6 chữ số bằng CSPRNG (Cryptographically Secure Pseudo-Random Number Generator)
@@ -833,14 +833,23 @@ export class AuthService {
     );
 
     // Gửi email qua SMTP
-    await sendPasswordResetOtpEmail(user.email, otp, user.profile?.fullName || 'Sinh viên FU');
+    try {
+      await sendPasswordResetOtpEmail(user.email, otp, user.profile?.fullName || 'Sinh viên FU');
+    } catch (mailError: any) {
+      await delCache(`pwd_reset:${email}`);
+      throw new AppError(
+        `Không thể gửi email OTP (Lỗi dịch vụ Mail: ${mailError?.message || 'Gửi thất bại'}). Vui lòng thử lại sau.`,
+        500,
+        'MAIL_DELIVERY_FAILED'
+      );
+    }
 
     // Thiết lập Cooldown 60s
     await setCache(`otp_cooldown:pwd:${email}`, Date.now() + 60 * 1000, 60);
 
     return {
       email: user.email,
-      message: 'Nếu email tồn tại trong hệ thống, mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
+      message: 'Mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
     };
   }
 
