@@ -31,7 +31,11 @@ export class AiController {
     try {
       const authReq = req as AuthRequest;
       const validatedData = assistantChatSchema.parse(req.body);
-      const result = await aiService.assistantChat(authReq.user!.userId, validatedData);
+      const userId = authReq.user?.userId;
+      if (!userId) {
+        throw new AppError('Vui lòng đăng nhập để sử dụng tính năng Trợ lý AI.', 401, 'UNAUTHORIZED');
+      }
+      const result = await aiService.assistantChat(userId, validatedData);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

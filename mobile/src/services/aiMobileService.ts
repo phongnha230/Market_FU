@@ -33,10 +33,34 @@ export const aiMobileService = {
     sessionId?: string
   ): Promise<AiChatResponse> {
     try {
+      const campusMap: Record<string, string> = {
+        'HÒA LẠC': 'HOL',
+        'Hòa Lạc': 'HOL',
+        'HOL': 'HOL',
+        'TP.HCM': 'HCM',
+        'TP. HỒ CHÍ MINH': 'HCM',
+        'HỒ CHÍ MINH': 'HCM',
+        'HCM': 'HCM',
+        'ĐÀ NẴNG': 'DAD',
+        'Đà Nẵng': 'DAD',
+        'DAD': 'DAD',
+        'QUY NHƠN': 'QN',
+        'Quy Nhơn': 'QN',
+        'QN': 'QN',
+        'CẦN THƠ': 'CT',
+        'Cần Thơ': 'CT',
+        'CT': 'CT',
+      };
+      const cleanCampus = campusMap[campus.trim()] || campusMap[campus.toUpperCase()] || 'HOL';
+
+      // Chỉ gửi sessionId nếu là MongoDB ObjectId 24 ký tự hex hợp lệ
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(sessionId || '');
+      const cleanSessionId = isObjectId ? sessionId : undefined;
+
       const res = await apiClient.post<ApiResponse<any>>('/ai/assistant-chat', {
         message,
-        campus,
-        sessionId,
+        campus: cleanCampus,
+        sessionId: cleanSessionId,
       });
       const data = res.data?.data;
       const reply =
@@ -44,7 +68,7 @@ export const aiMobileService = {
         data?.reply ||
         (typeof data?.message === 'string' ? data.message : 'Em đã hiểu rồi ạ!');
       const resolvedSessionId =
-        data?.session?.id || data?.sessionId || sessionId || `ai_sess_${Date.now()}`;
+        data?.session?.id || data?.sessionId || sessionId || '';
       const suggestedProducts = data?.suggestedProducts || data?.recommendedProducts || [];
 
       return {
@@ -54,9 +78,10 @@ export const aiMobileService = {
       };
     } catch (e: any) {
       console.log('⚠️ [Backend AI Chat offline, using local fallback]:', e?.message);
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(sessionId || '');
       return {
         reply: `Chào bạn! Mình là Cóc AI hỗ trợ Marketplace FPT ${campus}. Bạn muốn tìm giáo trình PE/FE, đồ phòng KTX, hay cần hướng dẫn điểm hẹn an toàn Safe-Point?`,
-        sessionId: sessionId || `ai_sess_${Date.now()}`,
+        sessionId: isObjectId ? sessionId! : '',
         suggestedProducts: [],
       };
     }

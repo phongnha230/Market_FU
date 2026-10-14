@@ -63,9 +63,13 @@ export const aiService = {
       'Cần Thơ': 'CT',
     };
 
+    // Chỉ gửi sessionId nếu là MongoDB ObjectId 24 ký tự hex hợp lệ
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(effectiveSessionId || '');
+    const cleanSessionId = isObjectId ? effectiveSessionId : undefined;
+
     const response = await apiClient.post<ApiResponse<any>>('/ai/assistant-chat', {
       message,
-      sessionId: effectiveSessionId,
+      sessionId: cleanSessionId,
       campus: campusCodeMap[campus || ''] || campus || 'HOL',
     });
     const d = response.data?.data;

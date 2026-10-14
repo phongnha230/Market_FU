@@ -35,7 +35,7 @@ export default function OrderAiBotModal({
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const userCampus = useUserStore((state) => state.user.campus) || 'Hòa Lạc';
+  const userCampus = useUserStore((state) => state.user?.campus) || 'Hòa Lạc';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

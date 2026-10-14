@@ -578,19 +578,14 @@ export default function AIChatbotWidget() {
     }
 
     try {
-      const userCampus = useUserStore.getState().user.campus || 'Hòa Lạc';
+      const userCampus = useUserStore.getState().user?.campus || 'Hòa Lạc';
       const aiRes = await aiService.assistantChat(query, userCampus, sessionId || undefined);
       if (aiRes && aiRes.reply) {
-        let finalProducts = aiRes.suggestedProducts || [];
-        if (finalProducts.length === 0) {
-          const localMatch = await searchLocalProducts(query);
-          if (localMatch && localMatch.products.length > 0) {
-            finalProducts = localMatch.products;
-          }
-        }
+        // Chỉ hiển thị sản phẩm khi backend AI thực sự tìm thấy và gợi ý
+        const finalProducts = aiRes.suggestedProducts || [];
 
         const nextSessionId = aiRes.sessionId || sessionId;
-        if (nextSessionId) {
+        if (nextSessionId && nextSessionId !== 'guest_session') {
           setSessionId(nextSessionId);
         }
 

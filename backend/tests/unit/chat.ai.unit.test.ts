@@ -69,7 +69,7 @@ describe('Unit Test: BE-DEV 2 (Chat, AI & Notification DTO Validation)', () => {
     });
   });
 
-  describe('AI Module Schemas', () => {
+  describe('AI Module Schemas & Guardrails', () => {
     it('assistantChatSchema: Hợp lệ khi có message', () => {
       const valid = assistantChatSchema.safeParse({
         message: 'Tìm ấm đun nước dưới 200k',
@@ -77,6 +77,25 @@ describe('Unit Test: BE-DEV 2 (Chat, AI & Notification DTO Validation)', () => {
         maxPrice: 200000,
       });
       assert.strictEqual(valid.success, true);
+    });
+
+    it('assistantChatSchema: Tự động chuẩn hóa campus tiếng Việt sang mã 3 chữ cái', () => {
+      const cases = [
+        { input: 'Hòa Lạc', expected: 'HOL' },
+        { input: 'HÒA LẠC', expected: 'HOL' },
+        { input: 'TP.HCM', expected: 'HCM' },
+        { input: 'Đà Nẵng', expected: 'DAD' },
+        { input: 'Quy Nhơn', expected: 'QN' },
+        { input: 'Cần Thơ', expected: 'CT' },
+      ];
+
+      for (const c of cases) {
+        const parsed = assistantChatSchema.parse({
+          message: 'Tìm đồ KTX',
+          campus: c.input as any,
+        });
+        assert.strictEqual(parsed.campus, c.expected);
+      }
     });
 
     it('assistantChatSchema: Lỗi khi message rỗng', () => {
@@ -89,7 +108,36 @@ describe('Unit Test: BE-DEV 2 (Chat, AI & Notification DTO Validation)', () => {
     it('assistantChatSchema: Chặn campus không thuộc hệ thống', () => {
       const invalid = assistantChatSchema.safeParse({
         message: 'Tìm đồ',
-        campus: 'HANOI_NOT_FOUND',
+        campus: 'HANOI_NOT_FOUND' as any,
+      });
+      assert.strictEqual(invalid.success, false);
+    });
+
+    it('assistantChatSchema: Chấp nhận sessionId là MongoDB ObjectId 24 ký tự hex hợp lệ', () => {
+      const valid = assistantChatSchema.safeParse({
+        message: 'Tìm đồ',
+        sessionId: '65f1a2b3c4d5e6f7a8b9c0d1',
+      });
+      assert.strictEqual(valid.success, true);
+    });
+
+    it('assistantChatSchema: Chấp nhận sessionId rỗng hoặc undefined', () => {
+      const validEmpty = assistantChatSchema.safeParse({
+        message: 'Tìm đồ',
+        sessionId: '',
+      });
+      assert.strictEqual(validEmpty.success, true);
+
+      const validUndefined = assistantChatSchema.safeParse({
+        message: 'Tìm đồ',
+      });
+      assert.strictEqual(validUndefined.success, true);
+    });
+
+    it('assistantChatSchema: Chặn sessionId giả hoặc không phải 24 ký tự hex', () => {
+      const invalid = assistantChatSchema.safeParse({
+        message: 'Tìm đồ',
+        sessionId: 'ai_sess_1728956789123',
       });
       assert.strictEqual(invalid.success, false);
     });

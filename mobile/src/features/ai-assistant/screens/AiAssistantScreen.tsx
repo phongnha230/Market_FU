@@ -94,10 +94,30 @@ const searchDatabaseProducts = async (
   campus?: string
 ): Promise<any[]> => {
   try {
+    const campusMap: Record<string, string> = {
+      'HÒA LẠC': 'HOL',
+      'Hòa Lạc': 'HOL',
+      'HOL': 'HOL',
+      'TP.HCM': 'HCM',
+      'TP. HỒ CHÍ MINH': 'HCM',
+      'HỒ CHÍ MINH': 'HCM',
+      'HCM': 'HCM',
+      'ĐÀ NẴNG': 'DAD',
+      'Đà Nẵng': 'DAD',
+      'DAD': 'DAD',
+      'QUY NHƠN': 'QN',
+      'Quy Nhơn': 'QN',
+      'QN': 'QN',
+      'CẦN THƠ': 'CT',
+      'Cần Thơ': 'CT',
+      'CT': 'CT',
+    };
+    const cleanCampus = campus ? (campusMap[campus.trim()] || campusMap[campus.toUpperCase()] || 'HOL') : undefined;
+
     // 1. Tìm theo campus hiện tại
     const productsInCampus = await productMobileService.getProducts({
       search: queryText,
-      campus: campus,
+      campus: cleanCampus,
       limit: 6,
     });
     if (productsInCampus && productsInCampus.length > 0) {

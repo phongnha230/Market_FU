@@ -16,9 +16,9 @@ export class AiService {
   }
 
   private readonly MODEL_CANDIDATES = [
-    'gemini-3.1-flash-lite',
-    'gemini-3-flash-preview',
     'gemini-2.5-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite',
   ];
 
   /**
@@ -555,7 +555,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       {
         name: 'search_products',
         description:
-          'Tìm kiếm sản phẩm đồ cũ sinh viên đang bán trên sàn Campus Marketplace FU theo campus, danh mục, khoảng giá, từ khóa. Gọi hàm này khi sinh viên hỏi mua, tìm, kiếm, cần mua đồ.',
+          'Tìm kiếm sản phẩm đồ cũ sinh viên đang bán trên sàn Campus Marketplace FU theo campus, danh mục, khoảng giá, từ khóa. BẮT BUỘC gọi hàm này ngay lập tức khi người dùng hỏi mua, tìm đồ, tìm kiếm hoặc nhắc đến bất kỳ món đồ nào (bàn phím, chuột, laptop, giáo trình, quạt, xe, bàn học, tai nghe...). Không hỏi lại nếu đã có tên món đồ.',
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -573,7 +573,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
             },
             keyword: {
               type: SchemaType.STRING,
-              description: 'Từ khóa tìm kiếm: ấm đun nước, quạt, sách, xe đạp...',
+              description: 'Từ khóa tìm kiếm (tên món đồ, model, loại đồ): bàn phím, quạt, laptop, giáo trình...',
             },
             category: {
               type: SchemaType.STRING,
@@ -606,101 +606,195 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         .replace(/vo phuc/gi, 'võ phục');
     }
 
-    // ── 1. TÌM KIẾM BẰNG MEILISEARCH ENGINE (Fuzzy Search + Typo Tolerance + Ranking cao cấp) ──
-    if (rawKeyword) {
-      try {
-        // Thử tìm trong campus hiện tại qua Meilisearch
-        let meiliRes = await searchProductsMeili(rawKeyword, {
-          campus: args.campus,
-          categoryType: args.category,
-          maxPrice: args.maxPrice,
-          minPrice: args.minPrice,
-          limit: 10,
-        });
-
-        // Nếu campus hiện tại không có, tự động tìm Toàn quốc (liên 5 campus) qua Meilisearch
-        if ((!meiliRes || meiliRes.productIds.length === 0) && args.campus) {
-          meiliRes = await searchProductsMeili(rawKeyword, {
-            categoryType: args.category,
-            maxPrice: args.maxPrice,
-            minPrice: args.minPrice,
-            limit: 10,
-          });
-        }
-
-        if (meiliRes && meiliRes.productIds.length > 0) {
-          const matchedProducts = await prisma.product.findMany({
-            where: {
-              id: { in: meiliRes.productIds },
-              status: 'AVAILABLE',
-            },
-            select: {
-              id: true,
-              title: true,
-              price: true,
-              condition: true,
-              campus: true,
-              categoryType: true,
-              images: true,
-              meetupLocation: true,
-            },
-          });
-
-          // Sắp xếp lại danh sách theo đúng thứ tự Relevance Ranking của Meilisearch
-          const prodMap = new Map(matchedProducts.map((p) => [p.id, p]));
-          const sorted = meiliRes.productIds
-            .map((id) => prodMap.get(id))
-            .filter((p): p is NonNullable<typeof p> => Boolean(p));
-
-          if (sorted.length > 0) {
-            return sorted;
-          }
-        }
-      } catch (meiliError) {
-        // Tự động chuyển tiếp sang MongoDB / Prisma fallback bên dưới nếu Meilisearch offline
-      }
-    }
-
-    // ── 2. FALLBACK SANG MONGODB PRISMA (Nếu Meilisearch offline hoặc không có kết quả) ──
-    const buildWhere = (includeCampus: boolean, includeCategory: boolean) => {
-      const where: any = { status: 'AVAILABLE' };
-
-      if (includeCampus && args.campus) {
-        where.campus = args.campus;
-      }
-      if (includeCategory && args.category) {
-        where.categoryType = args.category;
-      }
-      if (args.maxPrice || args.minPrice) {
-        where.price = {};
-        if (args.maxPrice) where.price.lte = args.maxPrice;
-        if (args.minPrice) where.price.gte = args.minPrice;
-      }
-      if (rawKeyword) {
-        const tokens = rawKeyword
-          .split(/\s+/)
-          .map((t) => t.trim())
-          .filter((t) => t.length >= 2);
-
-        const orClauses: any[] = [
-          { title: { contains: rawKeyword, mode: 'insensitive' } },
-          { description: { contains: rawKeyword, mode: 'insensitive' } },
-        ];
-
-        tokens.forEach((tk) => {
-          orClauses.push({ title: { contains: tk, mode: 'insensitive' } });
-        });
-
-        where.OR = orClauses;
-      }
-      return where;
+    // ── Chuẩn hoá Campus & Category tránh lỗi Prisma Enum ──
+    const normalizeCampusCode = (c?: string): string | undefined => {
+      if (!c) return undefined;
+      const clean = c.trim().toLowerCase();
+      const campusMap: Record<string, string> = {
+        'hòa lạc': 'HOL',
+        'hòa lac': 'HOL',
+        'hoa lac': 'HOL',
+        'hol': 'HOL',
+        'tp.hcm': 'HCM',
+        'hồ chí minh': 'HCM',
+        'hcm': 'HCM',
+        'đà nẵng': 'DAD',
+        'da nang': 'DAD',
+        'dad': 'DAD',
+        'quy nhơn': 'QN',
+        'quy nhon': 'QN',
+        'qn': 'QN',
+        'cần thơ': 'CT',
+        'can tho': 'CT',
+        'ct': 'CT',
+      };
+      const mapped = campusMap[clean] || c.trim().toUpperCase();
+      return ['HOL', 'HCM', 'DAD', 'QN', 'CT'].includes(mapped) ? mapped : undefined;
     };
 
-    // Bước 1: Tìm đúng campus và đúng category
-    let products = await prisma.product.findMany({
-      where: buildWhere(true, true),
-      take: 5,
-      orderBy: { createdAt: 'desc' },
+    const normalizeCategoryCode = (cat?: string): string | undefined => {
+      if (!cat) return undefined;
+      const clean = cat.trim().toLowerCase();
+      const catMap: Record<string, string> = {
+        'dorm_item': 'DORM_ITEM',
+        'đồ ktx': 'DORM_ITEM',
+        'phòng trọ': 'DORM_ITEM',
+        'books': 'BOOKS',
+        'sách': 'BOOKS',
+        'giáo trình': 'BOOKS',
+        'electronics': 'ELECTRONICS',
+        'điện tử': 'ELECTRONICS',
+        'thiết bị': 'ELECTRONICS',
+        'vehicle': 'VEHICLE',
+        'xe': 'VEHICLE',
+        'xe cộ': 'VEHICLE',
+        'clothing': 'CLOTHING',
+        'quần áo': 'CLOTHING',
+        'thời trang': 'CLOTHING',
+        'other': 'OTHER',
+      };
+      const mapped = catMap[clean] || cat.trim().toUpperCase();
+      return ['DORM_ITEM', 'BOOKS', 'ELECTRONICS', 'VEHICLE', 'CLOTHING', 'OTHER'].includes(mapped) ? mapped : undefined;
+    };
+
+    const targetCampus = normalizeCampusCode(args.campus);
+    const targetCategory = normalizeCategoryCode(args.category);
+
+    const priceFilter: any = {};
+    if (args.maxPrice) priceFilter.lte = args.maxPrice;
+    if (args.minPrice) priceFilter.gte = args.minPrice;
+
+    // ── TÌM KIẾM THEO TỪ KHÓA (HYBRID SEARCH: MEILISEARCH + PRISMA MONGODB) ──
+    // Nguyên tắc quan trọng: Khi người dùng tìm theo keyword (ví dụ "bàn phím"), KHÔNG ĐƯỢC bóp nghẹt cứng
+    // theo category vì sinh viên khi đăng bài rất hay chọn nhầm danh mục (ví dụ bán Bàn phím cơ nhưng chọn mục BOOKS).
+    // Category lúc này chỉ dùng làm điểm cộng xếp hạng (ranking boost).
+    let candidateIds = new Set<string>();
+
+    if (rawKeyword) {
+      // 1. Quét qua Meilisearch Engine (Fuzzy search chịu lỗi chính tả, không ép cứng categoryType)
+      try {
+        const meiliRes = await searchProductsMeili(rawKeyword, {
+          maxPrice: args.maxPrice,
+          minPrice: args.minPrice,
+          limit: 25,
+        });
+        if (meiliRes?.productIds) {
+          meiliRes.productIds.forEach((id) => candidateIds.add(id));
+        }
+      } catch (meiliError) {
+        // Meilisearch offline thì tiếp tục dùng MongoDB
+      }
+
+      // 2. Quét trực tiếp qua MongoDB Prisma để bắt cả các sản phẩm vừa đăng chưa kịp sync vào Meilisearch
+      const stopWords = new Set([
+        'có', 'nào', 'liên', 'quan', 'đến', 'không', 'món', 'đồ', 'bạn', 'ơi',
+        'tìm', 'giúp', 'mua', 'bán', 'cho', 'mình', 'cần', 'ở', 'tại', 'và',
+        'hoặc', 'chiếc', 'cái', 'với', 'tầm', 'khoảng', 'dưới', 'trên'
+      ]);
+      const meaningfulTokens = rawKeyword
+        .toLowerCase()
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2 && !stopWords.has(t));
+
+      const orClauses: any[] = [
+        { title: { contains: rawKeyword, mode: 'insensitive' } },
+        { description: { contains: rawKeyword, mode: 'insensitive' } },
+      ];
+      if (meaningfulTokens.length > 0) {
+        meaningfulTokens.forEach((tk) => {
+          orClauses.push({ title: { contains: tk, mode: 'insensitive' } });
+        });
+      }
+
+      const dbMatches = await prisma.product.findMany({
+        where: {
+          status: 'AVAILABLE',
+          OR: orClauses,
+          ...(Object.keys(priceFilter).length > 0 ? { price: priceFilter } : {}),
+        },
+        select: { id: true },
+        take: 25,
+      });
+
+      dbMatches.forEach((p) => candidateIds.add(p.id));
+    }
+
+    // Nếu không có keyword (tìm đồ chung theo danh mục / campus)
+    if (!rawKeyword || candidateIds.size === 0) {
+      const buildWhere = (includeCampus: boolean, includeCategory: boolean) => {
+        const where: any = { status: 'AVAILABLE' };
+        if (includeCampus && targetCampus) where.campus = targetCampus as any;
+        if (includeCategory && targetCategory) where.categoryType = targetCategory as any;
+        if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+        return where;
+      };
+
+      // Thử tìm đúng campus & category
+      let prods = await prisma.product.findMany({
+        where: buildWhere(true, true),
+        take: 8,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          condition: true,
+          campus: true,
+          categoryType: true,
+          images: true,
+          meetupLocation: true,
+        },
+      });
+
+      // Nếu campus hiện tại chưa có, mở rộng tìm Toàn quốc (liên 5 campus)
+      if (prods.length === 0 && targetCampus) {
+        prods = await prisma.product.findMany({
+          where: buildWhere(false, true),
+          take: 8,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            condition: true,
+            campus: true,
+            categoryType: true,
+            images: true,
+            meetupLocation: true,
+          },
+        });
+      }
+
+      // Nếu vẫn chưa có, bỏ cả category để tìm rộng hơn
+      if (prods.length === 0 && targetCategory) {
+        prods = await prisma.product.findMany({
+          where: buildWhere(false, false),
+          take: 8,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            condition: true,
+            campus: true,
+            categoryType: true,
+            images: true,
+            meetupLocation: true,
+          },
+        });
+      }
+
+      return prods;
+    }
+
+    // ── 3. QUERY CHI TIẾT & SẮP XẾP ĐA DẠNG SẢN PHẨM ──
+    const matchedProducts = await prisma.product.findMany({
+      where: {
+        id: { in: Array.from(candidateIds) },
+        status: 'AVAILABLE',
+        ...(Object.keys(priceFilter).length > 0 ? { price: priceFilter } : {}),
+      },
       select: {
         id: true,
         title: true,
@@ -713,52 +807,31 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       },
     });
 
-    // Bước 2: Nếu chưa có trong campus hiện tại, tự động tìm Toàn quốc (bỏ lọc campus)
-    if (products.length === 0 && args.campus) {
-      products = await prisma.product.findMany({
-        where: buildWhere(false, true),
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          title: true,
-          price: true,
-          condition: true,
-          campus: true,
-          categoryType: true,
-          images: true,
-          meetupLocation: true,
-        },
-      });
-    }
+    // ── XẾP HẠNG THÔNG MINH (Smart Multi-Product Ranking) ──
+    // Ưu tiên 1: Cùng campus với sinh viên (để gặp mặt trực tiếp Safe Handoff)
+    // Ưu tiên 2: Khớp danh mục
+    // Ưu tiên 3: Giá tăng dần (giúp sinh viên so sánh từ lựa chọn tiết kiệm đến cao cấp)
+    matchedProducts.sort((a, b) => {
+      const aCampus = targetCampus && a.campus === targetCampus ? 1 : 0;
+      const bCampus = targetCampus && b.campus === targetCampus ? 1 : 0;
+      if (aCampus !== bCampus) return bCampus - aCampus;
 
-    // Bước 3: Nếu vẫn chưa thấy, bỏ cả category để tìm thuần theo từ khóa
-    if (products.length === 0 && args.category) {
-      products = await prisma.product.findMany({
-        where: buildWhere(false, false),
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          title: true,
-          price: true,
-          condition: true,
-          campus: true,
-          categoryType: true,
-          images: true,
-          meetupLocation: true,
-        },
-      });
-    }
+      const aCat = targetCategory && a.categoryType === targetCategory ? 1 : 0;
+      const bCat = targetCategory && b.categoryType === targetCategory ? 1 : 0;
+      if (aCat !== bCat) return bCat - aCat;
 
-    return products;
+      return a.price - b.price;
+    });
+
+    return matchedProducts.slice(0, 8);
   }
 
   /**
    * 2. AI Assistant Chat: Gemini Function Calling Chatbot tìm đồ phòng trọ theo giá
    * Gemini tự phân tích câu hỏi → tự gọi search_products → tổng hợp trả lời
+   * Hỗ trợ cả thành viên đã đăng nhập và khách vãng lai (Guest Mode)
    */
-  async assistantChat(userId: string, input: AssistantChatInput) {
+  async assistantChat(userId: string | undefined, input: AssistantChatInput) {
     const { campus, maxPrice, sessionId } = input;
     // Bảo mật F-09: Giới hạn độ dài và làm sạch tin nhắn chống tràn token / prompt injection
     const sanitizedMessage = (input.message || '').trim().slice(0, 1000);
@@ -766,33 +839,55 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       throw new AppError('Nội dung tin nhắn không hợp lệ hoặc rỗng', 400, 'EMPTY_MESSAGE');
     }
 
-    // 1. Quản lý Phiên trò chuyện (Session)
-    let currentSession: any;
-    if (sessionId) {
-      currentSession = await prisma.aiChatSession.findUnique({
-        where: { id: sessionId },
-      });
-      if (!currentSession || currentSession.userId !== userId) {
-        throw new AppError('Phiên trò chuyện không tồn tại', 404, 'SESSION_NOT_FOUND');
-      }
-    } else {
-      currentSession = await prisma.aiChatSession.create({
-        data: {
-          userId,
-          title: sanitizedMessage.slice(0, 40) + (sanitizedMessage.length > 40 ? '...' : ''),
-        },
-      });
+    // Kiểm duyệt nội dung từ cấm (Profanity Filter)
+    const moderation = checkContentModeration(sanitizedMessage);
+    if (!moderation.isClean && moderation.severity === 'BLOCK') {
+      throw new AppError(
+        `Tin nhắn vi phạm chuẩn mực an toàn: Phát hiện từ khóa "${moderation.violations[0]?.word}" (${moderation.violations[0]?.reason})`,
+        400,
+        'CONTENT_MODERATION_BLOCKED'
+      );
     }
 
-    // 2. Lưu tin nhắn người dùng
-    const userMessageRecord = await prisma.aiChatMessage.create({
-      data: {
-        sessionId: currentSession.id,
-        senderRole: 'USER',
-        content: sanitizedMessage,
-        suggestedProductIds: [],
-      },
-    });
+    // 1. Quản lý Phiên trò chuyện (Session)
+    const isGuest = !userId;
+    let currentSession: any;
+    let userMessageRecord: any = null;
+
+    if (!isGuest) {
+      if (sessionId) {
+        currentSession = await prisma.aiChatSession.findUnique({
+          where: { id: sessionId },
+        });
+        if (!currentSession || currentSession.userId !== userId) {
+          throw new AppError('Phiên trò chuyện không tồn tại', 404, 'SESSION_NOT_FOUND');
+        }
+      } else {
+        currentSession = await prisma.aiChatSession.create({
+          data: {
+            userId,
+            title: sanitizedMessage.slice(0, 40) + (sanitizedMessage.length > 40 ? '...' : ''),
+          },
+        });
+      }
+
+      // 2. Lưu tin nhắn người dùng
+      userMessageRecord = await prisma.aiChatMessage.create({
+        data: {
+          sessionId: currentSession.id,
+          senderRole: 'USER',
+          content: sanitizedMessage,
+          suggestedProductIds: [],
+        },
+      });
+    } else {
+      currentSession = {
+        id: 'guest_session',
+        title: 'Khách hỏi thử',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
 
     // 3. Gọi Gemini với Function Calling
     let aiResponseText = '';
@@ -801,7 +896,6 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
 
     if (this.genAI) {
       try {
-        // System instruction cho Gemini biết toàn diện bối cảnh sàn đồ cũ sinh viên FPT (Đầy đủ quy trình mua hàng, trả hàng, khiếu nại)
         const systemPrompt = `Bạn là Trợ lý AI "Cóc Mua Bán" của sàn đồ cũ sinh viên Campus Marketplace FU (Đại học FPT).
 Xưng hô thân thiện kiểu sinh viên FPT (dùng "mình" và "bạn").
 ${campus ? `Ngữ cảnh: Sinh viên đang ở campus ${campus}.` : ''}
@@ -832,26 +926,52 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
   + Nếu sau 24h hai bên không tự hòa giải, Admin / Ban quản trị sàn sẽ vào làm Trọng tài phân xử dựa trên video bằng chứng.
 
 4. HỆ THỐNG FPT COIN & VOUCHER:
-- Sinh viên có thể dùng FPT Coin tích lũy (từ điểm danh, xác thực KYC Thẻ SV, viết đánh giá 2 chiều) để trừ tiền trực tiếp vào đơn hàng (50.000đ - 100.000đ).`;
+- Sinh viên có thể dùng FPT Coin tích lũy (từ điểm danh, xác thực KYC Thẻ SV, viết đánh giá 2 chiều) để trừ tiền trực tiếp vào đơn hàng (50.000đ - 100.000đ).
 
-        // Tái tạo lịch sử hội thoại thực tế từ các tin nhắn trước đó trong database (B2-7 Fix)
-        const pastMessages = await prisma.aiChatMessage.findMany({
-          where: {
-            sessionId: currentSession.id,
-            id: { not: userMessageRecord.id },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        });
+5. NGUYÊN TẮC TƯ VẤN & SO SÁNH SẢN PHẨM THÔNG MINH (KHI NHẬN KẾT QUẢ TỪ SEARCH_PRODUCTS):
+- BẮT BUỘC GIỚI THIỆU & SO SÁNH ĐA DẠNG:
+  + Khi có từ 2 sản phẩm trở lên, BẮT BUỘC giới thiệu và so sánh từ 2 đến 4 lựa chọn tiêu biểu nhất cho bạn sinh viên.
+  + TUYỆT ĐỐI KHÔNG chỉ nói cụt lủn 1 sản phẩm duy nhất khi trong kết quả còn các sản phẩm liên quan khác.
+- PHÂN NHÓM & SO SÁNH RÕ RÀNG:
+  + Lựa chọn Cùng Campus / Tiết kiệm: Ưu tiên món ở campus của bạn sinh viên trước để hẹn gặp trực tiếp Safe Handoff (sảnh Alpha, Thư viện Beta, KTX...) không tốn phí ship và test đồ ngay.
+  + Lựa chọn Liên Campus / Nâng cấp: Nêu rõ các món ở cơ sở khác (nếu có lựa chọn xịn hơn như phím custom, máy like new...), giải thích có thể đặt Ship COD cọc Escrow 48h dùng thử.
+  + So sánh trực diện: Tên sản phẩm, giá tiền (VNĐ), tình trạng (NEW_100, LIKE_NEW_99, USED_GOOD...), điểm nổi bật của từng chiếc.
+- ĐƯA RA LỜI KHUYÊN KHÁCH QUAN (VERDICT):
+  + Tùy theo nhu cầu và ngân sách của bạn sinh viên, tư vấn bạn nên chọn chiếc nào (ví dụ: muốn rẻ nhất lấy ngay thì chọn chiếc A tại cơ sở mình; muốn phím xịn gõ sướng tay thì chọn chiếc B ở cơ sở khác ship về).
+- NHẮC NHỞ AN TOÀN KHI GIAO DỊCH:
+  + Gặp trực tiếp: Mở mã QR Handshake trên app khi nhận hàng.
+  + Đơn Ship COD: Nhắc bạn yên tâm vì có 48 giờ vàng dùng thử máy trước khi sàn giải ngân cho người bán.`;
 
-        pastMessages.reverse();
+        let history: any[] = [];
+        if (!isGuest && currentSession?.id) {
+          const pastMessages = await prisma.aiChatMessage.findMany({
+            where: {
+              sessionId: currentSession.id,
+              id: userMessageRecord ? { not: userMessageRecord.id } : undefined,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          });
 
-        const history = pastMessages
-          .filter((m) => m.senderRole === 'USER' || m.senderRole === 'MODEL')
-          .map((m) => ({
-            role: m.senderRole === 'USER' ? 'user' : 'model',
-            parts: [{ text: m.content }],
-          }));
+          pastMessages.reverse();
+
+          history = pastMessages
+            .filter((m) => m.senderRole === 'USER' || m.senderRole === 'MODEL')
+            .map((m) => ({
+              role: m.senderRole === 'USER' ? 'user' : 'model',
+              parts: [{ text: m.content }],
+            }));
+
+          // Bắt buộc theo luật Gemini SDK: Tin nhắn đầu tiên của history PHẢI là 'user'
+          while (history.length > 0 && history[0].role !== 'user') {
+            history.shift();
+          }
+
+          // Bắt buộc theo luật Gemini SDK: Tin nhắn cuối cùng của history PHẢI là 'model'
+          while (history.length > 0 && history[history.length - 1].role !== 'model') {
+            history.pop();
+          }
+        }
 
         let chat: any = null;
         let response: any = null;
@@ -906,6 +1026,7 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
             condition: p.condition,
             campus: p.campus,
             category: p.categoryType,
+            meetupLocation: p.meetupLocation || 'Thương lượng',
           }));
 
           response = await chat.sendMessage([
@@ -915,6 +1036,8 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
                 response: {
                   results: productContext,
                   totalFound: suggestedProducts.length,
+                  guidance:
+                    'Nếu có từ 2 sản phẩm trở lên, BẮT BUỘC giới thiệu và so sánh từ 2-4 lựa chọn tiêu biểu (cùng campus vs khác campus ship COD, giá rẻ sinh viên vs cao cấp/custom, tình trạng), đưa ra lời khuyên khách quan.',
                 },
               },
             },
@@ -930,12 +1053,20 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
       }
     }
 
-    // 4. Fallback nếu chưa cấu hình Gemini hoặc lỗi API
+    // 4. Fallback thông minh nếu chưa cấu hình Gemini hoặc lỗi API
     if (!aiResponseText) {
       const q = sanitizedMessage.toLowerCase();
 
-      // Trường hợp hỏi về cách mua hàng / quy trình mua hàng
-      if (
+      // Trường hợp 1: Chào hỏi
+      const isGreeting =
+        /\b(hi|hello|alo|hey)\b/i.test(q) ||
+        /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(q);
+
+      if (isGreeting) {
+        aiResponseText = `Dạ chào Cóc-er! 🐸 Mình là Cóc AI - Trợ lý Sàn Đồ Cũ Sinh Viên FPT (Market FU). Hôm nay bạn đang muốn tìm món đồ gì (giáo trình, laptop, màn hình, đồ phòng trọ...) hay cần hỗ trợ thủ tục mua bán tại campus nào nè?`;
+      }
+      // Trường hợp 2: Hỏi về cách mua hàng / quy trình mua hàng
+      else if (
         q.includes('cách mua') ||
         q.includes('quy trình mua') ||
         q.includes('mua hàng') ||
@@ -957,7 +1088,7 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
 
 💡 *Mẹo*: Bạn nhớ đổi **FPT Coin** tích lũy để được giảm giá trực tiếp từ 50k - 100k mỗi đơn nhé!`;
       }
-      // Trường hợp hỏi về trả hàng / hoàn tiền / khiếu nại
+      // Trường hợp 3: Hỏi về trả hàng / hoàn tiền / khiếu nại
       else if (
         q.includes('trả hàng') ||
         q.includes('hoàn tiền') ||
@@ -984,61 +1115,93 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
 - **Phương án A (Trả hàng - Hoàn tiền 100%)**: Bạn đem đồ gửi lại tại bàn lễ tân Thư viện hoặc điểm hẹn Safe Handoff campus. Tiền sẽ được hoàn 100% về tài khoản ngân hàng hoặc ví FPT Coin của bạn.
 - **Phương án B (Bồi thường một phần - Partial Refund)**: Nếu hàng chỉ trầy xước nhẹ mà vẫn dùng tốt, hai bên có thể thỏa thuận người bán bớt lại 20-50% tiền đền bù mà bạn không cần gửi trả đồ.
 - Nếu sau 24h hai bên không tìm được tiếng nói chung, **Admin Ban Quản Trị sẽ can thiệp làm Trọng tài** đưa ra phán quyết cuối cùng!`;
-      } else {
-        // Fallback: tự query DB tìm sản phẩm
+      }
+      // Trường hợp 4: Có ý định tìm kiếm đồ (Chỉ tìm khi người dùng thực sự hỏi về sản phẩm)
+      else if (
+        q.includes('tìm') ||
+        q.includes('mua') ||
+        q.includes('cần') ||
+        q.includes('giá') ||
+        q.includes('pass') ||
+        q.includes('bán') ||
+        q.includes('có ai') ||
+        q.includes('sách') ||
+        q.includes('quạt') ||
+        q.includes('chuột') ||
+        q.includes('bàn') ||
+        q.includes('ghế') ||
+        q.includes('nồi') ||
+        q.includes('máy') ||
+        q.includes('laptop') ||
+        q.includes('xe')
+      ) {
         if (suggestedProducts.length === 0) {
-          const fallbackWhere: any = { status: 'AVAILABLE' };
-          if (campus) fallbackWhere.campus = campus;
-          if (maxPrice) fallbackWhere.price = { lte: maxPrice };
-
-          suggestedProducts = await prisma.product.findMany({
-            where: fallbackWhere,
-            take: 5,
-            orderBy: { createdAt: 'desc' },
-            select: {
-              id: true,
-              title: true,
-              price: true,
-              condition: true,
-              campus: true,
-              categoryType: true,
-              images: true,
-              meetupLocation: true,
-            },
+          suggestedProducts = await this.executeSearchProducts({
+            campus,
+            maxPrice,
+            keyword: sanitizedMessage,
           });
           suggestedProductIds = suggestedProducts.map((p) => p.id);
         }
 
         if (suggestedProducts.length > 0) {
           aiResponseText =
-            `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp với yêu cầu của bạn trên hệ thống:\n` +
+            `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp trên hệ thống Market FU:\n` +
             suggestedProducts
               .map(
                 (p, idx) =>
                   `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString()}đ (Campus: ${p.campus})`
               )
               .join('\n') +
-            '\n\nBạn có thể nhấn vào từng món đồ bên dưới để xem chi tiết và chat trực tiếp với người bán nhé!';
+            '\n\nBạn có thể nhấn vào từng món đồ bên dưới để xem chi tiết và liên hệ người bán nhé!';
         } else {
           aiResponseText =
-            'Chào bạn! Hiện tại trên hệ thống chưa có món đồ nào hoàn toàn khớp với tiêu chí tìm kiếm của bạn. Bạn thử nâng mức ngân sách hoặc tìm ở các campus lân cận xem sao nhé!';
+            `Chào bạn! Rất tiếc hiện tại trên sàn chưa có món đồ nào khớp với tìm kiếm "${sanitizedMessage}"${campus ? ` tại campus ${campus}` : ''}. Bạn thử tìm kiếm với từ khóa khác hoặc tìm ở các campus lân cận qua hình thức Ship COD / Escrow nhé!`;
         }
+      }
+      // Trường hợp 5: Câu hỏi ngoài chuyên môn / chung chung
+      else {
+        aiResponseText = `🐸 Dạ Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ hỗ trợ các vấn đề về mua bán đồ cũ, mẹo kiểm tra đồ, thủ tục Safe Handoff, giải đáp Escrow và hướng dẫn điểm hẹn an toàn tại 5 cơ sở trường thôi nè!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ phòng trọ, laptop, xe cộ...) hoặc cần hỗ trợ cách đặt cọc/khiếu nại, bạn cứ gõ cho mình nhé!`;
       }
     }
 
-    // 5. Lưu phản hồi AI vào Database
-    const savedAiMessage = await prisma.aiChatMessage.create({
-      data: {
-        sessionId: currentSession.id,
+    // 5. Lưu phản hồi AI vào Database (Nếu không phải khách vãng lai)
+    if (!isGuest && currentSession?.id) {
+      const savedAiMessage = await prisma.aiChatMessage.create({
+        data: {
+          sessionId: currentSession.id,
+          senderRole: 'MODEL',
+          content: aiResponseText,
+          suggestedProductIds,
+        },
+      });
+
+      // Cập nhật thời điểm updatedAt để các phiên chat mới nhất luôn nổi lên đầu danh sách
+      await prisma.aiChatSession
+        .update({
+          where: { id: currentSession.id },
+          data: { updatedAt: new Date() },
+        })
+        .catch(() => {});
+
+      return {
+        session: currentSession,
+        message: savedAiMessage,
+        suggestedProducts,
+      };
+    }
+
+    // Đối với khách vãng lai (Guest Mode): Trả về phản hồi ngay mà không lưu session vào DB
+    return {
+      session: currentSession,
+      message: {
+        id: `guest_msg_${Date.now()}`,
+        sessionId: 'guest_session',
         senderRole: 'MODEL',
         content: aiResponseText,
         suggestedProductIds,
+        createdAt: new Date(),
       },
-    });
-
-    return {
-      session: currentSession,
-      message: savedAiMessage,
       suggestedProducts,
     };
   }
