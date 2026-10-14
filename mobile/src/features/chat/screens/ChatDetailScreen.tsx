@@ -18,6 +18,7 @@ import { ChatDetailInputBar } from '../components/ChatDetailInputBar';
 import { chatMobileService } from '../../../services/chatMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { useUserStore } from '../../../stores/userStore';
+import * as ImagePicker from 'expo-image-picker';
 
 const QUICK_REPLIES = [
   'Sản phẩm còn không bạn?',
@@ -143,12 +144,20 @@ export const ChatDetailScreen: React.FC = () => {
             }
 
             const mapped: MessageItem[] = remoteMsgs.map((m) => {
-              const msgType: any = m.messageType === 'OFFER_PRICE' ? 'offer' : (m.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
+              const isImg = m.messageType === 'IMAGE' || Boolean(m.imageUrl);
+              const msgType: any = isImg
+                ? 'image'
+                : m.messageType === 'OFFER_PRICE'
+                ? 'offer'
+                : m.messageType === 'MEETUP_LOCATION'
+                ? 'safepoint'
+                : 'text';
               return {
                 id: m.id,
                 sender: m.isMe ? 'me' : 'partner',
                 type: msgType,
                 text: m.message,
+                imageUrl: m.imageUrl,
                 time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
                 offerData: m.offerPrice ? {
                   originalPrice: typeof product.price === 'number' ? product.price : 500000,
@@ -209,13 +218,21 @@ export const ChatDetailScreen: React.FC = () => {
         );
       }
 
-      const msgType: any = rawMsg.messageType === 'OFFER_PRICE' ? 'offer' : (rawMsg.messageType === 'MEETUP_LOCATION' ? 'safepoint' : 'text');
+      const isImg = rawMsg.messageType === 'IMAGE' || Boolean(rawMsg.mediaUrl || rawMsg.imageUrl);
+      const msgType: any = isImg
+        ? 'image'
+        : rawMsg.messageType === 'OFFER_PRICE'
+        ? 'offer'
+        : rawMsg.messageType === 'MEETUP_LOCATION'
+        ? 'safepoint'
+        : 'text';
 
       const incoming: MessageItem = {
         id: rawMsg.id || `msg_${Date.now()}`,
         sender: isMe ? 'me' : 'partner',
         type: msgType,
         text,
+        imageUrl: rawMsg.mediaUrl || rawMsg.imageUrl,
         time: rawMsg.createdAt ? new Date(rawMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
         offerData: rawMsg.offerPrice ? {
           originalPrice: typeof product.price === 'number' ? product.price : 500000,
@@ -416,6 +433,43 @@ export const ChatDetailScreen: React.FC = () => {
     );
   }, [handleSendSafePoint]);
 
+  const handleAttachPhoto = useCallback(async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để gửi ảnh thực tế sản phẩm.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const tempMsg: MessageItem = {
+          id: 'img-' + Date.now(),
+          sender: 'me',
+          type: 'image',
+          imageUrl: asset.uri,
+          text: 'Đã gửi một ảnh',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, tempMsg]);
+
+        if (conversationId) {
+          chatMobileService.sendImageMessage(conversationId, asset.uri).catch((err) => {
+            console.log('⚠️ [sendImageMessage error]:', err?.message);
+          });
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi chọn ảnh', err?.message || 'Không thể chọn ảnh từ máy.');
+    }
+  }, [conversationId]);
+
   const renderMessageItem = useCallback(
     ({ item }: { item: MessageItem }) => (
       <ChatDetailMessageItem
@@ -445,7 +499,6 @@ export const ChatDetailScreen: React.FC = () => {
           else navigation.navigate('MainTabs', { screen: 'Chat' });
         }}
         onHome={() => navigation.navigate('MainTabs', { screen: 'Home' })}
-        onCall={() => Alert.alert('Gọi thoại', `Kết nối cuộc gọi bảo mật với ${partner.name}`)}
       />
 
       <ChatDetailProductCard
@@ -501,7 +554,7 @@ export const ChatDetailScreen: React.FC = () => {
             }
           }}
           onSend={() => handleSendMessage()}
-          onAttachPhoto={() => Alert.alert('Gửi ảnh', 'Chọn ảnh chụp thực tế sản phẩm từ thiết bị')}
+          onAttachPhoto={handleAttachPhoto}
           onPickSafePoint={handlePickSafePoint}
           insetsBottom={insets.bottom}
         />

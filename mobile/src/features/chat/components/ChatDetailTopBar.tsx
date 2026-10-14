@@ -10,14 +10,12 @@ interface ChatDetailTopBarProps {
     isOnline?: boolean;
   };
   onBack: () => void;
-  onCall: () => void;
   onHome: () => void;
 }
 
 export const ChatDetailTopBar: React.FC<ChatDetailTopBarProps> = ({
   partner,
   onBack,
-  onCall,
   onHome,
 }) => {
   return (
@@ -55,13 +53,6 @@ export const ChatDetailTopBar: React.FC<ChatDetailTopBarProps> = ({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="home-outline" size={19} color="#0F172A" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.callBtn}
-          onPress={onCall}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="call-outline" size={19} color="#EA580C" />
         </TouchableOpacity>
       </View>
     </View>

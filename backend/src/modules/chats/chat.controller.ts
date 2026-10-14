@@ -74,7 +74,11 @@ export class ChatController {
     try {
       const authReq = req as AuthRequest;
       const conversationId = req.params.id as string;
-      const validatedData = sendMessageSchema.parse(req.body);
+      const body = {
+        ...req.body,
+        messageType: req.body?.messageType || req.body?.type || 'TEXT',
+      };
+      const validatedData = sendMessageSchema.parse(body);
       const imageFile = req.file;
 
       const message = await chatService.sendMessage(

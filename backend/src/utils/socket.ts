@@ -140,7 +140,11 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
     // Gửi tin nhắn đa phương thức (TEXT, OFFER_PRICE, MEETUP_LOCATION, IMAGE) - B2-5 & B2-9 Fix
     const handleSendMessage = async (rawData: any) => {
       try {
-        const parseResult = socketSendMessageSchema.safeParse(rawData);
+        const normalizedData = {
+          ...rawData,
+          messageType: rawData?.messageType || rawData?.type || 'TEXT',
+        };
+        const parseResult = socketSendMessageSchema.safeParse(normalizedData);
         if (!parseResult.success) {
           socket.emit('error', {
             code: 'VALIDATION_ERROR',

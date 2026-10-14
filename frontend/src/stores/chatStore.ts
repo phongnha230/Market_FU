@@ -238,7 +238,7 @@ export const useChatStore = create<ChatState>()(
               conversationId: m.conversationId,
               senderId: m.senderId,
               senderRole: 'buyer',
-              messageType: m.type,
+              messageType: ((m as any).messageType || m.type || 'TEXT') as MessageType,
               text: m.text,
               mediaUrl: m.mediaUrl,
               offerPrice: m.offerPrice,

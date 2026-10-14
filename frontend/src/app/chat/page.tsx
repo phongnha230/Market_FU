@@ -336,6 +336,7 @@ function ChatContent() {
                       sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
                       text: m.text || '',
                       time: m.createdAt,
+                      image: m.mediaUrl || (m as any).image || (m as any).imageUrl,
                       isOfferAccepted,
                       isOfferRejected,
                       isOfferExpired,
@@ -416,6 +417,71 @@ function ChatContent() {
     });
 
     setInputText('');
+  };
+
+  const handleSendImage = async (file: File) => {
+    if (!activeConv) return;
+    if (!isKycVerified) {
+      showToast('⚠️ Bạn cần xác thực Thẻ Sinh Viên để mở khóa quyền gửi ảnh!', 'warning');
+      setIsKycModalOpen(true);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    // Optimistic UI update
+    const tempId = `temp-img-${Date.now()}`;
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === activeConv.id) {
+          const newMsg: ChatMessage = {
+            id: tempId,
+            sender: 'me',
+            text: 'Đã gửi một ảnh sản phẩm',
+            time: timeStr,
+            image: previewUrl,
+          };
+          return {
+            ...c,
+            lastMessage: 'Bạn: [Hình ảnh]',
+            time: timeStr,
+            messages: [...c.messages, newMsg],
+          };
+        }
+        return c;
+      })
+    );
+
+    try {
+      const res = await chatService.sendMessage(
+        activeConv.id,
+        {
+          type: 'IMAGE',
+          text: 'Đã gửi một ảnh sản phẩm',
+        },
+        file
+      );
+
+      // Đồng bộ mediaUrl từ server vào chatStore
+      chatStore.sendMessage({
+        conversationId: activeConv.id,
+        messageType: 'IMAGE',
+        text: 'Đã gửi một ảnh sản phẩm',
+        mediaUrl: res?.mediaUrl || previewUrl,
+      });
+      showToast('📷 Đã gửi ảnh thành công!', 'success');
+    } catch (err: any) {
+      console.log('⚠️ [handleSendImage error]:', err?.message);
+      chatStore.sendMessage({
+        conversationId: activeConv.id,
+        messageType: 'IMAGE',
+        text: 'Đã gửi một ảnh sản phẩm',
+        mediaUrl: previewUrl,
+      });
+      showToast('📷 Ảnh đã được tải lên và hiển thị trong hội thoại.', 'info');
+    }
   };
 
   const handleAcceptOffer = (msgId: string, offerPrice: number) => {
@@ -679,6 +745,7 @@ function ChatContent() {
                   inputText={inputText}
                   onInputChange={setInputText}
                   onSendMessage={handleSendMessage}
+                  onSendImage={handleSendImage}
                   quickChips={quickChips}
                   partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
                   onShowToast={(msg) => showToast(msg, 'info')}

@@ -33,7 +33,8 @@ export interface BackendMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
+  type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
+  messageType?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
   text?: string;
   mediaUrl?: string;
   offerPrice?: number;
@@ -105,8 +106,9 @@ export const chatService = {
     if (file) {
       const formData = new FormData();
       if (payload.text) formData.append('text', payload.text);
+      formData.append('messageType', payload.type || 'IMAGE');
       formData.append('type', payload.type || 'IMAGE');
-      formData.append('file', file);
+      formData.append('image', file);
       if (payload.offerPrice) formData.append('offerPrice', payload.offerPrice.toString());
       if (payload.meetupLocation) formData.append('meetupLocation', payload.meetupLocation);
 
@@ -120,9 +122,14 @@ export const chatService = {
       return response.data.data;
     }
 
+    const body: any = {
+      ...payload,
+      messageType: payload.type || 'TEXT',
+    };
+
     const response = await apiClient.post<ApiResponse<BackendMessage>>(
       `/chats/conversations/${conversationId}/messages`,
-      payload
+      body
     );
     return response.data.data;
   },

@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export interface MessageItem {
   id: string;
   sender: 'me' | 'partner';
-  type: 'text' | 'offer' | 'safepoint';
+  type: 'text' | 'offer' | 'safepoint' | 'image';
   text?: string;
+  imageUrl?: string;
   time: string;
   offerData?: {
     originalPrice: number;
@@ -201,6 +202,39 @@ const ChatTextBubble: React.FC<ChatTextBubbleProps> = ({ item, isMe }) => {
   );
 };
 
+interface ChatImageBubbleProps {
+  item: MessageItem;
+  isMe: boolean;
+}
+
+const ChatImageBubble: React.FC<ChatImageBubbleProps> = ({ item, isMe }) => {
+  return (
+    <View style={[styles.msgWrapper, isMe ? styles.myMsgWrapper : styles.theirMsgWrapper]}>
+      <View style={[styles.imageBubble, isMe ? styles.myImageBubble : styles.theirImageBubble]}>
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.chatMediaImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name="image-outline" size={28} color="#94A3B8" />
+          </View>
+        )}
+        {item.text && item.text !== 'Đã gửi một ảnh' && (
+          <Text style={[styles.imageCaptionText, isMe ? styles.myBubbleText : styles.theirBubbleText]}>
+            {item.text}
+          </Text>
+        )}
+        <Text style={[styles.bubbleTime, isMe ? styles.myBubbleTime : styles.theirBubbleTime, { marginTop: 4 }]}>
+          {item.time}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 interface ChatDetailMessageItemProps {
   item: MessageItem;
   onAcceptOffer: (msgId: string) => void;
@@ -234,6 +268,10 @@ export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
     return <ChatSafePointBubble item={item} isMe={isMe} onBookSafePoint={onBookSafePoint} />;
   }
 
+  if (item.type === 'image') {
+    return <ChatImageBubble item={item} isMe={isMe} />;
+  }
+
   return <ChatTextBubble item={item} isMe={isMe} />;
 };
 
@@ -241,6 +279,31 @@ const styles = StyleSheet.create({
   msgWrapper: { marginVertical: 3, maxWidth: '82%' },
   myMsgWrapper: { alignSelf: 'flex-end' },
   theirMsgWrapper: { alignSelf: 'flex-start' },
+
+  // Image bubble
+  imageBubble: { borderRadius: 14, padding: 4, overflow: 'hidden' },
+  myImageBubble: { backgroundColor: '#EA580C', borderBottomRightRadius: 3 },
+  theirImageBubble: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderBottomLeftRadius: 3,
+  },
+  chatMediaImage: {
+    width: 220,
+    height: 160,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  imagePlaceholder: {
+    width: 220,
+    height: 160,
+    borderRadius: 10,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageCaptionText: { fontSize: 12.5, lineHeight: 17, paddingHorizontal: 4, paddingTop: 4 },
 
   // Text bubble
   bubble: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 7 },

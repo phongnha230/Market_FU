@@ -158,13 +158,19 @@ class SocketClient {
     conversationId: string;
     text?: string;
     type?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
+    messageType?: 'TEXT' | 'IMAGE' | 'OFFER_PRICE' | 'MEETUP_LOCATION' | 'PRODUCT_TICKET';
     mediaUrl?: string;
     offerPrice?: number;
     meetupLocation?: string;
   }): boolean {
     const socket = this.getSocket();
     if (socket && socket.connected) {
-      socket.emit('send_message', payload);
+      const resolvedType = payload.messageType || payload.type || 'TEXT';
+      socket.emit('send_message', {
+        ...payload,
+        type: resolvedType,
+        messageType: resolvedType,
+      });
       return true;
     }
     return false;
