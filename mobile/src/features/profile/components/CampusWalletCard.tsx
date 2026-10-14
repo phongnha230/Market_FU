@@ -155,36 +155,22 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={styles.actionBtn}
+          onPress={() => navigation.navigate('Voucher')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="ticket-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
+          <Text style={[styles.actionText, { color: '#EA580C' }]}>Đổi Voucher</Text>
+        </TouchableOpacity>
+
+        <View style={styles.btnDivider} />
+
+        <TouchableOpacity
+          style={styles.actionBtn}
           onPress={() => navigation.navigate('CoinHistory')}
           activeOpacity={0.7}
         >
-          <Ionicons name="gift-outline" size={15} color="#D97706" style={{ marginRight: 4 }} />
-          <Text style={[styles.actionText, { color: '#D97706' }]}>Ưu đãi Xu</Text>
-        </TouchableOpacity>
-
-        <View style={styles.btnDivider} />
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('OrderList', { initialTab: 'escrow' })}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="cube-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
-          <Text style={[styles.actionText, { color: '#2563EB' }]}>Đơn mua cọc</Text>
-        </TouchableOpacity>
-
-        <View style={styles.btnDivider} />
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => {
-            if (onKycPress) onKycPress();
-            else navigation.navigate('Settings');
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="storefront-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
-          <Text style={styles.actionText}>Đăng ký Seller</Text>
+          <Ionicons name="receipt-outline" size={15} color="#0284C7" style={{ marginRight: 4 }} />
+          <Text style={[styles.actionText, { color: '#0284C7' }]}>Lịch sử tích Xu</Text>
         </TouchableOpacity>
       </View>
     </View>

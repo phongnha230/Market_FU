@@ -39,13 +39,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showMyReportsModal, setShowMyReportsModal] = useState(false);
 
   const handleSettingPress = (id: string) => {
-    if (id === 's1') {
+    if (id === 's0') {
       setShowEditModal(true);
+    } else if (id === 's1') {
+      const isVerified = Boolean(
+        user?.isKycVerified ||
+        user?.kycStatus === 'APPROVED' ||
+        ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+      );
+      setKycRole(isVerified ? 'SELLER' : 'STUDENT');
+      setShowKycModal(true);
     } else if (id === 's2') {
       if (onNavigateToVoucher) onNavigateToVoucher();
       else navigation.navigate('Voucher');
     } else if (id === 's3') {
-      navigation.navigate('SavedItems');
+      navigation.navigate('SafePointHubs');
     } else if (id === 's4') {
       if (onNavigateToDispute) onNavigateToDispute();
       else navigation.navigate('Dispute');
@@ -110,98 +118,104 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           />
         }
       >
-        <ProfileHeaderCard
-          user={user}
-          currentCampus={currentCampus}
-          onKycPress={(role) => {
-            if (role) setKycRole(role);
-            setShowKycModal(true);
-          }}
-          onEditPress={() => setShowEditModal(true)}
-          onManageListings={() => navigation.navigate('ManageListings')}
-          onSellerDashboard={() => navigation.navigate('SellerDashboard')}
-        />
+        {user ? (
+          <>
+            <ProfileHeaderCard
+              user={user}
+              currentCampus={currentCampus}
+              onKycPress={(role) => {
+                const isVerified = Boolean(
+                  user?.isKycVerified ||
+                  user?.kycStatus === 'APPROVED' ||
+                  ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+                );
+                setKycRole(isVerified && role ? role : 'STUDENT');
+                setShowKycModal(true);
+              }}
+              onEditPress={() => setShowEditModal(true)}
+              onManageListings={() => navigation.navigate('ManageListings')}
+              onSellerDashboard={() => navigation.navigate('SellerDashboard')}
+            />
 
-        {/* Kênh Quản lý Người Bán (Seller Hub) - Chỉ hiển thị cho Seller */}
-        {user?.role === 'SELLER' && (
-          <TouchableOpacity
-            style={styles.sellerHubBanner}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('SellerDashboard')}
-          >
-            <View style={styles.sellerHubLeft}>
-              <View style={styles.sellerHubIconBox}>
-                <Ionicons name="speedometer" size={20} color="#EA580C" />
-              </View>
-              <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.sellerHubTitle}>Kênh Quản Lý Người Bán</Text>
-                  <View style={styles.sellerHubBadge}>
-                    <Text style={styles.sellerHubBadgeText}>HUB</Text>
-                  </View>
+            <CampusWalletCard
+              onWithdrawPress={() => setShowWithdrawModal(true)}
+              onDepositPress={() => setShowDepositModal(true)}
+              onKycPress={() => {
+                const isVerified = Boolean(
+                  user?.isKycVerified ||
+                  user?.kycStatus === 'APPROVED' ||
+                  ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+                );
+                setKycRole(isVerified ? 'SELLER' : 'STUDENT');
+                setShowKycModal(true);
+              }}
+            />
+
+            {/* Lịch sử tố cáo vi phạm */}
+            <TouchableOpacity
+              style={styles.settingsBarCard}
+              activeOpacity={0.8}
+              onPress={() => setShowMyReportsModal(true)}
+            >
+              <View style={styles.settingsBarLeft}>
+                <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
+                  <Ionicons name="shield-half" size={20} color="#E11D48" />
                 </View>
-                <Text style={styles.sellerHubSub}>Quản lý doanh thu, kho tin rao, vận đơn FPT Bus</Text>
+                <View>
+                  <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
+                  <Text style={styles.settingsBarSub}>Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
+                </View>
               </View>
+              <Ionicons name="chevron-forward" size={18} color="#E11D48" />
+            </TouchableOpacity>
+
+            <OrdersOverviewSection
+              title={orderSectionTitle}
+              stats={orderStats}
+              onPressStatus={handleOpenOrderList}
+            />
+
+            <View style={styles.settingsSection}>
+              <Text style={styles.sectionTitle}>Tùy chọn & Hỗ trợ sinh viên</Text>
+              {settingItems.map((item) => (
+                <SettingRow key={item.id} item={item} onPress={() => handleSettingPress(item.id)} />
+              ))}
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#EA580C" />
-          </TouchableOpacity>
-        )}
 
-        <CampusWalletCard
-          onWithdrawPress={() => setShowWithdrawModal(true)}
-          onDepositPress={() => setShowDepositModal(true)}
-          onKycPress={() => {
-            setKycRole('SELLER');
-            setShowKycModal(true);
-          }}
-        />
-
-
-        {/* Lịch sử tố cáo vi phạm */}
-        <TouchableOpacity
-          style={styles.settingsBarCard}
-          activeOpacity={0.8}
-          onPress={() => setShowMyReportsModal(true)}
-        >
-          <View style={styles.settingsBarLeft}>
-            <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
-              <Ionicons name="shield-half" size={20} color="#E11D48" />
+            <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+              <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={styles.guestSection}>
+            <View style={styles.guestPromoCard}>
+              <View style={styles.guestPromoIcon}>
+                <Ionicons name="school" size={28} color="#EA580C" />
+              </View>
+              <Text style={styles.guestPromoTitle}>Chào mừng đến với Chợ Sinh Viên FU</Text>
+              <Text style={styles.guestPromoDesc}>
+                Đăng nhập tài khoản FPT (@fpt.edu.vn) để tham gia mua bán thanh lý đồ KTX, trả giá trong chat, tích lũy FPT Coins và đổi voucher Căn tin/Passio!
+              </Text>
+              <TouchableOpacity
+                style={styles.loginCtaBtn}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Login')}
+              >
+                <Ionicons name="log-in-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.loginCtaText}>Đăng nhập bằng FPT SSO</Text>
+              </TouchableOpacity>
             </View>
-            <View>
-              <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
-              <Text style={styles.settingsBarSub}>Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
+
+            <View style={styles.settingsSection}>
+              <Text style={styles.sectionTitle}>Thông tin & Quy chế Campus</Text>
+              {settingItems
+                .filter((item) => ['s3', 's7'].includes(item.id))
+                .map((item) => (
+                  <SettingRow key={item.id} item={item} onPress={() => handleSettingPress(item.id)} />
+                ))}
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#E11D48" />
-        </TouchableOpacity>
-
-        <OrdersOverviewSection
-          title={orderSectionTitle}
-          stats={orderStats}
-          onPressStatus={handleOpenOrderList}
-        />
-
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Tùy chọn & Hỗ trợ sinh viên</Text>
-          {settingItems.map((item) => (
-            <SettingRow key={item.id} item={item} onPress={() => handleSettingPress(item.id)} />
-          ))}
-        </View>
-
-        {!user ? (
-          <TouchableOpacity
-            style={styles.loginCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Ionicons name="log-in-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.loginCtaText}>Đăng nhập / Đăng ký tài khoản FPT</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
-            <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
-          </TouchableOpacity>
         )}
       </ScrollView>
 
@@ -254,35 +268,40 @@ const styles = StyleSheet.create({
   topBarTitle: { fontSize: 16.5, fontWeight: '800', color: '#0F172A' },
   settingIconBtn: { padding: 4 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  sellerHubBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  guestSection: {
+    marginTop: 14,
+  },
+  guestPromoCard: {
     backgroundColor: '#FFF7ED',
     borderWidth: 1.5,
     borderColor: '#FDBA74',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  sellerHubLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sellerHubIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+  guestPromoIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FED7AA',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 10,
   },
-  sellerHubTitle: { fontSize: 13.5, fontWeight: '800', color: '#9A3412' },
-  sellerHubBadge: {
-    backgroundColor: '#EA580C',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+  guestPromoTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#9A3412',
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  sellerHubBadgeText: { fontSize: 9, fontWeight: '900', color: '#FFFFFF' },
-  sellerHubSub: { fontSize: 11, color: '#C2410C', marginTop: 2 },
+  guestPromoDesc: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: '#7C2D12',
+    textAlign: 'center',
+  },
   settingsBarCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,11 +330,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: 14,
+    marginTop: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     backgroundColor: '#EA580C',
     boxShadow: '0 4px 8px rgba(234, 88, 12, 0.25)',
+    width: '100%',
   },
   loginCtaText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   logoutBtn: {

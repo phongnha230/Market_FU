@@ -68,7 +68,7 @@ export default function KycRegistrationModal({
   isOpen,
   onClose,
   onShowToast,
-  defaultRole = 'seller',
+  defaultRole = 'student',
 }: KycRegistrationModalProps) {
   const { user, setKycStatus, updateProfile } = useUserStore();
   const { submitApplication } = useKycStore();
@@ -82,14 +82,15 @@ export default function KycRegistrationModal({
   );
   const isStudentVerified = user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller' || isEduEmail;
 
-  // Role selection: default to defaultRole (e.g. 'seller' when user clicked "Đăng ký mở Seller")
-  const [selectedRole, setSelectedRole] = useState<KycType>(
-    defaultRole || (isStudentVerified ? 'seller' : 'student')
-  );
+  // Role selection: default to 'student' if unverified, or defaultRole if verified
+  const effectiveDefaultRole = isStudentVerified ? (defaultRole || 'seller') : 'student';
+  const [selectedRole, setSelectedRole] = useState<KycType>(effectiveDefaultRole);
 
   React.useEffect(() => {
     if (isOpen) {
-      const targetRole = (isPending && user.kycRole) ? user.kycRole : (defaultRole || 'seller');
+      const targetRole = isStudentVerified
+        ? ((isPending && user.kycRole) ? user.kycRole : (defaultRole || 'seller'))
+        : 'student';
       setSelectedRole(targetRole);
 
       if (isStudentVerified) {
@@ -129,7 +130,7 @@ export default function KycRegistrationModal({
       // Tài khoản CHƯA xác thực sinh viên: Phục hồi hồ sơ đã gửi trước đó nếu có
       if (user.kycSubmittedData) {
         const data = user.kycSubmittedData;
-        if (data.role) setSelectedRole(data.role);
+        if (data.role && data.role === 'student') setSelectedRole(data.role);
         if (data.fullName) setFullName(data.fullName);
         if (data.studentId) setStudentId(data.studentId);
         if (data.email) setEmail(data.email);
@@ -245,6 +246,10 @@ export default function KycRegistrationModal({
       }
     } else {
       // Seller role validation
+      if (!isStudentVerified) {
+        onShowToast('Quy định an toàn FPT Campus: Bạn cần hoàn thành Xác thực Thẻ Sinh Viên FPT trước khi mở gian hàng Người Bán!', 'error');
+        return;
+      }
       if (!fullName.trim() || !studentId.trim()) {
         onShowToast('Vui lòng cung cấp đầy đủ thông tin sinh viên.', 'error');
         return;
@@ -544,27 +549,40 @@ export default function KycRegistrationModal({
               <div
                 onClick={() => {
                   if (isPending) return;
+                  if (!isStudentVerified) {
+                    onShowToast('⚠️ Bạn cần hoàn thành Xác thực Thẻ Sinh Viên (Bước 1) trước khi mở gian hàng Người Bán!', 'error');
+                    return;
+                  }
                   setSelectedRole('seller');
                 }}
-                className={`relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3 ${
-                  isPending ? 'cursor-not-allowed' : 'cursor-pointer'
-                } ${
-                  selectedRole === 'seller'
-                    ? 'border-fpt-orange bg-orange-50/40 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                className={cn(
+                  "relative rounded-2xl border-2 p-4 transition flex flex-col justify-between space-y-3",
+                  isPending
+                    ? "cursor-not-allowed opacity-85"
+                    : !isStudentVerified
+                    ? "cursor-not-allowed border-dashed border-slate-200 bg-slate-50/70 opacity-80"
+                    : selectedRole === 'seller'
+                    ? "border-fpt-orange bg-orange-50/40 shadow-xs cursor-pointer"
+                    : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
+                )}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      selectedRole === 'seller' ? 'bg-orange-100 text-fpt-orange' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      <Store className="h-5 w-5" />
+                    <div className={cn(
+                      "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
+                      !isStudentVerified ? "bg-slate-100 text-slate-400" :
+                      selectedRole === 'seller' ? "bg-orange-100 text-fpt-orange" : "bg-slate-100 text-slate-600"
+                    )}>
+                      {!isStudentVerified ? <Lock className="h-5 w-5" /> : <Store className="h-5 w-5" />}
                     </div>
                     <div>
-                      <div className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                      <div className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5 flex-wrap">
                         <span>Người Bán (Seller)</span>
-                        {user.kycStatus === 'approved_seller' ? (
+                        {!isStudentVerified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/90 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                            <Lock className="h-2.5 w-2.5" /> Khóa (Cần Thẻ SV)
+                          </span>
+                        ) : user.kycStatus === 'approved_seller' ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                             ✓ Đã xác thực
                           </span>
@@ -574,29 +592,41 @@ export default function KycRegistrationModal({
                           </span>
                         ) : null}
                       </div>
-                      <div className="text-[11px] text-fpt-orange font-medium">Mở gian hàng sinh viên</div>
+                      <div className={cn("text-[11px] font-medium", !isStudentVerified ? "text-slate-400" : "text-fpt-orange")}>
+                        {!isStudentVerified ? "Mở khóa sau khi hoàn tất Bước 1" : "Mở gian hàng sinh viên"}
+                      </div>
                     </div>
                   </div>
-                  {selectedRole === 'seller' && (
+                  {isStudentVerified && selectedRole === 'seller' && (
                     <div className="h-5 w-5 rounded-full bg-fpt-orange text-white flex items-center justify-center">
                       <Check className="h-3 w-3 stroke-[3]" />
                     </div>
                   )}
                 </div>
-                <ul className="text-[11px] text-slate-600 space-y-1 pl-1">
-                  <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                    <span>Mở khóa quyền <strong>Đăng bán không giới hạn</strong></span>
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                    <span>Tài khoản nhận tiền thanh toán Escrow 48h</span>
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
-                    <span>Xác thực pháp lý CCCD & Huy hiệu Verified Seller</span>
-                  </li>
-                </ul>
+
+                {!isStudentVerified ? (
+                  <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Quy định an toàn FPT Campus:</strong> Bạn cần xác thực Thẻ Sinh Viên chính quy trước để BQT xác nhận danh tính trong trường rồi mới được mở bán đồ.
+                    </span>
+                  </div>
+                ) : (
+                  <ul className="text-[11px] text-slate-600 space-y-1 pl-1">
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
+                      <span>Mở khóa quyền <strong>Đăng bán không giới hạn</strong></span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
+                      <span>Tài khoản nhận tiền thanh toán Escrow 48h</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-fpt-orange shrink-0" />
+                      <span>Xác thực pháp lý CCCD & Huy hiệu Verified Seller</span>
+                    </li>
+                  </ul>
+                )}
               </div>
             </div>
           </div>

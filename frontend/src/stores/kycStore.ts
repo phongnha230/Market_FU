@@ -168,13 +168,14 @@ export const useKycStore = create<KycStoreState>()(
       },
 
       approveApplication: async (id, reviewer = 'SuperAdmin BQT') => {
+        const app = get().applications.find((a) => a.id === id);
+        const targetId = app?.id && app.id.length === 24 ? app.id : (app?.studentId || app?.email || id);
         try {
-          await reportService.approveKyc(id, 200);
-        } catch {
-          // offline fallback
+          await reportService.approveKyc(targetId, 200);
+        } catch (err: any) {
+          console.warn('⚠️ [approveApplication API warning]:', err?.message);
         }
 
-        const app = get().applications.find((a) => a.id === id);
         if (app) {
           try {
             const { useUserStore } = await import('./userStore');
@@ -197,7 +198,7 @@ export const useKycStore = create<KycStoreState>()(
 
         set((state) => ({
           applications: state.applications.map((a) =>
-            a.id === id
+            a.id === id || (app && a.email.toLowerCase() === app.email.toLowerCase())
               ? {
                   ...a,
                   status: 'approved',
@@ -211,13 +212,14 @@ export const useKycStore = create<KycStoreState>()(
       },
 
       rejectApplication: async (id, reason = 'Thông tin thẻ sinh viên không trùng khớp với hệ thống FAP') => {
+        const app = get().applications.find((a) => a.id === id);
+        const targetId = app?.id && app.id.length === 24 ? app.id : (app?.studentId || app?.email || id);
         try {
-          await reportService.rejectKyc(id, reason);
-        } catch {
-          // offline fallback
+          await reportService.rejectKyc(targetId, reason);
+        } catch (err: any) {
+          console.warn('⚠️ [rejectApplication API warning]:', err?.message);
         }
 
-        const app = get().applications.find((a) => a.id === id);
         if (app) {
           try {
             const { useUserStore } = await import('./userStore');
@@ -233,7 +235,7 @@ export const useKycStore = create<KycStoreState>()(
 
         set((state) => ({
           applications: state.applications.map((a) =>
-            a.id === id
+            a.id === id || (app && a.email.toLowerCase() === app.email.toLowerCase())
               ? {
                   ...a,
                   status: 'rejected',
@@ -267,20 +269,22 @@ export const useKycStore = create<KycStoreState>()(
       },
 
       scanKycWithAi: async (id: string) => {
+        const app = get().applications.find((a) => a.id === id);
+        const targetId = app?.id && app.id.length === 24 ? app.id : (app?.studentId || app?.email || id);
         try {
-          const res = await reportService.scanKycWithAi(id);
+          const res = await reportService.scanKycWithAi(targetId);
           if (res?.ocrData) {
             const ocr = res.ocrData;
             const score = res.aiMatchScore ?? ocr.aiMatchScore;
             set((state) => ({
-              applications: state.applications.map((app) =>
-                app.id === id
+              applications: state.applications.map((item) =>
+                item.id === id || (app && item.email?.toLowerCase() === app.email.toLowerCase())
                   ? {
-                      ...app,
+                      ...item,
                       ocrData: ocr,
                       aiMatchScore: score,
                     }
-                  : app
+                  : item
               ),
             }));
             return true;

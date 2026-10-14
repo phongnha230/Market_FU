@@ -27,6 +27,7 @@ export const profileMobileService = {
     const res = await apiClient.patch<ApiResponse<any>>('/profile', {
       fullName: updates.name,
       phoneNumber: updates.phone,
+      dorm: updates.roomNumber,
       dormRoom: updates.roomNumber,
       bio: updates.bio,
       major: updates.major,

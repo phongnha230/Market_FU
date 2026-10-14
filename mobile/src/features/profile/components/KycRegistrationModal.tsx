@@ -79,7 +79,16 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   const { user, updateUserProfile } = useUserStore();
   const { status, studentId: existingMssv, submitKyc } = useKycStore();
 
-  const [activeTab, setActiveTab] = useState<KycType>(() => initialRole || (user?.isKycVerified ? 'SELLER' : 'STUDENT'));
+  const isStudentVerified = Boolean(
+    user?.isKycVerified ||
+    user?.kycStatus === 'APPROVED' ||
+    ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+  );
+
+  const [activeTab, setActiveTab] = useState<KycType>(() => {
+    if (!isStudentVerified) return 'STUDENT';
+    return initialRole || 'SELLER';
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Common Fields
@@ -91,12 +100,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   // Student Tab Specific Photos
   const [studentFrontCard, setStudentFrontCard] = useState<string | null>(null);
   const [studentBackCard, setStudentBackCard] = useState<string | null>(null);
-
-  const isStudentVerified = Boolean(
-    user?.isKycVerified ||
-    user?.kycStatus === 'APPROVED' ||
-    ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
-  );
 
   const cohort = user?.cohort || (user?.studentId ? `K${user.studentId.replace(/\D/g, '').slice(0, 2)}` : '') || 'K19';
   const [category, setCategory] = useState('Giáo trình & Tài liệu học IT');
@@ -113,25 +116,43 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
   const [citizenBackCard, setCitizenBackCard] = useState<string | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(true);
 
+  const handleSelectTab = useCallback((tab: KycType) => {
+    if (tab === 'SELLER' && !isStudentVerified) {
+      Alert.alert(
+        '🔒 Yêu cầu Thẻ Sinh Viên FPT',
+        'Quy định an toàn FPT Campus: Bạn cần hoàn thành Xác thực Thẻ Sinh Viên (Bước 1) và được duyệt trước khi đăng ký mở gian hàng Người Bán!'
+      );
+      return;
+    }
+    setActiveTab(tab);
+  }, [isStudentVerified]);
+
   // Synchronize user info when opening
   useEffect(() => {
-    if (visible && user) {
-      setStudentId(user.studentId || existingMssv || '');
-      setFullName(user.name || '');
-      setCampus(user.campus || 'HÒA LẠC');
-      setMajor(user.major || 'Kỹ thuật phần mềm (SE)');
-      if (user.dormRoom) setHandoffSpot(user.dormRoom);
-      if (user.name) {
-        setStoreName(`Góc Pass Đồ ${user.name}`);
-        setBankAccountName(user.name.toUpperCase());
+    if (visible) {
+      if (!isStudentVerified) {
+        setActiveTab('STUDENT');
+      } else if (initialRole) {
+        setActiveTab(initialRole);
       }
-      if (user.bankAccount) {
-        setBankName(user.bankAccount.bankName || 'MB');
-        setBankAccount(user.bankAccount.accountNo || '');
-        setBankAccountName(user.bankAccount.accountName || user.name?.toUpperCase() || '');
+      if (user) {
+        setStudentId(user.studentId || existingMssv || '');
+        setFullName(user.name || '');
+        setCampus(user.campus || 'HÒA LẠC');
+        setMajor(user.major || 'Kỹ thuật phần mềm (SE)');
+        if (user.dormRoom) setHandoffSpot(user.dormRoom);
+        if (user.name) {
+          setStoreName(`Góc Pass Đồ ${user.name}`);
+          setBankAccountName(user.name.toUpperCase());
+        }
+        if (user.bankAccount) {
+          setBankName(user.bankAccount.bankName || 'MB');
+          setBankAccount(user.bankAccount.accountNo || '');
+          setBankAccountName(user.bankAccount.accountName || user.name?.toUpperCase() || '');
+        }
       }
     }
-  }, [visible, user, existingMssv]);
+  }, [visible, user, existingMssv, initialRole, isStudentVerified]);
 
   const pickImage = useCallback((targetSetter: (uri: string) => void, title: string) => {
     showImagePickerAlert(title, targetSetter);
@@ -153,6 +174,13 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
         return;
       }
     } else {
+      if (!isStudentVerified) {
+        Alert.alert(
+          '🔒 Yêu cầu Thẻ Sinh Viên FPT',
+          'Quy định an toàn FPT Campus: Bạn cần hoàn thành Xác thực Thẻ Sinh Viên FPT (Bước 1) và được duyệt trước khi đăng ký mở gian hàng Người Bán.'
+        );
+        return;
+      }
       if (!bankAccount.trim()) {
         Alert.alert('Thiếu thông tin', 'Vui lòng nhập Số tài khoản ngân hàng để nhận tiền rút từ ví.');
         return;
@@ -247,7 +275,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
         <View style={styles.modalSheet}>
           <KycHeaderTabs
             activeTab={activeTab}
-            onSelectTab={setActiveTab}
+            onSelectTab={handleSelectTab}
             onClose={onClose}
             isStudentVerified={isStudentVerified}
           />
@@ -272,7 +300,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 setStudentBackCard={setStudentBackCard}
                 onPickImage={pickImage}
                 isStudentVerified={isStudentVerified}
-                onUpgradeToSeller={() => setActiveTab('SELLER')}
+                onUpgradeToSeller={() => handleSelectTab('SELLER')}
               />
             ) : (
               <KycSellerTabForm

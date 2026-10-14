@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -38,7 +38,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
 }) => {
   const navigation = useNavigation<any>();
   const { user } = useUserStore();
-  const { getWallet, withdraw } = useWalletStore();
+  const { getWallet, withdraw, fetchWalletBalances } = useWalletStore();
   const wallet = getWallet();
 
   const [bankName, setBankName] = useState(user?.bankAccount?.bankName || 'TPBank (Tiên Phong)');
@@ -46,6 +46,17 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
   const [accountName, setAccountName] = useState(user?.bankAccount?.accountName || user?.name || '');
   const [amountStr, setAmountStr] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      fetchWalletBalances().catch(() => {});
+      if (user?.bankAccount?.accountNo) {
+        setAccountNo(user.bankAccount.accountNo);
+        if (user.bankAccount.bankName) setBankName(user.bankAccount.bankName);
+        if (user.bankAccount.accountName) setAccountName(user.bankAccount.accountName);
+      }
+    }
+  }, [visible, user]);
 
   const availableBalance = wallet.availableBalance;
 

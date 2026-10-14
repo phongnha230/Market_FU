@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { KycType } from '../../../stores/kycStore';
 
@@ -16,6 +16,17 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
   onClose,
   isStudentVerified,
 }) => {
+  const handlePressSellerTab = () => {
+    if (!isStudentVerified) {
+      Alert.alert(
+        '🔒 Yêu cầu Thẻ Sinh Viên FPT',
+        'Quy định an toàn FPT Campus: Bạn cần hoàn thành Xác thực Thẻ Sinh Viên (Bước 1) và được duyệt trước khi đăng ký mở gian hàng Người Bán!'
+      );
+      return;
+    }
+    onSelectTab('SELLER');
+  };
+
   return (
     <>
       {/* Header */}
@@ -72,18 +83,39 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'SELLER' && styles.tabBtnActive]}
-          onPress={() => onSelectTab('SELLER')}
+          style={[
+            styles.tabBtn,
+            activeTab === 'SELLER' && styles.tabBtnActive,
+            !isStudentVerified && styles.tabBtnLocked,
+          ]}
+          onPress={handlePressSellerTab}
           activeOpacity={0.8}
         >
           <Ionicons
-            name="storefront"
+            name={!isStudentVerified ? 'lock-closed' : 'storefront'}
             size={16}
-            color={activeTab === 'SELLER' ? '#EA580C' : '#64748B'}
+            color={
+              activeTab === 'SELLER'
+                ? '#EA580C'
+                : !isStudentVerified
+                ? '#94A3B8'
+                : '#64748B'
+            }
           />
-          <Text style={[styles.tabBtnText, activeTab === 'SELLER' && styles.tabBtnTextActive]}>
-            2. Trở thành Người bán
+          <Text
+            style={[
+              styles.tabBtnText,
+              activeTab === 'SELLER' && styles.tabBtnTextActive,
+              !isStudentVerified && styles.tabBtnTextLocked,
+            ]}
+          >
+            2. Người bán
           </Text>
+          {!isStudentVerified && (
+            <View style={styles.lockedBadge}>
+              <Text style={styles.lockedBadgeText}>🔒 Khóa</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </>
@@ -186,5 +218,26 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: '#15803D',
+  },
+  tabBtnLocked: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    opacity: 0.8,
+  },
+  tabBtnTextLocked: {
+    color: '#94A3B8',
+  },
+  lockedBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    marginLeft: 2,
+  },
+  lockedBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#DC2626',
   },
 });

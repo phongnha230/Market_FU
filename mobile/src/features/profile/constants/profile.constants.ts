@@ -2,6 +2,16 @@ import { SettingItem } from '../types/profile.types';
 
 export const SETTING_ITEMS: SettingItem[] = [
   {
+    id: 's0',
+    icon: 'person-circle-outline',
+    iconLib: 'ionicons',
+    iconBg: '#F1F5F9',
+    iconColor: '#334155',
+    title: 'Chỉnh sửa hồ sơ cá nhân',
+    subtitle: 'Đổi Nickname, SĐT/Zalo & phòng KTX',
+    chevron: true,
+  },
+  {
     id: 's1',
     icon: 'shield-checkmark',
     iconLib: 'ionicons',
