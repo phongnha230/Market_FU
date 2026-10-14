@@ -14,6 +14,7 @@ import OrderAiBotModal from '@/components/orders/OrderAiBotModal';
 import OrderQrModal from '@/components/orders/OrderQrModal';
 import OrderPaymentModal from '@/components/orders/OrderPaymentModal';
 import OrderShipModal from '@/components/orders/OrderShipModal';
+import ReviewDetailModal from '@/components/orders/ReviewDetailModal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,7 @@ export default function OrderDetailPage() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isShipModalOpen, setIsShipModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isConfirmingDelivery, setIsConfirmingDelivery] = useState(false);
   const [isMarkingDelivered, setIsMarkingDelivered] = useState(false);
 
@@ -1108,9 +1110,25 @@ export default function OrderDetailPage() {
                           </Link>
                         </Button>
                       ) : (
-                        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-bold flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          <span>Bạn đã hoàn tất đánh giá giao dịch này</span>
+                        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-bold">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                              <span>Bạn đã hoàn tất đánh giá đơn này</span>
+                            </div>
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                              +100 Xu
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => setIsReviewModalOpen(true)}
+                            variant="outline"
+                            className="w-full bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-900 font-bold rounded-xl text-xs h-9 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Xem lại / Chỉnh sửa đánh giá của bạn</span>
+                          </Button>
                         </div>
                       )}
 
@@ -1208,6 +1226,12 @@ export default function OrderDetailPage() {
           updateOrderStatus(order.code, 'shipping', 'Đang vận chuyển');
           setOrder((prev) => (prev ? { ...prev, status: 'shipping' } : null));
         }}
+      />
+
+      <ReviewDetailModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        order={order}
       />
 
       {/* MOBILE STICKY BOTTOM ACTION BAR (Chỉ hiển thị trên điện thoại < md) */}

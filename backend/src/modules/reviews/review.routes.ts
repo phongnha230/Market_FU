@@ -12,5 +12,9 @@ router.use(authenticate);
 
 router.post('/', reviewController.createReview);
 router.get('/order/:orderId', reviewController.getOrderReviews);
+router.patch('/order/:orderId', reviewController.updateReviewByOrder);
+router.patch('/:id', reviewController.updateReview);
+router.post('/order/:orderId/toggle-public', reviewController.toggleReviewPublic);
+router.post('/:id/toggle-public', reviewController.toggleReviewPublic);
 
 export default router;

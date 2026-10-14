@@ -13,6 +13,7 @@ import OrderShipModal from '@/components/orders/OrderShipModal';
 import OrderAiBotModal from '@/components/orders/OrderAiBotModal';
 import OrderQrModal from '@/components/orders/OrderQrModal';
 import OrderPaymentModal from '@/components/orders/OrderPaymentModal';
+import ReviewDetailModal from '@/components/orders/ReviewDetailModal';
 import OrderSidebar from '@/components/orders/OrderSidebar';
 import KycRegistrationModal from '@/components/modals/KycRegistrationModal';
 import { useMarket } from '@/context/MarketContext';
@@ -83,6 +84,8 @@ export default function OrdersPage() {
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<OrderItem | null>(null);
   const [selectedShipOrder, setSelectedShipOrder] = useState<OrderItem | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedReviewOrder, setSelectedReviewOrder] = useState<OrderItem | null>(null);
 
   // Lấy tập đơn hàng tương ứng với Tab chính đang chọn (Đơn mua hay Đơn bán)
   const currentTabOrders = React.useMemo(() => {
@@ -415,6 +418,10 @@ export default function OrdersPage() {
                       }}
                       onCancelOrder={handleCancelOrder}
                       onShipOrder={(ord) => setSelectedShipOrder(ord)}
+                      onOpenReviewDetail={(ord) => {
+                        setSelectedReviewOrder(ord);
+                        setIsReviewModalOpen(true);
+                      }}
                     />
                   ))
                 )}
@@ -581,6 +588,10 @@ export default function OrdersPage() {
                         }}
                         onCancelOrder={handleCancelOrder}
                         onShipOrder={(ord) => setSelectedShipOrder(ord)}
+                        onOpenReviewDetail={(ord) => {
+                          setSelectedReviewOrder(ord);
+                          setIsReviewModalOpen(true);
+                        }}
                       />
                     ))
                   )}
@@ -776,6 +787,10 @@ export default function OrdersPage() {
                         }}
                         onCancelOrder={handleCancelOrder}
                         onShipOrder={(ord) => setSelectedShipOrder(ord)}
+                        onOpenReviewDetail={(ord) => {
+                          setSelectedReviewOrder(ord);
+                          setIsReviewModalOpen(true);
+                        }}
                       />
                     ))
                 )}
@@ -843,6 +858,14 @@ export default function OrdersPage() {
           showToast('🎉 Xác nhận thanh toán Escrow thành công qua VietQR / PayOS!', 'success');
           useOrderStore.getState().fetchOrders();
         }}
+      />
+      <ReviewDetailModal
+        isOpen={isReviewModalOpen}
+        onClose={() => {
+          setIsReviewModalOpen(false);
+          setSelectedReviewOrder(null);
+        }}
+        order={selectedReviewOrder}
       />
 
       <Footer />

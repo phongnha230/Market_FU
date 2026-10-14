@@ -187,6 +187,28 @@ export const orderService = {
     return response.data.data || [];
   },
 
+  // 8.0. Cập nhật / Chỉnh sửa đánh giá
+  async updateReview(
+    orderId: string,
+    params: {
+      rating?: number;
+      comment?: string;
+      images?: string[];
+      proofVideoUrl?: string | null;
+    }
+  ): Promise<any> {
+    const cleanId = orderId.replace(/^#/, '');
+    const response = await apiClient.patch<ApiResponse<any>>(`/reviews/order/${cleanId}`, params);
+    return response.data.data;
+  },
+
+  // 8.0.1. Mở khóa / Chuyển trạng thái công khai đánh giá
+  async toggleReviewPublic(orderId: string): Promise<any> {
+    const cleanId = orderId.replace(/^#/, '');
+    const response = await apiClient.post<ApiResponse<any>>(`/reviews/order/${cleanId}/toggle-public`);
+    return response.data.data;
+  },
+
   // 8.1. Lấy đánh giá của người dùng để hiển thị trên Hồ sơ (Profile Reviews)
   async getUserReviews(
     userId: string,

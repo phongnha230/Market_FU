@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { reviewService } from './review.service';
-import { createReviewSchema, queryUserReviewsSchema } from './review.dto';
+import { createReviewSchema, queryUserReviewsSchema, updateReviewSchema } from './review.dto';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 
 export class ReviewController {
@@ -56,6 +56,48 @@ export class ReviewController {
       next(error);
     }
   }
+
+  /**
+   * PATCH /api/reviews/:id
+   * Chỉnh sửa đánh giá theo reviewId
+   */
+  async updateReview(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const validated = updateReviewSchema.parse(req.body);
+      const updated = await reviewService.updateReview(req.user!.userId, req.params.id as string, validated);
+      return sendSuccess(res, updated, { message: 'Cập nhật đánh giá thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /api/reviews/order/:orderId
+   * Chỉnh sửa đánh giá theo orderId / orderCode
+   */
+  async updateReviewByOrder(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const validated = updateReviewSchema.parse(req.body);
+      const updated = await reviewService.updateReviewByOrder(req.user!.userId, req.params.orderId as string, validated);
+      return sendSuccess(res, updated, { message: 'Cập nhật đánh giá thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reviews/:id/toggle-public
+   * Chuyển đổi trạng thái công khai của đánh giá (Dev/Demo/Manual unlock)
+   */
+  async toggleReviewPublic(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const updated = await reviewService.toggleReviewPublic(req.user!.userId, req.params.id as string);
+      return sendSuccess(res, updated, { message: 'Chuyển trạng thái công khai thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const reviewController = new ReviewController();
+

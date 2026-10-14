@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
-import { useOrderStore } from '@/stores/orderStore';
+import { useOrderStore, OrderReviewData } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
 import {
@@ -24,16 +24,19 @@ import {
   ArrowRight,
   Upload,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AvatarFallback, Progress } from '@/components/ui';
 
 function ReviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isEditMode = searchParams.get('mode') === 'edit';
   const rawParam = searchParams.get('code') || searchParams.get('orderId') || '';
   const orderCode = rawParam ? (rawParam.startsWith('#') ? rawParam : `#${rawParam}`) : '';
 
   const markOrderReviewed = useOrderStore((state) => state.markOrderReviewed);
+  const updateOrderReview = useOrderStore((state) => state.updateOrderReview);
   const addCoins = useUserStore((state) => state.addCoins);
   const userData = useUserStore((state) => state.user);
   const getOrder = useOrderStore((state) => state.getOrder);
@@ -156,6 +159,27 @@ function ReviewContent() {
     );
   };
 
+  // Pre-fill if editing or reviewData exists
+  useEffect(() => {
+    const existing = storeOrder?.reviewData;
+    if (existing) {
+      if (typeof existing.rating === 'number') setRating(existing.rating);
+      if (typeof existing.comment === 'string') setComment(existing.comment);
+      if (Array.isArray(existing.tags) && existing.tags.length > 0) setSelectedTags(existing.tags);
+      if (typeof existing.isAnonymous === 'boolean') setIsAnonymous(existing.isAnonymous);
+      if (existing.proofVideoUrl) setProofVideoUrl(existing.proofVideoUrl);
+      if (existing.images && existing.images.length > 0) {
+        setReviewMediaList(
+          existing.images.map((url, idx) => ({
+            id: `exist-${idx}`,
+            url,
+            name: `Ảnh test ${idx + 1}`,
+          }))
+        );
+      }
+    }
+  }, [storeOrder?.reviewData]);
+
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderCode) {
@@ -166,28 +190,71 @@ function ReviewContent() {
     try {
       const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
       const earnedCoins = proofVideoUrl.trim() ? 200 : 100;
-      await orderService.submitReview({
-        orderId: rawOrderId,
+
+      if (isEditMode) {
+        const partialData: Partial<OrderReviewData> = {
+          rating,
+          comment,
+          tags: selectedTags,
+          images: reviewMediaList.map((m) => m.url),
+          proofVideoUrl: proofVideoUrl.trim() || undefined,
+          isAnonymous,
+        };
+        updateOrderReview(orderCode, partialData);
+        try {
+          await orderService.updateReview(rawOrderId, {
+            rating,
+            comment,
+            images: reviewMediaList.map((m) => m.url),
+            proofVideoUrl: proofVideoUrl.trim() || null,
+          });
+        } catch {
+          // offline fallback
+        }
+        showToast('✅ Đã cập nhật thành công đánh giá đơn hàng!');
+        setTimeout(() => {
+          router.push('/orders');
+        }, 1200);
+        return;
+      }
+
+      // Gửi đánh giá mới
+      const fullReviewData: OrderReviewData = {
         rating,
         comment,
+        tags: selectedTags,
+        images: reviewMediaList.map((m) => m.url),
         proofVideoUrl: proofVideoUrl.trim() || undefined,
-      });
-      markOrderReviewed(orderCode);
+        isAnonymous,
+        reviewedAt: new Date().toISOString(),
+        isPublic: false,
+        canEdit: true,
+        bonusCoins: earnedCoins,
+      };
+
+      try {
+        await orderService.submitReview({
+          orderId: rawOrderId,
+          rating,
+          comment,
+          proofVideoUrl: proofVideoUrl.trim() || undefined,
+        });
+      } catch (err: any) {
+        const errorCode = err?.response?.data?.errorCode;
+        if (errorCode !== 'ALREADY_REVIEWED') {
+          throw err;
+        }
+      }
+
+      markOrderReviewed(orderCode, fullReviewData);
       addCoins(earnedCoins);
       showToast(`🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng +${earnedCoins} Xu vào tài khoản.`);
       setTimeout(() => {
         router.push('/orders');
       }, 1200);
     } catch (err: any) {
-      const errorCode = err?.response?.data?.errorCode;
       const message = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi gửi đánh giá!';
-      if (errorCode === 'ALREADY_REVIEWED') {
-        markOrderReviewed(orderCode);
-        showToast('ℹ️ Bạn đã gửi đánh giá cho đơn hàng này rồi.');
-        setTimeout(() => router.push('/orders'), 1200);
-      } else {
-        showToast(`❌ ${message}`);
-      }
+      showToast(`❌ ${message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -203,7 +270,7 @@ function ReviewContent() {
           breadcrumbs={[
             { label: 'Quản lý đơn hàng', href: '/orders' },
             { label: `Đơn ${orderCode}` },
-            { label: 'Đánh giá đơn hàng' },
+            { label: isEditMode ? 'Chỉnh sửa đánh giá' : 'Đánh giá đơn hàng' },
           ]}
         />
 
@@ -212,15 +279,27 @@ function ReviewContent() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div>
               <Badge className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-bold uppercase tracking-wider text-white border border-white/30 hover:bg-white/20">
-                <CheckCircle2 className="h-3.5 w-3.5" /> GIAO DỊCH LIÊN CAMPUS HOÀN TẤT
+                {isEditMode ? (
+                  <>
+                    <Edit3 className="h-3.5 w-3.5" /> CHỈNH SỬA ĐÁNH GIÁ ĐÃ GỬI
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> GIAO DỊCH LIÊN CAMPUS HOÀN TẤT
+                  </>
+                )}
               </Badge>
               <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
-                {currentOrder?.type === 'inter-campus'
+                {isEditMode
+                  ? 'Chỉnh sửa nội dung đánh giá của bạn'
+                  : currentOrder?.type === 'inter-campus'
                   ? `Bạn vừa hoàn tất đơn hàng liên campus (${sellerCampus} ➔ ${userData?.campus || 'Hòa Lạc'})`
                   : 'Bạn vừa hoàn tất giao dịch sản phẩm an toàn'}
               </h1>
               <p className="mt-1 text-xs sm:text-sm text-orange-100 max-w-2xl leading-relaxed">
-                Mỗi đánh giá minh bạch từ bạn giúp xây dựng cộng đồng FPT 5Campus đáng tin cậy và an tâm giao dịch xa.
+                {isEditMode
+                  ? 'Bạn có thể cập nhật lại số sao, nhận xét hoặc tải thêm hình ảnh/video test thiết bị thực tế.'
+                  : 'Mỗi đánh giá minh bạch từ bạn giúp xây dựng cộng đồng FPT 5Campus đáng tin cậy và an tâm giao dịch xa.'}
               </p>
             </div>
 
@@ -593,8 +672,17 @@ function ReviewContent() {
                     disabled={isSubmitting}
                     className="h-auto w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3.5 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:bg-fpt-orange-hover hover:shadow-lg transition active:scale-98 cursor-pointer disabled:opacity-50"
                   >
-                    <Coins className="h-4 w-4" />
-                    <span>{isSubmitting ? 'Đang gửi đánh giá...' : proofVideoUrl.trim() ? 'Gửi đánh giá & Nhận ngay +200 Xu (Kèm video test)' : 'Gửi đánh giá & Nhận ngay +100 Xu'}</span>
+                    {isEditMode ? (
+                      <>
+                        <Edit3 className="h-4 w-4" />
+                        <span>{isSubmitting ? 'Đang lưu thay đổi...' : 'Lưu cập nhật đánh giá'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Coins className="h-4 w-4" />
+                        <span>{isSubmitting ? 'Đang gửi đánh giá...' : proofVideoUrl.trim() ? 'Gửi đánh giá & Nhận ngay +200 Xu (Kèm video test)' : 'Gửi đánh giá & Nhận ngay +100 Xu'}</span>
+                      </>
+                    )}
                   </Button>
 
                   <Button

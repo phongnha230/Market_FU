@@ -8,6 +8,19 @@ export interface OrderStep {
   status: 'completed' | 'current' | 'pending';
 }
 
+export interface OrderReviewData {
+  rating: number;
+  comment?: string;
+  tags?: string[];
+  images?: string[];
+  proofVideoUrl?: string;
+  isAnonymous?: boolean;
+  reviewedAt: string;
+  isPublic?: boolean;
+  canEdit?: boolean;
+  bonusCoins?: number;
+}
+
 export interface OrderItem {
   id: string;
   code: string;
@@ -21,6 +34,7 @@ export interface OrderItem {
   statusText: string;
   statusColor: string;
   reviewed?: boolean;
+  reviewData?: OrderReviewData;
   buyerId?: string;
   sellerId?: string;
   handshake?: {
@@ -84,7 +98,9 @@ interface OrderState {
     meetupLocation?: string;
   }) => OrderItem;
   updateOrderStatus: (idOrCode: string, status: OrderItem['status'], statusText?: string) => void;
-  markOrderReviewed: (idOrCode: string) => void;
+  markOrderReviewed: (idOrCode: string, reviewData?: OrderReviewData) => void;
+  updateOrderReview: (idOrCode: string, reviewData: Partial<OrderReviewData>) => void;
+  toggleReviewPublic: (idOrCode: string) => void;
   getOrder: (idOrCode: string) => OrderItem | undefined;
   resetOrders: () => void;
 }
@@ -369,18 +385,92 @@ export const useOrderStore = create<OrderState>()(
         });
       },
 
-      markOrderReviewed: (idOrCode) => {
+      markOrderReviewed: (idOrCode, reviewData) => {
         const activeUid = get().activeUserId;
+        const defaultReview: OrderReviewData = reviewData || {
+          rating: 5,
+          comment: 'Đã hoàn tất kiểm tra và nhận hàng an toàn tại Safe-Point!',
+          tags: ['mota', 'donggoi'],
+          reviewedAt: new Date().toISOString(),
+          isPublic: false,
+          canEdit: true,
+          bonusCoins: 100,
+        };
+
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
             if (o.id === idOrCode || o.code === idOrCode) {
               return {
                 ...o,
                 reviewed: true,
+                reviewData: defaultReview,
                 status: 'completed' as const,
-                statusText: 'Đã đánh giá 5 sao • Đã nhận +50 Coins',
+                statusText: `Đã đánh giá ${defaultReview.rating} sao • Đã nhận +${defaultReview.bonusCoins || 100} Coins`,
                 statusColor: 'text-emerald-600',
               };
+            }
+            return o;
+          });
+
+          return {
+            orders: updatedOrders,
+            ordersByUser: activeUid
+              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+              : state.ordersByUser,
+          };
+        });
+      },
+
+      updateOrderReview: (idOrCode, partialData) => {
+        const activeUid = get().activeUserId;
+        set((state) => {
+          const updatedOrders = state.orders.map((o) => {
+            if (o.id === idOrCode || o.code === idOrCode) {
+              const currentRev = o.reviewData || {
+                rating: 5,
+                reviewedAt: new Date().toISOString(),
+                isPublic: false,
+                canEdit: true,
+              };
+              const newRev: OrderReviewData = {
+                ...currentRev,
+                ...partialData,
+                reviewedAt: new Date().toISOString(),
+              };
+              return {
+                ...o,
+                reviewed: true,
+                reviewData: newRev,
+                statusText: `Đã cập nhật đánh giá ${newRev.rating} sao`,
+              };
+            }
+            return o;
+          });
+
+          return {
+            orders: updatedOrders,
+            ordersByUser: activeUid
+              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+              : state.ordersByUser,
+          };
+        });
+      },
+
+      toggleReviewPublic: (idOrCode) => {
+        const activeUid = get().activeUserId;
+        set((state) => {
+          const updatedOrders = state.orders.map((o) => {
+            if (o.id === idOrCode || o.code === idOrCode) {
+              if (o.reviewData) {
+                const nextPublic = !o.reviewData.isPublic;
+                return {
+                  ...o,
+                  reviewData: {
+                    ...o.reviewData,
+                    isPublic: nextPublic,
+                  },
+                };
+              }
             }
             return o;
           });

@@ -29,6 +29,7 @@ interface OrderCardProps {
   onOpenPaymentModal?: (order: OrderItem) => void;
   onCancelOrder?: (orderId: string, orderCode: string) => void;
   onShipOrder?: (order: OrderItem) => void;
+  onOpenReviewDetail?: (order: OrderItem) => void;
 }
 
 export default function OrderCard({
@@ -42,6 +43,7 @@ export default function OrderCard({
   onOpenPaymentModal,
   onCancelOrder,
   onShipOrder,
+  onOpenReviewDetail,
 }: OrderCardProps) {
   const isSellerViewer =
     viewerRole === 'seller' ||
@@ -382,10 +384,16 @@ export default function OrderCard({
 
               {(order.status === 'delivered' || order.status === 'completed') && (
                 order.reviewed ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                  <Button
+                    type="button"
+                    onClick={() => onOpenReviewDetail?.(order)}
+                    variant="outline"
+                    className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Xem lại đánh giá của bạn"
+                  >
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Đã đánh giá</span>
-                  </span>
+                    <span>Xem lại đánh giá</span>
+                  </Button>
                 ) : (
                   <Button
                     asChild

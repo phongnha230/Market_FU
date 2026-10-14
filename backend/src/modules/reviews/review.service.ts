@@ -3,7 +3,7 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../middlewares/error.middleware';
 import { emitToUser } from '../../utils/socket';
 import { notificationService } from '../notifications/notification.service';
-import { CreateReviewInput, QueryUserReviewsInput } from './review.dto';
+import { CreateReviewInput, QueryUserReviewsInput, UpdateReviewInput } from './review.dto';
 
 /** Task 3.3: Thưởng Xu cho người mua viết đánh giá (+100, kèm video test: +200) */
 const REVIEW_COIN_BASE = 100;
@@ -406,6 +406,110 @@ export class ReviewService {
     });
 
     return visibleReviews;
+  }
+
+  /**
+   * 4. Cập nhật / Chỉnh sửa đánh giá đã gửi
+   */
+  async updateReview(userId: string, reviewId: string, input: UpdateReviewInput) {
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+
+    if (!review) {
+      throw new AppError('Đánh giá không tồn tại', 404, 'REVIEW_NOT_FOUND');
+    }
+
+    if (review.reviewerId !== userId) {
+      throw new AppError('Bạn không có quyền chỉnh sửa đánh giá này', 403, 'FORBIDDEN');
+    }
+
+    const updated = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        ...(typeof input.rating === 'number' ? { rating: input.rating } : {}),
+        ...(typeof input.comment === 'string' ? { comment: input.comment } : {}),
+        ...(Array.isArray(input.images) ? { images: input.images } : {}),
+        ...(input.proofVideoUrl !== undefined ? { proofVideoUrl: input.proofVideoUrl } : {}),
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * 5. Cập nhật đánh giá theo orderId / orderCode
+   */
+  async updateReviewByOrder(userId: string, orderId: string, input: UpdateReviewInput) {
+    const cleanCode = orderId.replace(/^#/, '');
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const targetOrderId = order ? order.id : orderId;
+    const review = await prisma.review.findFirst({
+      where: {
+        orderId: targetOrderId,
+        reviewerId: userId,
+      },
+    });
+
+    if (!review) {
+      throw new AppError('Đánh giá của bạn cho đơn hàng này không tồn tại', 404, 'REVIEW_NOT_FOUND');
+    }
+
+    return this.updateReview(userId, review.id, input);
+  }
+
+  /**
+   * 6. Chuyển đổi trạng thái công khai sớm (Dev / Demo / Reveal toggle)
+   */
+  async toggleReviewPublic(userId: string, reviewIdOrOrderId: string) {
+    let review = await prisma.review.findUnique({
+      where: { id: reviewIdOrOrderId },
+    });
+
+    if (!review) {
+      const cleanCode = reviewIdOrOrderId.replace(/^#/, '');
+      const order = await prisma.order.findFirst({
+        where: {
+          OR: [
+            ...(isValidObjectId(reviewIdOrOrderId) ? [{ id: reviewIdOrOrderId }] : []),
+            { orderCode: reviewIdOrOrderId },
+            { orderCode: `#${cleanCode}` },
+            { orderCode: cleanCode },
+          ],
+        },
+        select: { id: true },
+      });
+      if (order) {
+        review = await prisma.review.findFirst({
+          where: { orderId: order.id, reviewerId: userId },
+        });
+      }
+    }
+
+    if (!review) {
+      throw new AppError('Không tìm thấy đánh giá cần chuyển trạng thái', 404, 'REVIEW_NOT_FOUND');
+    }
+
+    const updated = await prisma.review.update({
+      where: { id: review.id },
+      data: {
+        isPublic: !review.isPublic,
+        revealedAt: !review.isPublic ? new Date() : null,
+      },
+    });
+
+    return updated;
   }
 }
 
