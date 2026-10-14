@@ -492,6 +492,7 @@ export class AuthService {
         const allowedAudiences = [
           ENV.GOOGLE_CLIENT_ID,
           ENV.GOOGLE_ANDROID_CLIENT_ID,
+          '663740442323-t83hnbr1ov37avr41volic86ea29ks41.apps.googleusercontent.com',
           '286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com',
           '286340231733-qgivinnpgkh481i8ghvsp021cbo53eir.apps.googleusercontent.com',
           '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com',
