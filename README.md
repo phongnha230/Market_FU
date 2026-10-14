@@ -174,31 +174,61 @@ fu-student-secondhand-market/
 
 ---
 
-## 5. CƠ CHẾ XÁC THỰC THẺ SINH VIÊN & PHÂN TẦNG NGƯỜI BÁN
+## 5. CƠ CHẾ XÁC THỰC THẺ SINH VIÊN & PHÂN TẦNG VAI TRÒ (RBAC & KYC)
 
 ```text
                ┌──────────────────────────────────────────────────┐
                │              NGƯỜI DÙNG ĐĂNG KÝ                  │
-               │        (Bằng Google / Email cá nhân / SĐT)       │
+               │   (Email FPT @fpt.edu.vn / Google SSO / SĐT OTP) │
                └────────────────────────┬─────────────────────────┘
                                         │
                     ┌───────────────────┴───────────────────┐
                     ▼                                       ▼
-         [CẤP 1: TÀI KHOẢN THƯỜNG]                [CẤP 2: SINH VIÊN XÁC THỰC]
-         (Chưa nộp Thẻ sinh viên)                 (Đã tải ảnh Thẻ SV & Admin/Mod duyệt)
+       [CẤP 1: NGƯỜI MUA (BUYER)]                 [CẤP 2: NGƯỜI BÁN (SELLER)]
+   (Tài khoản Sinh viên thông thường)         (Hoàn tất Onboarding & BQT phê duyệt)
                     │                                       │
      ┌──────────────┴──────────────┐                        │
      ▼                             ▼                        │
-Mua/Xem hàng:                 Đăng bán:                     │
-Không giới hạn           - Tối đa 2-3 tin/tháng             │
-                         - Giới hạn giá trị (< 500k)        │
-                         - Cảnh báo: "Chưa xác minh"        │
-                                                            ▼
-                                                       Đăng bán:
-                                                       - Đăng bài không giới hạn
-                                                       - Tích xanh "Sinh viên FPT - MSSV: [Mã]"
-                                                       - Ưu tiên hiển thị trên bảng tin
+Mua hàng & Tương tác:         Đăng bán:                     │
+- Xem & tìm kiếm sản phẩm     ⛔ KHÔNG CÓ QUYỀN ĐĂNG BÁN    │
+- Đặt mua (Safe-point / COD)  (Backend chặn mã lỗi:         │
+- Mở khiếu nại bao test 24-48h ONLY_SELLER_CAN_POST)        │
+- Tải Thẻ SV (Student KYC):                                 │
+  Mở khóa Chat P2P & nhận Xu                                ▼
+                                                       Đăng bán & Kinh doanh:
+                                                       - Đăng tin không giới hạn (AI Quick Post & 5 bước)
+                                                       - Tích xanh "Người Bán SV - MSSV: [Mã]"
+                                                       - Mở Seller Dashboard & Rút tiền Escrow VietQR
+                                                       - Bàn giao mã OTP 4 số tại Safe-Point
 ```
+
+### Chi tiết Phân tầng & Quyền hạn Hệ thống:
+
+1. **Cấp 1: Người Mua (Role: `BUYER` - Sinh viên thông thường)**
+   - **Quyền mua sắm & tương tác**:
+     - Xem toàn bộ tin đăng trên sàn, tìm kiếm, lọc theo Campus & danh mục không giới hạn.
+     - Lưu sản phẩm yêu thích (Wishlist), đặt đơn mua hàng (Gặp mặt trực tiếp tại Safe-Point hoặc Ship COD).
+     - Điểm danh hằng ngày nhận Campus Coin, đổi Voucher căn tin/Passio.
+     - Mở khiếu nại tranh chấp (Dispute) bảo vệ tiền Escrow trong thời hạn bao test 24h - 48h.
+   - **Xác thực Sinh viên (Student KYC)**:
+     - Tải ảnh Thẻ Sinh Viên / màn hình FAP (AI Vision OCR tự đọc MSSV) để nhận tích xanh *"Sinh viên FPT"*, mở khóa tính năng Chat P2P thời gian thực, bình luận trả giá và nhận thưởng nhiệm vụ `+100 Xu`.
+   - **Quy chế đăng bán**:
+     - ⛔ **Nghiêm cấm đăng bán**: Backend bảo vệ nghiêm ngặt bằng quy tắc kiểm tra quyền, chặn với mã lỗi `ONLY_SELLER_CAN_POST`. Sinh viên thông thường không được phép đăng bán tự do nhằm triệt tiêu hoàn toàn nạn spam tin rác, lừa đảo cọc tiền.
+
+2. **Cấp 2: Người Bán (Role: `SELLER` - Đã duyệt Seller Onboarding)**
+   - **Quy trình nâng cấp tài khoản**:
+     - Sinh viên nộp hồ sơ Onboarding Người Bán: Ảnh Thẻ SV / CCCD 2 mặt (AI Vision OCR) + Thông tin tài khoản Ngân hàng chính chủ (Bank Account) nhận giải ngân tiền Escrow.
+     - Ban Quản Trị (BQT) thẩm định và phê duyệt (Nâng Role lên `SELLER` hoặc duyệt `kyc.status = 'APPROVED'` với `type = 'SELLER'`).
+   - **Đặc quyền Người Bán**:
+     - Đăng bán sản phẩm không giới hạn (sử dụng AI Quick Post 10 giây hoặc Form đăng chi tiết 5 bước).
+     - Tin đăng được đưa vào hàng chờ duyệt BQT (`PENDING_APPROVAL`) chống hàng cấm học đường. Sau khi Admin duyệt, tin tự động đồng bộ sang Search Engine và phát sóng Realtime Socket tới Web & Mobile (`product:created`).
+     - Gắn huy hiệu tích xanh uy tín: *"Người Bán Sinh Viên - MSSV: [Mã]"*, hiển thị điểm Uy tín (Reputation Score).
+     - Quyền truy cập Trung tâm Người Bán (Seller Dashboard): Quản lý tồn kho, xác nhận mã bàn giao OTP 4 số tại Safe-Point, và tạo lệnh rút tiền doanh thu Escrow về tài khoản VietQR 24/7 (bảo vệ bằng Redis Distributed Lock).
+
+3. **Cấp 3: Ban Quản Trị (Role: `ADMIN`)**
+   - Kiểm duyệt và phê duyệt / từ chối các tin đăng bán mới (`/admin/posts` hoặc `/admin/moderation`).
+   - Thẩm định hồ sơ định danh KYC Thẻ SV & Onboarding Người Bán.
+   - Phân xử tranh chấp bao test hàng lỗi (`/admin/reports` hoặc `/admin/disputes`) và đối soát giải ngân VietQR cho Người Bán (`/admin/withdrawals`).
 
 ---
 
