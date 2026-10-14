@@ -905,14 +905,34 @@ export class ReportService {
   async approveKyc(id: string, input: ApproveKycInput, adminId: string) {
     const { bonusCoins = 200 } = input;
 
-    const kyc = await prisma.kycVerification.findUnique({
-      where: { id },
-      include: {
-        user: {
-          include: { profile: true },
+    let kyc: any = null;
+    if (isValidObjectId(id)) {
+      kyc = await prisma.kycVerification.findUnique({
+        where: { id },
+        include: {
+          user: {
+            include: { profile: true },
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!kyc) {
+      kyc = await prisma.kycVerification.findFirst({
+        where: {
+          OR: [
+            { studentId: id.toUpperCase().trim() },
+            { user: { email: id.toLowerCase().trim() } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+    }
 
     if (!kyc) {
       throw new AppError('Không tìm thấy yêu cầu xác thực KYC này', 404, 'KYC_NOT_FOUND');
@@ -927,10 +947,10 @@ export class ReportService {
     await prisma.$transaction(async (tx) => {
       // 1. Cập nhật bản ghi KycVerification
       await tx.kycVerification.update({
-        where: { id },
+        where: { id: kyc.id },
         data: {
           status: 'APPROVED',
-          reviewedBy: adminId,
+          reviewedBy: isValidObjectId(adminId) ? adminId : undefined,
           reviewedAt: new Date(),
         },
       });
@@ -1010,9 +1030,11 @@ export class ReportService {
     });
 
     // Gửi email thông báo kết quả
-    const userEmail = kyc.user.email;
-    const fullName = kyc.user.profile?.fullName || 'Sinh viên FU';
-    await sendKycResultEmail(userEmail, true, fullName);
+    const userEmail = kyc.user?.email;
+    const fullName = kyc.user?.profile?.fullName || kyc.fullName || 'Sinh viên FU';
+    if (userEmail) {
+      await sendKycResultEmail(userEmail, true, fullName);
+    }
 
     // Bắn realtime socket và thông báo Push Noti
     emitToUser(userId, 'kyc_status_updated', { status: 'APPROVED', type: kyc.type, bonusCoins });
@@ -1036,14 +1058,34 @@ export class ReportService {
   async rejectKyc(id: string, input: RejectKycInput, adminId: string) {
     const { reason } = input;
 
-    const kyc = await prisma.kycVerification.findUnique({
-      where: { id },
-      include: {
-        user: {
-          include: { profile: true },
+    let kyc: any = null;
+    if (isValidObjectId(id)) {
+      kyc = await prisma.kycVerification.findUnique({
+        where: { id },
+        include: {
+          user: {
+            include: { profile: true },
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!kyc) {
+      kyc = await prisma.kycVerification.findFirst({
+        where: {
+          OR: [
+            { studentId: id.toUpperCase().trim() },
+            { user: { email: id.toLowerCase().trim() } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+    }
 
     if (!kyc) {
       throw new AppError('Không tìm thấy yêu cầu xác thực KYC', 404, 'KYC_NOT_FOUND');
@@ -1057,11 +1099,11 @@ export class ReportService {
 
     await prisma.$transaction(async (tx) => {
       await tx.kycVerification.update({
-        where: { id },
+        where: { id: kyc.id },
         data: {
           status: 'REJECTED',
           rejectedReason: reason.trim(),
-          reviewedBy: adminId,
+          reviewedBy: isValidObjectId(adminId) ? adminId : undefined,
           reviewedAt: new Date(),
         },
       });
@@ -1091,9 +1133,11 @@ export class ReportService {
       reason: reason.trim(),
     });
 
-    const userEmail = kyc.user.email;
-    const fullName = kyc.user.profile?.fullName || 'Sinh viên FU';
-    await sendKycResultEmail(userEmail, false, fullName, reason.trim());
+    const userEmail = kyc.user?.email;
+    const fullName = kyc.user?.profile?.fullName || kyc.fullName || 'Sinh viên FU';
+    if (userEmail) {
+      await sendKycResultEmail(userEmail, false, fullName, reason.trim());
+    }
 
     emitToUser(userId, 'kyc_status_updated', { status: 'REJECTED', reason });
     await notificationService.sendNotification({
@@ -1115,14 +1159,34 @@ export class ReportService {
    * Tiết kiệm 100% chi phí AI khi không cần quét tự động toàn bộ người dùng đăng ký
    */
   async scanKycWithAi(kycId: string) {
-    const kyc = await prisma.kycVerification.findUnique({
-      where: { id: kycId },
-      include: {
-        user: {
-          include: { profile: true },
+    let kyc: any = null;
+    if (isValidObjectId(kycId)) {
+      kyc = await prisma.kycVerification.findUnique({
+        where: { id: kycId },
+        include: {
+          user: {
+            include: { profile: true },
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!kyc) {
+      kyc = await prisma.kycVerification.findFirst({
+        where: {
+          OR: [
+            { studentId: kycId.toUpperCase().trim() },
+            { user: { email: kycId.toLowerCase().trim() } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+    }
 
     if (!kyc) {
       throw new AppError('Không tìm thấy hồ sơ KYC này', 404, 'KYC_NOT_FOUND');

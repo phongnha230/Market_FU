@@ -1,6 +1,32 @@
 import { logger } from '../config/logger';
+import { prisma } from '../config/prisma';
 
 export class AuditLogger {
+  private persistDb(action: string, data: {
+    actor?: string;
+    targetId?: string;
+    targetCode?: string;
+    amount?: number;
+    metadata?: any;
+  }) {
+    setImmediate(async () => {
+      try {
+        await prisma.auditLog.create({
+          data: {
+            action,
+            actor: data.actor || null,
+            targetId: data.targetId || null,
+            targetCode: data.targetCode || null,
+            amount: data.amount !== undefined ? Math.round(data.amount) : null,
+            metadata: data.metadata || null,
+          },
+        });
+      } catch (err: any) {
+        logger.warn(`⚠️ [AuditLog DB Save Warning]: ${err?.message}`);
+      }
+    });
+  }
+
   /**
    * 1. Ghi nhận tiền cọc đã được giữ trong Escrow
    */
@@ -16,6 +42,17 @@ export class AuditLogger {
     logger.audit('ESCROW', `Khóa tiền cọc Escrow cho đơn hàng #${data.orderCode}`, {
       action: 'ESCROW_HOLD',
       ...data,
+    });
+    this.persistDb('ESCROW_HOLD', {
+      actor: data.buyerId,
+      targetId: data.orderId,
+      targetCode: data.orderCode,
+      amount: data.amount,
+      metadata: {
+        sellerId: data.sellerId,
+        coinsUsed: data.coinsUsed,
+        paymentMethod: data.paymentMethod,
+      },
     });
   }
 
@@ -33,6 +70,13 @@ export class AuditLogger {
     logger.audit('ESCROW', `Giải ngân tiền bán hàng #${data.orderCode} (${data.amount.toLocaleString('vi-VN')} đ) cho người bán`, {
       action: 'ESCROW_RELEASE',
       ...data,
+    });
+    this.persistDb('ESCROW_RELEASE', {
+      actor: data.releasedBy || data.sellerId,
+      targetId: data.orderId,
+      targetCode: data.orderCode,
+      amount: data.amount,
+      metadata: { reason: data.reason, sellerId: data.sellerId },
     });
   }
 
@@ -52,6 +96,13 @@ export class AuditLogger {
       action: 'REFUND_BUYER',
       ...data,
     });
+    this.persistDb('REFUND_BUYER', {
+      actor: data.actor,
+      targetId: data.orderId,
+      targetCode: data.orderCode,
+      amount: data.amount,
+      metadata: { buyerId: data.buyerId, coinsRefunded: data.coinsRefunded, reason: data.reason },
+    });
   }
 
   /**
@@ -69,6 +120,12 @@ export class AuditLogger {
       action: 'HANDSHAKE_VERIFIED',
       ...data,
     });
+    this.persistDb('HANDSHAKE_VERIFIED', {
+      actor: data.buyerId,
+      targetId: data.orderId,
+      targetCode: data.orderCode,
+      metadata: { sellerId: data.sellerId, hubCode: data.hubCode, method: data.method },
+    });
   }
 
   /**
@@ -81,10 +138,35 @@ export class AuditLogger {
     amount: number;
     isSuccess: boolean;
     rawCode?: string | number;
+    payload?: any;
   }) {
     logger.audit('PAYMENT', `Webhook ${data.gateway} phản hồi cho mã đơn #${data.orderCode}`, {
       action: 'WEBHOOK_PROCESSED',
       ...data,
+    });
+    this.persistDb('WEBHOOK_PROCESSED', {
+      actor: data.gateway,
+      targetCode: data.orderCode,
+      amount: data.amount,
+      metadata: { transactionId: data.transactionId, isSuccess: data.isSuccess, rawCode: data.rawCode },
+    });
+
+    // Lưu chi tiết giao dịch thanh toán vào PaymentTransaction collection
+    setImmediate(async () => {
+      try {
+        await prisma.paymentTransaction.create({
+          data: {
+            orderCode: data.orderCode,
+            gateway: data.gateway,
+            amount: Math.round(data.amount || 0),
+            transactionId: data.transactionId ? String(data.transactionId) : null,
+            status: data.isSuccess ? 'SUCCESS' : 'FAILED',
+            rawPayload: data.payload || null,
+          },
+        });
+      } catch (err: any) {
+        logger.warn(`⚠️ [PaymentTransaction DB Save Warning]: ${err?.message}`);
+      }
     });
   }
 
@@ -103,6 +185,11 @@ export class AuditLogger {
       action: `KYC_${data.decision}`,
       ...data,
     });
+    this.persistDb(`KYC_${data.decision}`, {
+      actor: data.adminId,
+      targetId: data.targetUserId,
+      metadata: { studentId: data.studentId, bonusCoinsAwarded: data.bonusCoinsAwarded, reason: data.reason },
+    });
   }
 
   /**
@@ -118,6 +205,13 @@ export class AuditLogger {
       action: 'VOUCHER_REDEEMED',
       ...data,
     });
+    this.persistDb('VOUCHER_REDEEMED', {
+      actor: data.userId,
+      targetId: data.voucherId,
+      targetCode: data.voucherCode,
+      amount: data.coinsSpent,
+      metadata: { coinsSpent: data.coinsSpent },
+    });
   }
 
   /**
@@ -131,6 +225,11 @@ export class AuditLogger {
     logger.audit('CONCURRENCY', `[LOCK_COLLISION] Phát hiện 2 request tranh chấp cùng tài nguyên '${data.resourceKey}'`, {
       action: 'LOCK_COLLISION_DETECTED',
       ...data,
+    });
+    this.persistDb('LOCK_COLLISION', {
+      actor: data.requesterId || 'SYSTEM',
+      targetCode: data.resourceKey,
+      metadata: { ttlMs: data.ttlMs },
     });
   }
 }

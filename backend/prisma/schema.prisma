@@ -514,7 +514,7 @@ model CoinTransaction {
 model KycVerification {
   id             String    @id @default(auto()) @map("_id") @db.ObjectId
   userId         String    @db.ObjectId
-  user           User      @relation("UserKycVerifications", fields: [userId], references: [id])
+  user           User?     @relation("UserKycVerifications", fields: [userId], references: [id], onDelete: Cascade)
   type           String?   @default("STUDENT") // "STUDENT" | "SELLER"
   studentId      String    // Mã số SV: SE123456
   cardImageUrl   String    // Link ảnh thẻ SV (mặt trước)
@@ -633,5 +633,35 @@ model DailyCheckIn {
 
   @@unique([userId, dateStr])
   @@index([userId, createdAt(sort: Desc)])
+}
+
+model AuditLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  action      String   // ESCROW_HOLD, ESCROW_RELEASE, REFUND_BUYER, HANDSHAKE_VERIFIED, KYC_DECISION, etc.
+  actor       String?  // User ID hoặc "SYSTEM" / "ADMIN"
+  targetId    String?  // Order ID, User ID, hoặc Report ID
+  targetCode  String?  // Mã đơn hàng (VD: ORD-123456-ABCD)
+  amount      Int?     // Số tiền liên quan (VNĐ)
+  metadata    Json?    // Chi tiết bổ sung (lý do, phương thức, IP)
+  createdAt   DateTime @default(now())
+
+  @@index([action, createdAt(sort: Desc)])
+  @@index([targetCode])
+  @@index([actor])
+}
+
+model PaymentTransaction {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderCode      String
+  orderId        String?  @db.ObjectId
+  gateway        String   // "PAYOS" | "VIETQR"
+  amount         Int
+  transactionId  String?  // Mã giao dịch ngân hàng / PayOS reference
+  status         String   // "SUCCESS" | "FAILED" | "PENDING"
+  rawPayload     Json?
+  createdAt      DateTime @default(now())
+
+  @@index([orderCode])
+  @@index([transactionId])
 }
 
