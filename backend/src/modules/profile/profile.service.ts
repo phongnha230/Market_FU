@@ -4,7 +4,7 @@ import { Response } from 'express';
 import { prisma } from '../../config/prisma';
 import { saveImageToStorage } from '../../config/storage';
 import { AppError } from '../../middlewares/error.middleware';
-import { setBit, getBit, bitCount } from '../../config/redis';
+import { setBit, getBit, bitCount, withLock } from '../../config/redis';
 import { NotificationService } from '../notifications/notification.service';
 import { emitToUser } from '../../utils/socket';
 import {
@@ -664,46 +664,57 @@ export class ProfileService {
       );
     }
 
-    // Thực thi trong ACID Transaction: Kiểm tra số dư Doanh thu Escrow khả dụng
-    // (FPT Coin chỉ dùng mua hàng & giảm giá, chỉ có Doanh thu Escrow từ đơn COMPLETED mới được rút)
-    const withdrawal = await prisma.$transaction(async (tx) => {
-      // 1. Tính toán tổng doanh thu từ các đơn hàng bán đã hoàn tất (COMPLETED)
-      const completedOrders = await tx.order.findMany({
-        where: { sellerId: userId, status: 'COMPLETED' },
-        select: { payment: true },
-      });
-      const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.payment?.price || 0), 0);
+    // Chống Race condition bằng Redis Distributed Lock (khóa theo userId trong 10s)
+    try {
+      const withdrawal = await withLock(`withdrawal:${userId}`, 10000, async () => {
+        // Thực thi trong ACID Transaction: Kiểm tra số dư Doanh thu Escrow khả dụng
+        // (FPT Coin chỉ dùng mua hàng & giảm giá, chỉ có Doanh thu Escrow từ đơn COMPLETED mới được rút)
+        return await prisma.$transaction(async (tx) => {
+          // 1. Tính toán tổng doanh thu từ các đơn hàng bán đã hoàn tất (COMPLETED)
+          const completedOrders = await tx.order.findMany({
+            where: { sellerId: userId, status: 'COMPLETED' },
+            select: { payment: true },
+          });
+          const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.payment?.price || 0), 0);
 
-      // 2. Tính các khoản rút tiền đang chờ duyệt hoặc đã duyệt
-      const activeWithdrawals = await tx.withdrawalRequest.findMany({
-        where: { userId, status: { in: ['PENDING', 'APPROVED'] } },
-        select: { amount: true },
-      });
-      const totalWithdrawn = activeWithdrawals.reduce((sum, w) => sum + w.amount, 0);
-      const availableEscrow = Math.max(0, totalRevenue - totalWithdrawn);
+          // 2. Tính các khoản rút tiền đang chờ duyệt hoặc đã duyệt
+          const activeWithdrawals = await tx.withdrawalRequest.findMany({
+            where: { userId, status: { in: ['PENDING', 'APPROVED'] } },
+            select: { amount: true },
+          });
+          const totalWithdrawn = activeWithdrawals.reduce((sum, w) => sum + w.amount, 0);
+          const availableEscrow = Math.max(0, totalRevenue - totalWithdrawn);
 
-      if (availableEscrow < vndAmount) {
-        throw new AppError(
-          `Số dư doanh thu Escrow khả dụng (${availableEscrow.toLocaleString('vi-VN')} VNĐ) không đủ để rút ${vndAmount.toLocaleString('vi-VN')} VNĐ. Lưu ý: FPT Coin chỉ dùng để mua hàng, không thể quy đổi rút tiền mặt.`,
-          400,
-          'INSUFFICIENT_ESCROW_BALANCE'
-        );
+          if (availableEscrow < vndAmount) {
+            throw new AppError(
+              `Số dư doanh thu Escrow khả dụng (${availableEscrow.toLocaleString('vi-VN')} VNĐ) không đủ để rút ${vndAmount.toLocaleString('vi-VN')} VNĐ. Lưu ý: FPT Coin chỉ dùng để mua hàng, không thể quy đổi rút tiền mặt.`,
+              400,
+              'INSUFFICIENT_ESCROW_BALANCE'
+            );
+          }
+
+          // 3. Tạo bản ghi WithdrawalRequest với trạng thái PENDING
+          const req = await tx.withdrawalRequest.create({
+            data: {
+              userId,
+              amount: vndAmount,
+              bankAccount: profile.bankAccount!,
+              status: 'PENDING',
+            },
+          });
+
+          return req;
+        });
+      });
+
+      return withdrawal;
+    } catch (err: any) {
+      if (err instanceof AppError) throw err;
+      if (err?.message?.includes('RESOURCE_LOCKED')) {
+        throw new AppError('Yêu cầu rút tiền đang được xử lý, vui lòng chờ trong giây lát', 429, 'CONCURRENT_REQUEST');
       }
-
-      // 3. Tạo bản ghi WithdrawalRequest với trạng thái PENDING
-      const req = await tx.withdrawalRequest.create({
-        data: {
-          userId,
-          amount: vndAmount,
-          bankAccount: profile.bankAccount!,
-          status: 'PENDING',
-        },
-      });
-
-      return req;
-    });
-
-    return withdrawal;
+      throw err;
+    }
   }
 
   /**

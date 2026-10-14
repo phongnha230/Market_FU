@@ -416,6 +416,10 @@ export class ReportService {
       targetUrl: `/orders/${order.id}`,
     });
 
+    // Phát sự kiện realtime cập nhật trạng thái đơn sang DISPUTED
+    emitToUser(order.sellerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
+    emitToUser(buyerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
+
     return dispute;
   }
 
@@ -725,6 +729,17 @@ export class ReportService {
       }),
     ]);
 
+    // Bắn realtime socket cập nhật trạng thái đơn hàng tức thì cho cả Web & Mobile
+    const eventName = isRefund ? 'order_cancelled' : 'order_completed';
+    const statusPayload = {
+      orderId,
+      orderCode: dispute.order.orderCode,
+      status: isRefund ? 'CANCELLED' : 'COMPLETED',
+      decision,
+    };
+    emitToUser(dispute.order.buyerId, eventName, statusPayload);
+    emitToUser(dispute.order.sellerId, eventName, statusPayload);
+
     return {
       message: `Phân xử thành công: ${isRefund ? 'Hoàn tiền cho Người mua' : 'Chuyển tiền cho Người bán'}`,
       decision,
@@ -809,6 +824,16 @@ export class ReportService {
       type: 'ORDER',
       targetUrl: `/orders/${orderId}`,
     });
+
+    // Bắn realtime socket cập nhật trạng thái đơn hàng sang hoàn tất
+    const completedPayload = {
+      orderId,
+      orderCode: dispute.order.orderCode,
+      status: 'COMPLETED',
+      reason: 'Người mua tự rút khiếu nại',
+    };
+    emitToUser(dispute.order.buyerId, 'order_completed', completedPayload);
+    emitToUser(dispute.order.sellerId, 'order_completed', completedPayload);
 
     return {
       message: 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.',

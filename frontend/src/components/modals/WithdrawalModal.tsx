@@ -79,6 +79,16 @@ export default function WithdrawalModal({
       setErrorMsg(null);
       setSuccessMsg(null);
       fetchHistory();
+
+      // Tự động điền thông tin tài khoản ngân hàng đã lưu nếu có
+      const savedBank = currentUser.bankAccount || walletStore.bankAccount;
+      if (savedBank?.accountNo) {
+        setAccountNumber(savedBank.accountNo);
+        if (savedBank.bankName) setSelectedBank(savedBank.bankName);
+        if (savedBank.accountName) setAccountName(savedBank.accountName);
+      } else if (currentUser.name && !accountName) {
+        setAccountName(currentUser.name);
+      }
     }
   }, [isOpen, initialTab]);
 
@@ -115,8 +125,8 @@ export default function WithdrawalModal({
     setSuccessMsg(null);
 
     const numAmount = Number(amount);
-    if (!numAmount || isNaN(numAmount) || numAmount < 50000) {
-      setErrorMsg('Số tiền rút tối thiểu là 50.000 VNĐ');
+    if (!numAmount || isNaN(numAmount) || numAmount < 10000) {
+      setErrorMsg('Số tiền rút tối thiểu là 10.000 VNĐ');
       return;
     }
 
@@ -143,11 +153,11 @@ export default function WithdrawalModal({
           bankName: selectedBank,
           accountNo: accountNumber.trim(),
           accountName: accountName.trim().toUpperCase(),
-        }).catch(() => {});
+        });
       }
 
       // 2. Gửi yêu cầu rút tiền lên Backend
-      const res = await profileService.createWithdrawal(numAmount).catch(() => null);
+      const res = await profileService.createWithdrawal(numAmount);
 
       // 3. Khấu trừ số dư Doanh thu Escrow trong walletStore local (KHÔNG TRỪ COINS)
       walletStore.requestWithdrawal(numAmount);
@@ -167,7 +177,7 @@ export default function WithdrawalModal({
       };
       setWithdrawalHistory((prev) => [newReq, ...prev]);
 
-      setSuccessMsg(`Tạo lệnh rút ${numAmount.toLocaleString('vi-VN')} đ thành công! BQT sẽ đối soát và giải ngân tự động trong 24h.`);
+      setSuccessMsg(`Tạo lệnh rút ${numAmount.toLocaleString('vi-VN')} đ thành công! BQT sẽ đối soát và giải ngân tự động qua VietQR 24/7.`);
       setAmount('');
       if (onSuccess) onSuccess();
     } catch (err: any) {

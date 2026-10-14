@@ -227,15 +227,23 @@ export default function AdminReportsPage() {
                                 {d.orderCode}
                               </span>
                               <span
-                                className={`rounded-full text-[10px] font-extrabold px-2.5 py-0.5 ${
+                                className={`rounded-full text-[10px] font-extrabold px-2.5 py-0.5 border ${
                                   d.status === 'PENDING'
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    ? 'bg-amber-100 text-amber-800 border-amber-200'
                                     : d.status === 'REFUNDED'
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : d.status === 'CANCELLED'
+                                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                    : 'bg-rose-100 text-rose-800 border-rose-200'
                                 }`}
                               >
-                                {d.status === 'PENDING' ? '⏳ ĐANG CHỜ PHÂN XỬ' : d.status === 'REFUNDED' ? '✓ ĐÃ HOÀN TIỀN' : '✗ ĐÃ BÁC BỎ'}
+                                {d.status === 'PENDING'
+                                  ? '⏳ ĐANG CHỜ PHÂN XỬ'
+                                  : d.status === 'REFUNDED'
+                                  ? '✓ ĐÃ HOÀN TIỀN'
+                                  : d.status === 'CANCELLED'
+                                  ? '↩️ NGƯỜI MUA ĐÃ RÚT ĐƠN'
+                                  : '✗ BQT ĐÃ BÁC BỎ'}
                               </span>
                               <span className="text-[11px] text-slate-400">
                                 {new Date(d.createdAt).toLocaleDateString('vi-VN')}
@@ -258,6 +266,21 @@ export default function AdminReportsPage() {
                           <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
                             💬 {d.details}
                           </p>
+                        )}
+
+                        {d.adminNote && (
+                          <div className={`text-xs p-3 rounded-xl border leading-relaxed flex items-start gap-2 ${
+                            d.status === 'CANCELLED'
+                              ? 'bg-slate-50 border-slate-200 text-slate-700'
+                              : d.status === 'REFUNDED'
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                              : 'bg-rose-50 border-rose-200 text-rose-900'
+                          }`}>
+                            <span className="font-bold shrink-0">
+                              {d.status === 'CANCELLED' ? '↩️ Lý do rút đơn:' : '📝 Ghi chú phân xử:'}
+                            </span>
+                            <span>{d.adminNote}</span>
+                          </div>
                         )}
 
                         {/* Video Proof Link */}
@@ -498,14 +521,22 @@ export default function AdminReportsPage() {
                   <div>
                     <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                       <span>Hồ sơ Đơn hàng {selectedDisputeForModal.orderCode}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         selectedDisputeForModal.status === 'PENDING'
-                          ? 'bg-amber-100 text-amber-800'
+                          ? 'bg-amber-100 text-amber-800 border-amber-200'
                           : selectedDisputeForModal.status === 'REFUNDED'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : selectedDisputeForModal.status === 'CANCELLED'
+                          ? 'bg-slate-100 text-slate-700 border-slate-200'
+                          : 'bg-rose-100 text-rose-800 border-rose-200'
                       }`}>
-                        {selectedDisputeForModal.status === 'PENDING' ? 'ĐANG CHỜ PHÂN XỬ' : selectedDisputeForModal.status === 'REFUNDED' ? 'ĐÃ HOÀN TIỀN' : 'ĐÃ BÁC BỎ'}
+                        {selectedDisputeForModal.status === 'PENDING'
+                          ? 'ĐANG CHỜ PHÂN XỬ'
+                          : selectedDisputeForModal.status === 'REFUNDED'
+                          ? 'ĐÃ HOÀN TIỀN'
+                          : selectedDisputeForModal.status === 'CANCELLED'
+                          ? 'NGƯỜI MUA ĐÃ RÚT ĐƠN'
+                          : 'BQT ĐÃ BÁC BỎ'}
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400">
@@ -671,6 +702,29 @@ export default function AdminReportsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* 4. Ghi chú phân xử / Lý do rút đơn */}
+                {selectedDisputeForModal.adminNote && (
+                  <div className={`rounded-2xl border p-4 space-y-1.5 ${
+                    selectedDisputeForModal.status === 'CANCELLED'
+                      ? 'bg-slate-50 border-slate-200 text-slate-800'
+                      : selectedDisputeForModal.status === 'REFUNDED'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : 'bg-rose-50 border-rose-200 text-rose-900'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1.5 text-xs">
+                      <FileText className="h-4 w-4" />
+                      <span>
+                        {selectedDisputeForModal.status === 'CANCELLED'
+                          ? 'Lý do người mua rút khiếu nại'
+                          : 'Ghi chú phán quyết của BQT'}
+                      </span>
+                    </div>
+                    <p className="leading-relaxed bg-white/70 p-2.5 rounded-xl border border-slate-200/60 font-medium">
+                      {selectedDisputeForModal.adminNote}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Footer Actions */}

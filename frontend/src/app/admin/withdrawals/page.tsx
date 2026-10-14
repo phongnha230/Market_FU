@@ -49,6 +49,43 @@ interface WithdrawalItem {
   };
 }
 
+const BANK_CODE_MAP: Record<string, string> = {
+  'MB': 'MB',
+  'VCB': 'VCB',
+  'TCB': 'TCB',
+  'TPB': 'TPB',
+  'VPB': 'VPB',
+  'BIDV': 'BIDV',
+  'ACB': 'ACB',
+  'AGR': 'VBA',
+  'OCB': 'OCB',
+  'STB': 'STB',
+  'CTG': 'ICB',
+  'VIB': 'VIB',
+  'SHB': 'SHB',
+  'HDB': 'HDB',
+  'MSB': 'MSB',
+};
+
+function getVietQrBankCode(bankName: string): string {
+  if (!bankName) return 'MB';
+  const upper = bankName.toUpperCase();
+  for (const [key, code] of Object.entries(BANK_CODE_MAP)) {
+    if (upper.includes(key)) return code;
+  }
+  if (upper.includes('VIETCOMBANK')) return 'VCB';
+  if (upper.includes('VIETINBANK')) return 'ICB';
+  if (upper.includes('TECHCOMBANK')) return 'TCB';
+  if (upper.includes('TIÊN PHONG') || upper.includes('TIEN PHONG')) return 'TPB';
+  if (upper.includes('THỊNH VƯỢNG') || upper.includes('THINH VUONG')) return 'VPB';
+  if (upper.includes('QUÂN ĐỘI') || upper.includes('QUAN DOI')) return 'MB';
+  if (upper.includes('Á CHÂU') || upper.includes('A CHAU')) return 'ACB';
+  if (upper.includes('NÔNG NGHIỆP') || upper.includes('AGRIBANK')) return 'VBA';
+  if (upper.includes('PHƯƠNG ĐÔNG') || upper.includes('PHUONG DONG')) return 'OCB';
+  if (upper.includes('SÀI GÒN THƯƠNG TÍN') || upper.includes('SACOMBANK')) return 'STB';
+  return bankName.split(' ')[0] || 'MB';
+}
+
 export default function AdminWithdrawalsPage() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -427,7 +464,7 @@ export default function AdminWithdrawalsPage() {
 
             <div className="flex justify-center p-3 bg-slate-50 rounded-xl border border-slate-200">
               <img
-                src={`https://img.vietqr.io/image/${encodeURIComponent(selectedForQr.bankAccount.bankName.split(' ')[0])}-${selectedForQr.bankAccount.accountNo}-compact2.png?amount=${selectedForQr.amount}&addInfo=GIAINGAN%20FU&accountName=${encodeURIComponent(selectedForQr.bankAccount.accountName)}`}
+                src={`https://img.vietqr.io/image/${getVietQrBankCode(selectedForQr.bankAccount.bankName)}-${selectedForQr.bankAccount.accountNo}-compact2.png?amount=${selectedForQr.amount}&addInfo=${encodeURIComponent(`GIAINGAN FU ${selectedForQr.id.slice(-6).toUpperCase()}`)}&accountName=${encodeURIComponent(selectedForQr.bankAccount.accountName)}`}
                 alt="VietQR Chuyển tiền"
                 className="w-56 h-56 rounded-lg object-contain bg-white"
               />
