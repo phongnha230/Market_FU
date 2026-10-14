@@ -33,6 +33,38 @@ export const authenticate = (
   }
 };
 
+/**
+ * Middleware xác thực tùy chọn:
+ * Nếu có token hợp lệ -> gán req.user
+ * Nếu không có hoặc token lỗi -> tiếp tục bình thường (req.user = undefined) cho khách vãng lai
+ */
+export const authenticateOptional = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers.authorization;
+  let token: string | undefined;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if ((req as any).cookies?.accessToken || (req as any).cookies?.auth_token) {
+    token = (req as any).cookies?.accessToken || (req as any).cookies?.auth_token;
+  }
+
+  if (token) {
+    try {
+      const decoded = verifyAccessToken(token);
+      req.user = decoded;
+    } catch {
+      // Token không hợp lệ hoặc hết hạn -> coi như khách vãng lai
+      req.user = undefined;
+    }
+  }
+
+  next();
+};
+
 export const authorize = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {

@@ -131,11 +131,12 @@ export const authService = {
     return response.data.data;
   },
 
-  // 7. Đổi mật khẩu (khi đã đăng nhập)
-  async changePassword(oldPassword: string, newPassword: string): Promise<{ message: string }> {
-    const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/change-password', {
-      oldPassword,
+  // 7. Đổi mật khẩu (khi đã đăng nhập - Chuẩn RESTful PATCH)
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword?: string): Promise<{ message: string }> {
+    const response = await apiClient.patch<ApiResponse<{ message: string }>>('/auth/change-password', {
+      currentPassword,
       newPassword,
+      confirmPassword: confirmPassword || newPassword,
     });
     return response.data.data;
   },

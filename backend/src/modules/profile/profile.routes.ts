@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { profileController } from './profile.controller';
+import { productController } from '../products/product.controller';
 import { authenticate, authorize } from '../../middlewares/auth.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 
@@ -14,6 +15,9 @@ router.use(authenticate);
 // Lấy hồ sơ cá nhân (hỗ trợ cả GET /api/profile và GET /api/profile/me)
 router.get('/', profileController.getMyProfile);
 router.get('/me', profileController.getMyProfile);
+
+// Danh sách tin đăng cá nhân (alias tương thích)
+router.get('/my-posts', productController.getMyProducts);
 
 // Cập nhật thông tin cá nhân
 router.patch('/', profileController.updateMyProfile);

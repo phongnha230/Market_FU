@@ -1,18 +1,31 @@
 import { z } from 'zod';
 
-export const updateProfileSchema = z.object({
-  fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự').optional(),
-  phoneNumber: z.string().optional(),
-  campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).optional(),
-  avatarUrl: z.string().refine(
-    (val) => !val || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
-    'Avatar URL không hợp lệ'
-  ).optional(),
-  cohort: z.string().max(20).optional().nullable(),
-  major: z.string().max(100).optional().nullable(),
-  bio: z.string().max(500).optional().nullable(),
-  dorm: z.string().max(50).optional().nullable(),
-});
+export const updateProfileSchema = z.preprocess(
+  (val: any) => {
+    if (val && typeof val === 'object') {
+      return {
+        ...val,
+        fullName: val.fullName || val.name,
+        phoneNumber: val.phoneNumber !== undefined ? val.phoneNumber : val.phone,
+        dorm: val.dorm !== undefined ? val.dorm : (val.dormRoom || val.roomNumber),
+      };
+    }
+    return val;
+  },
+  z.object({
+    fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự').optional(),
+    phoneNumber: z.string().optional().nullable(),
+    campus: z.enum(['HOL', 'HCM', 'DAD', 'QN', 'CT']).optional(),
+    avatarUrl: z.string().refine(
+      (val) => !val || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
+      'Avatar URL không hợp lệ'
+    ).optional(),
+    cohort: z.string().max(20).optional().nullable(),
+    major: z.string().max(100).optional().nullable(),
+    bio: z.string().max(500).optional().nullable(),
+    dorm: z.string().max(50).optional().nullable(),
+  })
+);
 
 export const updateBankAccountSchema = z.preprocess(
   (val: any) => {

@@ -72,6 +72,7 @@ export const profileService = {
     };
     const body = {
       ...payload,
+      phoneNumber: payload.phone || (payload as any).phoneNumber,
       ...(payload.campus ? { campus: campusCodeMap[payload.campus] || payload.campus } : {}),
     };
     const response = await apiClient.patch<ApiResponse<any>>('/profile/me', body);
@@ -128,7 +129,7 @@ export const profileService = {
     items: ProductItem[];
     meta?: any;
   }> {
-    const response = await apiClient.get<ApiResponse<any[]>>('/profile/my-posts', {
+    const response = await apiClient.get<ApiResponse<any[]>>('/products/me', {
       params,
     });
     const items = (response.data.data || []).map(adaptBackendProduct);

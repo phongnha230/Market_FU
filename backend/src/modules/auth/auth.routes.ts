@@ -23,7 +23,7 @@ router.post('/refresh-token', authRateLimiter, authController.refreshToken);
 router.post('/logout', authRateLimiter, authController.logout);
 
 // ============================================================================
-// 3. THAY ĐỔI MẬT KHẨU (Bắt buộc đăng nhập)
+// 3. THAY ĐỔI MẬT KHẨU (Bắt buộc đăng nhập - RESTful PATCH)
 // ============================================================================
 router.patch('/change-password', authenticate, authController.changePassword);
 

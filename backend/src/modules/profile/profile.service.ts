@@ -277,7 +277,7 @@ export class ProfileService {
   async submitSellerOnboarding(userId: string, input: SellerOnboardingInput, fileBuffer?: Buffer) {
     const existingProfile = await prisma.profile.findUnique({
       where: { userId },
-      include: { user: { select: { role: true } } },
+      include: { user: { select: { role: true, email: true } } },
     });
 
     if (!existingProfile) {
@@ -292,6 +292,23 @@ export class ProfileService {
         'Tài khoản của bạn đã được xác thực Người Bán (Tích Xanh) trước đó.',
         400,
         'ALREADY_VERIFIED'
+      );
+    }
+
+    // 🛡️ BẢO VỆ 2 LỚP: Bắt buộc hoàn thành Bước 1 (Xác thực Sinh viên FPT) trước khi mở gian hàng Người Bán
+    const emailLower = (existingProfile.user?.email || '').toLowerCase().trim();
+    const isEduEmail = emailLower.endsWith('@fpt.edu.vn') || emailLower.endsWith('@fe.edu.vn');
+    const isStudentKycApproved = existingProfile.kyc?.status === 'APPROVED';
+    const isVerifiedStudent =
+      isEduEmail ||
+      isStudentKycApproved ||
+      (existingProfile.user?.role !== 'UNVERIFIED' && Boolean(existingProfile.kyc?.studentId));
+
+    if (!isVerifiedStudent) {
+      throw new AppError(
+        'Quy định an toàn FPT Campus: Bạn cần hoàn thành Xác thực Thẻ Sinh Viên FPT (Bước 1) và được duyệt trước khi đăng ký mở gian hàng Người Bán.',
+        400,
+        'STUDENT_VERIFICATION_REQUIRED'
       );
     }
 
@@ -670,9 +687,19 @@ export class ProfileService {
         // Thực thi trong ACID Transaction: Kiểm tra số dư Doanh thu Escrow khả dụng
         // (FPT Coin chỉ dùng mua hàng & giảm giá, chỉ có Doanh thu Escrow từ đơn COMPLETED mới được rút)
         return await prisma.$transaction(async (tx) => {
-          // 1. Tính toán tổng doanh thu từ các đơn hàng bán đã hoàn tất (COMPLETED)
+          // 1. Tính toán tổng doanh thu Escrow từ các đơn hàng bán đã hoàn tất (COMPLETED) qua cổng online (VIETQR / PAYOS_WEB)
+          // Đơn thanh toán tiền mặt (CASH) người bán đã nhận tiền trực tiếp tại điểm hẹn nên không được rút thêm từ sàn
           const completedOrders = await tx.order.findMany({
-            where: { sellerId: userId, status: 'COMPLETED' },
+            where: {
+              sellerId: userId,
+              status: 'COMPLETED',
+              payment: {
+                is: {
+                  paymentMethod: { in: ['VIETQR', 'PAYOS_WEB'] },
+                  isPaid: true,
+                },
+              },
+            },
             select: { payment: true },
           });
           const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.payment?.price || 0), 0);
