@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoginController, CAMPUS_LIST } from '../hooks/useLoginController';
 import { AuthTopBar } from '../components/AuthTopBar';
 import { AuthHeader } from '../components/AuthHeader';
+import { AuthWaveBackground } from '../components/AuthWaveBackground';
 import { LoginCampusSelector } from '../components/LoginCampusSelector';
 import { LoginForm } from '../components/LoginForm';
 import { RegisterForm } from '../components/RegisterForm';
@@ -52,6 +53,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <View style={styles.screen}>
+      {/* 2 dải viền sóng lượn (Top & Bottom Curves) theo bản vẽ tay */}
+      <AuthWaveBackground />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -123,8 +127,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             isGoogleLoading={ctrl.isGoogleLoading}
           />
         )}
-
-        <AuthFptGuaranteeCard />
 
         <LoginFooter />
       </ScrollView>

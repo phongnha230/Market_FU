@@ -57,7 +57,7 @@ export const LoginCampusSelector: React.FC<LoginCampusSelectorProps> = ({
       <View style={styles.campusHeaderRow}>
         <View style={styles.campusLeftRow}>
           <Ionicons name="location-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
-          <Text style={styles.campusLabel}>Campus hoạt động:</Text>
+          <Text style={styles.campusLabel}>Cơ sở FPT:</Text>
         </View>
         <Text style={styles.campusCurrentBadge}>{currentCampus.shortLabel}</Text>
       </View>

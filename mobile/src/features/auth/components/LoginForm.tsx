@@ -91,7 +91,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       {/* Field MSSV / Email */}
       <AuthInputField
         label="MSSV hoặc Email FPT"
-        badge="Đã đồng bộ Storage"
         icon={
           <MaterialCommunityIcons
             name="card-account-details-outline"
@@ -100,7 +99,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             style={{ marginRight: 8 }}
           />
         }
-        placeholder="Ví dụ: SE172819 hoặc quanlmse172819@fpt.edu.vn"
+        placeholder="Nhập MSSV hoặc Email FPT"
         value={loginIdentifier}
         onChangeText={onLoginIdentifierChange}
         autoCapitalize="none"
@@ -109,7 +108,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       {/* Field Mật khẩu */}
       <AuthInputField
         style={{ marginTop: 12 }}
-        label="Mật khẩu (Mặc định: fpt123456)"
+        label="Mật khẩu"
         icon={
           <Ionicons
             name="lock-closed-outline"

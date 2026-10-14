@@ -37,9 +37,6 @@ const AuthBrandHeader: React.FC<{ authMode: 'login' | 'register' }> = React.memo
     <Text style={styles.welcomeHeading}>
       {authMode === 'login' ? 'Chào mừng bạn trở lại! 👋' : 'Đăng ký tài khoản Sinh viên ✨'}
     </Text>
-    <Text style={styles.welcomeSub}>
-      Chợ trao đổi đồ an toàn & nội bộ dành riêng cho sinh viên 5 cơ sở Đại học FPT
-    </Text>
   </View>
 ));
 
