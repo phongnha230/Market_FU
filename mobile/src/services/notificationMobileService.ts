@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { navigate } from '../navigation/navigationRef';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useNotificationStore } from '../stores/notificationStore';
 import apiClient, { ApiResponse } from './apiClient';
 
 // Helper để load expo-notifications an toàn, tránh crash trên Expo Go Android SDK 53+
@@ -47,7 +48,6 @@ export async function displayLocalPushNotification(params: {
   channelId?: string;
 }) {
   try {
-    const { useNotificationStore } = await import('../stores/notificationStore');
     if (!useNotificationStore.getState().pushPermissionGranted) {
       return; // Người dùng chưa đồng ý nhận thông báo -> Không phát
     }

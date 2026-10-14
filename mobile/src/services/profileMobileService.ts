@@ -1,6 +1,7 @@
 import apiClient, { ApiResponse } from './apiClient';
 import { UserProfile } from '../stores/userStore';
 import { adaptBackendUserToMobile } from './authMobileService';
+import { toBackendCampus } from '../lib/backendMappers';
 
 export interface WithdrawalRequestPayload {
   amount: number;
@@ -82,7 +83,6 @@ export const profileMobileService = {
     accountName: string;
     cardImageUri?: string;
   }): Promise<{ status: string; message: string }> {
-    const { toBackendCampus } = await import('../lib/backendMappers');
     const backendCampus = toBackendCampus(data.campus) || 'HOL';
 
     const formData = new FormData();

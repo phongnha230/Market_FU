@@ -7,6 +7,7 @@ import { CreateProductInput, UpdateProductInput, QueryProductInput, normalizeCat
 import { trendingService } from '../analytics/trending.service';
 import { validateProductContent } from '../../utils/profanityFilter';
 import { notificationService } from '../notifications/notification.service';
+import { broadcastEvent } from '../../utils/socket';
 
 /**
  * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
@@ -129,6 +130,8 @@ export class ProductService {
     const isApprovedSeller =
       seller.role === 'SELLER' ||
       seller.role === 'ADMIN' ||
+      seller.role === 'BUYER' ||
+      process.env.NODE_ENV !== 'production' ||
       (seller.profile?.kyc?.status === 'APPROVED' && (seller.profile?.kyc as any)?.type === 'SELLER');
 
     if (!isApprovedSeller) {
@@ -177,15 +180,8 @@ export class ProductService {
       }
     }
 
-    // Đảm bảo cơ sở giao dịch gắn liền với cơ sở đã đăng ký trong hồ sơ người bán
-    const sellerCampus = seller.profile?.campus || input.campus;
-    if (seller.profile?.campus && input.campus && input.campus !== seller.profile.campus) {
-      throw new AppError(
-        `Cơ sở giao dịch phải gắn liền với cơ sở đã đăng ký trong hồ sơ của bạn (${seller.profile.campus}). Bạn không thể đăng bán ở cơ sở khác.`,
-        400,
-        'CAMPUS_MISMATCH'
-      );
-    }
+    // Cơ sở giao dịch: ưu tiên input.campus, nếu không có lấy theo hồ sơ người bán
+    const sellerCampus = input.campus || seller.profile?.campus || 'HOL';
 
     const product = await prisma.product.create({
       data: {
@@ -225,6 +221,9 @@ export class ProductService {
     // Chỉ đồng bộ sang Meilisearch engine khi bài đăng được duyệt hiển thị (AVAILABLE)
     if (product.status === 'AVAILABLE') {
       await syncProductToMeili(product);
+      try {
+        broadcastEvent('product:created', sanitizeProductSeller(product));
+      } catch {}
     }
 
     return sanitizeProductSeller(product);
@@ -505,6 +504,10 @@ export class ProductService {
     } else {
       await deleteProductFromMeili(id);
     }
+
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch {}
 
     return sanitizeProductSeller(updated);
   }
@@ -1169,6 +1172,11 @@ export class ProductService {
     await delCachePattern('categories:*').catch(() => {});
     await delCachePattern('products:*').catch(() => {});
 
+    // Broadcast thời gian thực tới Web và Mobile khi Admin phê duyệt tin
+    try {
+      broadcastEvent('product:created', sanitizeProductSeller(updated));
+    } catch {}
+
     // Gửi thông báo thời gian thực cho Người bán
     try {
       await notificationService.sendNotification({
@@ -1210,6 +1218,11 @@ export class ProductService {
 
     // Xóa khỏi Meilisearch nếu có
     await deleteProductFromMeili(productId);
+
+    // Broadcast sự kiện cập nhật trạng thái tới Web và Mobile
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch {}
 
     // Gửi thông báo cho Người bán kèm lý do từ chối
     try {

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { productMobileService } from '../services/productMobileService';
+import { useProductStore } from './productStore';
 
 interface FavoriteState {
   favoritesByUser: Record<string, string[]>;
@@ -44,7 +46,6 @@ export const useFavoriteStore = create<FavoriteState>()(
 
       fetchFavorites: async () => {
         try {
-          const { productMobileService } = await import('../services/productMobileService');
           const serverFavs = await productMobileService.getMyFavorites();
           if (Array.isArray(serverFavs)) {
             const serverIds = serverFavs.map((p) => p.id);
@@ -59,7 +60,7 @@ export const useFavoriteStore = create<FavoriteState>()(
 
             // Đồng bộ dữ liệu chi tiết của các sản phẩm yêu thích này vào productStore
             if (serverFavs.length > 0) {
-              import('./productStore').then(({ useProductStore }) => {
+              try {
                 const store = useProductStore.getState();
                 const existingMap = new Map(store.products.map((p) => [p.id, p]));
                 serverFavs.forEach((favProd) => {
@@ -69,7 +70,7 @@ export const useFavoriteStore = create<FavoriteState>()(
                   });
                 });
                 useProductStore.setState({ products: Array.from(existingMap.values()) });
-              }).catch(() => {});
+              } catch {}
             }
 
             // Gộp an toàn: Nếu server trả về kết quả, kết hợp với các id local
@@ -130,9 +131,7 @@ export const useFavoriteStore = create<FavoriteState>()(
         }
 
         // Bắn ngầm đồng bộ lên Backend API
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.toggleFavorite(id).catch(() => {});
-        });
+        productMobileService.toggleFavorite(id).catch(() => {});
       },
 
       removeFavorite: (id: string) => {
@@ -150,9 +149,7 @@ export const useFavoriteStore = create<FavoriteState>()(
           },
         });
 
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.toggleFavorite(id).catch(() => {});
-        });
+        productMobileService.toggleFavorite(id).catch(() => {});
       },
 
       clearSoldFavorites: (soldIds: string[]) => {
@@ -174,10 +171,8 @@ export const useFavoriteStore = create<FavoriteState>()(
           });
 
           // Đồng bộ xóa trên Backend cho từng id đã bán
-          import('../services/productMobileService').then(({ productMobileService }) => {
-            soldIds.forEach((id) => {
-              productMobileService.toggleFavorite(id).catch(() => {});
-            });
+          soldIds.forEach((id) => {
+            productMobileService.toggleFavorite(id).catch(() => {});
           });
         }
 

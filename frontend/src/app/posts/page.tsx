@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { ProductItem } from '@/types/product';
 import { stripVietnamese, ProductService } from '@/services/productService';
+import { socketClient } from '@/services/socketClient';
+import { adaptBackendProduct } from '@/lib/adapters';
 import {
   HOT_TAGS as hotSuggestions,
   CAMPUSES,
@@ -134,6 +136,34 @@ function PostsPageContent() {
       isMounted = false;
     };
   }, [searchKeyword, selectedCampus, selectedCategories, sortOption]);
+
+  // Lắng nghe Realtime Socket khi có bài đăng mới từ Mobile hoặc thiết bị khác
+  useEffect(() => {
+    const socket = socketClient.getSocket();
+    if (socket) {
+      const handleProductCreated = (rawProduct: any) => {
+        try {
+          const adapted = adaptBackendProduct(rawProduct);
+          setLiveProducts((prev) => [adapted, ...prev.filter((p) => p.id !== adapted.id)]);
+        } catch {}
+      };
+
+      const handleProductUpdated = (rawProduct: any) => {
+        try {
+          const adapted = adaptBackendProduct(rawProduct);
+          setLiveProducts((prev) => prev.map((p) => (p.id === adapted.id ? adapted : p)));
+        } catch {}
+      };
+
+      socket.on('product:created', handleProductCreated);
+      socket.on('product:updated', handleProductUpdated);
+
+      return () => {
+        socket.off('product:created', handleProductCreated);
+        socket.off('product:updated', handleProductUpdated);
+      };
+    }
+  }, []);
 
   // Bộ lọc thời gian thực
   const filteredPosts = useMemo(() => {

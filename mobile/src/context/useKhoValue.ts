@@ -9,6 +9,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { socketMobileService } from '../services/socketMobileService';
 import { notificationMobileService } from '../services/notificationMobileService';
+import { productMobileService } from '../services/productMobileService';
 import { KhoContextType, InventoryStats } from './KhoContext';
 
 export const useKhoValue = (): KhoContextType => {
@@ -72,7 +73,6 @@ export const useKhoValue = (): KhoContextType => {
   const fetchMySellerProducts = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const { productMobileService } = await import('../services/productMobileService');
       const items = await productMobileService.getMyProducts();
       if (Array.isArray(items)) {
         setSellerProducts(items);

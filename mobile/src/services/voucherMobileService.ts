@@ -1,10 +1,9 @@
 import apiClient, { ApiResponse } from './apiClient';
-import {
+import type {
   Voucher,
   UserVoucher,
   VoucherPartner,
   UserVoucherStatus,
-  INITIAL_AVAILABLE_VOUCHERS,
 } from '../stores/voucherStore';
 
 export interface BackendVoucher {
@@ -119,7 +118,7 @@ export const voucherMobileService = {
     } catch (e: any) {
       console.log('⚠️ [Backend Vouchers offline/fallback]:', e?.message);
     }
-    return INITIAL_AVAILABLE_VOUCHERS;
+    return [];
   },
 
   /**

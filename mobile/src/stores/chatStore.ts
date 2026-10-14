@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { chatMobileService } from '../services/chatMobileService';
 
 export interface ChatMessage {
   id: string;
@@ -56,7 +57,6 @@ export const useChatStore = create<ChatState>()(
       fetchConversations: async () => {
         try {
           set({ isLoading: true });
-          const { chatMobileService } = await import('../services/chatMobileService');
           const liveList = await chatMobileService.getConversations();
           if (liveList && liveList.length > 0) {
             set((state) => ({
@@ -101,9 +101,7 @@ export const useChatStore = create<ChatState>()(
         }));
 
         if (message.sender === 'me' && message.text) {
-          import('../services/chatMobileService').then(({ chatMobileService }) => {
-            chatMobileService.sendMessage(convId, message.text!).catch(() => {});
-          });
+          chatMobileService.sendMessage(convId, message.text!).catch(() => {});
         }
       },
 
@@ -118,9 +116,7 @@ export const useChatStore = create<ChatState>()(
           ),
         }));
 
-        import('../services/chatMobileService').then(({ chatMobileService }) => {
-          chatMobileService.markAsRead(convId).catch(() => {});
-        });
+        chatMobileService.markAsRead(convId).catch(() => {});
       },
     }),
     {

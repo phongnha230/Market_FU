@@ -1,5 +1,5 @@
 import apiClient, { ApiResponse } from './apiClient';
-import { ProductItem } from '../stores/productStore';
+import type { ProductItem } from '../stores/productStore';
 import {
   toBackendCampus,
   fromBackendCampus,
@@ -36,14 +36,40 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
   if (Array.isArray(item.images) && item.images.length > 0) {
     rawImages = item.images
       .map((img: any) =>
-        typeof img === 'string' ? img : img?.url || img?.imageUrl || ''
+        typeof img === 'string' ? img : img?.url || img?.imageUrl || img?.src || ''
       )
       .filter((img: any) => (typeof img === 'string' ? img.trim().length > 0 : Boolean(img)));
   } else if (item.imageUrl) {
     rawImages = [item.imageUrl];
+  } else if (Array.isArray(item.imageUrls) && item.imageUrls.length > 0) {
+    rawImages = item.imageUrls;
   }
   if (rawImages.length === 0) {
     rawImages = ['/products/monitor-dell-24.jpg'];
+  }
+
+  // Chuẩn hóa category đồng bộ với Backend categoryType và Frontend
+  let mappedCategory = 'electronics';
+  const rawCat = String(
+    item.category?.slug ||
+    item.category?.name ||
+    (typeof item.category === 'string' ? item.category : '') ||
+    item.categoryType ||
+    ''
+  ).toLowerCase();
+
+  if (rawCat.includes('book') || rawCat.includes('sách') || rawCat.includes('giao-trinh') || rawCat.includes('giáo trình')) {
+    mappedCategory = 'books';
+  } else if (rawCat.includes('vovinam') || rawCat.includes('cloth') || rawCat.includes('áo') || rawCat.includes('thời trang')) {
+    mappedCategory = 'vovinam';
+  } else if (rawCat.includes('dorm') || rawCat.includes('ktx') || rawCat.includes('phòng trọ') || rawCat.includes('gia dụng') || rawCat.includes('do-dung') || rawCat.includes('dom')) {
+    mappedCategory = 'dom';
+  } else if (rawCat.includes('elec') || rawCat.includes('it') || rawCat.includes('chuột') || rawCat.includes('phím') || rawCat.includes('máy tính') || rawCat.includes('laptop')) {
+    mappedCategory = 'it';
+  } else if (rawCat.includes('xe') || rawCat.includes('vehicle')) {
+    mappedCategory = 'vehicle';
+  } else {
+    mappedCategory = rawCat || 'other';
   }
 
   return {
@@ -52,7 +78,8 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
     price: Number(item.price) || 0,
     originalPrice: item.originalPrice ? Number(item.originalPrice) : undefined,
     condition: fromBackendCondition(item.condition),
-    category: item.category?.slug || item.category || 'electronics',
+    category: mappedCategory,
+    categoryType: item.categoryType,
     images: rawImages,
     campus: fromBackendCampus(item.campus),
     sellerId,
@@ -89,7 +116,7 @@ export const productMobileService = {
 
     const res = await apiClient.get<ApiResponse<any[]>>('/products', {
       params: {
-        limit: params?.limit || 30,
+        limit: params?.limit || 50,
         page: params?.page || 1,
         campus: backendCampus,
         category: backendCategory,

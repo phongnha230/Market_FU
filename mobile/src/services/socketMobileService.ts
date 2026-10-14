@@ -336,6 +336,36 @@ class SocketMobileService {
     };
   }
 
+  onProductCreated(callback: (product: any) => void) {
+    const socket = this.getSocket();
+    if (!socket) return () => {};
+
+    const handler = (data: any) => {
+      console.log('📦 [Mobile Socket]: Nhận sản phẩm mới từ Web/Sàn:', data?.id || data?._id);
+      callback(data);
+    };
+
+    socket.on('product:created', handler);
+    return () => {
+      socket.off('product:created', handler);
+    };
+  }
+
+  onProductUpdated(callback: (product: any) => void) {
+    const socket = this.getSocket();
+    if (!socket) return () => {};
+
+    const handler = (data: any) => {
+      console.log('🔄 [Mobile Socket]: Cập nhật sản phẩm:', data?.id || data?._id);
+      callback(data);
+    };
+
+    socket.on('product:updated', handler);
+    return () => {
+      socket.off('product:updated', handler);
+    };
+  }
+
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();

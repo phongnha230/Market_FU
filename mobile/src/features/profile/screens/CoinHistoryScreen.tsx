@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { profileMobileService } from '../../../services/profileMobileService';
+import { authMobileService } from '../../../services/authMobileService';
 import { useUserStore } from '../../../stores/userStore';
 import { useKho } from '../../../context/KhoContext';
 
@@ -102,7 +103,6 @@ export const CoinHistoryScreen: React.FC = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      const { authMobileService } = await import('../../../services/authMobileService');
       const me = await authMobileService.getMe();
       if (me) updateUser(me);
     } catch {}
@@ -117,7 +117,6 @@ export const CoinHistoryScreen: React.FC = () => {
         '🎉 Điểm danh thành công!',
         `Bạn nhận được +${res?.coinsEarned || 20} Xu. Chuỗi điểm danh: ${res?.streak || 1} ngày liên tiếp!`
       );
-      const { authMobileService } = await import('../../../services/authMobileService');
       const me = await authMobileService.getMe();
       if (me) updateUser(me);
       await loadHistory();

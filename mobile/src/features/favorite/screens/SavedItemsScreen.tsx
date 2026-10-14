@@ -141,10 +141,8 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           text: 'Dọn sạch',
           style: 'destructive',
           onPress: () => {
-            import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
-              const removed = useFavoriteStore.getState().clearSoldFavorites(soldIds);
-              Alert.alert('✅ Thành công', `Đã dọn ${removed} món đã bán khỏi danh sách tin đã lưu.`);
-            });
+            const removed = useFavoriteStore.getState().clearSoldFavorites(soldIds);
+            Alert.alert('✅ Thành công', `Đã dọn ${removed} món đã bán khỏi danh sách tin đã lưu.`);
           },
         },
       ]

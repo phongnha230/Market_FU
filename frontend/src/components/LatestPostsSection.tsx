@@ -7,6 +7,8 @@ import { Zap, Clock, ArrowRight, MapPin } from 'lucide-react';
 import { ProductService } from '@/services/productService';
 import { useProductStore } from '@/stores/productStore';
 import { ProductItem } from '@/types/product';
+import { socketClient } from '@/services/socketClient';
+import { adaptBackendProduct } from '@/lib/adapters';
 
 export default function LatestPostsSection() {
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -21,6 +23,31 @@ export default function LatestPostsSection() {
     }).finally(() => {
       setIsLoading(false);
     });
+
+    const socket = socketClient.getSocket();
+    if (socket) {
+      const handleProductCreated = (rawProduct: any) => {
+        try {
+          const adapted = adaptBackendProduct(rawProduct);
+          setProducts((prev) => [adapted, ...prev.filter((p) => p.id !== adapted.id)]);
+        } catch {}
+      };
+
+      const handleProductUpdated = (rawProduct: any) => {
+        try {
+          const adapted = adaptBackendProduct(rawProduct);
+          setProducts((prev) => prev.map((p) => (p.id === adapted.id ? adapted : p)));
+        } catch {}
+      };
+
+      socket.on('product:created', handleProductCreated);
+      socket.on('product:updated', handleProductUpdated);
+
+      return () => {
+        socket.off('product:created', handleProductCreated);
+        socket.off('product:updated', handleProductUpdated);
+      };
+    }
   }, []);
 
   return (

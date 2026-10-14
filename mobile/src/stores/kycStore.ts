@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { profileMobileService } from '../services/profileMobileService';
 
 const getUserStore = () => {
   try {
@@ -133,15 +134,13 @@ export const useKycStore = create<KycState>()(
         }
 
         // Bắn ngầm lên Backend /profile/kyc
-        import('../services/profileMobileService').then(({ profileMobileService }) => {
-          profileMobileService
-            .submitKyc({
-              studentId,
-              fullName: extra?.studentName || userStore?.user?.name || 'Sinh viên FPT',
-              cardImageUri: cardImageUrl || undefined,
-            })
-            .catch(() => {});
-        });
+        profileMobileService
+          .submitKyc({
+            studentId,
+            fullName: extra?.studentName || userStore?.user?.name || 'Sinh viên FPT',
+            cardImageUri: cardImageUrl || undefined,
+          })
+          .catch(() => {});
       },
 
       simulateApproveKyc: async () => {

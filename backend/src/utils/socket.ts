@@ -46,7 +46,7 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
     pingTimeout: 20000,
   });
 
-  // 1. Handshake Authentication Middleware
+  // 1. Handshake Authentication Middleware (Hỗ trợ cả User đăng nhập & Khách duyệt tin)
   io.use((socket: AuthenticatedSocket, next) => {
     try {
       let token: string | undefined = socket.handshake.auth?.token;
@@ -58,23 +58,33 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
         }
       }
 
-      if (!token) {
-        return next(new Error('AUTHENTICATION_ERROR: Token không được cung cấp'));
+      if (token) {
+        try {
+          const decoded = verifyAccessToken(token);
+          socket.data.user = decoded;
+        } catch {
+          // Token không hợp lệ thì gán undefined để xử lý như guest
+          socket.data.user = undefined;
+        }
+      } else {
+        socket.data.user = undefined;
       }
 
-      const decoded = verifyAccessToken(token);
-      socket.data.user = decoded;
       next();
-    } catch (err: any) {
-      return next(new Error('AUTHENTICATION_ERROR: Token không hợp lệ hoặc đã hết hạn'));
+    } catch {
+      next();
     }
   });
 
   // 2. Xử lý kết nối Realtime
   io.on('connection', (socket: AuthenticatedSocket) => {
     const user = socket.data.user;
+
+    // Tham gia room public để nhận realtime cập nhật sản phẩm
+    socket.join('public_feed');
+
     if (!user) {
-      socket.disconnect(true);
+      console.log(`🔌 [Socket.io] Guest connected - SocketID: ${socket.id}`);
       return;
     }
 
@@ -267,5 +277,14 @@ export const getIO = (): SocketIOServer | null => {
 export const emitToUser = (userId: string, event: string, data: any): boolean => {
   if (!io) return false;
   io.to(`user_${userId}`).emit(event, data);
+  return true;
+};
+
+/**
+  * Phát sự kiện Realtime tới toàn bộ client (Web & Mobile)
+  */
+export const broadcastEvent = (event: string, data: any): boolean => {
+  if (!io) return false;
+  io.emit(event, data);
   return true;
 };

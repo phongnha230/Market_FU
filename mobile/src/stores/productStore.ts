@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { productMobileService } from '../services/productMobileService';
 
 export interface ProductItem {
   id: string;
@@ -9,6 +10,7 @@ export interface ProductItem {
   originalPrice?: number;
   condition: string;
   category: string;
+  categoryType?: string;
   images: any[];
   campus: string;
   sellerId: string;
@@ -35,6 +37,8 @@ export interface FetchProductsFilter {
   category?: string;
   search?: string;
   hashtag?: string;
+  limit?: number;
+  page?: number;
 }
 
 interface ProductState {
@@ -42,6 +46,7 @@ interface ProductState {
   isLoading: boolean;
   fetchProducts: (filter?: string | FetchProductsFilter) => Promise<ProductItem[]>;
   addProduct: (product: Omit<ProductItem, 'id' | 'createdAt' | 'status' | 'viewsCount' | 'likesCount'>) => ProductItem;
+  addProductFromRemote: (product: ProductItem) => void;
   updateProduct: (id: string, partial: Partial<ProductItem>) => void;
   deleteProduct: (id: string) => void;
   getUserProducts: (sellerId: string) => ProductItem[];
@@ -56,11 +61,21 @@ export const useProductStore = create<ProductState>()(
       fetchProducts: async (filter?: string | FetchProductsFilter) => {
         try {
           set({ isLoading: true });
-          const { productMobileService } = await import('../services/productMobileService');
-          const params =
-            typeof filter === 'string'
-              ? { campus: filter }
-              : filter || {};
+          let params: FetchProductsFilter = {};
+          if (typeof filter === 'string') {
+            const cleanFilter = filter.trim().toUpperCase();
+            if (cleanFilter && cleanFilter !== 'TẤT CẢ' && cleanFilter !== 'ALL') {
+              params = { campus: filter };
+            }
+          } else if (filter && typeof filter === 'object') {
+            params = { ...filter };
+            if (params.campus && (params.campus.toUpperCase() === 'TẤT CẢ' || params.campus.toUpperCase() === 'ALL')) {
+              delete params.campus;
+            }
+            if (params.category && (params.category.toUpperCase() === 'TẤT CẢ' || params.category.toUpperCase() === 'ALL')) {
+              delete params.category;
+            }
+          }
           const liveProducts = await productMobileService.getProducts(params);
           if (Array.isArray(liveProducts)) {
             set({ products: liveProducts });
@@ -75,9 +90,10 @@ export const useProductStore = create<ProductState>()(
       },
 
       addProduct: (newProdData) => {
+        const tempId = `prod_${Date.now()}`;
         const newProduct: ProductItem = {
           ...newProdData,
-          id: `prod_${Date.now()}`,
+          id: tempId,
           status: 'AVAILABLE',
           createdAt: 'Vừa xong',
           viewsCount: 1,
@@ -88,35 +104,49 @@ export const useProductStore = create<ProductState>()(
           products: [newProduct, ...state.products],
         }));
 
-        // Gửi ngầm lên backend nếu có kết nối
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService
-            .createProduct({
-              title: newProdData.title,
-              price: newProdData.price,
-              condition: newProdData.condition,
-              category: newProdData.category,
-              images: newProdData.images,
-              campus: newProdData.campus,
-              safePoint: newProdData.safePoint,
-              allowNegotiate: newProdData.allowNegotiate,
-              campusShipEnabled: newProdData.campusShipEnabled,
-              description: newProdData.description,
-              hashtags: newProdData.hashtags,
-            })
-            .then((live) => {
-              if (live?.id) {
-                set((state) => ({
-                  products: state.products.map((p) =>
-                    p.id === newProduct.id ? { ...p, id: live.id } : p
-                  ),
-                }));
-              }
-            })
-            .catch(() => {});
-        });
+        // Gửi trực tiếp lên backend API
+        productMobileService
+          .createProduct({
+            title: newProdData.title,
+            price: newProdData.price,
+            condition: newProdData.condition,
+            category: newProdData.category,
+            images: newProdData.images,
+            campus: newProdData.campus,
+            safePoint: newProdData.safePoint,
+            allowNegotiate: newProdData.allowNegotiate,
+            campusShipEnabled: newProdData.campusShipEnabled,
+            description: newProdData.description,
+            hashtags: newProdData.hashtags,
+          })
+          .then((live) => {
+            if (live?.id) {
+              set((state) => ({
+                products: state.products.map((p) =>
+                  p.id === tempId ? { ...live, ...p, id: live.id } : p
+                ),
+              }));
+            }
+          })
+          .catch((err) => {
+            console.log('⚠️ [Mobile createProduct error]:', err?.message);
+          });
 
         return newProduct;
+      },
+
+      addProductFromRemote: (remoteProduct: ProductItem) => {
+        set((state) => {
+          const exists = state.products.some((p) => p.id === remoteProduct.id);
+          if (exists) {
+            return {
+              products: state.products.map((p) => (p.id === remoteProduct.id ? remoteProduct : p)),
+            };
+          }
+          return {
+            products: [remoteProduct, ...state.products],
+          };
+        });
       },
 
       updateProduct: (id, partial) => {
@@ -124,8 +154,8 @@ export const useProductStore = create<ProductState>()(
           products: state.products.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         }));
 
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.updateProduct(id, partial as any).catch(() => {});
+        productMobileService.updateProduct(id, partial as any).catch((err) => {
+          console.log('⚠️ [Mobile updateProduct error]:', err?.message);
         });
       },
 
@@ -134,8 +164,8 @@ export const useProductStore = create<ProductState>()(
           products: state.products.filter((p) => p.id !== id),
         }));
 
-        import('../services/productMobileService').then(({ productMobileService }) => {
-          productMobileService.deleteProduct(id).catch(() => {});
+        productMobileService.deleteProduct(id).catch((err) => {
+          console.log('⚠️ [Mobile deleteProduct error]:', err?.message);
         });
       },
 

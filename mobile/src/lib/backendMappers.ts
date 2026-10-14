@@ -106,17 +106,20 @@ export const fromBackendCondition = (condition?: string | null): string => {
 /**
  * Chuyển đổi danh mục sản phẩm từ Mobile sang Enum Backend
  */
-export const toBackendCategory = (category?: string | null): BackendCategory => {
-  if (!category) return 'OTHER';
+export const toBackendCategory = (category?: string | null): BackendCategory | undefined => {
+  if (!category) return undefined;
   const cat = category.trim().toUpperCase();
 
+  if (cat === 'ALL' || cat === 'TẤT CẢ' || cat === 'TAT CA' || cat === 'OTHER') {
+    return undefined;
+  }
   if (cat.includes('BOOK') || cat.includes('SÁCH') || cat.includes('GIÁO TRÌNH')) {
     return 'BOOKS';
   }
   if (cat.includes('ELEC') || cat.includes('ĐIỆN TỬ') || cat.includes('IT') || cat.includes('CÔNG NGHỆ') || cat.includes('PHỤ KIỆN')) {
     return 'ELECTRONICS';
   }
-  if (cat.includes('DORM') || cat.includes('KTX') || cat.includes('PHÒNG TRỌ') || cat.includes('GIA DỤNG')) {
+  if (cat.includes('DORM') || cat.includes('KTX') || cat.includes('PHÒNG TRỌ') || cat.includes('GIA DỤNG') || cat.includes('DOM')) {
     return 'DORM_ITEM';
   }
   if (cat.includes('CLOTH') || cat.includes('THỜI TRANG') || cat.includes('ÁO') || cat.includes('QUẦN') || cat.includes('VOVINAM')) {
@@ -126,7 +129,7 @@ export const toBackendCategory = (category?: string | null): BackendCategory => 
     return 'VEHICLE';
   }
 
-  return 'OTHER';
+  return undefined;
 };
 
 /**

@@ -1,4 +1,5 @@
 import apiClient, { ApiResponse } from './apiClient';
+import { toBackendCampus, fromBackendCampus } from '../lib/backendMappers';
 
 export interface SafeHandoffHub {
   id: string;
@@ -54,7 +55,6 @@ export const safeHandoffMobileService = {
    */
   async getHubs(campus?: string): Promise<SafeHandoffHub[]> {
     try {
-      const { toBackendCampus, fromBackendCampus } = await import('../lib/backendMappers');
       const backendCampus = campus ? toBackendCampus(campus) : undefined;
       const res = await apiClient.get<ApiResponse<any[]>>('/safe-handoff', {
         params: { campus: backendCampus },

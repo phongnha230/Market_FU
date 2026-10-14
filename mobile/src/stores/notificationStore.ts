@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../services/apiClient';
 
 export interface NotificationItem {
   id: string;
@@ -82,7 +83,6 @@ export const useNotificationStore = create<NotificationState>()(
       fetchNotifications: async () => {
         try {
           set({ isLoading: true });
-          const { apiClient } = await import('../services/apiClient');
           const res = await apiClient.get('/notifications');
           if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
             set({
@@ -115,9 +115,7 @@ export const useNotificationStore = create<NotificationState>()(
           ),
         }));
 
-        import('../services/apiClient').then(({ apiClient }) => {
-          apiClient.patch(`/notifications/${id}/read`).catch(() => {});
-        });
+        apiClient.patch(`/notifications/${id}/read`).catch(() => {});
       },
 
       markAllAsRead: () => {
@@ -125,9 +123,7 @@ export const useNotificationStore = create<NotificationState>()(
           notifications: state.notifications.map((n) => ({ ...n, unread: false })),
         }));
 
-        import('../services/apiClient').then(({ apiClient }) => {
-          apiClient.patch('/notifications/read-all').catch(() => {});
-        });
+        apiClient.patch('/notifications/read-all').catch(() => {});
       },
 
       addNotification: (item) => {

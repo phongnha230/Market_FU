@@ -11,6 +11,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useKycStore, KycType } from '../../../stores/kycStore';
 import { useUserStore } from '../../../stores/userStore';
+import { profileMobileService } from '../../../services/profileMobileService';
 import { KycHeaderTabs } from './KycHeaderTabs';
 import { KycPendingNotice } from './KycPendingNotice';
 import { KycStudentTabForm } from './KycStudentTabForm';
@@ -180,7 +181,6 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
 
       if (activeTab === 'SELLER') {
         try {
-          const { profileMobileService } = await import('../../../services/profileMobileService');
           await profileMobileService.submitSellerOnboarding({
             fullName: fullName.trim(),
             studentId: studentId.trim().toUpperCase(),

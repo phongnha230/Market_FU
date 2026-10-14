@@ -1,5 +1,5 @@
 import apiClient, { ApiResponse } from './apiClient';
-import { OrderItem } from '../stores/orderStore';
+import type { OrderItem } from '../stores/orderStore';
 import {
   toBackendCampus,
   fromBackendCampus,
