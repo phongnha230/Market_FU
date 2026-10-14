@@ -6,11 +6,12 @@ interface FavoriteState {
   favoritesByUser: Record<string, string[]>;
   activeUserId: string | null;
   favoriteIds: string[];
+  savedProductsMap: Record<string, any>;
 
   // Actions
   setActiveUser: (userId: string | null) => void;
   fetchFavorites: () => Promise<string[]>;
-  toggleFavorite: (productId: string) => void;
+  toggleFavorite: (productId: string, productData?: any) => void;
   removeFavorite: (productId: string) => void;
   clearSoldFavorites: (soldIds: string[]) => number;
   isFavorite: (productId: string) => boolean;
@@ -25,6 +26,7 @@ export const useFavoriteStore = create<FavoriteState>()(
       favoritesByUser: INITIAL_FAVORITES,
       activeUserId: null,
       favoriteIds: [],
+      savedProductsMap: {},
 
       setActiveUser: (userId) => {
         const { favoritesByUser } = get();
@@ -46,8 +48,14 @@ export const useFavoriteStore = create<FavoriteState>()(
           const serverFavs = await productMobileService.getMyFavorites();
           if (Array.isArray(serverFavs)) {
             const serverIds = serverFavs.map((p) => p.id);
-            const { favoritesByUser, activeUserId } = get();
+            const { favoritesByUser, activeUserId, savedProductsMap } = get();
             const currentId = activeUserId || 'anonymous';
+            const localIds = favoritesByUser[currentId] || [];
+
+            const updatedMap = { ...(savedProductsMap || {}) };
+            serverFavs.forEach((favProd) => {
+              updatedMap[favProd.id] = favProd;
+            });
 
             // Đồng bộ dữ liệu chi tiết của các sản phẩm yêu thích này vào productStore
             if (serverFavs.length > 0) {
@@ -64,14 +72,20 @@ export const useFavoriteStore = create<FavoriteState>()(
               }).catch(() => {});
             }
 
+            // Gộp an toàn: Nếu server trả về kết quả, kết hợp với các id local
+            const mergedIds = serverFavs.length > 0
+              ? Array.from(new Set([...serverIds, ...localIds]))
+              : localIds;
+
             set({
-              favoriteIds: serverIds,
+              favoriteIds: mergedIds,
               favoritesByUser: {
                 ...favoritesByUser,
-                [currentId]: serverIds,
+                [currentId]: mergedIds,
               },
+              savedProductsMap: updatedMap,
             });
-            return serverIds;
+            return mergedIds;
           }
         } catch (e: any) {
           console.log('⚠️ [fetchFavorites offline]:', e?.message);
@@ -79,8 +93,8 @@ export const useFavoriteStore = create<FavoriteState>()(
         return get().favoriteIds;
       },
 
-      toggleFavorite: (id: string) => {
-        const { favoritesByUser, activeUserId } = get();
+      toggleFavorite: (id: string, productData?: any) => {
+        const { favoritesByUser, activeUserId, savedProductsMap } = get();
         const currentId = activeUserId || 'anonymous';
         const currentList = favoritesByUser[currentId] || [];
         const exists = currentList.includes(id);
@@ -89,13 +103,31 @@ export const useFavoriteStore = create<FavoriteState>()(
           ? currentList.filter((item) => item !== id)
           : [...currentList, id];
 
+        const updatedMap = { ...(savedProductsMap || {}) };
+        if (!exists && productData) {
+          updatedMap[id] = productData;
+        } else if (exists) {
+          delete updatedMap[id];
+        }
+
         set({
           favoriteIds: updatedList,
           favoritesByUser: {
             ...favoritesByUser,
             [currentId]: updatedList,
           },
+          savedProductsMap: updatedMap,
         });
+
+        // Đồng bộ dữ liệu chi tiết vào useProductStore nếu có productData
+        if (!exists && productData) {
+          import('./productStore').then(({ useProductStore }) => {
+            const store = useProductStore.getState();
+            if (!store.products.some((p) => p.id === id)) {
+              useProductStore.setState({ products: [productData, ...store.products] });
+            }
+          }).catch(() => {});
+        }
 
         // Bắn ngầm đồng bộ lên Backend API
         import('../services/productMobileService').then(({ productMobileService }) => {

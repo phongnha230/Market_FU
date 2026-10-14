@@ -65,7 +65,7 @@ export const useProductDetail = (productId?: string) => {
       Alert.alert('Thông báo', 'Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!');
       return;
     }
-    toggleFavorite(product.id);
+    toggleFavorite(product.id, product);
   };
 
   const handleBuyNow = () => {

@@ -9,6 +9,7 @@ import ProductInfoCard from '../components/ProductInfoCard';
 import ProductSpecSection from '../components/ProductSpecSection';
 import ProductSellerSafePoint from '../components/ProductSellerSafePoint';
 import ProductDeliveryRouteCard from '../components/ProductDeliveryRouteCard';
+import ProductRelatedSection from '../components/ProductRelatedSection';
 import ProductBottomBar from '../components/ProductBottomBar';
 import MakeOfferModal from '../components/MakeOfferModal';
 import { ReportModal } from '../../report/components/ReportModal';
@@ -71,6 +72,11 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
           seller={product.seller}
           safePointInfo={product.safePointInfo}
         />
+        <ProductRelatedSection
+          currentProductId={product.id}
+          sellerId={product.sellerId}
+          sellerName={product.seller.name}
+        />
       </ScrollView>
 
       <ProductBottomBar
@@ -117,5 +123,5 @@ export default ProductDetailScreen;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollContent: { paddingBottom: 20 },
+  scrollContent: { paddingBottom: 140 },
 });

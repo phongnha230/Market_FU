@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useKho } from '../../../context/KhoContext';
+import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { SavedProductCard } from '../components/SavedProductCard';
 import { SavedItemsEmptyState } from '../components/SavedItemsEmptyState';
 import { SavedItemsTopNav } from '../components/SavedItemsTopNav';
@@ -56,6 +57,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { favoriteIds, toggleFavorite, allProducts: storeProducts, currentCampus } = useKho();
+  const savedProductsMap = useFavoriteStore((s) => s.savedProductsMap || {});
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPriceAlert, setShowPriceAlert] = useState<boolean>(true);
@@ -63,16 +65,14 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
 
   // Tự động kéo mới danh sách tin yêu thích từ Backend khi mở màn hình
   React.useEffect(() => {
-    import('../../../stores/useFavoriteStore').then(({ useFavoriteStore }) => {
-      useFavoriteStore.getState().fetchFavorites().catch(() => {});
-    });
+    useFavoriteStore.getState().fetchFavorites().catch(() => {});
   }, []);
 
   const products = React.useMemo(() => {
     const list: SavedProductItem[] = [];
 
     favoriteIds.forEach((favId) => {
-      const sp = storeProducts.find((p) => p.id === favId);
+      const sp = storeProducts.find((p) => p.id === favId) || savedProductsMap[favId];
       if (sp) {
         const isSold = sp.status === 'SOLD';
         const isReserved = sp.status === 'RESERVED';
@@ -87,18 +87,29 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           statusText = 'Đã ẩn';
         }
 
+        const priceNum =
+          typeof sp.price === 'number'
+            ? sp.price
+            : parseInt(String(sp.price).replace(/\D/g, ''), 10) || 0;
+
         list.push({
           id: sp.id,
           title: sp.title,
-          price: sp.price.toLocaleString('vi-VN') + 'đ',
-          originalPrice: sp.originalPrice ? sp.originalPrice.toLocaleString('vi-VN') + 'đ' : undefined,
-          locationTag: `${sp.campus} - ${sp.safePoint || 'Safe-Point'}`,
+          price: priceNum.toLocaleString('vi-VN') + 'đ',
+          originalPrice: sp.originalPrice
+            ? typeof sp.originalPrice === 'number'
+              ? sp.originalPrice.toLocaleString('vi-VN') + 'đ'
+              : String(sp.originalPrice).endsWith('đ')
+              ? String(sp.originalPrice)
+              : String(sp.originalPrice) + 'đ'
+            : undefined,
+          locationTag: `${sp.campus || currentCampus || 'FU'} - ${sp.safePoint || 'Safe-Point'}`,
           statusText,
-          statusBadge: isSold ? 'Đã giao dịch' : sp.condition,
+          statusBadge: isSold ? 'Đã giao dịch' : sp.condition || '99%',
           actionType: isClosed ? 'detail' : 'chat',
-          image: sp.images?.[0] || require('../../../../assets/products/monitor-dell-24.jpg'),
+          image: sp.images?.[0] || sp.image || require('../../../../assets/products/monitor-dell-24.jpg'),
           category: sp.category || 'tech',
-          status: sp.status,
+          status: sp.status || 'AVAILABLE',
           isSoldOrReserved: isClosed,
           sellerId: sp.sellerId,
           sellerName: sp.sellerName,
@@ -108,7 +119,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
     });
 
     return list;
-  }, [favoriteIds, storeProducts]);
+  }, [favoriteIds, storeProducts, savedProductsMap, currentCampus]);
 
   const soldItemsCount = React.useMemo(() => {
     return products.filter((p) => p.isSoldOrReserved).length;

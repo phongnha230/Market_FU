@@ -488,7 +488,7 @@ export const useKhoValue = (): KhoContextType => {
   const toggleFavorite = useCallback(
     (product: string | ProductItem) => {
       const prodId = typeof product === 'string' ? product : product.id;
-      toggleFavoriteAction(prodId);
+      toggleFavoriteAction(prodId, typeof product === 'object' ? product : undefined);
     },
     [toggleFavoriteAction]
   );

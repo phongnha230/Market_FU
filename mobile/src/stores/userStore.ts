@@ -382,6 +382,11 @@ export const useUserStore = create<UserState>()(
     {
       name: 'fu_auth_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.user?.id) {
+          syncUserToStores(state.user.id);
+        }
+      },
     }
   )
 );
