@@ -11,6 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
+import { useChatStore } from '../../../stores/chatStore';
+import { useOrderStore } from '../../../stores/orderStore';
 import { useKho } from '../../../context/KhoContext';
 import { WithdrawalModal } from '../../profile/components/WithdrawalModal';
 import orderMobileService from '../../../services/orderMobileService';
@@ -57,6 +59,12 @@ export const SellerDashboardScreen: React.FC = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [analytics, setAnalytics] = useState<SellerAnalyticsData | null>(null);
 
+  const { orders } = useOrderStore();
+  const currentUserId = user?.id || '';
+  const unreadChatCount = useChatStore((s) =>
+    s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+  );
+
   const fetchAnalytics = useCallback(async () => {
     try {
       const data = await orderMobileService.getSellerAnalytics();
@@ -100,6 +108,32 @@ export const SellerDashboardScreen: React.FC = () => {
     return soldCount + reservedCount > 0 ? 100 : 0;
   }, [analytics?.completionRate, soldCount, reservedCount]);
 
+  const realRecentSales = useMemo(() => {
+    if (analytics?.recentSales && analytics.recentSales.length > 0) {
+      return analytics.recentSales;
+    }
+    const mySalesFromStore = orders.filter((o) => o.sellerId === currentUserId);
+    if (mySalesFromStore.length > 0) {
+      return mySalesFromStore.slice(0, 5).map((o) => ({
+        id: o.id,
+        orderCode: o.orderNumber || o.id,
+        productTitle: o.productTitle,
+        productImage: typeof o.productImage === 'string' ? o.productImage : undefined,
+        buyerName: o.buyerName || 'Sinh viên FPT',
+        amount: o.totalAmount || o.price,
+        orderType: o.orderType || 'MEETUP',
+        status: o.status,
+        createdAt: o.createdAt || new Date(),
+      }));
+    }
+    return [];
+  }, [analytics?.recentSales, orders, currentUserId]);
+
+  const totalOrdersCount = useMemo(() => {
+    if (analytics?.counts?.total !== undefined) return analytics.counts.total;
+    return realRecentSales.length;
+  }, [analytics?.counts?.total, realRecentSales.length]);
+
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 12) }]}>
       {/* Top Header */}
@@ -126,9 +160,13 @@ export const SellerDashboardScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           <Ionicons name="chatbubbles-outline" size={20} color="#EA580C" />
-          <View style={styles.chatBadge}>
-            <Text style={styles.chatBadgeText}>2</Text>
-          </View>
+          {unreadChatCount > 0 && (
+            <View style={styles.chatBadge}>
+              <Text style={styles.chatBadgeText}>
+                {unreadChatCount > 99 ? '99+' : unreadChatCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -159,21 +197,21 @@ export const SellerDashboardScreen: React.FC = () => {
           reservedCount={reservedCount}
           shippingCount={shippingCount}
           soldCount={soldCount}
-          onNavigateMyListings={() => navigation.navigate('MainTabs', { screen: 'MyListings' })}
+          onNavigateMyListings={() => navigation.navigate('ManageListings')}
           onNavigateOrderList={() => navigation.navigate('OrderList')}
           onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction')}
         />
 
         <SellerQuickOpsCard
           onPostItem={() => navigation.navigate('MainTabs', { screen: 'PostItem' })}
-          onMyListings={() => navigation.navigate('MainTabs', { screen: 'MyListings' })}
+          onMyListings={() => navigation.navigate('ManageListings')}
           onInterCampus={() => navigation.navigate('InterCampusTransaction')}
           onWithdraw={() => setShowWithdrawModal(true)}
         />
 
         <SellerRecentOrdersSection
-          recentSales={analytics?.recentSales}
-          totalOrdersCount={analytics?.counts?.total ?? (reservedCount + 1)}
+          recentSales={realRecentSales}
+          totalOrdersCount={totalOrdersCount}
           onNavigateOrderList={() => navigation.navigate('OrderList')}
           onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction')}
           onNavigateOrderDetail={(params) => navigation.navigate('OrderDetail', params)}

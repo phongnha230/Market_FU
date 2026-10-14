@@ -40,14 +40,30 @@ export const ReviewScreen: React.FC = () => {
     route.params?.productImage ||
     require('../../../../assets/products/keyboard-akko.jpg');
 
-  const [rating, setRating] = useState<number>(5);
-  const [comment, setComment] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Đúng mô tả', 'Thân thiện']);
-  const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
+  const isEditing = !!route.params?.isEditing;
+  const initialData = route.params?.initialReviewData;
+
+  const [rating, setRating] = useState<number>(initialData?.rating ?? 5);
+  const [comment, setComment] = useState(initialData?.comment ?? '');
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    initialData?.tags ?? ['Đúng mô tả', 'Thân thiện']
+  );
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(initialData?.isAnonymous ?? true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Danh sách hình ảnh / video bóc hộp được chọn từ thiết bị
-  const [mediaList, setMediaList] = useState<ReviewMedia[]>([]);
+  const [mediaList, setMediaList] = useState<ReviewMedia[]>(() => {
+    const list: ReviewMedia[] = [];
+    if (initialData?.images && Array.isArray(initialData.images)) {
+      initialData.images.forEach((img: string, i: number) => {
+        list.push({ id: `init-img-${i}`, uri: img, isVideo: false });
+      });
+    }
+    if (initialData?.proofVideoUrl) {
+      list.push({ id: `init-vid`, uri: initialData.proofVideoUrl, isVideo: true, duration: 'Video' });
+    }
+    return list;
+  });
 
   const buyerStudentId =
     user?.studentId ||
@@ -121,8 +137,44 @@ export const ReviewScreen: React.FC = () => {
   const handleSubmitReview = async () => {
     try {
       setIsSubmitting(true);
+      const cleanImages = mediaList.filter((m) => !m.isVideo).map((m) => m.uri);
+      const videoUri = mediaList.find((m) => m.isVideo)?.uri;
+
+      if (isEditing) {
+        useOrderStore.getState().updateOrderReview(orderId, {
+          rating,
+          comment,
+          tags: selectedTags,
+          images: cleanImages,
+          proofVideoUrl: videoUri,
+          isAnonymous,
+          bonusCoins,
+        });
+
+        Alert.alert('✅ Thành công', 'Đánh giá của bạn đã được cập nhật thành công!', [
+          {
+            text: 'Đóng',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        return;
+      }
+
+      const reviewPayload = {
+        rating,
+        comment,
+        tags: selectedTags,
+        images: cleanImages,
+        proofVideoUrl: videoUri,
+        isAnonymous,
+        reviewedAt: 'Vừa xong',
+        isPublic: false,
+        canEdit: true,
+        bonusCoins,
+      };
+
       if (orderId) {
-        useOrderStore.getState().markOrderReviewed(orderId);
+        useOrderStore.getState().markOrderReviewed(orderId, reviewPayload);
       }
 
       useWalletStore.getState().addCoins(bonusCoins);
@@ -131,8 +183,8 @@ export const ReviewScreen: React.FC = () => {
         orderId,
         rating,
         comment: comment ? `${comment} [${selectedTags.join(', ')}]` : undefined,
-        images: mediaList.filter((m) => !m.isVideo).map((m) => m.uri),
-        proofVideoUrl: mediaList.find((m) => m.isVideo)?.uri,
+        images: cleanImages,
+        proofVideoUrl: videoUri,
       });
 
       Alert.alert(
@@ -164,7 +216,9 @@ export const ReviewScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Đánh giá đơn hàng</Text>
+        <Text style={styles.headerTitle}>
+          {isEditing ? 'Chỉnh sửa đánh giá' : 'Đánh giá đơn hàng'}
+        </Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -308,7 +362,11 @@ export const ReviewScreen: React.FC = () => {
           disabled={isSubmitting}
         >
           <Text style={styles.submitBtnText}>
-            {isSubmitting ? 'Đang gửi...' : 'Hoàn tất đánh giá'}
+            {isSubmitting
+              ? 'Đang lưu...'
+              : isEditing
+              ? 'Cập nhật đánh giá'
+              : 'Hoàn tất đánh giá'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

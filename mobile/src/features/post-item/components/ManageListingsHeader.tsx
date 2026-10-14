@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useUserStore } from '../../../stores/userStore';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface ManageListingsHeaderProps {
   insetsTop: number;
@@ -17,6 +20,10 @@ export const ManageListingsHeader: React.FC<ManageListingsHeaderProps> = ({
   onProfile,
   onPostNew,
 }) => {
+  const { user, isAuthenticated } = useUserStore();
+  const avatarUrl = user?.avatar || user?.avatarUrl;
+  const userName = user?.name || 'Bạn';
+
   return (
     <>
       {/* 1. TOP BAR: Back Arrow + Đăng Bán + Avatar */}
@@ -37,7 +44,22 @@ export const ManageListingsHeader: React.FC<ManageListingsHeaderProps> = ({
           activeOpacity={0.8}
           onPress={onProfile}
         >
-          <Ionicons name="person" size={17} color="#FFFFFF" />
+          {isAuthenticated && avatarUrl ? (
+            <Image
+              source={resolveAvatarImage(avatarUrl)}
+              style={styles.avatarImg}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : isAuthenticated && userName ? (
+            <View style={styles.avatarInitialBox}>
+              <Text style={styles.avatarInitialText}>
+                {userName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          ) : (
+            <Ionicons name="person" size={17} color="#FFFFFF" />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -86,27 +108,50 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   avatarBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#9A3412',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F27024',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarInitialBox: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F27024',
+  },
+  avatarInitialText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   warehouseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#F8FAFC',
   },
   warehouseTextCol: {
     flex: 1,
+    paddingRight: 12,
   },
   warehouseTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   warehouseSub: {
     fontSize: 12,
@@ -115,25 +160,25 @@ const styles = StyleSheet.create({
   postNewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#9A3412',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
+    backgroundColor: '#F27024',
+    paddingHorizontal: 15,
+    paddingVertical: 8.5,
+    borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#9A3412',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        shadowColor: '#F27024',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
   postNewBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '800',
   },
 });

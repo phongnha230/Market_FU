@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   statusTabActive: {
-    backgroundColor: '#9A3412',
+    backgroundColor: '#EA580C',
   },
   statusTabActiveBlue: {
     backgroundColor: '#DBEAFE',
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   tabCountTextActive: {
-    color: '#9A3412',
+    color: '#EA580C',
   },
   tabCountTextInactive: {
     color: '#1E40AF',

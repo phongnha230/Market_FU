@@ -17,12 +17,14 @@ import { profileMobileService } from '../../../services/profileMobileService';
 import { productMobileService } from '../../../services/productMobileService';
 import { reviewMobileService } from '../../../services/reviewMobileService';
 import { useUserStore } from '../../../stores/userStore';
+import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { SellerHeroCard } from '../components/SellerHeroCard';
 import { SellerTabBar } from '../components/SellerTabBar';
 import { SellerProductsGrid } from '../components/SellerProductsGrid';
 import { SellerReviewsList } from '../components/SellerReviewsList';
 import { SellerBottomBar } from '../components/SellerBottomBar';
 import { ReportModal } from '../../report/components/ReportModal';
+import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
 export const PublicSellerProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -176,6 +178,90 @@ export const PublicSellerProfileScreen: React.FC = () => {
     });
   }, [navigation, isOtherUser, profile?.userId, profile?.id, profile?.fullName, profile?.campus, paramSellerName, targetIdOrName, products]);
 
+  const { orders, toggleReviewPublic } = useOrderStore();
+  const [selectedReviewOrder, setSelectedReviewOrder] = useState<OrderItem | null>(null);
+
+  // Tìm xem người mua hiện tại đã có đơn hàng nào được đánh giá với Người Bán này chưa
+  const myReviewedOrderWithSeller = useMemo(() => {
+    return orders.find(
+      (o) =>
+        (o.sellerId === targetIdOrName ||
+          (paramSellerName && o.sellerName?.toLowerCase() === paramSellerName.toLowerCase())) &&
+        o.isReviewed
+    );
+  }, [orders, targetIdOrName, paramSellerName]);
+
+  // Nếu đánh giá đã được mở khóa isPublic = true -> merge vào reviews list hiển thị trên Profile
+  const displayedReviews = useMemo(() => {
+    let list = [...reviews];
+    if (myReviewedOrderWithSeller?.reviewData?.isPublic) {
+      const alreadyInList = list.some(
+        (r) => r.id === `my-rev-${myReviewedOrderWithSeller.id}` || r.orderId === myReviewedOrderWithSeller.id
+      );
+      if (!alreadyInList) {
+        list.unshift({
+          id: `my-rev-${myReviewedOrderWithSeller.id}`,
+          rating: myReviewedOrderWithSeller.reviewData.rating,
+          comment: myReviewedOrderWithSeller.reviewData.comment,
+          images: myReviewedOrderWithSeller.reviewData.images,
+          reviewerName: myReviewedOrderWithSeller.reviewData.isAnonymous
+            ? 'Sinh viên FPT (Ẩn danh)'
+            : (currentUser?.name || 'Tôi'),
+          reviewerCampus: currentUser?.campus || 'Hòa Lạc',
+          createdAt: myReviewedOrderWithSeller.reviewData.reviewedAt || 'Vừa xong',
+          productTitle: myReviewedOrderWithSeller.productTitle,
+        });
+      }
+    }
+    return list;
+  }, [reviews, myReviewedOrderWithSeller, currentUser]);
+
+  const displayedStats = useMemo(() => {
+    if (myReviewedOrderWithSeller?.reviewData?.isPublic && reviews.length === 0) {
+      const star = myReviewedOrderWithSeller.reviewData.rating || 5;
+      return {
+        totalReceived: 1,
+        averageRating: star,
+        ratingDistribution: {
+          5: star === 5 ? 1 : 0,
+          4: star === 4 ? 1 : 0,
+          3: star === 3 ? 1 : 0,
+          2: star === 2 ? 1 : 0,
+          1: star === 1 ? 1 : 0,
+        },
+      };
+    }
+    return reviewStats;
+  }, [reviewStats, myReviewedOrderWithSeller, reviews.length]);
+
+  const handleOpenMyReviewDetail = useCallback((order: OrderItem) => {
+    setSelectedReviewOrder(order);
+  }, []);
+
+  const handleToggleReviewPublic = useCallback(
+    (orderId: string) => {
+      toggleReviewPublic(orderId);
+      Alert.alert('⚡ Cập nhật hiển thị', 'Đã thay đổi trạng thái công khai của đánh giá!');
+    },
+    [toggleReviewPublic]
+  );
+
+  const handleEditReviewFromModal = useCallback(
+    (order: OrderItem) => {
+      navigation.navigate('Review', {
+        orderId: order.orderNumber || order.id,
+        productTitle: order.productTitle,
+        sellerName: order.sellerName,
+        productImage: order.productImage,
+        sellerCampus: order.sellerCampus,
+        sellerCohort: order.sellerCohort,
+        isEditing: true,
+        initialReviewData: order.reviewData,
+      });
+    },
+    [navigation]
+  );
+
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 8) }]}>
       {/* Top Header */}
@@ -226,7 +312,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
               profile={profile}
               paramSellerName={paramSellerName}
               productsCount={products.length}
-              reviewsCount={reviewStats.totalReceived}
+              reviewsCount={displayedStats.totalReceived}
             />
 
             {/* 2. Tab Bar: Đang bán / Đánh giá / FPT Care */}
@@ -234,7 +320,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
               activeTab={activeTab}
               onSelectTab={setActiveTab}
               productsCount={products.length}
-              reviewsCount={reviewStats.totalReceived}
+              reviewsCount={displayedStats.totalReceived}
             />
 
             {/* 3. Tab Contents */}
@@ -250,14 +336,17 @@ export const PublicSellerProfileScreen: React.FC = () => {
               {/* TAB 2: ĐÁNH GIÁ 2 CHIỀU & BỘ LỌC */}
               {activeTab === 'reviews' && (
                 <SellerReviewsList
-                  reviews={reviews}
-                  stats={reviewStats}
+                  reviews={displayedReviews}
+                  stats={displayedStats}
                   reviewDirection={reviewDirection}
                   onChangeDirection={setReviewDirection}
                   selectedRating={selectedRating}
                   onSelectRating={setSelectedRating}
                   onlyHasImages={onlyHasImages}
                   onToggleOnlyHasImages={() => setOnlyHasImages(!onlyHasImages)}
+                  myBlindReview={!myReviewedOrderWithSeller?.reviewData?.isPublic ? myReviewedOrderWithSeller : undefined}
+                  onOpenMyReviewDetail={handleOpenMyReviewDetail}
+                  onToggleReviewPublic={handleToggleReviewPublic}
                 />
               )}
 
@@ -317,6 +406,13 @@ export const PublicSellerProfileScreen: React.FC = () => {
         targetType="USER"
         targetId={profile?.userId || profile?.id || targetIdOrName}
         targetTitle={profile?.fullName || paramSellerName}
+      />
+
+      <ReviewDetailModal
+        visible={!!selectedReviewOrder}
+        order={selectedReviewOrder}
+        onClose={() => setSelectedReviewOrder(null)}
+        onEditReview={handleEditReviewFromModal}
       />
     </View>
   );

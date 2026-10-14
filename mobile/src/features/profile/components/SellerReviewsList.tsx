@@ -19,6 +19,9 @@ interface SellerReviewsListProps {
   onSelectRating: (star: number | null) => void;
   onlyHasImages: boolean;
   onToggleOnlyHasImages: () => void;
+  myBlindReview?: any;
+  onOpenMyReviewDetail?: (order: any) => void;
+  onToggleReviewPublic?: (orderId: string) => void;
 }
 
 export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
@@ -30,6 +33,9 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
   onSelectRating,
   onlyHasImages,
   onToggleOnlyHasImages,
+  myBlindReview,
+  onOpenMyReviewDetail,
+  onToggleReviewPublic,
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -133,6 +139,48 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* 3.5. Banner Đánh giá kín của bạn cho Người Bán này (nếu có) */}
+      {reviewDirection === 'received' && myBlindReview && (
+        <View style={styles.myBlindReviewCard}>
+          <View style={styles.myBlindReviewHeader}>
+            <View style={styles.myBlindIconCircle}>
+              <Ionicons name="lock-closed" size={15} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.myBlindReviewTitle}>Đánh giá kín của bạn cho Người Bán này</Text>
+              <Text style={styles.myBlindReviewSub}>
+                Đơn hàng #{myBlindReview.orderNumber || myBlindReview.id} • {myBlindReview.reviewData?.rating || 5}★ ({myBlindReview.reviewData?.reviewedAt || 'Gần đây'})
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.myBlindReviewDesc}>
+            {myBlindReview.reviewData?.comment ? `"${myBlindReview.reviewData.comment}"` : 'Đã gửi đánh giá 5 sao cho người bán.'}
+          </Text>
+          <Text style={styles.myBlindReviewNotice}>
+            🔒 Đang áp dụng cơ chế <Text style={{ fontWeight: '700' }}>Blind Review 2 chiều</Text> để đảm bảo công bằng. Đánh giá sẽ tự động hiển thị công khai khi người bán hoàn tất đánh giá lại bạn hoặc sau 7 ngày!
+          </Text>
+          <View style={styles.myBlindActions}>
+            <TouchableOpacity
+              style={styles.myBlindViewBtn}
+              activeOpacity={0.8}
+              onPress={() => onOpenMyReviewDetail?.(myBlindReview)}
+            >
+              <Ionicons name="eye-outline" size={14} color="#EA580C" />
+              <Text style={styles.myBlindViewBtnText}>Xem lại / Chỉnh sửa</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.myBlindUnlockBtn}
+              activeOpacity={0.8}
+              onPress={() => onToggleReviewPublic?.(myBlindReview.orderNumber || myBlindReview.id)}
+            >
+              <Ionicons name="sparkles" size={14} color="#059669" />
+              <Text style={styles.myBlindUnlockBtnText}>⚡ Thử mở khóa công khai</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* 4. Reviews List */}
       {reviews.length === 0 ? (
@@ -566,6 +614,87 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  myBlindReviewCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 8,
+  },
+  myBlindReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  myBlindIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  myBlindReviewTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  myBlindReviewSub: {
+    fontSize: 10.5,
+    color: '#92400E',
+    marginTop: 1,
+  },
+  myBlindReviewDesc: {
+    fontSize: 12,
+    color: '#451A03',
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  myBlindReviewNotice: {
+    fontSize: 11,
+    color: '#78350F',
+    lineHeight: 15,
+  },
+  myBlindActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  myBlindViewBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 8,
+    paddingVertical: 7,
+  },
+  myBlindViewBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  myBlindUnlockBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    paddingVertical: 7,
+  },
+  myBlindUnlockBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
   },
 });
 

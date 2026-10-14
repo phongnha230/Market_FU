@@ -65,6 +65,7 @@ interface PrimaryActionButtonProps {
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
   onOpenReview: () => void;
+  onOpenReviewDetail?: () => void;
 }
 
 const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
@@ -77,6 +78,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   onConfirmReceived,
   onOpenScanner,
   onOpenReview,
+  onOpenReviewDetail,
 }) => {
   if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
     if (isInterCampus) {
@@ -133,6 +135,19 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     );
   }
 
+  if (orderStatus === 'completed' && isReviewed && !isSeller) {
+    return (
+      <TouchableOpacity
+        style={styles.viewReviewMainBtn}
+        activeOpacity={0.88}
+        onPress={onOpenReviewDetail}
+      >
+        <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
+        <Text style={styles.viewReviewMainText}>Xem lại đánh giá của bạn (★ Đã đánh giá)</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return null;
 });
 PrimaryActionButton.displayName = 'PrimaryActionButton';
@@ -183,6 +198,7 @@ export interface OrderActionButtonsProps {
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
   onOpenReview: () => void;
+  onOpenReviewDetail?: () => void;
   onOpenChat: () => void;
   onOpenDispute: () => void;
   onCancelOrder: () => void;
@@ -198,6 +214,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   onConfirmReceived,
   onOpenScanner,
   onOpenReview,
+  onOpenReviewDetail,
   onOpenChat,
   onOpenDispute,
   onCancelOrder,
@@ -226,6 +243,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
         onConfirmReceived={onConfirmReceived}
         onOpenScanner={onOpenScanner}
         onOpenReview={onOpenReview}
+        onOpenReviewDetail={onOpenReviewDetail}
       />
 
       <SubActionButtons
@@ -296,6 +314,21 @@ const styles = StyleSheet.create({
   },
   reviewMainText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  viewReviewMainBtn: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewReviewMainText: {
+    color: '#059669',
     fontSize: 14,
     fontWeight: '800',
   },

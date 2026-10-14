@@ -4,6 +4,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useWalletStore } from './walletStore';
 import { generate4DigitOtp } from '../lib/backendMappers';
 
+export interface OrderReviewData {
+  rating: number;
+  comment?: string;
+  tags?: string[];
+  images?: string[];
+  proofVideoUrl?: string;
+  isAnonymous?: boolean;
+  reviewedAt: string;
+  isPublic?: boolean;
+  canEdit?: boolean;
+  bonusCoins?: number;
+}
+
 export interface OrderItem {
   id: string;
   orderNumber?: string;
@@ -34,6 +47,7 @@ export interface OrderItem {
   timeSlot: string;
   totalAmount: number;
   isReviewed?: boolean;
+  reviewData?: OrderReviewData;
   handshakeOtp?: string;
   orderType?: 'MEETUP' | 'SHIP_COD';
   createdAt: string;
@@ -60,7 +74,9 @@ interface OrderState {
     orderId: string,
     inputOtp: string
   ) => { success: boolean; message: string };
-  markOrderReviewed: (orderId: string) => void;
+  markOrderReviewed: (orderId: string, reviewData?: OrderReviewData) => void;
+  updateOrderReview: (orderId: string, reviewData: Partial<OrderReviewData>) => void;
+  toggleReviewPublic: (orderId: string) => void;
   createDispute: (orderId: string, reason: string) => void;
   getBuyerOrders: (buyerId: string) => OrderItem[];
   getSellerOrders: (sellerId: string) => OrderItem[];
@@ -207,19 +223,74 @@ export const useOrderStore = create<OrderState>()(
         };
       },
 
-      markOrderReviewed: (orderId) => {
+      markOrderReviewed: (orderId, reviewData) => {
         set((state) => ({
           orders: state.orders.map((o) =>
             o.id === orderId || o.orderNumber === orderId
               ? {
                   ...o,
                   isReviewed: true,
-                  statusLabel: '⭐ Đã đánh giá 5 sao',
+                  reviewData: reviewData || o.reviewData || {
+                    rating: 5,
+                    comment: 'Sản phẩm bàn giao nguyên tem như mô tả, người bán thân thiện và đúng giờ tại Safe-Point!',
+                    tags: ['Đúng mô tả', 'Thân thiện'],
+                    images: [],
+                    isAnonymous: true,
+                    reviewedAt: 'Hôm nay',
+                    isPublic: false,
+                    canEdit: true,
+                    bonusCoins: 100,
+                  },
+                  statusLabel: `⭐ Đã đánh giá ${reviewData?.rating || 5} sao`,
                   statusColor: '#2563EB',
                   statusBg: '#EFF6FF',
                 }
               : o
           ),
+        }));
+      },
+
+      updateOrderReview: (orderId, updatedReviewData) => {
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId
+              ? {
+                  ...o,
+                  reviewData: o.reviewData
+                    ? { ...o.reviewData, ...updatedReviewData }
+                    : {
+                        rating: updatedReviewData.rating || 5,
+                        comment: updatedReviewData.comment,
+                        tags: updatedReviewData.tags || ['Đúng mô tả'],
+                        images: updatedReviewData.images || [],
+                        proofVideoUrl: updatedReviewData.proofVideoUrl,
+                        isAnonymous: updatedReviewData.isAnonymous ?? true,
+                        reviewedAt: 'Vừa cập nhật',
+                        isPublic: updatedReviewData.isPublic ?? false,
+                        canEdit: true,
+                        bonusCoins: updatedReviewData.bonusCoins || 100,
+                      },
+                  statusLabel: `⭐ Đã đánh giá ${updatedReviewData.rating || o.reviewData?.rating || 5} sao`,
+                }
+              : o
+          ),
+        }));
+      },
+
+      toggleReviewPublic: (orderId) => {
+        set((state) => ({
+          orders: state.orders.map((o) => {
+            if ((o.id === orderId || o.orderNumber === orderId) && o.reviewData) {
+              return {
+                ...o,
+                reviewData: {
+                  ...o.reviewData,
+                  isPublic: !o.reviewData.isPublic,
+                },
+              };
+            }
+            return o;
+          }),
         }));
       },
 

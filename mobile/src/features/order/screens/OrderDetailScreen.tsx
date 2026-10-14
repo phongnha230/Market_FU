@@ -21,6 +21,7 @@ import { OrderProductSummaryCard } from '../components/OrderProductSummaryCard';
 import { OrderInterCampusBanner } from '../components/OrderInterCampusBanner';
 import { PackageProofRow } from '../components/PackageProofRow';
 import { OrderDetailModals } from '../components/OrderDetailModals';
+import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
 const HIT_SLOP_8 = { top: 8, bottom: 8, left: 8, right: 8 } as const;
 const HIT_SLOP_10 = { top: 10, bottom: 10, left: 10, right: 10 } as const;
@@ -36,6 +37,7 @@ export const OrderDetailScreen: React.FC = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showWithdrawDisputeModal, setShowWithdrawDisputeModal] = useState(false);
   const [showScannerModal, setShowScannerModal] = useState(false);
+  const [showReviewDetailModal, setShowReviewDetailModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const orderId = route.params?.orderId || '';
@@ -240,6 +242,22 @@ export const OrderDetailScreen: React.FC = () => {
     navigation.navigate('MainTabs', { screen: 'Home' });
   }, [navigation]);
 
+  const handleEditReviewFromModal = useCallback(
+    (targetOrder: any) => {
+      navigation.navigate('Review', {
+        orderId: targetOrder.orderNumber || targetOrder.id || orderId,
+        productTitle: targetOrder.productTitle || product.title,
+        sellerName: targetOrder.sellerName || product.sellerName,
+        productImage: targetOrder.productImage || product.image,
+        sellerCampus: targetOrder.sellerCampus || product.sellerCampus,
+        sellerCohort: targetOrder.sellerCohort || product.sellerCohort,
+        isEditing: true,
+        initialReviewData: targetOrder.reviewData,
+      });
+    },
+    [navigation, orderId, product]
+  );
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <View style={styles.header}>
@@ -290,6 +308,7 @@ export const OrderDetailScreen: React.FC = () => {
           onConfirmReceived={handleConfirmReceived}
           onOpenScanner={() => setShowScannerModal(true)}
           onOpenReview={handleOpenReview}
+          onOpenReviewDetail={() => setShowReviewDetailModal(true)}
           onOpenChat={handleOpenChat}
           onOpenDispute={handleOpenDispute}
           onCancelOrder={() => setShowCancelModal(true)}
@@ -315,6 +334,23 @@ export const OrderDetailScreen: React.FC = () => {
         onCancelSuccess={handleCancelSuccess}
         onWithdrawDisputeSuccess={handleWithdrawDisputeSuccess}
         onReportDispute={handleOpenDispute}
+      />
+
+      <ReviewDetailModal
+        visible={showReviewDetailModal}
+        order={matchedOrder || ({
+          id: orderId,
+          orderNumber: orderId,
+          productTitle: product.title,
+          sellerName: product.sellerName,
+          sellerCampus: product.sellerCampus,
+          productImage: product.image,
+          safePoint: safePoint,
+          isReviewed: true,
+          status: 'COMPLETED',
+        } as any)}
+        onClose={() => setShowReviewDetailModal(false)}
+        onEditReview={handleEditReviewFromModal}
       />
     </View>
   );

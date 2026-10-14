@@ -21,7 +21,6 @@ import VoucherSearchBar from '../components/VoucherSearchBar';
 import VoucherCard from '../components/VoucherCard';
 import UserVoucherCard from '../components/UserVoucherCard';
 import VoucherQrModal from '../components/VoucherQrModal';
-import MissionItemCard from '../components/MissionItemCard';
 
 import useVoucher from '../hooks/useVoucher';
 import {
@@ -214,22 +213,24 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
             </View>
           }
           ListFooterComponent={
-            <>
-              {/* Quests section */}
-              <View style={[styles.sectionHeaderRow, { marginTop: 18, marginBottom: 8 }]}>
-                <View style={styles.sectionTitleBox}>
-                  <Text style={styles.sectionTitle}>Nhiệm vụ kiếm thêm Campus Coins</Text>
+            <View style={{ marginTop: 20, marginBottom: 32, marginHorizontal: 16 }}>
+              <TouchableOpacity
+                style={styles.goToQuestsBanner}
+                activeOpacity={0.85}
+                onPress={handleOpenHistory}
+              >
+                <View style={styles.goToQuestsLeft}>
+                  <Ionicons name="trophy" size={24} color="#EA580C" style={{ marginRight: 10 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.goToQuestsTitle}>Săn thêm Campus Coins</Text>
+                    <Text style={styles.goToQuestsSub}>
+                      Hoàn thành nhiệm vụ tuần & điểm danh hàng ngày tại Ví Xu để nhận thêm coin đổi quà!
+                    </Text>
+                  </View>
                 </View>
-              </View>
-
-              {quests.map((q) => (
-                <MissionItemCard
-                  key={q.id}
-                  quest={q}
-                  onAction={handleClaimQuest}
-                />
-              ))}
-            </>
+                <Ionicons name="chevron-forward" size={18} color="#EA580C" />
+              </TouchableOpacity>
+            </View>
           }
         />
       ) : (
@@ -509,6 +510,33 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 13,
     fontWeight: '600',
+  },
+  goToQuestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 16,
+    padding: 14,
+  },
+  goToQuestsLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  goToQuestsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#9A3412',
+    marginBottom: 2,
+  },
+  goToQuestsSub: {
+    fontSize: 11,
+    color: '#C2410C',
+    lineHeight: 15,
   },
 });
 

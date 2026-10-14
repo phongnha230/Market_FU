@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useWalletStore } from './walletStore';
-import { useUserStore } from './userStore';
+
+const getUserStore = () => {
+  try {
+    const { useUserStore } = require('./userStore');
+    return useUserStore;
+  } catch {
+    return null;
+  }
+};
 
 export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
@@ -198,9 +206,10 @@ export const useVoucherStore = create<VoucherState>()(
 
           // Trừ Xu trong walletStore và userStore
           useWalletStore.getState().deductCoins(item.coinCost);
-          const currentUser = useUserStore.getState().user;
-          if (currentUser) {
-            useUserStore.getState().updateUser({
+          const userStore = getUserStore();
+          const currentUser = userStore?.getState().user;
+          if (currentUser && userStore) {
+            userStore.getState().updateUser({
               coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
             });
           }
@@ -228,9 +237,10 @@ export const useVoucherStore = create<VoucherState>()(
         } catch (err: any) {
           // Fallback ngoại tuyến (Optimistic Offline)
           useWalletStore.getState().deductCoins(item.coinCost);
-          const currentUser = useUserStore.getState().user;
-          if (currentUser) {
-            useUserStore.getState().updateUser({
+          const userStore = getUserStore();
+          const currentUser = userStore?.getState().user;
+          if (currentUser && userStore) {
+            userStore.getState().updateUser({
               coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
             });
           }

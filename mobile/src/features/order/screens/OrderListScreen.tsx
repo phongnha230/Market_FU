@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { socketMobileService } from '../../../services/socketMobileService';
+import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
 const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
@@ -45,7 +46,8 @@ const OrderCardItem: React.FC<{
   onPress: (item: OrderItem) => void;
   onDispute: (item: OrderItem) => void;
   onReview: (item: OrderItem) => void;
-}> = React.memo(({ item, currentUserId, onPress, onDispute, onReview }) => {
+  onViewReview: (item: OrderItem) => void;
+}> = React.memo(({ item, currentUserId, onPress, onDispute, onReview, onViewReview }) => {
   const isSaleForCurrent = item.sellerId === currentUserId;
   const isBuyer = !isSaleForCurrent;
   const isCompleted = item.status === 'COMPLETED';
@@ -59,6 +61,7 @@ const OrderCardItem: React.FC<{
   const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
   const handleDispute = React.useCallback(() => onDispute(item), [item, onDispute]);
   const handleReview = React.useCallback(() => onReview(item), [item, onReview]);
+  const handleViewReview = React.useCallback(() => onViewReview(item), [item, onViewReview]);
 
   return (
     <View style={styles.orderCard}>
@@ -163,10 +166,15 @@ const OrderCardItem: React.FC<{
           )}
 
           {isBuyer && item.isReviewed && (
-            <View style={styles.reviewedBadge}>
-              <Ionicons name="star" size={11} color="#EAB308" style={{ marginRight: 2 }} />
+            <TouchableOpacity
+              style={styles.reviewedBadge}
+              activeOpacity={0.8}
+              onPress={handleViewReview}
+            >
+              <Ionicons name="star" size={11} color="#059669" style={{ marginRight: 2 }} />
               <Text style={styles.reviewedBadgeText}>Đã đánh giá</Text>
-            </View>
+              <Ionicons name="chevron-forward" size={10} color="#059669" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
           )}
 
           <TouchableOpacity
@@ -342,6 +350,28 @@ export const OrderListScreen: React.FC = () => {
     navigation.navigate('MainTabs', { screen: 'Home' });
   }, [navigation]);
 
+  const [selectedReviewOrder, setSelectedReviewOrder] = useState<OrderItem | null>(null);
+
+  const handleViewReview = React.useCallback((item: OrderItem) => {
+    setSelectedReviewOrder(item);
+  }, []);
+
+  const handleEditReviewFromModal = React.useCallback(
+    (order: OrderItem) => {
+      navigation.navigate('Review', {
+        orderId: order.orderNumber || order.id,
+        productTitle: order.productTitle,
+        sellerName: order.sellerName,
+        productImage: order.productImage,
+        sellerCampus: order.sellerCampus,
+        sellerCohort: order.sellerCohort,
+        isEditing: true,
+        initialReviewData: order.reviewData,
+      });
+    },
+    [navigation]
+  );
+
   const renderOrderItem = React.useCallback(
     ({ item }: { item: OrderItem }) => (
       <OrderCardItem
@@ -350,9 +380,10 @@ export const OrderListScreen: React.FC = () => {
         onPress={handleNavigateDetail}
         onDispute={handleDispute}
         onReview={handleReview}
+        onViewReview={handleViewReview}
       />
     ),
-    [currentUserId, handleNavigateDetail, handleDispute, handleReview]
+    [currentUserId, handleNavigateDetail, handleDispute, handleReview, handleViewReview]
   );
 
   const keyExtractor = React.useCallback(
@@ -379,7 +410,13 @@ export const OrderListScreen: React.FC = () => {
       <View style={styles.topBar}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (navigation && navigation.canGoBack && navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('MainTabs', { screen: 'Home' });
+            }
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -415,6 +452,13 @@ export const OrderListScreen: React.FC = () => {
         ListEmptyComponent={
           <OrderListEmptyState activeTab={activeTab} onExplore={handleGoHome} />
         }
+      />
+
+      <ReviewDetailModal
+        visible={!!selectedReviewOrder}
+        order={selectedReviewOrder}
+        onClose={() => setSelectedReviewOrder(null)}
+        onEditReview={handleEditReviewFromModal}
       />
     </View>
   );

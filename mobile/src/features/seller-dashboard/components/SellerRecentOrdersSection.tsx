@@ -176,118 +176,15 @@ export const SellerRecentOrdersSection: React.FC<SellerRecentOrdersSectionProps>
           );
         })
       ) : (
-        <>
-          {/* Order Item 1: Liên Campus FPT Bus */}
-          <TouchableOpacity
-            style={styles.orderCard}
-            activeOpacity={0.88}
-            onPress={onNavigateInterCampus}
-          >
-            <View style={styles.orderTopBar}>
-              <View style={styles.busTag}>
-                <Ionicons name="bus" size={13} color="#7C3AED" />
-                <Text style={styles.busTagText}>GIAO DỊCH LIÊN CAMPUS (FPT BUS)</Text>
-              </View>
-              <Text style={styles.orderPrice}>1.450.000 đ</Text>
-            </View>
-
-            <View style={styles.orderMain}>
-              <Image
-                source={require('../../../../assets/products/monitor-dell-24.jpg')}
-                style={styles.orderThumb}
-                contentFit="cover"
-              />
-              <View style={styles.orderDetail}>
-                <Text style={styles.orderTitle} numberOfLines={1}>
-                  Màn hình Dell 24&quot; UltraSharp U2419H
-                </Text>
-                <Text style={styles.orderRoute}>
-                  📍 Gửi: <Text style={styles.boldText}>Hòa Lạc</Text> ➔ Nhận:{' '}
-                  <Text style={styles.boldText}>TP. Hồ Chí Minh</Text>
-                </Text>
-                <View style={styles.statusPill}>
-                  <Ionicons name="sync-circle" size={13} color="#7C3AED" />
-                  <Text style={styles.statusPillText}>Đang chuyển xe FPT Bus • Dự kiến đến chiều nay</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.orderFooter}>
-              <Text style={styles.orderFootTime}>Mã vận đơn: IC-FPTBUS-99214</Text>
-              <View style={styles.viewTimelineBtn}>
-                <Text style={styles.viewTimelineText}>Theo dõi hành trình</Text>
-                <Ionicons name="chevron-forward" size={13} color="#7C3AED" />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Order Item 2: Hẹn gặp nội campus */}
-          <TouchableOpacity
-            style={styles.orderCard}
-            activeOpacity={0.88}
-            onPress={() =>
-              onNavigateOrderDetail({
-                orderId: 'ORD-882194',
-                product: {
-                  title: 'Combo CSL201 + MAS291',
-                  price: 120000,
-                  priceStr: '120.000đ',
-                  image: require('../../../../assets/products/books-mas291.jpg'),
-                  sellerName: userName || 'Người bán',
-                },
-                status: 'pending_handoff',
-                safePoint: 'Sảnh Tòa Alpha (Trạm Safe-Point có camera)',
-              })
-            }
-          >
-            <View style={styles.orderTopBar}>
-              <View style={[styles.busTag, styles.safePointTag]}>
-                <Ionicons name="location" size={13} color="#2563EB" />
-                <Text style={[styles.busTagText, styles.safePointTagText]}>
-                  HẸN GẶP SAFE-POINT CÙNG CAMPUS
-                </Text>
-              </View>
-              <Text style={styles.orderPrice}>120.000 đ</Text>
-            </View>
-
-            <View style={styles.orderMain}>
-              <Image
-                source={require('../../../../assets/products/books-mas291.jpg')}
-                style={styles.orderThumb}
-                contentFit="cover"
-              />
-              <View style={styles.orderDetail}>
-                <Text style={styles.orderTitle} numberOfLines={1}>
-                  Combo Giáo trình CSL201 + MAS291 (K18)
-                </Text>
-                <Text style={styles.orderRoute}>
-                  📍 Điểm hẹn:{' '}
-                  <Text style={styles.boldText}>
-                    Sảnh Tòa Alpha
-                  </Text>
-                </Text>
-                <View style={[styles.statusPill, styles.statusPending]}>
-                  <Ionicons name="time" size={13} color="#D97706" />
-                  <Text style={[styles.statusPillText, styles.statusPendingText]}>
-                    Hẹn gặp 16:30 chiều nay
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.orderFooter}>
-              <Text style={styles.orderFootTime}>
-                Người mua: Trần Tuấn Minh (SE170123)
-              </Text>
-              <View style={styles.viewTimelineBtn}>
-                <Text style={[styles.viewTimelineText, styles.viewDetailText]}>
-                  Xem mã QR bàn giao
-                </Text>
-                <Ionicons name="chevron-forward" size={13} color="#2563EB" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </>
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="receipt-outline" size={28} color="#94A3B8" />
+          </View>
+          <Text style={styles.emptyTitle}>Chưa có đơn hàng nào cần xử lý</Text>
+          <Text style={styles.emptySubtitle}>
+            Khi có sinh viên đặt mua đồ từ kho hàng của bạn, các đơn hàng cần giao hoặc điều phối sẽ xuất hiện tại đây.
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -435,5 +332,39 @@ const styles = StyleSheet.create({
   },
   viewDetailText: {
     color: '#2563EB',
+  },
+  emptyContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  emptyIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
 });

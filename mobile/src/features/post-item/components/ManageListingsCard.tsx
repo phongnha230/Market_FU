@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#9A3412',
+    color: '#EA580C',
   },
   itemTimeAgo: {
     fontSize: 11,
