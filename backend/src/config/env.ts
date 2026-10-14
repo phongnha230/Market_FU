@@ -92,6 +92,11 @@ const envSchema = z.object({
   LOG_DIR: z.string().default('logs'),
   LOG_RETENTION_DAYS: z.coerce.number().default(14),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+  // 16. Web Push Notifications (VAPID W3C Standard)
+  VAPID_PUBLIC_KEY: z.string().default(''),
+  VAPID_PRIVATE_KEY: z.string().default(''),
+  VAPID_SUBJECT: z.string().default('mailto:admin@marketfu.com'),
 });
 
 const parseEnv = () => {

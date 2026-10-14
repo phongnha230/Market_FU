@@ -5,6 +5,9 @@ import { authenticate } from '../../middlewares/auth.middleware';
 const router = Router();
 const notificationController = new NotificationController();
 
+// Lấy VAPID Public Key để Client trình duyệt đăng ký Web Push Service Worker
+router.get('/vapid-public-key', notificationController.getVapidPublicKey);
+
 router.use(authenticate);
 
 router.get('/', notificationController.getUserNotifications);

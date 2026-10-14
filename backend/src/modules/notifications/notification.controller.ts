@@ -3,6 +3,7 @@ import { AuthRequest } from '../../middlewares/auth.middleware';
 import { NotificationService } from './notification.service';
 import { queryNotificationsSchema, registerDeviceTokenSchema, removeDeviceTokenSchema } from './notification.dto';
 import { sendSuccess, sendPaginated } from '../../utils/response';
+import { vapidPublicKey } from '../../config/webpush';
 
 const notificationService = new NotificationService();
 
@@ -75,5 +76,10 @@ export class NotificationController {
     } catch (error) {
       next(error);
     }
+  };
+
+  // GET /api/notifications/vapid-public-key
+  getVapidPublicKey = async (_req: Request, res: Response) => {
+    return sendSuccess(res, { publicKey: vapidPublicKey });
   };
 }

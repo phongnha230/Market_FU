@@ -5,6 +5,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { mailTransporter } from '../../config/mail';
 import { ENV } from '../../config/env';
 import { QueryNotificationsInput } from './notification.dto';
+import { webpush } from '../../config/webpush';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -74,23 +75,57 @@ export class NotificationService {
   ) {
     const { userId, title, body, type = 'SYSTEM', targetUrl } = params;
 
-    // ─── Kênh C: Push FCM Multicast đến nhiều thiết bị ───
-    let tokensToSend = fcmTokens;
-    if (!tokensToSend || tokensToSend.length === 0) {
-      try {
-        const stored = await prisma.deviceToken.findMany({
-          where: { userId },
-          select: { token: true },
-        });
-        tokensToSend = stored.map((t) => t.token);
-      } catch (err: any) {
-        console.warn('⚠️ [DeviceToken Lookup Warning]:', err.message);
+    // ─── Kênh C: Push Notifications (Web Push VAPID & FCM Multicast Mobile) ───
+    let allTokens: Array<{ token: string; deviceType: string | null }> = [];
+    try {
+      allTokens = await prisma.deviceToken.findMany({
+        where: { userId },
+        select: { token: true, deviceType: true },
+      });
+    } catch (err: any) {
+      console.warn('⚠️ [DeviceToken Lookup Warning]:', err.message);
+    }
+
+    // Tách riêng Web Push token (JSON subscription) và Mobile FCM tokens
+    const webTokens = allTokens.filter(
+      (t) => t.deviceType === 'WEB' || t.token.trim().startsWith('{"endpoint"')
+    );
+    const mobileTokens = (fcmTokens && fcmTokens.length > 0)
+      ? fcmTokens.filter((t) => t && !t.trim().startsWith('{"endpoint"'))
+      : allTokens
+          .filter((t) => t.deviceType !== 'WEB' && !t.token.trim().startsWith('{"endpoint"'))
+          .map((t) => t.token);
+
+    // C1: Gửi Web Push (Chuẩn W3C VAPID cho trình duyệt Chrome, Edge, Firefox, Safari)
+    if (webTokens.length > 0) {
+      const webPushPayload = JSON.stringify({
+        title,
+        body,
+        type,
+        targetUrl: targetUrl || '/',
+        imageUrl: params.imageUrl,
+        notificationId: notification.id,
+      });
+
+      for (const item of webTokens) {
+        try {
+          const subscription = JSON.parse(item.token);
+          await webpush.sendNotification(subscription, webPushPayload);
+        } catch (webPushErr: any) {
+          // Mã 404/410: Subscription đã hết hạn hoặc người dùng đã xóa quyền trên trình duyệt
+          if (webPushErr.statusCode === 404 || webPushErr.statusCode === 410) {
+            await prisma.deviceToken.deleteMany({ where: { token: item.token } }).catch(() => {});
+          } else {
+            console.warn('⚠️ [WebPush Warning]:', webPushErr.message);
+          }
+        }
       }
     }
 
-    if (firebaseMessaging && tokensToSend && tokensToSend.length > 0) {
+    // C2: Gửi FCM Multicast đến thiết bị di động (Android / iOS)
+    if (firebaseMessaging && mobileTokens && mobileTokens.length > 0) {
       // Lọc bỏ token rỗng
-      const validTokens = tokensToSend.filter((t) => t && t.trim() !== '');
+      const validTokens = mobileTokens.filter((t) => t && t.trim() !== '');
 
       if (validTokens.length > 0) {
         try {
