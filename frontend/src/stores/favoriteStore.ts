@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ProductItem } from '@/types/product';
 
+import { productService } from '@/services/productService';
+
 export interface FavoriteItem {
   id: string;
   sellerId?: string;
@@ -46,6 +48,7 @@ interface FavoriteState {
   favorites: FavoriteItem[];
   priceAlerts: PriceAlert[];
   setActiveUser: (userId: string | null) => void;
+  fetchFavorites: () => Promise<void>;
   isFavorite: (id: string) => boolean;
   toggleFavorite: (product: ProductItem | FavoriteItem) => boolean;
   removeFavorite: (id: string) => void;
@@ -82,6 +85,53 @@ export const useFavoriteStore = create<FavoriteState>()(
           favorites: userFavs,
           priceAlerts: userAlerts,
         });
+
+        if (uId) {
+          get().fetchFavorites().catch(() => {});
+        }
+      },
+
+      fetchFavorites: async () => {
+        const uId = get().activeUserId;
+        if (!uId) return;
+
+        try {
+          const liveItems = await productService.getMyFavorites();
+          if (Array.isArray(liveItems)) {
+            const mappedFavs: FavoriteItem[] = liveItems.map((p) => ({
+              id: p.id,
+              sellerId: p.sellerId || (p.seller as any)?.id,
+              title: p.title,
+              category: 'electronics',
+              price: p.price,
+              originalPrice: p.originalPrice,
+              status: p.status === 'sold' ? 'sold' : p.status === 'reserved' ? 'reserved' : 'available',
+              location: p.location,
+              imageUrl: p.imageUrl,
+              badgeGreen: p.badges?.[0] || 'Like New',
+              badgeOrange: p.badges?.[1],
+              savedAt: new Date().toISOString(),
+              seller: {
+                id: p.sellerId || (p.seller as any)?.id,
+                name: p.seller?.name || 'Sinh viên FPT',
+                cohort: p.seller?.cohort || 'K18',
+                studentIdMasked: 'HE17****',
+                avatarColor: 'bg-orange-600',
+                initials: p.seller?.initial || 'FU',
+              },
+            }));
+
+            set((state) => ({
+              favoritesByUser: {
+                ...state.favoritesByUser,
+                [uId]: mappedFavs,
+              },
+              favorites: mappedFavs,
+            }));
+          }
+        } catch {
+          // Keep existing local favorites on offline
+        }
       },
 
       isFavorite: (id) => {
@@ -145,6 +195,9 @@ export const useFavoriteStore = create<FavoriteState>()(
           favorites: updatedFavs,
         });
 
+        // Đồng bộ lưu bền vững xuống Database MongoDB
+        productService.toggleFavorite(product.id).catch(() => {});
+
         return result;
       },
 
@@ -163,6 +216,9 @@ export const useFavoriteStore = create<FavoriteState>()(
           },
           favorites: updatedFavs,
         });
+
+        // Đồng bộ xóa khỏi wishlist trên Database MongoDB
+        productService.toggleFavorite(id).catch(() => {});
       },
 
       clearSoldFavorites: () => {

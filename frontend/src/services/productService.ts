@@ -249,6 +249,19 @@ export const ProductService = {
     return response.data.data;
   },
 
+  // 11b. Lấy danh sách sản phẩm yêu thích của người dùng hiện tại từ Database
+  async getMyFavorites(): Promise<ProductItem[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<any[]>>('/products/favorites/me');
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data.map(adaptBackendProduct);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
   // 12. Lấy danh sách sản phẩm tương tự cùng Campus
   async getSimilarPosts(campus?: string): Promise<ProductItem[]> {
     try {
@@ -310,3 +323,5 @@ export const ProductService = {
     return response.data.data;
   },
 };
+
+export const productService = ProductService;

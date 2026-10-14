@@ -14,10 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import HomeSearchBar from '../features/home/components/HomeSearchBar';
 import ProductCard from '../components/common/ProductCard';
 import useHomeFeed from '../features/home/hooks/useHomeFeed';
+import { productMobileService } from '../services/productMobileService';
 
 const RECENT_SEARCHES_KEY = '@fu_recent_searches';
 
-const HOT_KEYWORDS = [
+const DEFAULT_HOT_KEYWORDS = [
   '#giaotrinh',
   'Đồng phục FPT',
   'Bàn gấp KTX',
@@ -35,9 +36,10 @@ export const SearchScreen: React.FC = () => {
 
   const [keyword, setKeyword] = useState<string>(route.params?.initialKeyword || '');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [hotKeywords, setHotKeywords] = useState<string[]>(DEFAULT_HOT_KEYWORDS);
   const { products } = useHomeFeed();
 
-  // Load search history
+  // Load search history & dynamic trending keywords from Redis backend
   useEffect(() => {
     const loadHistory = async () => {
       try {
@@ -52,6 +54,15 @@ export const SearchScreen: React.FC = () => {
       }
     };
     loadHistory();
+
+    productMobileService
+      .getTrendingSearches(8)
+      .then((items) => {
+        if (items && items.length > 0) {
+          setHotKeywords(items.map((i) => i.keyword));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const saveSearchKeyword = async (term: string) => {
@@ -158,7 +169,7 @@ export const SearchScreen: React.FC = () => {
                 </View>
               </View>
               <View style={styles.tagWrap}>
-                {HOT_KEYWORDS.map((item, index) => (
+                {hotKeywords.map((item, index) => (
                   <TouchableOpacity
                     key={index}
                     style={styles.hotTag}

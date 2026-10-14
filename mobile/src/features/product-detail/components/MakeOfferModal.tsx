@@ -29,15 +29,19 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   sellerName,
   onSubmitOffer,
 }) => {
-  const [offerPrice, setOfferPrice] = useState(
-    Math.round((originalPrice * 0.9) / 10000) * 10000
+  const minAllowedPrice = Math.round(originalPrice * 0.5);
+
+  const [discountPercent, setDiscountPercent] = useState<string>('10');
+  const [offerPrice, setOfferPrice] = useState<number>(
+    Math.round((originalPrice * 0.9) / 1000) * 1000
   );
   const [note, setNote] = useState('Em qua sảnh Alpha lấy luôn chiều nay, fix em chút nhé anh!');
 
   const quickDiscounts = [
-    { label: '-5%', price: Math.round((originalPrice * 0.95) / 10000) * 10000 },
-    { label: '-10%', price: Math.round((originalPrice * 0.9) / 10000) * 10000 },
-    { label: '-15%', price: Math.round((originalPrice * 0.85) / 10000) * 10000 },
+    { label: '-10%', pct: 10 },
+    { label: '-20%', pct: 20 },
+    { label: '-30%', pct: 30 },
+    { label: '-50% (Tối đa)', pct: 50 },
   ];
 
   const quickMessages = [
@@ -48,9 +52,54 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
   const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
+  const numPct = parseFloat(discountPercent) || 0;
+  const isOverLimit = numPct > 50 || offerPrice < minAllowedPrice;
+  const isInvalidPrice = offerPrice <= 0 || isNaN(offerPrice);
+  const hasError = isOverLimit || isInvalidPrice;
+
+  const handlePercentChange = (text: string) => {
+    // Chỉ cho phép nhập số
+    const cleanText = text.replace(/[^0-9.]/g, '');
+    setDiscountPercent(cleanText);
+
+    const parsedPct = parseFloat(cleanText);
+    if (!isNaN(parsedPct) && parsedPct >= 0) {
+      const clampedPct = Math.min(100, parsedPct);
+      const calculatedPrice = Math.max(0, Math.round((originalPrice * (1 - clampedPct / 100)) / 1000) * 1000);
+      setOfferPrice(calculatedPrice);
+    } else if (cleanText === '') {
+      setOfferPrice(originalPrice);
+    }
+  };
+
+  const handlePriceChange = (text: string) => {
+    const rawNumber = parseInt(text.replace(/\D/g, ''), 10);
+    if (!isNaN(rawNumber)) {
+      setOfferPrice(rawNumber);
+      if (originalPrice > 0) {
+        const calculatedPct = Math.max(0, Math.round(((originalPrice - rawNumber) / originalPrice) * 100));
+        setDiscountPercent(String(calculatedPct));
+      }
+    } else {
+      setOfferPrice(0);
+      setDiscountPercent('');
+    }
+  };
+
+  const handleSelectQuickDiscount = (pct: number) => {
+    setDiscountPercent(String(pct));
+    const calculatedPrice = Math.round((originalPrice * (1 - pct / 100)) / 1000) * 1000;
+    setOfferPrice(calculatedPrice);
+  };
+
   const handleSend = () => {
+    if (hasError) {
+      return;
+    }
     onSubmitOffer(offerPrice, note);
   };
+
+  const savedAmount = Math.max(0, originalPrice - offerPrice);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -79,28 +128,87 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
 
               {/* Price comparison */}
               <View style={styles.priceRow}>
-                <View>
+                <View style={{ alignItems: 'center' }}>
                   <Text style={styles.priceLabel}>Giá niêm yết</Text>
                   <Text style={styles.oldPrice}>{formatPrice(originalPrice)}</Text>
                 </View>
                 <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
-                <View>
+                <View style={{ alignItems: 'center' }}>
                   <Text style={styles.priceLabel}>Giá bạn đề xuất</Text>
-                  <Text style={styles.newPrice}>{formatPrice(offerPrice)}</Text>
+                  <Text style={[styles.newPrice, hasError && { color: '#DC2626' }]}>
+                    {formatPrice(offerPrice)}
+                  </Text>
+                  {savedAmount > 0 && !hasError && (
+                    <Text style={styles.savedBadgeText}>
+                      Tiết kiệm {formatPrice(savedAmount)} (-{numPct}%)
+                    </Text>
+                  )}
                 </View>
               </View>
+
+              {/* Input: Nhập phần trăm muốn giảm & Giá đề xuất */}
+              <View style={styles.inputsContainer}>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>
+                    Nhập % muốn giảm <Text style={styles.labelHint}>(Tối đa 50%)</Text>:
+                  </Text>
+                  <View style={[styles.inputWrapper, numPct > 50 && styles.inputWrapperError]}>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={discountPercent}
+                      onChangeText={handlePercentChange}
+                      placeholder="VD: 15"
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                    <Text style={styles.inputSuffix}>%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Số tiền đề xuất:</Text>
+                  <View style={[styles.inputWrapper, (isOverLimit || isInvalidPrice) && styles.inputWrapperError]}>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={offerPrice > 0 ? offerPrice.toLocaleString('vi-VN') : ''}
+                      onChangeText={handlePriceChange}
+                      placeholder="Nhập số tiền..."
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.inputSuffix}>đ</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Cảnh báo không được vượt quá 50% */}
+              {isOverLimit ? (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+                  <Text style={styles.errorBannerText}>
+                    Không được trả giá giảm quá 50% giá trị sản phẩm. Mức giá thấp nhất có thể đề xuất là{' '}
+                    <Text style={{ fontWeight: '800' }}>{formatPrice(minAllowedPrice)}</Text>.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.ruleBanner}>
+                  <Ionicons name="information-circle" size={15} color="#0284C7" style={{ marginRight: 5 }} />
+                  <Text style={styles.ruleBannerText}>
+                    Quy tắc Chợ FU: Giảm tối đa 50% ({formatPrice(minAllowedPrice)}) để tôn trọng người bán.
+                  </Text>
+                </View>
+              )}
 
               {/* Quick discount chips */}
               <View style={styles.discountRow}>
                 {quickDiscounts.map((item) => (
                   <TouchableOpacity
                     key={item.label}
-                    style={[styles.chip, offerPrice === item.price && styles.activeChip]}
+                    style={[styles.chip, numPct === item.pct && styles.activeChip]}
                     activeOpacity={0.7}
-                    onPress={() => setOfferPrice(item.price)}
+                    onPress={() => handleSelectQuickDiscount(item.pct)}
                   >
-                    <Text style={[styles.chipText, offerPrice === item.price && styles.activeChipText]}>
-                      {item.label} ({formatPrice(item.price)})
+                    <Text style={[styles.chipText, numPct === item.pct && styles.activeChipText]}>
+                      {item.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -131,13 +239,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                 onChangeText={setNote}
                 placeholder="Nhập lời nhắn gửi cho người bán..."
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
               />
 
               {/* Action button */}
-              <TouchableOpacity style={styles.submitBtn} activeOpacity={0.85} onPress={handleSend}>
+              <TouchableOpacity
+                style={[styles.submitBtn, hasError && styles.submitBtnDisabled]}
+                activeOpacity={0.85}
+                onPress={handleSend}
+                disabled={hasError}
+              >
                 <Ionicons name="paper-plane" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.submitText}>Gửi đề xuất giá qua Chat</Text>
+                <Text style={styles.submitText}>
+                  {hasError ? 'Mức giá không hợp lệ (Quá 50%)' : `Gửi đề xuất ${formatPrice(offerPrice)} qua Chat`}
+                </Text>
               </TouchableOpacity>
             </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
@@ -193,6 +308,86 @@ const styles = StyleSheet.create({
   priceLabel: { fontSize: 11, color: '#64748B', marginBottom: 2 },
   oldPrice: { fontSize: 14, fontWeight: '600', color: '#94A3B8', textDecorationLine: 'line-through' },
   newPrice: { fontSize: 18, fontWeight: '900', color: '#EA580C' },
+  savedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#16A34A',
+    marginTop: 2,
+  },
+  inputsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  inputCol: {
+    flex: 1,
+  },
+  labelHint: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#EA580C',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFC',
+    height: 42,
+  },
+  inputWrapperError: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  fieldInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    padding: 0,
+  },
+  inputSuffix: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    marginLeft: 4,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 12,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#DC2626',
+    lineHeight: 16,
+  },
+  ruleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  ruleBannerText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#0369A1',
+    lineHeight: 15,
+  },
   discountRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   chip: {
     flex: 1,
@@ -237,6 +432,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.6,
   },
   submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });
