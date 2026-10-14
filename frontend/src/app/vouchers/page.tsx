@@ -309,12 +309,11 @@ export default function VouchersPage() {
       const added = res?.coinsAdded || coinsAmount;
       showToast(`🎉 Chúc mừng! Bạn nhận được +${added} Campus Coins từ nhiệm vụ.`, 'success');
     } catch (err: any) {
-      const res = claimQuestCoins(questId, coinsAmount);
-      if (res.success) {
-        showToast(`🎉 Chúc mừng! Bạn nhận được +${coinsAmount} Campus Coins từ nhiệm vụ.`, 'success');
-      } else {
-        showToast(err.response?.data?.error?.message || 'Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!', 'info');
-      }
+      const errMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        'Nhiệm vụ này đã được nhận phần thưởng tuần này rồi!';
+      showToast(errMsg, 'info');
     }
   };
 

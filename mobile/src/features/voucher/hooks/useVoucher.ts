@@ -276,19 +276,11 @@ export const useVoucher = () => {
 
         Alert.alert('🎉 Nhận thưởng thành công!', `Bạn nhận được +${earned} Campus Coins từ nhiệm vụ.`);
       } catch (err: any) {
-        // Fallback optimistic
-        addCoins(quest.coins);
-        updateUser({ coins: coins + quest.coins });
-
-        setQuests((prev) =>
-          prev.map((q) =>
-            q.id === quest.id
-              ? { ...q, isCompleted: true, actionType: 'claimed', statusText: '✓ Đã nhận thưởng' }
-              : q
-          )
-        );
-
-        Alert.alert('🎉 Nhận thưởng thành công!', `Bạn nhận được +${quest.coins} Campus Coins từ nhiệm vụ.`);
+        const msg =
+          err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          'Nhiệm vụ này đã được nhận phần thưởng trong tuần!';
+        Alert.alert('Nhiệm vụ tuần', msg);
       }
     },
     [isAuthenticated, coins, handleCheckIn, addCoins, updateUser]

@@ -53,6 +53,7 @@ interface WalletState {
   withdrawalRequests: WithdrawalRequest[];
 
   // Actions
+  fetchEscrowBalances: () => Promise<void>;
   setEscrowBalances: (available: number, pending: number) => void;
   topUpCoins: (amount: number, paymentMethod?: string) => void;
   addCoins: (amount: number, type: CoinTransactionType, description: string, referenceId?: string) => void;
@@ -86,6 +87,21 @@ export const useWalletStore = create<WalletState>()(
       bankAccount: null,
       transactions: [],
       withdrawalRequests: [],
+
+      fetchEscrowBalances: async () => {
+        try {
+          const { orderService } = await import('@/services/orderService');
+          const data = await orderService.getSellerAnalytics();
+          if (data) {
+            set({
+              availableEscrowBalance: data.availableBalance || 0,
+              pendingEscrowBalance: data.pendingEscrow || 0,
+            });
+          }
+        } catch {
+          // offline
+        }
+      },
 
       setEscrowBalances: (available, pending) => set({ availableEscrowBalance: available, pendingEscrowBalance: pending }),
 
@@ -179,7 +195,8 @@ export const useWalletStore = create<WalletState>()(
 
       requestWithdrawal: (amount) => {
         const state = get();
-        if (!state.bankAccount) {
+        const activeBank = state.bankAccount || (useUserStore.getState().user.bankAccount as any);
+        if (!activeBank) {
           return { success: false, message: 'Vui lòng liên kết tài khoản ngân hàng trước khi rút tiền!' };
         }
         if (state.availableEscrowBalance < amount) {
@@ -193,7 +210,7 @@ export const useWalletStore = create<WalletState>()(
           id: `wdr-${Date.now()}`,
           userId: useUserStore.getState().user.id || 'user-current',
           amount,
-          bankAccount: state.bankAccount,
+          bankAccount: activeBank,
           status: 'PENDING',
           createdAt: 'Vừa xong',
         };

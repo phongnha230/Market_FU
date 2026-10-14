@@ -146,6 +146,13 @@ export const useOrderStore = create<OrderState>()(
               destinationCampus: orderData.buyerCampus,
             },
           })
+          .then((realOrder) => {
+            if (realOrder) {
+              set((state) => ({
+                orders: state.orders.map((o) => (o.id === randomCode ? realOrder : o)),
+              }));
+            }
+          })
           .catch(() => {});
 
         return newOrder;

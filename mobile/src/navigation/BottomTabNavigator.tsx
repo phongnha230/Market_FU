@@ -233,6 +233,7 @@ export const BottomTabNavigator = () => {
         </>
       ) : (
         <>
+          <Tab.Screen name="Orders" component={OrderListScreen} />
           <Tab.Screen name="Saved" component={SavedItemsScreen} />
           <Tab.Screen name="Chat" component={ChatListScreen} />
         </>

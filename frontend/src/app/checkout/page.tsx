@@ -311,29 +311,31 @@ function CheckoutContent() {
         addCoins(-maxCoinsAllowed);
       }
 
-      // Also persist to local Zustand store for instant, reliable UI sync
-      const localOrder = createOrder({
-        product: {
-          title: productData.title,
-          subtitle: isMeetup ? selectedHub : (productData.description || 'Bàn giao chuẩn KTX'),
-          price: effectiveProductPrice,
-          escrowBadge: isMeetup ? 'Xác thực QR Handshake' : 'Đã cọc Escrow bảo hộ',
-          conditionBadge: productData.conditionBadge,
-          imageUrl: productData.imageUrl,
-          seller: {
-            name: productData.sellerName,
-            cohortCampus: `${productData.sellerCohort} - ${CAMPUS_NAMES[originCode] || originCode}`,
-            verifiedText: isMeetup ? 'Bàn giao tại điểm hẹn an toàn' : 'Miễn phí ký gửi liên cơ sở',
+      // Only fallback to local Zustand store if backend failed or offline
+      let finalCode = createdBackendOrder?.orderCode;
+      if (!finalCode) {
+        const localOrder = createOrder({
+          product: {
+            title: productData.title,
+            subtitle: isMeetup ? selectedHub : (productData.description || 'Bàn giao chuẩn KTX'),
+            price: effectiveProductPrice,
+            escrowBadge: isMeetup ? 'Xác thực QR Handshake' : 'Đã cọc Escrow bảo hộ',
+            conditionBadge: productData.conditionBadge,
+            imageUrl: productData.imageUrl,
+            seller: {
+              name: productData.sellerName,
+              cohortCampus: `${productData.sellerCohort} - ${CAMPUS_NAMES[originCode] || originCode}`,
+              verifiedText: isMeetup ? 'Bàn giao tại điểm hẹn an toàn' : 'Miễn phí ký gửi liên cơ sở',
+            },
           },
-        },
-        type: isMeetup ? 'safe-handoff' : 'inter-campus',
-        deliveryNote,
-        appointmentTime: appointmentIso,
-        meetupLocation: isMeetup ? selectedHub : undefined,
-        paymentMethod: paymentMethod === 'payos' ? 'VietQR Napas247 (Tự động)' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
-      });
-
-      const finalCode = createdBackendOrder?.orderCode || localOrder.code;
+          type: isMeetup ? 'safe-handoff' : 'inter-campus',
+          deliveryNote,
+          appointmentTime: appointmentIso,
+          meetupLocation: isMeetup ? selectedHub : undefined,
+          paymentMethod: paymentMethod === 'payos' ? 'VietQR Napas247 (Tự động)' : (isMeetup ? 'Tiền mặt điểm hẹn' : 'COD KTX'),
+        });
+        finalCode = localOrder.code;
+      }
 
       // Handle PayOS Gateway redirection if returned by backend
       if (paymentMethod === 'payos' && createdBackendOrder?.payment?.payosCheckoutUrl) {

@@ -1381,6 +1381,7 @@ export class OrderService {
     });
 
     let totalRevenue = 0;
+    let withdrawableEscrowRevenue = 0;
     let pendingEscrow = 0;
     let completedOrders = 0;
     let shippingOrders = 0;
@@ -1406,8 +1407,12 @@ export class OrderService {
 
     for (const o of orders) {
       const price = o.payment?.price || 0;
+      const isOnlineEscrow = ['VIETQR', 'PAYOS_WEB'].includes(o.payment?.paymentMethod || 'VIETQR');
       if (o.status === 'COMPLETED') {
         totalRevenue += price;
+        if (isOnlineEscrow) {
+          withdrawableEscrowRevenue += price;
+        }
         completedOrders += 1;
 
         if (o.createdAt.getMonth() === currentMonth && o.createdAt.getFullYear() === currentYear) {
@@ -1428,7 +1433,9 @@ export class OrderService {
           });
         }
       } else if (['PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(o.status)) {
-        pendingEscrow += price;
+        if (isOnlineEscrow) {
+          pendingEscrow += price;
+        }
         if (['SHIPPING', 'DELIVERED'].includes(o.status)) {
           shippingOrders += 1;
         } else {
@@ -1449,7 +1456,7 @@ export class OrderService {
       select: { amount: true },
     });
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
-    const availableBalance = Math.max(0, totalRevenue - totalWithdrawn);
+    const availableBalance = Math.max(0, withdrawableEscrowRevenue - totalWithdrawn);
 
     return {
       totalRevenue,

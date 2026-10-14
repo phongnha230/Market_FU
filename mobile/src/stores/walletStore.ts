@@ -30,6 +30,7 @@ interface WalletState {
 
   // Actions
   setActiveUser: (userId: string | null) => void;
+  fetchWalletBalances: () => Promise<void>;
   getWallet: () => UserWallet;
   withdraw: (
     amount: number,
@@ -49,6 +50,38 @@ export const useWalletStore = create<WalletState>()(
 
       setActiveUser: (userId) => {
         set({ activeUserId: userId });
+        if (userId) {
+          get().fetchWalletBalances().catch(() => {});
+        }
+      },
+
+      fetchWalletBalances: async () => {
+        const { walletsByUser, activeUserId } = get();
+        const currentId = activeUserId || 'anonymous';
+        try {
+          const { orderMobileService } = await import('../services/orderMobileService');
+          const data = await orderMobileService.getSellerAnalytics();
+          if (data && typeof data.availableBalance === 'number') {
+            const currentWallet = walletsByUser[currentId] || {
+              availableBalance: 0,
+              escrowBalance: 0,
+              coins: 0,
+              transactions: [],
+            };
+            set({
+              walletsByUser: {
+                ...walletsByUser,
+                [currentId]: {
+                  ...currentWallet,
+                  availableBalance: data.availableBalance,
+                  escrowBalance: data.pendingEscrow || 0,
+                },
+              },
+            });
+          }
+        } catch {
+          // offline
+        }
       },
 
       getWallet: () => {

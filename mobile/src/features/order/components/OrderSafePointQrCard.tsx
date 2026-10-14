@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface OrderSafePointQrCardProps {
@@ -11,6 +11,11 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
   safePoint,
   orderId,
 }) => {
+  const [loading, setLoading] = useState(true);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+    orderId
+  )}`;
+
   return (
     <View style={styles.safePointCard}>
       <View style={styles.safePointHeader}>
@@ -26,7 +31,16 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
       {/* QR Code Container */}
       <View style={styles.qrContainer}>
         <View style={styles.qrBox}>
-          <Ionicons name="qr-code" size={130} color="#0F172A" />
+          <Image
+            source={{ uri: qrUrl }}
+            style={styles.qrImage}
+            onLoadEnd={() => setLoading(false)}
+          />
+          {loading && (
+            <View style={styles.qrLoader}>
+              <ActivityIndicator size="small" color="#EA580C" />
+            </View>
+          )}
         </View>
         <Text style={styles.qrCodeLabel}>MÃ HẸN BÀN GIAO: #{orderId}</Text>
         <Text style={styles.qrCodeHint}>
@@ -73,6 +87,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    width: 150,
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrImage: {
+    width: 130,
+    height: 130,
+  },
+  qrLoader: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   qrCodeLabel: {
     fontSize: 12.5,
