@@ -40,6 +40,8 @@ import {
   CoinHistoryScreen,
   WithdrawalHistoryScreen,
   ExploreScreen,
+  SearchScreen,
+  ProductListScreen,
 } from '../screens';
 import { RootStackParamList } from './types';
 import { navigationRef } from './navigationRef';
@@ -130,6 +132,8 @@ export const RootNavigator = () => {
         <Stack.Screen name="CoinHistory" component={CoinHistoryScreen as any} />
         <Stack.Screen name="WithdrawalHistory" component={WithdrawalHistoryScreen as any} />
         <Stack.Screen name="Explore" component={ExploreScreen as any} />
+        <Stack.Screen name="Search" component={SearchScreen as any} />
+        <Stack.Screen name="ProductList" component={ProductListScreen as any} />
       </Stack.Navigator>
     </NavigationContainer>
   );

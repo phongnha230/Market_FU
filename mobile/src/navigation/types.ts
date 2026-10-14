@@ -2,6 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 
 export type MainTabsParamList = {
   Home: undefined;
+  Saved?: undefined;
   Chat: undefined;
   PostItem?: undefined;
   MyListings?: undefined;
@@ -18,6 +19,13 @@ export type RootStackParamList = {
   Onboarding3: undefined;
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
   ProductDetail: { productId?: string } | undefined;
+  Search: { autoFocus?: boolean; initialKeyword?: string } | undefined;
+  ProductList: {
+    mode?: 'TRENDING' | 'CAMPUS_ALL' | 'CATEGORY';
+    campusName?: string;
+    category?: string;
+    title?: string;
+  } | undefined;
   ContextualAuth: { product?: any } | undefined;
   ContextualChatAuth: { product?: any; sellerName?: string; sellerCohort?: string } | undefined;
   Login: undefined;

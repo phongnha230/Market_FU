@@ -68,6 +68,8 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
         image: resolveProductImage(p.images?.[0]),
         badge: p.condition || 'Like New',
         badgeVariant: 'white' as const,
+        viewsCount: p.viewsCount || 0,
+        likesCount: p.likesCount || 0,
         hashtags: p.hashtags,
       }));
     }

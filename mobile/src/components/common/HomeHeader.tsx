@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveAvatarImage } from '../../lib/imageResolver';
 
@@ -34,12 +34,14 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
       <View style={styles.topBar}>
         <View style={styles.leftSection}>
-          <Image
-            source={require('../../../assets/images/logo.png')}
-            style={styles.logo}
-            contentFit="contain"
-            transition={200}
-          />
+          <View style={styles.logoWrapper}>
+            <View style={styles.logoBox}>
+              <MaterialCommunityIcons name="storefront" size={22} color="#FFFFFF" />
+            </View>
+            <View style={styles.logoBadge5}>
+              <Text style={styles.logoBadge5Text}>5 Cơ sở</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.centerSection}>
@@ -112,12 +114,15 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
       </View>
 
       <View style={styles.greetingRow}>
-        <Text style={styles.greetingTitle}>
-          Chào {isAuthenticated ? userName : 'Bạn'} 👋
-        </Text>
+        <View>
+          <Text style={styles.welcomeTitle}>Welcome to FPT Market 👋</Text>
+          <Text style={styles.welcomeSubtitle}>
+            Trao đổi đồ dùng sinh viên {campusName ? `• FU ${campusName}` : ''}
+          </Text>
+        </View>
         <View style={styles.liveBadge}>
           <View style={styles.greenPulseDot} />
-          <Text style={styles.liveBadgeText}>Hòa Lạc sôi động</Text>
+          <Text style={styles.liveBadgeText}>Campus Live</Text>
         </View>
       </View>
     </View>
@@ -127,8 +132,48 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
 const styles = StyleSheet.create({
   container: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 10 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 },
-  leftSection: { width: 60, justifyContent: 'center' },
-  logo: { width: 38, height: 38 },
+  leftSection: { width: 64, justifyContent: 'center', overflow: 'visible' },
+  logoWrapper: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    overflow: 'visible',
+    marginTop: 4,
+  },
+  logoBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EA580C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  logoBadge5: {
+    position: 'absolute',
+    top: -7,
+    right: -12,
+    backgroundColor: '#059669',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 9,
+    zIndex: 99,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoBadge5Text: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    includeFontPadding: false,
+  },
   centerSection: { alignItems: 'center', justifyContent: 'center' },
   brandTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A', letterSpacing: -0.2 },
   campusBadge: {
@@ -211,7 +256,8 @@ const styles = StyleSheet.create({
     color: '#EA580C',
   },
   greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
-  greetingTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  welcomeTitle: { fontSize: 20, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  welcomeSubtitle: { fontSize: 12, fontWeight: '500', color: '#64748B', marginTop: 2 },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',

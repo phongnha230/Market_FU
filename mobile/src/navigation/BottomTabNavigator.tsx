@@ -10,6 +10,7 @@ import {
   ManageListingsScreen,
   OrderListScreen,
   VoucherScreen,
+  SavedItemsScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
 import { useUserStore, useChatStore } from '../stores';
@@ -23,13 +24,19 @@ interface TabConfig {
   label: string;
 }
 
-const getTabConfig = (routeName: string): TabConfig => {
+const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boolean): TabConfig => {
   switch (routeName) {
     case 'Home':
       return {
         iconFocused: 'storefront',
         iconUnfocused: 'storefront-outline',
         label: 'Chợ Campus',
+      };
+    case 'Saved':
+      return {
+        iconFocused: 'heart',
+        iconUnfocused: 'heart-outline',
+        label: 'Đã lưu',
       };
     case 'Chat':
       return {
@@ -41,7 +48,7 @@ const getTabConfig = (routeName: string): TabConfig => {
       return {
         iconFocused: 'bag-check',
         iconUnfocused: 'bag-check-outline',
-        label: 'Đơn mua',
+        label: isSeller ? 'Đơn bán' : 'Đơn mua',
       };
     case 'Voucher':
       return {
@@ -53,7 +60,7 @@ const getTabConfig = (routeName: string): TabConfig => {
       return {
         iconFocused: 'add-circle',
         iconUnfocused: 'add-circle-outline',
-        label: 'Đăng bán',
+        label: 'Đăng tin',
       };
     case 'MyListings':
       return {
@@ -66,7 +73,7 @@ const getTabConfig = (routeName: string): TabConfig => {
       return {
         iconFocused: 'person',
         iconUnfocused: 'person-outline',
-        label: 'Tài khoản',
+        label: !isAuthenticated ? 'Đăng nhập' : isSeller ? 'Shop tôi' : 'Tài khoản',
       };
   }
 };
@@ -88,14 +95,12 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
     (route: any, isFocused: boolean) => {
       // 1. Kiểm tra Guest Mode (Chưa đăng nhập)
       if (!isAuthenticated) {
-        if (['Chat', 'Orders', 'Voucher', 'PostItem', 'MyListings', 'Profile'].includes(route.name)) {
+        if (['Chat', 'Saved', 'Orders', 'Voucher', 'PostItem', 'MyListings'].includes(route.name)) {
           let featureName = 'tính năng này';
           if (route.name === 'Chat') featureName = 'Hộp thư tin nhắn & trả giá';
-          if (route.name === 'Orders') featureName = 'Quản lý đơn hàng mua';
-          if (route.name === 'Voucher') featureName = 'Ví voucher & điểm danh nhận xu';
+          if (route.name === 'Saved') featureName = 'Danh sách sản phẩm đã lưu';
+          if (route.name === 'Orders') featureName = 'Quản lý đơn hàng';
           if (route.name === 'PostItem') featureName = 'Đăng bán đồ thanh lý';
-          if (route.name === 'MyListings') featureName = 'Quản lý tin rao bán';
-          if (route.name === 'Profile') featureName = 'Hồ sơ cá nhân';
 
           setModalMode('auth');
           setModalTitle('Yêu cầu đăng nhập tài khoản');
@@ -103,6 +108,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
             `Bạn đang ở chế độ xem sản phẩm (Khách). Để truy cập ${featureName}, vui lòng đăng nhập tài khoản Sinh viên FPT.`
           );
           setModalVisible(true);
+          return;
+        }
+
+        if (route.name === 'Profile') {
+          navigation.navigate('Login');
           return;
         }
       }
@@ -139,9 +149,27 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
           if (route.name === 'Explore') return null;
 
           const isFocused = state.index === index;
-          const config = getTabConfig(route.name);
+          const config = getTabConfig(route.name, isAuthenticated, isSeller);
           const iconName = isFocused ? config.iconFocused : config.iconUnfocused;
-          const iconSize = isFocused ? 26 : 22;
+          const isPostItem = route.name === 'PostItem';
+
+          if (isPostItem) {
+            return (
+              <TouchableOpacity
+                key={route.key}
+                style={styles.postItemTab}
+                activeOpacity={0.85}
+                onPress={() => handleTabPress(route, isFocused)}
+              >
+                <View style={styles.postItemButton}>
+                  <Ionicons name="add" size={28} color="#FFFFFF" />
+                </View>
+                <Text style={styles.postItemLabel}>Đăng tin</Text>
+              </TouchableOpacity>
+            );
+          }
+
+          const iconSize = isFocused ? 24 : 22;
           const iconColor = isFocused ? '#EA580C' : '#64748B';
 
           return (
@@ -196,17 +224,17 @@ export const BottomTabNavigator = () => {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Chat" component={ChatListScreen} />
 
       {isSeller ? (
         <>
+          <Tab.Screen name="Orders" component={OrderListScreen} />
           <Tab.Screen name="PostItem" component={PostItemScreen} />
-          <Tab.Screen name="MyListings" component={ManageListingsScreen} />
+          <Tab.Screen name="Chat" component={ChatListScreen} />
         </>
       ) : (
         <>
-          <Tab.Screen name="Orders" component={OrderListScreen} />
-          <Tab.Screen name="Voucher" component={VoucherScreen} />
+          <Tab.Screen name="Saved" component={SavedItemsScreen} />
+          <Tab.Screen name="Chat" component={ChatListScreen} />
         </>
       )}
 
@@ -221,7 +249,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 65,
+    height: 64,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
@@ -248,12 +276,12 @@ const styles = StyleSheet.create({
   activeTabItem: {},
   iconContainer: {
     position: 'relative',
-    height: 30,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeIconContainer: {
-    transform: [{ scale: 1.15 }],
+    transform: [{ scale: 1.1 }],
   },
   tabLabel: {
     fontSize: 10,
@@ -265,6 +293,33 @@ const styles = StyleSheet.create({
     color: '#EA580C',
     fontWeight: '800',
     fontSize: 10.5,
+  },
+  postItemTab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginTop: -16,
+  },
+  postItemButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F27024',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F27024',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  postItemLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F27024',
+    marginTop: 2,
   },
   chatBadge: {
     position: 'absolute',

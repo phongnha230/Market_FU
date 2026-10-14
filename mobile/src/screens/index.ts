@@ -37,3 +37,5 @@ export { default as PublicSellerProfileScreen } from './PublicSellerProfileScree
 export { default as SafePointHubsScreen } from './SafePointHubsScreen';
 export { default as CoinHistoryScreen } from './CoinHistoryScreen';
 export { default as WithdrawalHistoryScreen } from './WithdrawalHistoryScreen';
+export { default as SearchScreen } from './SearchScreen';
+export { default as ProductListScreen } from './ProductListScreen';
