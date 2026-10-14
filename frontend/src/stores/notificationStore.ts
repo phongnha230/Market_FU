@@ -220,6 +220,7 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       deleteNotification: (id) => {
+        notificationService.deleteNotification(id).catch(() => {});
         const uId = get().activeUserId;
         if (!uId) return;
 
@@ -236,6 +237,7 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       clearAll: () => {
+        notificationService.clearAllNotifications().catch(() => {});
         const uId = get().activeUserId;
         if (!uId) return;
 

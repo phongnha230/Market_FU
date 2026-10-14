@@ -78,6 +78,29 @@ export class NotificationController {
     }
   };
 
+  // DELETE /api/notifications/:id
+  deleteNotification = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const notificationId = req.params.id as string;
+      const result = await notificationService.deleteNotification(authReq.user!.userId, notificationId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // DELETE /api/notifications
+  clearAllNotifications = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const result = await notificationService.clearAllNotifications(authReq.user!.userId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   // GET /api/notifications/vapid-public-key
   getVapidPublicKey = async (_req: Request, res: Response) => {
     return sendSuccess(res, { publicKey: vapidPublicKey });

@@ -466,6 +466,36 @@ export class NotificationService {
 
     return { modifiedCount: result.count };
   }
+
+  // 6. Xóa một thông báo của người dùng
+  async deleteNotification(userId: string, notificationId: string) {
+    const noti = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!noti) {
+      throw new AppError('Thông báo không tồn tại', 404, 'NOTIFICATION_NOT_FOUND');
+    }
+
+    if (noti.userId !== userId) {
+      throw new AppError('Bạn không có quyền xóa thông báo này', 403, 'FORBIDDEN');
+    }
+
+    await prisma.notification.delete({
+      where: { id: notificationId },
+    });
+
+    return { message: 'Đã xóa thông báo thành công', id: notificationId };
+  }
+
+  // 7. Xóa toàn bộ thông báo của người dùng
+  async clearAllNotifications(userId: string) {
+    const result = await prisma.notification.deleteMany({
+      where: { userId },
+    });
+
+    return { message: 'Đã xóa toàn bộ thông báo', deletedCount: result.count };
+  }
 }
 
 export const notificationService = new NotificationService();

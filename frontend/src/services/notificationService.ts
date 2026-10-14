@@ -64,4 +64,16 @@ export const notificationService = {
     });
     return response.data.data;
   },
+
+  // 6. Xóa một thông báo
+  async deleteNotification(notificationId: string): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>(`/notifications/${notificationId}`);
+    return response.data.data;
+  },
+
+  // 7. Xóa toàn bộ thông báo của người dùng
+  async clearAllNotifications(): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>('/notifications');
+    return response.data.data;
+  },
 };

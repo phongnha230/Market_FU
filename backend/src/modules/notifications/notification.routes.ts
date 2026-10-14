@@ -18,5 +18,7 @@ router.post('/fcm-token', notificationController.registerDeviceToken);
 router.post('/device-token', notificationController.registerDeviceToken);
 router.delete('/fcm-token', notificationController.removeDeviceToken);
 router.delete('/device-token', notificationController.removeDeviceToken);
+router.delete('/:id', notificationController.deleteNotification);
+router.delete('/', notificationController.clearAllNotifications);
 
 export default router;
