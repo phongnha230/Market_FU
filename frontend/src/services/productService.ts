@@ -262,19 +262,35 @@ export const ProductService = {
     }
   },
 
-  // 12. Lấy danh sách sản phẩm tương tự cùng Campus
-  async getSimilarPosts(campus?: string): Promise<ProductItem[]> {
+  // 12. Lấy danh sách sản phẩm tương tự cùng Campus và Danh mục
+  async getSimilarPosts(campus?: string, category?: string, excludeId?: string): Promise<ProductItem[]> {
     try {
-      const response = await apiClient.get<ApiResponse<any[]>>('/products', {
-        params: { limit: 4, campus },
-      });
+      const campusMap: Record<string, string> = {
+        hola: 'HOL',
+        hcm: 'HCM',
+        dn: 'DAD',
+        qn: 'QN',
+        ct: 'CT',
+      };
+      const params: Record<string, any> = { limit: 8 };
+      if (campus && campus !== 'all') {
+        params.campus = campusMap[campus.toLowerCase()] || campus.toUpperCase();
+      }
+      if (category && category !== 'all') {
+        params.category = category;
+      }
+
+      const response = await apiClient.get<ApiResponse<any[]>>('/products', { params });
       if (response.data.data && response.data.data.length > 0) {
-        return response.data.data.map(adaptBackendProduct);
+        let items = response.data.data.map(adaptBackendProduct);
+        if (excludeId) items = items.filter((p) => p.id !== excludeId);
+        return items.slice(0, 4);
       }
     } catch {
       // Fallback
     }
-    return getLiveLocalProducts().slice(0, 4);
+    const live = getLiveLocalProducts();
+    return (excludeId ? live.filter((p) => p.id !== excludeId) : live).slice(0, 4);
   },
 
   // 13. [Admin] Lấy danh sách tin kiểm duyệt kèm bộ lọc và thống kê số lượng

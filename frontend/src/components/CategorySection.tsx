@@ -138,6 +138,7 @@ function classifyToMarketCategory(
 }
 
 export default function CategorySection() {
+  const [mounted, setMounted] = useState(false);
   const storeProducts = useProductStore((state) => state.products);
   const [liveProducts, setLiveProducts] = useState<ProductItem[]>([]);
   const [backendCategories, setBackendCategories] = useState<CategoryOption[]>([]);
@@ -159,6 +160,7 @@ export default function CategorySection() {
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     loadCategoryData();
 
     // Khi người dùng chuyển tab quay lại (ví dụ sau khi duyệt bài ở tab Admin), tự động cập nhật lại số lượng
@@ -281,9 +283,9 @@ export default function CategorySection() {
                   </div>
 
                   {/* Tin count badge (Biến động chính xác từ số lượng thực tế) */}
-                  <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between">
-                    <Badge variant="fpt" className="text-[10px] font-bold px-2 py-0.5 normal-case">
-                      {`${count} tin`}
+                  <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between" suppressHydrationWarning>
+                    <Badge variant="fpt" className="text-[10px] font-bold px-2 py-0.5 normal-case" suppressHydrationWarning>
+                      {mounted ? `${count} tin` : `${count ?? 0} tin`}
                     </Badge>
                   </div>
                 </Card>

@@ -23,7 +23,6 @@ import {
   Heart,
   ShoppingBag,
   Store,
-  ShieldAlert,
 } from 'lucide-react';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
@@ -70,6 +69,12 @@ export default function Navbar({
     setIsMounted(true);
     initWebPush().catch(() => {});
   }, []);
+
+  React.useEffect(() => {
+    if (selectedCampus) {
+      setCurrentCampus(selectedCampus);
+    }
+  }, [selectedCampus]);
 
   const userData = useUserStore((state) => state.user);
   const isSeller = userData.kycStatus === 'approved_seller';
@@ -464,15 +469,6 @@ export default function Navbar({
                       >
                         <Package className="h-4 w-4 text-teal-600" />
                         <span>Tin đăng của tôi</span>
-                      </Link>
-
-                      <Link
-                        href="/admin/posts"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 transition font-bold"
-                      >
-                        <ShieldAlert className="h-4 w-4 text-purple-600" />
-                        <span>🛡️ Quản trị duyệt bài (Admin)</span>
                       </Link>
 
                       <Separator className="my-1" />

@@ -74,12 +74,32 @@ export default function LatestPostsSection() {
           </div>
         </div>
 
-        {/* 4 Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {/* 4 Cards Grid / Skeletons */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-slate-100 bg-white p-3 shadow-xs animate-pulse"
+              >
+                <div className="aspect-square w-full rounded-xl bg-slate-200 mb-3" />
+                <div className="h-4 w-3/4 rounded-md bg-slate-200 mb-2" />
+                <div className="h-5 w-1/2 rounded-md bg-slate-200 mb-3" />
+                <div className="h-3 w-1/3 rounded-md bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center text-slate-500 bg-white rounded-2xl border border-dashed border-slate-200">
+            Hiện chưa có tin đăng mới nào tại campus được chọn.
+          </div>
+        )}
 
         {/* View All CTA Button */}
         <div className="mt-10 flex justify-center">

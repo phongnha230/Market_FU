@@ -15,6 +15,13 @@ export default function HomePage() {
   const router = useRouter();
   const [selectedCampus, setSelectedCampus] = useState('hola');
 
+  React.useEffect(() => {
+    const saved = localStorage.getItem('fu_default_campus');
+    if (saved) {
+      setSelectedCampus(saved);
+    }
+  }, []);
+
   const handleSearch = (keyword: string, campus: string, category: string) => {
     const params = new URLSearchParams();
     if (keyword.trim()) params.set('q', keyword.trim());

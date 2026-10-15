@@ -307,6 +307,53 @@ export default function CreatePostPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [aiDraftNotice, setAiDraftNotice] = useState<string | null>(null);
 
+  // Restore draft if fu_auto_draft setting is enabled
+  useEffect(() => {
+    try {
+      const isAutoDraft = typeof window !== 'undefined' && localStorage.getItem('fu_auto_draft') !== 'false';
+      const savedDraft = typeof window !== 'undefined' ? localStorage.getItem('fu_post_draft') : null;
+      if (isAutoDraft && savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.price) setPrice(parsed.price);
+        if (parsed.category) setCategory(parsed.category);
+        if (parsed.description) setDescription(parsed.description);
+        if (parsed.pickupLocation) setPickupLocation(parsed.pickupLocation);
+        if (parsed.hashtags && Array.isArray(parsed.hashtags)) setHashtags(parsed.hashtags);
+        if (parsed.condition) setCondition(parsed.condition);
+        showToast('📑 Đã khôi phục bản nháp bài đăng chưa hoàn tất');
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  // Auto-save draft when fields change if fu_auto_draft is enabled
+  useEffect(() => {
+    const isAutoDraft = typeof window !== 'undefined' && localStorage.getItem('fu_auto_draft') !== 'false';
+    if (!isAutoDraft) return;
+    if (!title && !description && !price) return;
+
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          'fu_post_draft',
+          JSON.stringify({
+            title,
+            price,
+            category,
+            condition,
+            description,
+            pickupLocation,
+            hashtags,
+          })
+        );
+      } catch {}
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [title, price, category, condition, description, pickupLocation, hashtags]);
+
   // Content moderation real-time calculation
   const moderation = useMemo(() => {
     return checkPostModeration(title, description, hashtags);
@@ -521,6 +568,9 @@ export default function CreatePostPage() {
       });
 
       const created = await ProductService.createProduct(formData);
+      try {
+        localStorage.removeItem('fu_post_draft');
+      } catch {}
       setCreatedPostId(created.id);
       setCreatedStatus((created as any).status || 'PENDING_APPROVAL');
       setIsSuccessModalOpen(true);
@@ -574,6 +624,9 @@ export default function CreatePostPage() {
         category,
       });
 
+      try {
+        localStorage.removeItem('fu_post_draft');
+      } catch {}
       setCreatedPostId(newPost.id);
       setIsSuccessModalOpen(true);
     }
@@ -581,7 +634,23 @@ export default function CreatePostPage() {
 
   // Save draft
   const handleSaveDraft = () => {
-    showToast('📑 Đã lưu bản nháp bài đăng thành công vào tài khoản!');
+    try {
+      localStorage.setItem(
+        'fu_post_draft',
+        JSON.stringify({
+          title,
+          price,
+          category,
+          condition,
+          description,
+          pickupLocation,
+          hashtags,
+        })
+      );
+      showToast('📑 Đã lưu bản nháp bài đăng thành công vào trình duyệt!');
+    } catch {
+      showToast('⚠️ Không thể lưu bản nháp.');
+    }
   };
 
   // Non-Seller Lock Screen Guard

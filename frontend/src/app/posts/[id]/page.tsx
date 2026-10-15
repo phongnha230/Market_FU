@@ -68,8 +68,12 @@ export default function ProductDetailPage() {
           if (data) {
             setProduct(data);
             setActiveImageIndex(0);
-            ProductService.getSimilarPosts(data.campus).then((sim) => {
-              setSimilarProducts(sim.filter((p) => p.id !== data.id));
+            ProductService.getSimilarPosts(
+              data.campus,
+              data.category || (data as any).categoryType,
+              data.id
+            ).then((sim) => {
+              setSimilarProducts(sim);
             });
           } else {
             setProduct(null);
