@@ -38,25 +38,29 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
     return img?.uri || `img-${index}`;
   }, []);
 
+  const safeImages = images && images.length > 0 ? images : [undefined];
+
   return (
     <View style={styles.container}>
       <FlatList
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        data={images}
+        data={safeImages}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onMomentumScrollEnd={handleMomentumScrollEnd}
       />
 
       {/* Page indicator pill */}
-      <View style={styles.indicatorPill}>
-        <Ionicons name="images" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-        <Text style={styles.indicatorText}>
-          {currentIndex + 1} / {images.length}
-        </Text>
-      </View>
+      {safeImages.length > 1 && (
+        <View style={styles.indicatorPill}>
+          <Ionicons name="images" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+          <Text style={styles.indicatorText}>
+            {currentIndex + 1} / {safeImages.length}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };

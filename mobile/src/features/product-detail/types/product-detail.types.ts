@@ -26,12 +26,16 @@ export interface ProductDetailData {
     id: string;
     name: string;
     major: string;
-    rating: string;
+    rating?: number | null;
+    reviewCount?: number;
     soldCount: number;
+    activeListingsCount?: number;
     avatarUrl?: string;
     isVerified: boolean;
   };
   campus?: string;
+  category?: string;
+  categoryType?: string;
   sellerId?: string;
   sellerCohort?: string;
   status?: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';

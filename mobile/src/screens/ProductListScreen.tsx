@@ -14,6 +14,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeSearchBar from '../features/home/components/HomeSearchBar';
 import ProductCard from '../components/common/ProductCard';
 import useHomeFeed from '../features/home/hooks/useHomeFeed';
+import { isProductInCategory } from '../lib/backendMappers';
 
 const PRICE_FILTERS = [
   { id: 'ALL', label: 'Tất cả mức giá', min: 0, max: Infinity },
@@ -65,14 +66,15 @@ export const ProductListScreen: React.FC = () => {
       const q = searchText.toLowerCase();
       const matchTitle = item.title.toLowerCase().includes(q);
       const matchLoc = (item.location || '').toLowerCase().includes(q);
-      if (!matchTitle && !matchLoc) return false;
+      const matchDesc = (item.description || '').toLowerCase().includes(q);
+      const matchTags = (item.hashtags || []).some((t) => t.toLowerCase().includes(q));
+      if (!matchTitle && !matchLoc && !matchDesc && !matchTags) return false;
     }
 
-    // 2. Category
-    if (selectedCategory !== 'ALL') {
-      const catObj = categories.find((c) => c.id === selectedCategory);
-      if (catObj && catObj.name && !item.title.toLowerCase().includes(catObj.name.toLowerCase())) {
-        // Fallback filter
+    // 2. Category Filter
+    if (selectedCategory && selectedCategory !== 'ALL') {
+      if (!isProductInCategory(item, selectedCategory)) {
+        return false;
       }
     }
 
@@ -146,7 +148,7 @@ export const ProductListScreen: React.FC = () => {
           <Text style={styles.dropdownBtnText} numberOfLines={1}>
             {selectedCategory === 'ALL'
               ? 'Tất cả danh mục'
-              : categories.find((c) => c.id === selectedCategory)?.name || 'Danh mục'}
+              : (categories.find((c) => c.id === selectedCategory)?.name || selectedCategory).replace(/\n/g, ' ')}
           </Text>
           <Ionicons
             name={isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
@@ -202,7 +204,7 @@ export const ProductListScreen: React.FC = () => {
                 }}
               >
                 <Text style={[styles.chipText, selectedCategory === cat.id && styles.chipTextActive]}>
-                  {cat.name}
+                  {cat.name.replace(/\n/g, ' ')}
                 </Text>
               </TouchableOpacity>
             ))}

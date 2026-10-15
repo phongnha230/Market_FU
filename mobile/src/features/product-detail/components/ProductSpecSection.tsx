@@ -10,17 +10,23 @@ interface ProductSpecSectionProps {
 export const ProductSpecSection: React.FC<ProductSpecSectionProps> = React.memo(({ specs, description }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Thông số & Tình trạng chi tiết</Text>
-      <View style={styles.grid}>
-        {specs.map((item) => (
-          <View key={item.label} style={styles.specBox}>
-            <Text style={styles.specLabel}>{item.label}</Text>
-            <Text style={styles.specValue}>{item.value}</Text>
+      {specs && specs.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Thông số & Tình trạng chi tiết</Text>
+          <View style={styles.grid}>
+            {specs.map((item) => (
+              <View key={item.label} style={styles.specBox}>
+                <Text style={styles.specLabel}>{item.label}</Text>
+                <Text style={styles.specValue}>{item.value}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
 
-      <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Mô tả của người bán</Text>
+      <Text style={[styles.sectionTitle, specs && specs.length > 0 ? { marginTop: 14 } : null]}>
+        Mô tả của người bán
+      </Text>
       <Text style={styles.description}>{description}</Text>
     </View>
   );

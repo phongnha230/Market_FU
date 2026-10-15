@@ -14,9 +14,13 @@ export const ProductInfoCard: React.FC<ProductInfoCardProps> = ({ product, onPre
       <View style={styles.priceRow}>
         <Text style={styles.price}>{product.price}đ</Text>
         {product.originalPrice && <Text style={styles.originalPrice}>{product.originalPrice}đ</Text>}
-        {product.discountBadge && (
+        {product.discountBadge ? (
           <View style={styles.discountBadge}>
             <Text style={styles.discountText}>{product.discountBadge}</Text>
+          </View>
+        ) : (
+          <View style={styles.studentPriceBadge}>
+            <Text style={styles.studentPriceText}>Giá sinh viên</Text>
           </View>
         )}
         <View style={styles.conditionBadge}>
@@ -58,10 +62,12 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   price: { fontSize: 22, fontWeight: '900', color: '#DC2626', marginRight: 8 },
   originalPrice: { fontSize: 13, color: '#94A3B8', textDecorationLine: 'line-through', marginRight: 6 },
-  discountBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 },
-  discountText: { fontSize: 10, fontWeight: '800', color: '#DC2626' },
-  conditionBadge: { backgroundColor: '#ECFDF5', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
-  conditionText: { fontSize: 10.5, fontWeight: '700', color: '#059669' },
+  discountBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 6, marginRight: 6 },
+  discountText: { fontSize: 10.5, fontWeight: '800', color: '#DC2626' },
+  studentPriceBadge: { backgroundColor: '#ECFDF5', paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 6, marginRight: 6 },
+  studentPriceText: { fontSize: 10.5, fontWeight: '700', color: '#059669' },
+  conditionBadge: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  conditionText: { fontSize: 10.5, fontWeight: '700', color: '#475569' },
   title: { fontSize: 16, fontWeight: '800', color: '#0F172A', lineHeight: 22, marginBottom: 8 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
   locationText: { fontSize: 12, color: '#64748B', fontWeight: '500' },

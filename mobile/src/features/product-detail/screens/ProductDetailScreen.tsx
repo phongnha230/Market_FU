@@ -16,6 +16,8 @@ import { ReportModal } from '../../report/components/ReportModal';
 import useProductDetail from '../hooks/useProductDetail';
 import { useProductDetailActions } from '../hooks/useProductDetailActions';
 import { ProductDetailScreenProps } from '../types/product-detail.types';
+import { useUserStore } from '../../../stores/userStore';
+import { fromBackendCampus } from '../../../lib/backendMappers';
 
 export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   onGoBack,
@@ -26,6 +28,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   const route = useRoute<any>();
 
   const activeProductId = productId || route.params?.productId;
+  const { user } = useUserStore();
 
   const {
     product,
@@ -65,7 +68,8 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         <ProductSpecSection specs={product.specs} description={product.description} />
         <ProductDeliveryRouteCard
           isSameCampus={actions.isSameCampus}
-          sellerCampus={product.campus || 'Hòa Lạc'}
+          sellerCampus={product.campus ? fromBackendCampus(product.campus) : 'Hòa Lạc'}
+          userCampus={user?.campus ? fromBackendCampus(user.campus) : 'Hòa Lạc'}
           safePointName={product.safePointInfo?.name}
         />
         <ProductSellerSafePoint
@@ -76,6 +80,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
           currentProductId={product.id}
           sellerId={product.sellerId}
           sellerName={product.seller.name}
+          category={product.category || product.categoryType}
         />
       </ScrollView>
 

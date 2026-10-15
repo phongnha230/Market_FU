@@ -16,6 +16,8 @@ export interface ProductCardProps {
   id: string;
   title: string;
   price: string;
+  originalPrice?: string;
+  discountBadge?: string;
   location: string;
   seller: string;
   sellerId?: string;
@@ -28,6 +30,11 @@ export interface ProductCardProps {
   likesCount?: number;
   isTrending?: boolean;
   cardStyle?: any;
+  category?: string;
+  categoryType?: string;
+  description?: string;
+  hashtags?: string[];
+  campus?: string;
   onPress?: () => void;
 }
 
@@ -35,6 +42,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   id,
   title,
   price,
+  originalPrice,
+  discountBadge,
   location,
   seller,
   sellerId,
@@ -131,7 +140,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       <View style={styles.content}>
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{price}đ</Text>
+          <View style={styles.priceLeftCol}>
+            <Text style={styles.price}>{price}đ</Text>
+            {originalPrice && (
+              <Text style={styles.originalPrice}>{originalPrice}đ</Text>
+            )}
+            {discountBadge && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountBadgeText}>{discountBadge}</Text>
+              </View>
+            )}
+          </View>
           {viewsCount !== undefined && viewsCount > 0 && (
             <View style={styles.viewsCountBadge}>
               <Ionicons name="eye-outline" size={10} color="#64748B" style={{ marginRight: 2 }} />
@@ -209,7 +228,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
+  priceLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 4,
+    flex: 1,
+  },
   price: { fontSize: 16, fontWeight: '900', color: '#DC2626' },
+  originalPrice: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  discountBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  discountBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
   viewsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',

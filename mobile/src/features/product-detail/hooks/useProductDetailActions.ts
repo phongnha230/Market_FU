@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
+import { toBackendCampus } from '../../../lib/backendMappers';
 
 export function useProductDetailActions(
   product: any,
@@ -18,7 +19,12 @@ export function useProductDetailActions(
 
   const isSameCampus = useMemo(() => {
     if (!user?.campus || !product?.campus) return true;
-    return user.campus.trim().toLowerCase() === product.campus.trim().toLowerCase();
+    const uCampus = toBackendCampus(user.campus);
+    const pCampus = toBackendCampus(product.campus);
+    if (!uCampus || !pCampus) {
+      return user.campus.trim().toLowerCase() === product.campus.trim().toLowerCase();
+    }
+    return uCampus === pCampus;
   }, [user?.campus, product?.campus]);
 
   const isOwnProduct = useMemo(() => {

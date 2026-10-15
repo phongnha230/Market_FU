@@ -46,7 +46,7 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
               contentFit="cover"
             />
           ) : (
-            <Ionicons name="person" size={20} color="#FFFFFF" />
+            <Text style={styles.avatarInitial}>{seller.name?.charAt(0).toUpperCase() || 'U'}</Text>
           )}
         </View>
         <View style={styles.sellerInfo}>
@@ -58,8 +58,18 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
           </View>
           <Text style={styles.sellerMajor}>{seller.major}</Text>
           <View style={styles.sellerMetaRow}>
-            <Text style={styles.sellerRating}>{seller.rating}</Text>
-            <Text style={styles.sellerSold}> • Đã bán {seller.soldCount} món</Text>
+            {typeof seller.rating === 'number' && seller.rating > 0 && (seller.reviewCount ?? 0) > 0 ? (
+              <Text style={styles.sellerRating}>{seller.rating} ★</Text>
+            ) : (
+              <Text style={styles.sellerNoRating}>Chưa có đánh giá</Text>
+            )}
+            <Text style={styles.sellerSold}>
+              {typeof seller.soldCount === 'number' && seller.soldCount > 0
+                ? ` • Đã bán ${seller.soldCount} món`
+                : typeof seller.activeListingsCount === 'number' && seller.activeListingsCount > 0
+                ? ` • Đang bán ${seller.activeListingsCount} món`
+                : ' • Người bán mới'}
+            </Text>
           </View>
         </View>
         <TouchableOpacity style={styles.viewShopBtn} onPress={handleViewShop} activeOpacity={0.7}>
@@ -99,7 +109,9 @@ const styles = StyleSheet.create({
   sellerMajor: { fontSize: 11, color: '#64748B', marginTop: 1 },
   sellerMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   sellerRating: { fontSize: 11, fontWeight: '800', color: '#D97706' },
+  sellerNoRating: { fontSize: 11, fontWeight: '600', color: '#64748B' },
   sellerSold: { fontSize: 11, color: '#64748B' },
+  avatarInitial: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
   viewShopBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#DBEAFE' },
   viewShopText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
   safePointBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0' },
