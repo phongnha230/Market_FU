@@ -30,6 +30,20 @@ export interface BackendUserVoucher {
   createdAt?: string;
 }
 
+export interface BackendQuest {
+  id: string;
+  questCode: string;
+  title: string;
+  description: string;
+  rewardCoins: number;
+  conditionType: 'DAILY_CHECKIN' | 'APPROVED_KYC' | 'CREATED_LISTING' | 'COMPLETED_REVIEW' | 'COMPLETED_SAFE_HANDOFF';
+  cadence: 'ONCE' | 'DAILY' | 'WEEKLY';
+  isActive: boolean;
+  iconType: string;
+  managedBy: string;
+  claimsThisCycle?: number;
+}
+
 export interface QueryVouchersParams {
   partner?: VoucherPartner;
   search?: string;
@@ -57,6 +71,21 @@ export const voucherService = {
       vouchers: response.data?.data || [],
       pagination: response.data?.meta,
     };
+  },
+
+  async getQuestsAdmin(): Promise<BackendQuest[]> {
+    const response = await apiClient.get<ApiResponse<BackendQuest[]>>('/profile/admin/quests');
+    return response.data.data || [];
+  },
+
+  async createQuest(payload: Omit<BackendQuest, 'id' | 'questCode'>): Promise<BackendQuest> {
+    const response = await apiClient.post<ApiResponse<BackendQuest>>('/profile/admin/quests', payload);
+    return response.data.data;
+  },
+
+  async updateQuest(questCode: string, payload: Partial<Omit<BackendQuest, 'id' | 'questCode'>>): Promise<BackendQuest> {
+    const response = await apiClient.patch<ApiResponse<BackendQuest>>(`/profile/admin/quests/${encodeURIComponent(questCode)}`, payload);
+    return response.data.data;
   },
 
   // 2. Chi tiết 1 voucher

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import {
   voucherService,
+  BackendQuest,
   BackendVoucher,
   VoucherPartner,
 } from '@/services/voucherService';
@@ -40,6 +41,8 @@ const PARTNER_LABELS: Record<VoucherPartner, { name: string; color: string; icon
 
 interface AdminQuestItem {
   id: string;
+  conditionType: BackendQuest['conditionType'];
+  cadence: BackendQuest['cadence'];
   title: string;
   coins: number;
   description: string;
@@ -53,6 +56,8 @@ interface AdminQuestItem {
 const INITIAL_ADMIN_QUESTS: AdminQuestItem[] = [
   {
     id: 'quest-review',
+    conditionType: 'COMPLETED_REVIEW',
+    cadence: 'WEEKLY',
     title: 'Đánh giá kèm ảnh/video sau nhận đồ',
     coins: 50,
     description: 'Giúp cộng đồng sinh viên minh bạch chất lượng đồ cũ đã qua sử dụng và tăng điểm uy tín.',
@@ -64,6 +69,8 @@ const INITIAL_ADMIN_QUESTS: AdminQuestItem[] = [
   },
   {
     id: 'quest-kyc',
+    conditionType: 'APPROVED_KYC',
+    cadence: 'ONCE',
     title: 'Xác thực KYC Thẻ SV & Mail FPT',
     coins: 100,
     description: 'Liên kết bảo mật tài khoản SSO @fpt.edu.vn kích hoạt huy hiệu sinh viên chuẩn 5Campus.',
@@ -75,6 +82,8 @@ const INITIAL_ADMIN_QUESTS: AdminQuestItem[] = [
   },
   {
     id: 'quest-post',
+    conditionType: 'CREATED_LISTING',
+    cadence: 'WEEKLY',
     title: 'Đăng bán 01 món đồ học tập cũ không dùng',
     coins: 30,
     description: 'Pass lại máy tính Casio, giáo trình kỳ trước hoặc phụ kiện KTX cho các em khóa dưới.',
@@ -86,6 +95,8 @@ const INITIAL_ADMIN_QUESTS: AdminQuestItem[] = [
   },
   {
     id: 'quest-safepoint',
+    conditionType: 'COMPLETED_SAFE_HANDOFF',
+    cadence: 'WEEKLY',
     title: 'Giao dịch an toàn tại Safe-Handoff Point',
     coins: 40,
     description: 'Check-in giao nhận tại Sảnh Tòa Alpha, Reta hoặc Bàn Tiếp nhận Thư viện trường.',
@@ -169,6 +180,8 @@ export default function AdminVouchersPage() {
     description: '',
     coins: 40,
     iconType: 'other' as AdminQuestItem['iconType'],
+    conditionType: 'COMPLETED_REVIEW' as BackendQuest['conditionType'],
+    cadence: 'WEEKLY' as BackendQuest['cadence'],
     managedBy: 'Phòng CTSV FPT',
     weeklyLimit: 1,
   });
@@ -213,6 +226,22 @@ export default function AdminVouchersPage() {
 
   useEffect(() => {
     loadVouchers();
+    voucherService.getQuestsAdmin().then((items) => setQuests(items.map((item) => ({
+      id: item.questCode,
+      conditionType: item.conditionType,
+      cadence: item.cadence,
+      title: item.title,
+      description: item.description,
+      coins: item.rewardCoins,
+      iconType: (item.iconType || 'other') as AdminQuestItem['iconType'],
+      isActive: item.isActive,
+      weeklyLimit: 1,
+      claimedThisWeek: item.claimsThisCycle ?? 0,
+      managedBy: item.managedBy,
+    })))).catch((error: unknown) => {
+      setQuests([]);
+      setErrorMsg(error instanceof Error ? error.message : 'Không tải được cấu hình nhiệm vụ.');
+    });
   }, [selectedPartner]);
 
   const handleToggleActive = async (voucher: BackendVoucher) => {
@@ -278,45 +307,58 @@ export default function AdminVouchersPage() {
   };
 
   // Quest Actions
-  const handleToggleQuest = (questId: string) => {
-    setQuests((prev) =>
-      prev.map((q) => (q.id === questId ? { ...q, isActive: !q.isActive } : q))
-    );
+  const handleToggleQuest = async (quest: AdminQuestItem) => {
+    try {
+      const updated = await voucherService.updateQuest(quest.id, { isActive: !quest.isActive });
+      setQuests((prev) => prev.map((item) => item.id === quest.id ? { ...item, isActive: updated.isActive } : item));
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Không cập nhật được nhiệm vụ.');
+    }
   };
 
-  const handleSaveCoins = (questId: string) => {
-    setQuests((prev) =>
-      prev.map((q) => (q.id === questId ? { ...q, coins: editingCoins } : q))
-    );
-    setEditingQuestId(null);
+  const handleSaveCoins = async (questId: string) => {
+    try {
+      const updated = await voucherService.updateQuest(questId, { rewardCoins: editingCoins });
+      setQuests((prev) => prev.map((item) => item.id === questId ? { ...item, coins: updated.rewardCoins } : item));
+      setEditingQuestId(null);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Không lưu được mức thưởng.');
+    }
   };
 
-  const handleCreateQuest = (e: React.FormEvent) => {
+  const handleCreateQuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!questFormData.title.trim()) return;
 
-    const newQuest: AdminQuestItem = {
-      id: `quest-${Date.now()}`,
-      title: questFormData.title.trim(),
-      description: questFormData.description.trim(),
-      coins: questFormData.coins,
-      iconType: questFormData.iconType,
-      isActive: true,
-      weeklyLimit: questFormData.weeklyLimit,
-      claimedThisWeek: 0,
-      managedBy: questFormData.managedBy,
-    };
-
-    setQuests((prev) => [newQuest, ...prev]);
-    setIsQuestModalOpen(false);
-    setQuestFormData({
-      title: '',
-      description: '',
-      coins: 40,
-      iconType: 'other',
-      managedBy: 'Phòng CTSV FPT',
-      weeklyLimit: 1,
-    });
+    try {
+      const created = await voucherService.createQuest({
+        title: questFormData.title.trim(),
+        description: questFormData.description.trim(),
+        rewardCoins: questFormData.coins,
+        conditionType: questFormData.conditionType,
+        cadence: questFormData.cadence,
+        iconType: questFormData.iconType,
+        managedBy: questFormData.managedBy,
+        isActive: true,
+      });
+      setQuests((prev) => [{
+        id: created.questCode,
+        conditionType: created.conditionType,
+        cadence: created.cadence,
+        title: created.title,
+        description: created.description,
+        coins: created.rewardCoins,
+        iconType: created.iconType as AdminQuestItem['iconType'],
+        isActive: created.isActive,
+        weeklyLimit: 1,
+        claimedThisWeek: 0,
+        managedBy: created.managedBy,
+      }, ...prev]);
+      setIsQuestModalOpen(false);
+      setQuestFormData({ title: '', description: '', coins: 40, iconType: 'other', conditionType: 'COMPLETED_REVIEW', cadence: 'WEEKLY', managedBy: 'Phòng CTSV FPT', weeklyLimit: 1 });
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Tạo nhiệm vụ thất bại.');
+    }
   };
 
   const activeCount = vouchers.filter((v) => v.isActive).length;
@@ -594,9 +636,9 @@ export default function AdminVouchersPage() {
                           <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                             <span>Quản lý bởi: <strong className="text-slate-800">{quest.managedBy}</strong></span>
                             <span>•</span>
-                            <span>Hạn mức: <strong className="text-slate-800">{quest.weeklyLimit} lần/tuần</strong></span>
+                            <span>Chu kỳ: <strong className="text-slate-800">{quest.cadence === 'ONCE' ? 'một lần' : quest.cadence === 'DAILY' ? 'hàng ngày' : 'hàng tuần'}</strong></span>
                             <span>•</span>
-                            <span>Đã trao thưởng: <strong className="text-emerald-700">{quest.claimedThisWeek} sinh viên</strong></span>
+                            <span>Đã trao thưởng trong chu kỳ: <strong className="text-emerald-700">{quest.claimedThisWeek} lượt</strong></span>
                           </div>
                         </div>
                       </div>
@@ -655,7 +697,7 @@ export default function AdminVouchersPage() {
 
                         {/* Status Toggle */}
                         <button
-                          onClick={() => handleToggleQuest(quest.id)}
+                          onClick={() => handleToggleQuest(quest)}
                           className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer border transition ${
                             quest.isActive
                               ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
@@ -828,15 +870,19 @@ export default function AdminVouchersPage() {
                   <div>
                     <label className="text-xs font-semibold text-slate-700">Loại hoạt động</label>
                     <select
-                      value={questFormData.iconType}
-                      onChange={(e) => setQuestFormData({ ...questFormData, iconType: e.target.value as any })}
+                      value={questFormData.conditionType}
+                      onChange={(e) => {
+                        const conditionType = e.target.value as BackendQuest['conditionType'];
+                        const iconType: AdminQuestItem['iconType'] = conditionType === 'COMPLETED_REVIEW' ? 'review' : conditionType === 'APPROVED_KYC' ? 'kyc' : conditionType === 'CREATED_LISTING' ? 'post' : conditionType === 'COMPLETED_SAFE_HANDOFF' ? 'safepoint' : 'other';
+                        const cadence: BackendQuest['cadence'] = conditionType === 'DAILY_CHECKIN' ? 'DAILY' : conditionType === 'APPROVED_KYC' ? 'ONCE' : 'WEEKLY';
+                        setQuestFormData({ ...questFormData, conditionType, iconType, cadence });
+                      }}
                       className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-orange-500 focus:outline-hidden"
                     >
-                      <option value="review">Đánh giá giao dịch</option>
-                      <option value="kyc">Xác thực KYC thẻ SV</option>
-                      <option value="post">Đăng bài pass đồ cũ</option>
-                      <option value="safepoint">Check-in SafePoint</option>
-                      <option value="other">Hoạt động phong trào khác</option>
+                      <option value="COMPLETED_REVIEW">Đánh giá giao dịch</option>
+                      <option value="APPROVED_KYC">Xác thực KYC thẻ SV</option>
+                      <option value="CREATED_LISTING">Đăng bài pass đồ cũ</option>
+                      <option value="COMPLETED_SAFE_HANDOFF">Hoàn tất SafePoint</option>
                     </select>
                   </div>
 
@@ -871,16 +917,16 @@ export default function AdminVouchersPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Giới hạn tuần (lần/SV)</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={10}
-                      value={questFormData.weeklyLimit}
-                      onChange={(e) => setQuestFormData({ ...questFormData, weeklyLimit: Number(e.target.value) })}
+                    <label className="text-xs font-semibold text-slate-700">Chu kỳ nhận thưởng</label>
+                    <select
+                      value={questFormData.cadence}
+                      disabled
                       className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-orange-500 focus:outline-hidden"
-                    />
+                    >
+                      <option value="ONCE">Một lần</option>
+                      <option value="DAILY">Hàng ngày</option>
+                      <option value="WEEKLY">Hàng tuần</option>
+                    </select>
                   </div>
                 </div>
 

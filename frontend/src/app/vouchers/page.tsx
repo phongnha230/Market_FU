@@ -44,11 +44,9 @@ export default function VouchersPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const {
     user,
-    orders,
     addCoins,
     saveVoucher,
     checkInDaily,
-    claimQuestCoins,
     showToast,
   } = useMarket();
 
@@ -79,6 +77,24 @@ export default function VouchersPage() {
   useEffect(() => {
     fetchAvailableVouchers();
     fetchMyVouchers();
+    if (isLoggedIn) {
+      profileService.getQuests().then((serverQuests) => {
+        setQuests(serverQuests.map((quest) => {
+          const template = INITIAL_QUESTS.find((item) => item.id === quest.id);
+          return {
+            ...(template || INITIAL_QUESTS[0]),
+            id: quest.id,
+            title: quest.title,
+            description: quest.description,
+            coins: quest.coins,
+            isCompleted: quest.isCompleted,
+            actionType: quest.isClaimed ? 'claimed' as const : quest.canClaim ? 'claim' as const : 'link' as const,
+            statusText: quest.isClaimed ? '✓ Đã nhận thưởng' : quest.canClaim ? '✓ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ',
+            actionLabel: quest.isClaimed ? 'Đã nhận ✓' : quest.canClaim ? `Nhận ${quest.coins} Coins` : 'Xem điều kiện',
+          };
+        }));
+      }).catch(() => {});
+    }
     profileService
       .getProfile()
       .then((p: any) => {
@@ -88,7 +104,7 @@ export default function VouchersPage() {
       })
       .catch(() => {});
     profileService.getCheckInStatus().catch(() => {});
-  }, [fetchAvailableVouchers, fetchMyVouchers]);
+  }, [fetchAvailableVouchers, fetchMyVouchers, isLoggedIn]);
 
   // Map backend vouchers to VoucherItem format for standard rendering
   const mappedBackendVouchers: VoucherItem[] = availableVouchers.map((bv) => {
@@ -186,6 +202,18 @@ export default function VouchersPage() {
     try {
       const res = await profileService.checkInDaily();
       if (res.success) {
+        useUserStore.getState().updateProfile({ coins: res.newBalance, dailyCheckedIn: true });
+        const serverQuests = await profileService.getQuests();
+        setQuests((current) => current.map((quest) => {
+          const updated = serverQuests.find((item) => item.id === quest.id);
+          return updated ? {
+            ...quest,
+            isCompleted: updated.isCompleted,
+            actionType: updated.isClaimed ? 'claimed' : updated.canClaim ? 'claim' : 'link',
+            statusText: updated.isClaimed ? '✓ Đã nhận thưởng' : updated.canClaim ? '✓ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ',
+            actionLabel: updated.isClaimed ? 'Đã nhận ✓' : updated.canClaim ? `Nhận ${updated.coins} Coins` : 'Xem điều kiện',
+          } : quest;
+        }));
         showToast(`🎉 Điểm danh thành công! Bạn nhận được +${res.coinsAdded} Campus Coins.`, 'success');
       }
     } catch (err: any) {
@@ -298,15 +326,20 @@ export default function VouchersPage() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleClaimQuest = async (questId: string, coinsAmount: number) => {
+  const handleClaimQuest = async (questId: string, _coinsAmount: number) => {
     if (!isLoggedIn) {
       showToast('🔒 Vui lòng đăng nhập để nhận thưởng nhiệm vụ!', 'warning');
       setIsAuthModalOpen(true);
       return;
     }
     try {
-      const res = await profileService.claimQuest(questId, coinsAmount);
-      const added = res?.coinsAdded || coinsAmount;
+      const res = await profileService.claimQuest(questId);
+      const added = res.coinsAdded;
+      const serverQuests = await profileService.getQuests();
+      setQuests((current) => current.map((quest) => {
+        const updated = serverQuests.find((item) => item.id === quest.id);
+        return updated ? { ...quest, isCompleted: updated.isCompleted, actionType: updated.isClaimed ? 'claimed' : updated.canClaim ? 'claim' : 'link', statusText: updated.isClaimed ? '✓ Đã nhận thưởng' : updated.canClaim ? '✓ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ' } : quest;
+      }));
       showToast(`🎉 Chúc mừng! Bạn nhận được +${added} Campus Coins từ nhiệm vụ.`, 'success');
     } catch (err: any) {
       const errMsg =
@@ -321,101 +354,7 @@ export default function VouchersPage() {
     showToast('🚩 Đã gửi báo cáo sai phạm tới Ban CTSV FPT Edu! Chúng tôi sẽ xác minh trong 24h.', 'success');
   };
 
-  // Dynamic Quests based on real user state
-  const liveQuests = React.useMemo(() => {
-    return quests.map((q) => {
-      const isClaimed = user.claimedQuestIds?.includes(q.id);
-
-      if (q.id === 'quest-kyc') {
-        const isKyc = user.kycStatus === 'approved_student' || user.kycStatus === 'approved_seller';
-        if (isClaimed) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claimed' as const,
-            statusText: '✓ Đã hoàn thành và nhận thưởng',
-            actionLabel: 'Đã nhận ✓',
-          };
-        }
-        if (isKyc) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claim' as const,
-            statusText: '✓ Đã xác thực KYC thẻ sinh viên',
-            actionLabel: 'Nhận 100 Coins',
-          };
-        }
-        return {
-          ...q,
-          isCompleted: false,
-          actionType: 'link' as const,
-          statusText: 'Chưa xác thực thẻ SV',
-          actionLabel: 'Xác thực ngay',
-        };
-      }
-
-      if (q.id === 'quest-safepoint') {
-        if (isClaimed) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claimed' as const,
-            statusText: '✓ Đã hoàn thành',
-            actionLabel: 'Đã nhận ✓',
-          };
-        }
-        if (user.dailyCheckedIn) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claim' as const,
-            statusText: '✓ Đã điểm danh hôm nay',
-            actionLabel: 'Nhận 40 Coins',
-          };
-        }
-        return {
-          ...q,
-          isCompleted: false,
-          actionType: 'link' as const,
-          statusText: 'Chưa điểm danh hôm nay',
-          actionLabel: 'Điểm danh ngay',
-        };
-      }
-
-      if (q.id === 'quest-review') {
-        const reviewedCount = orders.filter((o) => o.reviewed).length;
-        const hasReview = reviewedCount > 0;
-        if (isClaimed) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claimed' as const,
-            statusText: '✓ Đã hoàn thành',
-            actionLabel: 'Đã nhận ✓',
-          };
-        }
-        if (hasReview) {
-          return {
-            ...q,
-            isCompleted: true,
-            actionType: 'claim' as const,
-            statusText: '✓ Đã đánh giá đơn hàng hoàn tất',
-            actionLabel: 'Nhận 50 Coins',
-          };
-        }
-        return {
-          ...q,
-          isCompleted: false,
-          actionType: 'link' as const,
-          statusText: 'Chưa có đánh giá đơn hàng nào',
-          actionLabel: 'Đánh giá ngay',
-        };
-      }
-
-      return q;
-    });
-  }, [quests, user.claimedQuestIds, user.kycStatus, user.dailyCheckedIn, orders]);
+  const liveQuests = quests;
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-6 sm:py-8 font-sans">
@@ -564,7 +503,7 @@ export default function VouchersPage() {
             <div id="quests" className="scroll-mt-6">
               <VoucherQuests
                 quests={liveQuests}
-                claimedQuestIds={user.claimedQuestIds || []}
+                claimedQuestIds={[]}
                 onClaimQuest={handleClaimQuest}
               />
             </div>

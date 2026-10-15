@@ -56,7 +56,7 @@ export interface CoinQuestItem {
   title: string;
   coins: number;
   description: string;
-  iconType: 'review' | 'kyc' | 'post' | 'safepoint';
+  iconType: 'review' | 'kyc' | 'post' | 'safepoint' | 'other';
   statusText: string;
   isCompleted: boolean;
   actionType: 'claim' | 'claimed' | 'link';
