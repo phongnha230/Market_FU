@@ -15,7 +15,6 @@ import { useNavigation } from '@react-navigation/native';
 import { profileMobileService } from '../../../services/profileMobileService';
 import { authMobileService } from '../../../services/authMobileService';
 import { useUserStore } from '../../../stores/userStore';
-import { useKho } from '../../../context/KhoContext';
 
 function getTimeUntilWeeklyReset(): string {
   const now = new Date();
@@ -39,16 +38,6 @@ function getTimeUntilWeeklyReset(): string {
   return `${days} ngày ${hours} giờ`;
 }
 
-function getStartOfWeekUTC(): Date {
-  const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  const dayOfWeek = nowVN.getUTCDay();
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const startOfWeekVN = new Date(nowVN);
-  startOfWeekVN.setUTCHours(0, 0, 0, 0);
-  startOfWeekVN.setUTCDate(startOfWeekVN.getUTCDate() - daysFromMonday);
-  return new Date(startOfWeekVN.getTime() - 7 * 60 * 60 * 1000);
-}
-
 export type CoinFilterType = 'all' | 'in' | 'out' | 'quests';
 
 interface QuestItem {
@@ -60,6 +49,8 @@ interface QuestItem {
   iconBg: string;
   iconColor: string;
   isEligible: boolean;
+  isClaimed: boolean;
+  cadence: 'ONCE' | 'DAILY' | 'WEEKLY';
   statusText: string;
   actionLabel: string;
   targetScreen?: string;
@@ -69,7 +60,6 @@ export const CoinHistoryScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user, updateUser } = useUserStore();
-  const { myListings, myBuyOrders, mySellOrders } = useKho();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +67,7 @@ export const CoinHistoryScreen: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
-  const [claimedLocalIds, setClaimedLocalIds] = useState<string[]>([]);
+  const [quests, setQuests] = useState<QuestItem[]>([]);
 
   // Tải dữ liệu lịch sử thật từ Backend API
   const loadHistory = useCallback(async () => {
@@ -88,6 +78,29 @@ export const CoinHistoryScreen: React.FC = () => {
       } else {
         setTransactions([]);
       }
+      const serverQuests = await profileMobileService.getQuests();
+      setQuests(serverQuests.map((quest) => {
+        const metadata: Record<string, Pick<QuestItem, 'icon' | 'iconBg' | 'iconColor' | 'targetScreen'>> = {
+          'quest-kyc': { icon: 'shield-checkmark', iconBg: '#ECFDF5', iconColor: '#059669', targetScreen: 'AccountSettings' },
+          'quest-post': { icon: 'add-circle', iconBg: '#EFF6FF', iconColor: '#2563EB', targetScreen: 'PostItem' },
+          'quest-safepoint': { icon: 'location', iconBg: '#FAF5FF', iconColor: '#9333EA', targetScreen: 'SafePointHubs' },
+          'quest-review': { icon: 'star', iconBg: '#FFFBEB', iconColor: '#D97706', targetScreen: 'Orders' },
+          'quest-checkin': { icon: 'calendar', iconBg: '#FEF3C7', iconColor: '#D97706' },
+        };
+        const iconMeta = metadata[quest.id] || { icon: 'ribbon' as const, iconBg: '#FFF7ED', iconColor: '#EA580C' };
+        return {
+          id: quest.id,
+          title: quest.title,
+          coins: quest.coins,
+          description: quest.description,
+          ...iconMeta,
+          isEligible: quest.canClaim,
+          isClaimed: quest.isClaimed,
+          cadence: quest.cadence,
+          statusText: quest.isClaimed ? '✅ Đã nhận thưởng' : quest.canClaim ? '✅ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ',
+          actionLabel: quest.iconType === 'kyc' ? 'Xác thực ngay' : quest.iconType === 'post' ? 'Đăng bán ngay' : quest.iconType === 'safepoint' ? 'Xem điểm hẹn' : 'Hoàn thành nhiệm vụ',
+        };
+      }));
     } catch {
       setTransactions([]);
     } finally {
@@ -128,30 +141,14 @@ export const CoinHistoryScreen: React.FC = () => {
     }
   };
 
-  // Kiểm tra quest đã nhận thưởng trong tuần hiện tại chưa
-  const isQuestClaimedThisWeek = useCallback(
-    (questId: string) => {
-      if (claimedLocalIds.includes(questId)) return true;
-      const startOfWeek = getStartOfWeekUTC();
-      return transactions.some(
-        (t) =>
-          t.type === 'QUEST_REWARD' &&
-          (t.referenceId === questId || (t.description && t.description.includes(questId))) &&
-          new Date(t.createdAt) >= startOfWeek
-      );
-    },
-    [transactions, claimedLocalIds]
-  );
-
   // Nhận thưởng nhiệm vụ tuần
   const handleClaimQuest = async (quest: QuestItem) => {
     setClaimingQuestId(quest.id);
     try {
-      await profileMobileService.claimQuest(quest.id, quest.coins);
-      setClaimedLocalIds((prev) => [...prev, quest.id]);
+      const result = await profileMobileService.claimQuest(quest.id);
       Alert.alert(
         '🎉 Nhận thưởng thành công!',
-        `Bạn đã nhận được +${quest.coins} Xu từ nhiệm vụ "${quest.title}". Xu đã được cộng trực tiếp vào ví!`
+        `Bạn đã nhận được +${result.coinsAdded} Xu từ nhiệm vụ "${quest.title}". Xu đã được cộng trực tiếp vào ví!`
       );
 
       // Cập nhật lại số dư người dùng & sổ cái
@@ -162,98 +159,15 @@ export const CoinHistoryScreen: React.FC = () => {
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.response?.data?.error?.message;
       Alert.alert('Thông báo', msg || 'Nhiệm vụ này bạn đã nhận thưởng trong tuần hiện tại rồi!');
-      setClaimedLocalIds((prev) => [...prev, quest.id]);
     } finally {
       setClaimingQuestId(null);
     }
   };
 
-  // Điều kiện thực tế của từng nhiệm vụ
-  const isKycOrSeller = Boolean(
-    user?.role === 'SELLER' ||
-    user?.isKycVerified ||
-    user?.kycStatus === 'APPROVED'
-  );
-
-  const hasPostedItems = Boolean(
-    (myListings && myListings.length > 0) || user?.role === 'SELLER'
-  );
-
-  const hasSafePointTransactions = Boolean(
-    (myBuyOrders && myBuyOrders.some((o) => o.status === 'COMPLETED' || o.orderType === 'MEETUP')) ||
-    (mySellOrders && mySellOrders.some((o) => o.status === 'COMPLETED' || o.orderType === 'MEETUP'))
-  );
-
-  const hasReviewedOrders = Boolean(
-    myBuyOrders && myBuyOrders.some((o) => o.isReviewed)
-  );
-
-  // Danh sách 4 nhiệm vụ chuẩn khớp với Backend Whitelist & Admin
-  const quests: QuestItem[] = useMemo(() => [
-    {
-      id: 'quest-kyc',
-      title: 'Xác thực KYC Thẻ SV & Mail FPT',
-      coins: 100,
-      description: 'Liên kết bảo mật tài khoản SSO @fpt.edu.vn kích hoạt huy hiệu sinh viên chuẩn 5Campus.',
-      icon: 'shield-checkmark',
-      iconBg: '#ECFDF5',
-      iconColor: '#059669',
-      isEligible: isKycOrSeller,
-      statusText: isKycOrSeller ? '✅ Đã xác minh Thẻ SV FPT chính chủ' : 'Chưa xác thực thẻ SV',
-      actionLabel: 'Xác thực ngay',
-      targetScreen: 'AccountSettings',
-    },
-    {
-      id: 'quest-post',
-      title: 'Đăng bán 01 món đồ học tập cũ không dùng',
-      coins: 30,
-      description: 'Pass lại máy tính Casio, giáo trình kỳ trước hoặc phụ kiện KTX cho các em khóa dưới.',
-      icon: 'add-circle',
-      iconBg: '#EFF6FF',
-      iconColor: '#2563EB',
-      isEligible: hasPostedItems,
-      statusText: hasPostedItems
-        ? `Tiến độ: ${Math.max(1, myListings?.length || 1)} / 1 món (Đã đạt)`
-        : 'Tiến độ: 0 / 1 món',
-      actionLabel: 'Đăng bán ngay',
-      targetScreen: 'PostItem',
-    },
-    {
-      id: 'quest-safepoint',
-      title: 'Giao dịch an toàn tại Safe-Handoff Point',
-      coins: 40,
-      description: 'Giao nhận tại Sảnh Tòa Alpha, Beta hoặc Bàn Tiếp nhận Thư viện trường.',
-      icon: 'location',
-      iconBg: '#FAF5FF',
-      iconColor: '#9333EA',
-      isEligible: hasSafePointTransactions,
-      statusText: hasSafePointTransactions
-        ? '✅ Đã hoàn tất giao dịch tại Safe-Point'
-        : 'Chưa có giao dịch tại Safe-Point tuần này',
-      actionLabel: 'Xem điểm hẹn',
-      targetScreen: 'SafePointHubs',
-    },
-    {
-      id: 'quest-review',
-      title: 'Đánh giá kèm ảnh sau khi nhận đồ',
-      coins: 50,
-      description: 'Giúp cộng đồng sinh viên minh bạch chất lượng đồ cũ đã qua sử dụng và tăng điểm uy tín.',
-      icon: 'star',
-      iconBg: '#FFFBEB',
-      iconColor: '#D97706',
-      isEligible: hasReviewedOrders,
-      statusText: hasReviewedOrders
-        ? '✅ Đã đánh giá đơn hàng'
-        : 'Đánh giá 5 sao kèm hình ảnh sau khi nhận hàng',
-      actionLabel: 'Đánh giá ngay',
-      targetScreen: 'Orders',
-    },
-  ], [isKycOrSeller, hasPostedItems, myListings?.length, hasSafePointTransactions, hasReviewedOrders]);
-
   // Đếm số quest sẵn sàng nhận thưởng
   const claimableQuestsCount = useMemo(() => {
-    return quests.filter((q) => q.isEligible && !isQuestClaimedThisWeek(q.id)).length;
-  }, [quests, isQuestClaimedThisWeek]);
+    return quests.filter((quest) => quest.isEligible && !quest.isClaimed).length;
+  }, [quests]);
 
   // Lọc lịch sử sổ cái theo tab
   const filteredTransactions = useMemo(() => {
@@ -457,7 +371,7 @@ export const CoinHistoryScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>DANH SÁCH NHIỆM VỤ TUẦN NÀY</Text>
 
             {quests.map((q) => {
-              const isClaimed = isQuestClaimedThisWeek(q.id);
+              const isClaimed = q.isClaimed;
               const isClaiming = claimingQuestId === q.id;
 
               return (

@@ -1,5 +1,6 @@
 import apiClient, { ApiResponse } from './apiClient';
 import type { UserProfile } from './accountStorage';
+import { fromBackendCampus } from '../lib/backendMappers';
 
 export interface LoginCredentials {
   email: string;
@@ -56,12 +57,26 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
       }
     : undefined;
 
+  const isDummyAvatar = (url?: string | null) =>
+    !url ||
+    url.includes('photo-1535713875002-d1d0cf377fde') ||
+    url.includes('photo-1534528741775-53994a69daeb') ||
+    url.includes('photo-1570295999919-56ceb5ecca61');
+
+  const rawAvatar =
+    profile.avatarUrl ||
+    user.avatarUrl ||
+    profile.avatar ||
+    user.avatar;
+
+  const avatarUrl = rawAvatar && !isDummyAvatar(rawAvatar) ? rawAvatar : undefined;
+
   return {
     id: user.userId || user.id || profile.userId || profile.id,
     name: profile.fullName || user.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
     studentId: kyc.studentId || profile.studentId || user.studentId || '',
     email: user.email || profile.email || '',
-    campus: profile.campus || user.campus || 'HÒA LẠC',
+    campus: fromBackendCampus(profile.campus || user.campus || 'HOL'),
     role,
     isKycVerified,
     kycStatus,
@@ -73,14 +88,7 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
     rating: profile.rating || 5.0,
     reputationPoints: user.reputationScore ?? profile.reputationScore ?? 100,
     coins: user.campusCoins ?? profile.campusCoins ?? 0,
-    avatarUrl:
-      profile.avatarUrl ||
-      user.avatarUrl ||
-      profile.avatar ||
-      user.avatar ||
-      (role === 'SELLER'
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'),
+    avatarUrl,
     avatarBadge: role === 'SELLER' ? 'TOP_SELLER' : undefined,
     bankAccount,
   };

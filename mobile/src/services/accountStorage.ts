@@ -77,6 +77,12 @@ class AccountStorageService {
       throw new Error('Mã số sinh viên hoặc Email FPT này đã được đăng ký!');
     }
 
+    const isDummyAvatar = (url?: string | null) =>
+      !url ||
+      url.includes('photo-1535713875002-d1d0cf377fde') ||
+      url.includes('photo-1534528741775-53994a69daeb') ||
+      url.includes('photo-1570295999919-56ceb5ecca61');
+
     const newUser: UserProfile = {
       ...userData,
       id: `usr_${Date.now()}`,
@@ -88,9 +94,7 @@ class AccountStorageService {
       rating: 5.0,
       reputationPoints: 100,
       coins: 50,
-      avatarUrl:
-        userData.avatarUrl ||
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+      avatarUrl: userData.avatarUrl && !isDummyAvatar(userData.avatarUrl) ? userData.avatarUrl : undefined,
     };
 
     const updatedAccounts = [
@@ -167,13 +171,6 @@ class AccountStorageService {
     const targetRole = role === 'SELLER' ? 'SELLER' : 'BUYER';
     const found = accounts.find((a) => a.user.role === targetRole);
     if (found) return found.user;
-    const roleAvatar =
-      role === 'SELLER'
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
-        : role === 'UNVERIFIED'
-        ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80';
-
     return {
       id: `acc_${role.toLowerCase()}`,
       name: role === 'SELLER' ? 'Người bán FPT' : 'Sinh viên FPT',
@@ -183,7 +180,7 @@ class AccountStorageService {
       role: targetRole,
       isKycVerified: role !== 'UNVERIFIED',
       kycStatus: role === 'UNVERIFIED' ? 'NONE' : 'APPROVED',
-      avatarUrl: roleAvatar,
+      avatarUrl: undefined,
       rating: 5.0,
       reputationPoints: 100,
       coins: 0,

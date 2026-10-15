@@ -313,17 +313,24 @@ export const useUserStore = create<UserState>()(
             };
           }
 
-          // Cập nhật vĩnh viễn vào AsyncStorage qua accountStorage
-          const updatedUser = await accountStorage.updateUserAccount(currentUser.id, partial);
+          const mergedUser: UserProfile = { ...currentUser, ...partial };
 
-          // Cập nhật session hiện tại
-          set({ user: updatedUser });
-          syncUserToStores(updatedUser.id);
-          await get().loadRegisteredAccounts();
+          // 1. Luôn cập nhật session Zustand hiện tại (được persist tự động bởi middleware vào AsyncStorage)
+          set({ user: mergedUser });
+          syncUserToStores(mergedUser.id);
+
+          // 2. Cập nhật vào danh sách local accountStorage nếu tài khoản này có trong máy (không ném lỗi làm chặn session)
+          try {
+            await accountStorage.updateUserAccount(currentUser.id, partial);
+            await get().loadRegisteredAccounts();
+          } catch {
+            // Tài khoản đăng nhập từ Backend API thực tế không bắt buộc nằm trong local mock accounts
+          }
+
           return {
             success: true,
             message: 'Cập nhật hồ sơ thành công!',
-            user: updatedUser,
+            user: mergedUser,
           };
         } catch (error: any) {
           return {
@@ -382,6 +389,20 @@ export const useUserStore = create<UserState>()(
       name: 'fu_auth_storage',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
+        if (state?.user) {
+          const isDummy = (url?: string | null) =>
+            !url ||
+            url.includes('photo-1535713875002-d1d0cf377fde') ||
+            url.includes('photo-1534528741775-53994a69daeb') ||
+            url.includes('photo-1570295999919-56ceb5ecca61');
+
+          if (isDummy(state.user.avatarUrl)) {
+            state.user.avatarUrl = undefined;
+          }
+          if (isDummy(state.user.avatar)) {
+            state.user.avatar = undefined;
+          }
+        }
         if (state?.user?.id) {
           syncUserToStores(state.user.id);
         }

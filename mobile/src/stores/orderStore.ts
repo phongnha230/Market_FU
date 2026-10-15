@@ -194,7 +194,7 @@ export const useOrderStore = create<OrderState>()(
         if (cleanInput !== targetOtp) {
           return {
             success: false,
-            message: 'Mã OTP Handshake không chính xác (gồm 4 chữ số). Hãy nhờ Người mua mở vé nhận hàng kiểm tra lại!',
+            message: 'Mã OTP Handshake không chính xác. Hãy nhờ Người mua mở vé nhận hàng kiểm tra lại!',
           };
         }
 

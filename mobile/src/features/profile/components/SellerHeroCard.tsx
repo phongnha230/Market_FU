@@ -25,16 +25,23 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
   const cohort = profile?.cohort || 'Sinh viên FPT';
   const bio = profile?.bio || 'Sinh viên FPT giao lưu pass đồ tử tế, có thể hẹn test máy tại Safe-Point campus.';
 
-  const avatarSource = profile?.avatarUrl || profile?.avatar;
+  const isDummyAvatar = (url?: string | null) =>
+    !url ||
+    url.includes('photo-1535713875002-d1d0cf377fde') ||
+    url.includes('photo-1534528741775-53994a69daeb') ||
+    url.includes('photo-1570295999919-56ceb5ecca61');
+
+  const rawAvatar = profile?.avatarUrl || profile?.avatar;
+  const hasValidAvatar = Boolean(rawAvatar && !isDummyAvatar(rawAvatar));
 
   return (
     <View style={styles.profileCard}>
       {/* 1. Header Row: Avatar + Identity */}
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
-          {avatarSource ? (
+          {hasValidAvatar ? (
             <Image
-              source={resolveAvatarImage(avatarSource)}
+              source={resolveAvatarImage(rawAvatar)}
               style={styles.avatar}
               contentFit="cover"
             />

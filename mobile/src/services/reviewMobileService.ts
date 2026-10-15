@@ -12,13 +12,31 @@ export const reviewMobileService = {
   /**
    * Đăng bài đánh giá đơn hàng (2 chiều)
    */
-  async createReview(payload: CreateReviewPayload): Promise<any> {
+  async createReview(payload: CreateReviewPayload): Promise<unknown> {
     try {
-      const res = await apiClient.post<ApiResponse<any>>('/reviews', payload);
+      const res = await apiClient.post<ApiResponse<unknown>>('/reviews', payload);
       return res.data?.data;
-    } catch (e: any) {
-      console.log('⚠️ [Backend Review offline]:', e?.message);
-      return { success: true, message: 'Đã lưu đánh giá ngoại tuyến' };
+    } catch (error: unknown) {
+      console.error('Failed to create review:', error);
+      throw error;
+    }
+  },
+
+  async updateReview(payload: CreateReviewPayload): Promise<unknown> {
+    try {
+      const res = await apiClient.patch<ApiResponse<unknown>>(
+        `/reviews/order/${encodeURIComponent(payload.orderId)}`,
+        {
+          rating: payload.rating,
+          comment: payload.comment,
+          images: payload.images,
+          proofVideoUrl: payload.proofVideoUrl,
+        }
+      );
+      return res.data?.data;
+    } catch (error: unknown) {
+      console.error('Failed to update review:', error);
+      throw error;
     }
   },
 

@@ -35,7 +35,7 @@ export const QrScannerHandshakeModal: React.FC<QrScannerHandshakeModalProps> = (
   const handleVerify = async (codeToVerify?: string) => {
     const code = (codeToVerify || otpInput).trim();
     if (!code) {
-      Alert.alert('Chưa nhập mã', 'Vui lòng nhập mã OTP 6 số từ màn hình vé nhận hàng của Người mua.');
+      Alert.alert('Chưa nhập mã', 'Vui lòng nhập mã OTP từ màn hình vé nhận hàng của Người mua.');
       return;
     }
 
@@ -120,7 +120,7 @@ export const QrScannerHandshakeModal: React.FC<QrScannerHandshakeModalProps> = (
               style={styles.otpInput}
               value={otpInput}
               onChangeText={setOtpInput}
-              placeholder="Nhập 6 số OTP (VD: 738192)"
+              placeholder="Nhập mã OTP (4 hoặc 6 số)"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
               maxLength={6}

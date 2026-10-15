@@ -11,6 +11,18 @@ export interface WithdrawalRequestPayload {
   note?: string;
 }
 
+export interface MobileQuest {
+  id: string;
+  title: string;
+  description: string;
+  coins: number;
+  iconType: string;
+  cadence: 'ONCE' | 'DAILY' | 'WEEKLY';
+  isCompleted: boolean;
+  isClaimed: boolean;
+  canClaim: boolean;
+}
+
 export const profileMobileService = {
   /**
    * Lấy hồ sơ người dùng hiện tại
@@ -228,14 +240,13 @@ export const profileMobileService = {
   /**
    * Nhận thưởng nhiệm vụ tuần
    */
-  async claimQuest(
-    questId: string,
-    amount: number = 20
-  ): Promise<{ message: string; coinsEarned: number }> {
-    const res = await apiClient.post<ApiResponse<any>>('/profile/claim-quest', {
-      questId,
-      amount: Math.min(200, Math.max(1, amount)),
-    });
+  async getQuests(): Promise<MobileQuest[]> {
+    const res = await apiClient.get<ApiResponse<MobileQuest[]>>('/profile/quests');
+    return res.data?.data || [];
+  },
+
+  async claimQuest(questId: string): Promise<{ success: boolean; coinsAdded: number; newBalance: number; questId: string }> {
+    const res = await apiClient.post<ApiResponse<any>>('/profile/claim-quest', { questId });
     return res.data?.data;
   },
 };

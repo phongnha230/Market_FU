@@ -12,6 +12,12 @@ interface ProfileAvatarProps {
   onPress?: () => void;
 }
 
+const isDummyAvatar = (url?: string | null) =>
+  !url ||
+  url.includes('photo-1535713875002-d1d0cf377fde') ||
+  url.includes('photo-1534528741775-53994a69daeb') ||
+  url.includes('photo-1570295999919-56ceb5ecca61');
+
 export const ProfileAvatar: React.FC<ProfileAvatarProps> = React.memo(({
   avatarUrl,
   name,
@@ -19,13 +25,15 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = React.memo(({
   isPending,
   onPress,
 }) => {
+  const hasValidAvatar = Boolean(avatarUrl && !isDummyAvatar(avatarUrl));
+
   return (
     <TouchableOpacity
       style={styles.avatarWrapper}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      {avatarUrl ? (
+      {hasValidAvatar ? (
         <Image
           source={resolveAvatarImage(avatarUrl)}
           style={styles.avatar}

@@ -32,7 +32,7 @@ export const ReviewScreen: React.FC = () => {
   const route = useRoute<any>();
 
   const { user } = useUserStore();
-  const orderId = route.params?.orderId || 'ORD-421365-C0EF';
+  const orderId = route.params?.orderId || '';
   const productTitle = route.params?.productTitle || 'Bàn phím cơ Gaming LED RGB';
   const sellerName = route.params?.sellerName || 'Nhã Trần CT';
   const sellerCampus = route.params?.sellerCampus || 'Cần Thơ';
@@ -137,10 +137,23 @@ export const ReviewScreen: React.FC = () => {
   const handleSubmitReview = async () => {
     try {
       setIsSubmitting(true);
+      if (!orderId) {
+        Alert.alert('Thiếu đơn hàng', 'Không tìm thấy đơn hàng cần đánh giá. Hãy mở màn hình này từ chi tiết đơn hàng.');
+        return;
+      }
+
       const cleanImages = mediaList.filter((m) => !m.isVideo).map((m) => m.uri);
       const videoUri = mediaList.find((m) => m.isVideo)?.uri;
 
       if (isEditing) {
+        await reviewMobileService.updateReview({
+          orderId,
+          rating,
+          comment: comment ? `${comment} [${selectedTags.join(', ')}]` : undefined,
+          images: cleanImages,
+          proofVideoUrl: videoUri,
+        });
+
         useOrderStore.getState().updateOrderReview(orderId, {
           rating,
           comment,
@@ -173,12 +186,6 @@ export const ReviewScreen: React.FC = () => {
         bonusCoins,
       };
 
-      if (orderId) {
-        useOrderStore.getState().markOrderReviewed(orderId, reviewPayload);
-      }
-
-      useWalletStore.getState().addCoins(bonusCoins);
-
       await reviewMobileService.createReview({
         orderId,
         rating,
@@ -186,6 +193,9 @@ export const ReviewScreen: React.FC = () => {
         images: cleanImages,
         proofVideoUrl: videoUri,
       });
+
+      useOrderStore.getState().markOrderReviewed(orderId, reviewPayload);
+      useWalletStore.getState().addCoins(bonusCoins);
 
       Alert.alert(
         '🎉 Cảm ơn bạn!',
@@ -197,9 +207,9 @@ export const ReviewScreen: React.FC = () => {
           },
         ]
       );
-    } catch {
-      Alert.alert('Thành công', 'Đánh giá đã được ghi nhận.');
-      navigation.navigate('OrderList');
+    } catch (error: unknown) {
+      console.error('Failed to submit review:', error);
+      Alert.alert('Không thể gửi đánh giá', 'Đánh giá chưa được lưu. Kiểm tra kết nối rồi thử lại.');
     } finally {
       setIsSubmitting(false);
     }

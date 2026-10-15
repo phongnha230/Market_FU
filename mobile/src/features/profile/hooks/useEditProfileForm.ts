@@ -20,14 +20,23 @@ interface ProfileFormData {
   accountName: string;
 }
 
+const isDummyAvatar = (url?: string | null) =>
+  !url ||
+  url.includes('photo-1535713875002-d1d0cf377fde') ||
+  url.includes('photo-1534528741775-53994a69daeb') ||
+  url.includes('photo-1570295999919-56ceb5ecca61');
+
 const getInitialFormData = (user: any): ProfileFormData => {
   const derivedCohort =
     user?.cohort ||
     (user?.studentId ? `K${user.studentId.replace(/\D/g, '').slice(0, 2)}` : '') ||
     'K18';
 
+  const rawAvatar = user?.avatarUrl || user?.avatar || '';
+  const initialAvatar = isDummyAvatar(rawAvatar) ? '' : rawAvatar;
+
   return {
-    avatar: user?.avatarUrl || user?.avatar || '',
+    avatar: initialAvatar,
     name: user?.name || '',
     studentId: user?.studentId || '',
     campus: user?.campus || 'HÒA LẠC',
@@ -136,8 +145,9 @@ export function useEditProfileForm(
           },
         },
         {
-          text: 'Dùng ảnh mẫu FPT',
-          onPress: () => updateField('avatar', SAMPLE_AVATAR_URL),
+          text: 'Xóa ảnh (dùng chữ cái đại diện)',
+          style: 'destructive',
+          onPress: () => updateField('avatar', ''),
         },
         { text: 'Hủy', style: 'cancel' },
       ]

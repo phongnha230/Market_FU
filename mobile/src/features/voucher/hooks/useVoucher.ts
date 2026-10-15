@@ -59,6 +59,26 @@ export const useVoucher = () => {
           // ignore
         }
 
+        try {
+          const serverQuests = await profileMobileService.getQuests();
+          setQuests(serverQuests.map((quest) => {
+            const template = INITIAL_QUESTS.find((item) => item.id === quest.id) || INITIAL_QUESTS[0];
+            return {
+              ...template,
+              id: quest.id,
+              title: quest.title,
+              description: quest.description,
+              coins: quest.coins,
+              isCompleted: quest.isCompleted,
+              actionType: quest.isClaimed ? 'claimed' as const : quest.canClaim ? 'claim' as const : 'link' as const,
+              statusText: quest.isClaimed ? '✓ Đã nhận thưởng' : quest.canClaim ? '✓ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ',
+              actionLabel: quest.isClaimed ? 'Đã nhận ✓' : quest.canClaim ? `Nhận ${quest.coins} Coins` : 'Xem điều kiện',
+            };
+          }));
+        } catch {
+          // Keep the built-in quest presentation while offline.
+        }
+
         // Đồng bộ số dư xu từ profile backend
         try {
           const p = await profileMobileService.getMyProfile();
@@ -140,6 +160,9 @@ export const useVoucher = () => {
       addCoins(earned);
       updateUser({ coins: coins + earned });
       setCheckedInToday(true);
+      setQuests((previous) => previous.map((quest) => quest.id === 'quest-checkin'
+        ? { ...quest, isCompleted: true, actionType: 'claimed', statusText: '✓ Đã nhận thưởng', actionLabel: 'Đã nhận ✓' }
+        : quest));
       setStreak(res?.streak || streak + 1);
 
       Alert.alert(
@@ -255,24 +278,23 @@ export const useVoucher = () => {
         return;
       }
 
-      if (quest.id === 'quest-checkin') {
-        handleCheckIn();
-        return;
-      }
-
       try {
-        const res = await profileMobileService.claimQuest(quest.id, quest.coins);
-        const earned = res?.coinsEarned || quest.coins;
+        const res = await profileMobileService.claimQuest(quest.id);
+        const earned = res.coinsAdded;
         addCoins(earned);
-        updateUser({ coins: coins + earned });
-
-        setQuests((prev) =>
-          prev.map((q) =>
-            q.id === quest.id
-              ? { ...q, isCompleted: true, actionType: 'claimed', statusText: '✓ Đã nhận thưởng' }
-              : q
-          )
-        );
+        updateUser({ coins: res.newBalance });
+        if (quest.id === 'quest-checkin') setCheckedInToday(true);
+        const refreshedQuests = await profileMobileService.getQuests();
+        setQuests((prev) => prev.map((item) => {
+          const updated = refreshedQuests.find((candidate) => candidate.id === item.id);
+          return updated ? {
+            ...item,
+            isCompleted: updated.isCompleted,
+            actionType: updated.isClaimed ? 'claimed' : updated.canClaim ? 'claim' : 'link',
+            statusText: updated.isClaimed ? '✓ Đã nhận thưởng' : updated.canClaim ? '✓ Đã đủ điều kiện nhận thưởng' : 'Chưa hoàn thành điều kiện nhiệm vụ',
+            actionLabel: updated.isClaimed ? 'Đã nhận ✓' : updated.canClaim ? `Nhận ${updated.coins} Coins` : 'Xem điều kiện',
+          } : item;
+        }));
 
         Alert.alert('🎉 Nhận thưởng thành công!', `Bạn nhận được +${earned} Campus Coins từ nhiệm vụ.`);
       } catch (err: any) {
