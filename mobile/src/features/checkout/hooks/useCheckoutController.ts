@@ -5,6 +5,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useVoucherStore } from '../../../stores/voucherStore';
 import { orderMobileService } from '../../../services/orderMobileService';
+import { fromBackendCampus } from '../../../lib/backendMappers';
 
 export function useCheckoutController() {
   const navigation = useNavigation<any>();
@@ -12,6 +13,8 @@ export function useCheckoutController() {
   const { user, isAuthenticated } = useUserStore();
   const { myVouchers, isLoading: loadingVouchers, fetchVouchers, useVoucherCode } = useVoucherStore();
   const addOrder = useOrderStore((s) => s.addOrder);
+
+  const buyerCampus = useMemo(() => fromBackendCampus(user?.campus) || 'Hòa Lạc', [user?.campus]);
 
   // Fetch available user vouchers on mount
   useEffect(() => {
@@ -281,7 +284,7 @@ export function useCheckoutController() {
         timeSlot: createdOrder.timeSlot || formattedSlot,
         isDifferentCampus,
         fromCampus: product.sellerCampus || 'Hòa Lạc',
-        toCampus: user?.campus || 'Đà Nẵng',
+        toCampus: buyerCampus,
       });
     } catch (err: any) {
       console.log('⚠️ [createOrder error]:', err?.message);
@@ -418,5 +421,6 @@ export function useCheckoutController() {
     handleSelectVoucher,
     handleApplyCustomVoucher,
     handleNavigateVoucherList,
+    buyerCampus,
   };
 }

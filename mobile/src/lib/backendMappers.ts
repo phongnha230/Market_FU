@@ -175,3 +175,245 @@ export const toBackendPaymentMethod = (method?: string | null): BackendPaymentMe
 export const generate4DigitOtp = (): string => {
   return String(Math.floor(1000 + Math.random() * 9000));
 };
+
+/**
+ * Kiểm tra xem một sản phẩm có khớp với danh mục được chọn hay không
+ */
+export const isProductInCategory = (
+  product: {
+    category?: string;
+    categoryType?: string;
+    title?: string;
+    description?: string;
+    hashtags?: string[];
+    badge?: string;
+    price?: number | string;
+    originalPrice?: number | string;
+  },
+  selectedCategoryId: string
+): boolean => {
+  if (!selectedCategoryId || selectedCategoryId === 'ALL' || selectedCategoryId === 'all') {
+    return true;
+  }
+
+  const rawCat = (product.category || '').toLowerCase();
+  const rawType = (product.categoryType || '').toUpperCase();
+  const title = (product.title || '').toLowerCase();
+  const desc = (product.description || '').toLowerCase();
+  const tags = (product.hashtags || []).map((t) => t.toLowerCase()).join(' ');
+  const text = `${title} ${desc} ${tags}`;
+
+  // 1. Sách & Giáo trình (id: '1' hoặc 'books')
+  if (selectedCategoryId === '1' || selectedCategoryId === 'books' || selectedCategoryId === 'BOOKS') {
+    if (rawCat === 'books' || rawType === 'BOOKS') return true;
+    if (
+      text.includes('sách') ||
+      text.includes('sach') ||
+      text.includes('giáo trình') ||
+      text.includes('giao trinh') ||
+      text.includes('slide') ||
+      text.includes('đề thi') ||
+      text.includes('de thi') ||
+      /\b(mas291|prf192|csd201|csi104|ssg104|swe201|mad101|osg202|mae101|cea201|nwc203)\b/.test(text)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 2. Laptop & Phụ kiện / Đồ điện tử (id: '2' hoặc 'it' hoặc 'electronics')
+  if (
+    selectedCategoryId === '2' ||
+    selectedCategoryId === 'it' ||
+    selectedCategoryId === 'electronics' ||
+    selectedCategoryId === 'ELECTRONICS'
+  ) {
+    const isFurniture =
+      (text.includes('bàn học') ||
+        text.includes('ban hoc') ||
+        text.includes('bàn làm việc') ||
+        text.includes('bàn gỗ') ||
+        text.includes('tủ lạnh') ||
+        text.includes('tu lanh') ||
+        text.includes('quạt') ||
+        text.includes('quat') ||
+        text.includes('nệm') ||
+        text.includes('đệm')) &&
+      !text.includes('bàn phím') &&
+      !text.includes('ban phim');
+
+    if (isFurniture && rawType !== 'ELECTRONICS' && rawCat !== 'it' && rawCat !== 'electronics') {
+      return false;
+    }
+
+    if (rawCat === 'it' || rawCat === 'electronics' || rawType === 'ELECTRONICS') {
+      return !isFurniture;
+    }
+
+    const isTech =
+      text.includes('laptop') ||
+      text.includes('máy tính') ||
+      text.includes('may tinh') ||
+      text.includes('macbook') ||
+      text.includes('ultrabook') ||
+      text.includes('thinkpad') ||
+      text.includes('lenovo') ||
+      text.includes('dell') ||
+      text.includes('asus') ||
+      text.includes('acer') ||
+      text.includes('hp') ||
+      text.includes('chuột') ||
+      text.includes('chuot') ||
+      text.includes('bàn phím') ||
+      text.includes('ban phim') ||
+      text.includes('phím cơ') ||
+      text.includes('phim co') ||
+      text.includes('tai nghe') ||
+      text.includes('headphone') ||
+      text.includes('màn hình') ||
+      text.includes('man hinh') ||
+      text.includes('ram') ||
+      text.includes('ssd') ||
+      text.includes('ổ cứng') ||
+      text.includes('o cung') ||
+      text.includes('sạc') ||
+      text.includes('sac') ||
+      text.includes('cáp') ||
+      text.includes('cap') ||
+      text.includes('akko') ||
+      text.includes('logitech') ||
+      text.includes('razer') ||
+      text.includes('dareu') ||
+      text.includes('ipad') ||
+      text.includes('airpods');
+
+    return isTech && !isFurniture;
+  }
+
+  // 3. Đồ dùng KTX & Gia dụng (id: '3' hoặc 'dom' hoặc 'dorm' hoặc 'DORM_ITEM')
+  if (
+    selectedCategoryId === '3' ||
+    selectedCategoryId === 'dom' ||
+    selectedCategoryId === 'dorm' ||
+    selectedCategoryId === 'DORM_ITEM'
+  ) {
+    if (rawCat === 'dom' || rawCat === 'dorm' || rawType === 'DORM_ITEM') return true;
+    if (
+      text.includes('ktx') ||
+      text.includes('phòng trọ') ||
+      text.includes('phong tro') ||
+      text.includes('tủ lạnh') ||
+      text.includes('tu lanh') ||
+      text.includes('bàn học') ||
+      text.includes('ban hoc') ||
+      text.includes('bàn làm việc') ||
+      text.includes('ban lam viec') ||
+      text.includes('bàn gấp') ||
+      text.includes('ban gap') ||
+      text.includes('giá sách') ||
+      text.includes('gia sach') ||
+      text.includes('quạt') ||
+      text.includes('quat') ||
+      text.includes('đệm') ||
+      text.includes('dem') ||
+      text.includes('nệm') ||
+      text.includes('tủ vải') ||
+      text.includes('tu vai') ||
+      text.includes('ấm siêu tốc') ||
+      text.includes('am sieu toc') ||
+      text.includes('nồi') ||
+      text.includes('noi') ||
+      text.includes('bếp') ||
+      text.includes('bep') ||
+      text.includes('ghế') ||
+      text.includes('ghe') ||
+      text.includes('kệ') ||
+      text.includes('ke') ||
+      text.includes('cooltech') ||
+      text.includes('aqua') ||
+      text.includes('lock&lock')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 4. Võ phục Vovinam / Thời trang (id: '4' hoặc 'vovinam' hoặc 'clothing' hoặc 'CLOTHING')
+  if (
+    selectedCategoryId === '4' ||
+    selectedCategoryId === 'vovinam' ||
+    selectedCategoryId === 'clothing' ||
+    selectedCategoryId === 'CLOTHING'
+  ) {
+    if (rawCat === 'vovinam' || rawCat === 'clothing' || rawType === 'CLOTHING') return true;
+    if (
+      text.includes('vovinam') ||
+      text.includes('võ phục') ||
+      text.includes('vo phuc') ||
+      text.includes('áo') ||
+      text.includes('ao') ||
+      text.includes('quần') ||
+      text.includes('quan') ||
+      text.includes('đồng phục') ||
+      text.includes('dong phuc') ||
+      text.includes('polo') ||
+      text.includes('hoodie') ||
+      text.includes('đai') ||
+      text.includes('dai') ||
+      text.includes('thời trang') ||
+      text.includes('thoi trang')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 5. Pass đồ gấp (id: '5' hoặc 'urgent' hoặc 'gap')
+  if (
+    selectedCategoryId === '5' ||
+    selectedCategoryId === 'urgent' ||
+    selectedCategoryId === 'gap'
+  ) {
+    const badge = (product.badge || '').toLowerCase();
+    if (badge.includes('gấp') || badge.includes('gap')) return true;
+    if (
+      tags.includes('#gap') ||
+      tags.includes('#passgap') ||
+      text.includes('gấp') ||
+      text.includes('gap') ||
+      text.includes('pass nhanh') ||
+      text.includes('thanh lý gấp') ||
+      text.includes('bán gấp')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 6. Phương tiện đi lại (id: '6' hoặc 'vehicle' hoặc 'VEHICLE')
+  if (
+    selectedCategoryId === '6' ||
+    selectedCategoryId === 'vehicle' ||
+    selectedCategoryId === 'VEHICLE'
+  ) {
+    if (rawCat === 'vehicle' || rawType === 'VEHICLE') return true;
+    if (
+      text.includes('xe máy') ||
+      text.includes('xe may') ||
+      text.includes('xe đạp') ||
+      text.includes('xe dap') ||
+      text.includes('xe điện') ||
+      text.includes('xe dien') ||
+      text.includes('mũ bảo hiểm')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // Fallback so khớp theo slug hoặc id chung
+  if (rawCat && rawCat === selectedCategoryId.toLowerCase()) return true;
+  if (rawType && rawType === selectedCategoryId.toUpperCase()) return true;
+
+  return false;
+};

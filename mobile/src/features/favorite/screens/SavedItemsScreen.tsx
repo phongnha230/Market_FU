@@ -17,6 +17,8 @@ import { SavedProductCard } from '../components/SavedProductCard';
 import { SavedItemsEmptyState } from '../components/SavedItemsEmptyState';
 import { SavedItemsTopNav } from '../components/SavedItemsTopNav';
 import { SavedItemsPriceDropBanner } from '../components/SavedItemsPriceDropBanner';
+import { isProductInCategory } from '../../../lib/backendMappers';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
 export interface SavedProductItem {
   id: string;
@@ -107,7 +109,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           statusText,
           statusBadge: isSold ? 'Đã giao dịch' : sp.condition || '99%',
           actionType: isClosed ? 'detail' : 'chat',
-          image: sp.images?.[0] || sp.image || require('../../../../assets/products/monitor-dell-24.jpg'),
+          image: resolveProductImage(sp.images?.[0] || sp.image),
           category: sp.category || 'tech',
           status: sp.status || 'AVAILABLE',
           isSoldOrReserved: isClosed,
@@ -223,7 +225,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   const filteredProducts = React.useMemo(() => {
     let result = products.filter((p) => {
       if (selectedCategory === 'all') return true;
-      return p.category === selectedCategory;
+      return isProductInCategory(p, selectedCategory);
     });
 
     if (sortOrder === 'price') {

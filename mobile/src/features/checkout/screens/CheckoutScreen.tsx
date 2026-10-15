@@ -78,7 +78,7 @@ export const CheckoutScreen: React.FC = () => {
           appointmentSlot={ctrl.appointmentSlot}
           onSelectAppointmentSlot={ctrl.setAppointmentSlot}
           sellerCampus={ctrl.product.sellerCampus}
-          buyerCampus="Hòa Lạc"
+          buyerCampus={ctrl.buyerCampus}
           deliveryNote={ctrl.deliveryNote}
           onChangeDeliveryNote={ctrl.setDeliveryNote}
         />

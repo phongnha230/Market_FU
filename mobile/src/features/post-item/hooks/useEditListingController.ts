@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useProductStore, ProductItem } from '../../../stores/productStore';
 import { useUserStore } from '../../../stores/userStore';
 import { fromBackendCampus } from '../../../lib/backendMappers';
+import { productMobileService } from '../../../services/productMobileService';
 
 export interface EditListingFormData {
   title: string;
@@ -28,7 +29,7 @@ const getInitialFormData = (product?: ProductItem): EditListingFormData => ({
   safePoint: product?.safePoint || 'Trạm Safe-Point Sảnh Tòa Alpha',
   status: product?.status || 'AVAILABLE',
   allowNegotiate: product?.allowNegotiate ?? true,
-  hashtags: product?.hashtags || ['banphimco', 'akko', 'giare'],
+  hashtags: Array.isArray(product?.hashtags) ? product.hashtags : [],
 });
 
 const validateForm = (title: string, priceStr: string): number | null => {
@@ -90,9 +91,28 @@ export const useEditListingController = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const price = validateForm(formData.title, formData.priceStr);
     if (price === null || !currentProduct?.id) return;
+
+    try {
+      await productMobileService.updateProduct(currentProduct.id, {
+        title: formData.title.trim(),
+        price,
+        category: formData.category,
+        condition: formData.condition,
+        safePoint: formData.safePoint,
+        campus: sellerCampus,
+        hashtags: formData.hashtags,
+        description: currentProduct.description,
+      });
+
+      if (formData.status && formData.status !== currentProduct.status) {
+        await productMobileService.updateProductStatus(currentProduct.id, formData.status);
+      }
+    } catch (e: any) {
+      console.log('⚠️ [updateProduct API error, saving to local store]:', e?.message);
+    }
 
     updateProduct(currentProduct.id, {
       title: formData.title.trim(),
@@ -108,11 +128,16 @@ export const useEditListingController = () => {
 
     Alert.alert('✅ Thành công', 'Tin đăng đã được cập nhật thành công!');
     navigation.goBack();
-  }, [formData, currentProduct?.id, updateProduct, sellerCampus, navigation]);
+  }, [formData, currentProduct?.id, currentProduct?.status, currentProduct?.description, updateProduct, sellerCampus, navigation]);
 
   const handleDelete = useCallback(() => {
-    confirmDeleteListing(() => {
+    confirmDeleteListing(async () => {
       if (currentProduct?.id) {
+        try {
+          await productMobileService.deleteProduct(currentProduct.id);
+        } catch (e: any) {
+          console.log('⚠️ [deleteProduct API error, deleting from local store]:', e?.message);
+        }
         deleteProduct(currentProduct.id);
         Alert.alert('Đã xóa', 'Tin đăng đã được xóa khỏi hệ thống.');
         navigation.goBack();

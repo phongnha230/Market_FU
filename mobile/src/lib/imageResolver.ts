@@ -102,8 +102,7 @@ export function resolveProductImage(source: any): any {
   return DEFAULT_PRODUCT_FALLBACK;
 }
 
-export const DEFAULT_AVATAR_URL =
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80';
+export const DEFAULT_AVATAR_URL = '';
 
 /**
  * Phân giải ảnh đại diện Avatar cho Mobile.
@@ -115,7 +114,7 @@ export const DEFAULT_AVATAR_URL =
  */
 export function resolveAvatarImage(source: any, fallbackUrl: string = DEFAULT_AVATAR_URL): any {
   if (!source) {
-    return { uri: fallbackUrl };
+    return fallbackUrl ? { uri: fallbackUrl } : null;
   }
 
   if (typeof source === 'number') {

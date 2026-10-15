@@ -5,6 +5,7 @@ import { PostCategory, PostCondition, PostImageItem } from '../types/post-item.t
 import { useProductStore } from '../../../stores/productStore';
 import { useUserStore } from '../../../stores/userStore';
 import { fromBackendCampus } from '../../../lib/backendMappers';
+import { productMobileService } from '../../../services/productMobileService';
 
 export const getCampusDefaultSafePoint = (campus: string): string => {
   const c = campus.trim().toUpperCase();
@@ -132,7 +133,7 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
     setHashtags(hashtags.filter((t) => t !== tagToRemove));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!user) {
       Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập tài khoản Người bán để đăng tin.');
       return;
@@ -163,24 +164,66 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
         ? description.trim()
         : `${title.trim()} - Cần pass lại giá sinh viên FPT tại cơ sở ${sellerCampus}. Tình trạng tốt, có thể test đồ trực tiếp tại Safe-point.`;
 
-    addProduct({
-      title: title.trim(),
-      price: rawPrice,
-      condition: selectedCondition === 'new' ? 'Mới 100%' : 'Like new 99%',
-      category: selectedCategory === 'book' ? 'books' : 'electronics',
-      images: images.map((i) => (typeof i.source === 'object' && i.source.uri ? i.source.uri : i.source)),
-      campus: sellerCampus, // Khóa cứng theo cơ sở Seller đăng ký
-      sellerId: currentSeller.id,
-      sellerName: currentSeller.name,
-      sellerCohort: currentSeller.cohort || `${sellerCampus} Tech Store`,
-      sellerRating: currentSeller.rating || 5.0,
-      sellerIsVerified: true,
-      safePoint: selectedSafePoint,
-      allowNegotiate,
-      campusShipEnabled,
-      hashtags,
-      description: finalDescription,
-    });
+    const mappedCategory =
+      selectedCategory === 'book'
+        ? 'BOOKS'
+        : selectedCategory === 'dom'
+        ? 'DORM_ITEM'
+        : selectedCategory === 'vovinam'
+        ? 'CLOTHING'
+        : 'ELECTRONICS';
+
+    const mappedCondition =
+      selectedCondition === 'new'
+        ? 'NEW_100'
+        : selectedCondition === 'good'
+        ? 'USED_GOOD'
+        : 'USED_FAIR';
+
+    const finalImageUrls = images.map((i) =>
+      typeof i.source === 'object' && i.source.uri ? i.source.uri : i.source
+    );
+
+    try {
+      const created = await productMobileService.createProduct({
+        title: title.trim(),
+        price: rawPrice,
+        condition: mappedCondition,
+        category: mappedCategory,
+        images: finalImageUrls,
+        campus: sellerCampus,
+        safePoint: selectedSafePoint,
+        allowNegotiate,
+        campusShipEnabled,
+        hashtags,
+        description: finalDescription,
+      });
+
+      if (created) {
+        addProduct(created);
+      }
+    } catch (err: any) {
+      console.log('⚠️ [createProduct backend error, fallback to local store]:', err?.message);
+      // Fallback lưu local store nếu backend offline
+      addProduct({
+        title: title.trim(),
+        price: rawPrice,
+        condition: selectedCondition === 'new' ? 'Mới 100%' : 'Like new 99%',
+        category: selectedCategory === 'book' ? 'books' : selectedCategory === 'dom' ? 'dom' : selectedCategory === 'vovinam' ? 'vovinam' : 'electronics',
+        images: finalImageUrls,
+        campus: sellerCampus, // Khóa cứng theo cơ sở Seller đăng ký
+        sellerId: currentSeller.id,
+        sellerName: currentSeller.name,
+        sellerCohort: currentSeller.cohort || `${sellerCampus} Tech Store`,
+        sellerRating: currentSeller.rating || 5.0,
+        sellerIsVerified: true,
+        safePoint: selectedSafePoint,
+        allowNegotiate,
+        campusShipEnabled,
+        hashtags,
+        description: finalDescription,
+      });
+    }
 
     Alert.alert(
       '🎉 Đăng tin thành công!',
