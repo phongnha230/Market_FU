@@ -247,7 +247,7 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
     // 7. Truy vấn trạng thái Presence của danh sách users (Batch Presence)
     socket.on('check_presence', async (data: { userIds: string[] }, callback: any) => {
       try {
-        if (typeof callback === 'function' && Array.isArray(data?.userIds)) {
+        if (typeof callback === 'function' && Array.isArray(data?.userIds) && data.userIds.length <= 100) {
           const { presenceService } = await import('../modules/presence/presence.service');
           const result = await presenceService.getBatchPresence(data.userIds);
           callback(result);

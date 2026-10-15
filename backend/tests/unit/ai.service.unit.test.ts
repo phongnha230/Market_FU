@@ -1,12 +1,17 @@
-import { describe, it, after } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { authenticateOptional, AuthRequest } from '../../src/middlewares/auth.middleware';
 import { generateTokens } from '../../src/utils/token';
 import { aiService } from '../../src/modules/ai/ai.service';
 import { AppError } from '../../src/middlewares/error.middleware';
 import { prisma } from '../../src/config/prisma';
+import { ensureTestAuthUser } from '../helpers/authFixture';
 
 describe('Unit Test: AI Service & Optional Authentication Guardrails', () => {
+  before(async () => {
+    await ensureTestAuthUser('65f1a2b3c4d5e6f7a8b9c0d1', 'sinhvien@fpt.edu.vn', 'BUYER');
+  });
+
   after(async () => {
     await prisma.$disconnect();
     setTimeout(() => process.exit(0), 500);
@@ -27,7 +32,7 @@ describe('Unit Test: AI Service & Optional Authentication Guardrails', () => {
       assert.strictEqual(req.user, undefined);
     });
 
-    it('Cho phép request với token hợp lệ gắn req.user chính xác', () => {
+    it('Cho phép request với token hợp lệ gắn req.user chính xác', async () => {
       const { accessToken } = generateTokens({
         userId: '65f1a2b3c4d5e6f7a8b9c0d1',
         email: 'sinhvien@fpt.edu.vn',
@@ -39,14 +44,10 @@ describe('Unit Test: AI Service & Optional Authentication Guardrails', () => {
           authorization: `Bearer ${accessToken}`,
         },
       };
-      let nextCalled = false;
       const res: any = {};
-      const next = () => {
-        nextCalled = true;
-      };
-
-      authenticateOptional(req as AuthRequest, res, next);
-      assert.strictEqual(nextCalled, true);
+      await new Promise<void>((resolve, reject) => {
+        authenticateOptional(req as AuthRequest, res, (error?: unknown) => error ? reject(error) : resolve());
+      });
       assert.strictEqual(req.user?.userId, '65f1a2b3c4d5e6f7a8b9c0d1');
       assert.strictEqual(req.user?.email, 'sinhvien@fpt.edu.vn');
       assert.strictEqual(req.user?.role, 'BUYER');

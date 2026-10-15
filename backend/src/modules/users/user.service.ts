@@ -108,68 +108,30 @@ export class UserService {
   /**
    * Lấy thông tin người dùng theo ID (Bảo vệ PII: Ẩn SĐT và che mờ Email đối với khách vãng lai / người dùng khác)
    */
-  async getUserById(userId: string, currentUser?: { userId?: string; role?: string }) {
-    const isEmail = userId.includes('@');
-    const user = isEmail
-      ? await prisma.user.findUnique({
-          where: { email: userId.trim().toLowerCase() },
+  async getUserById(userId: string) {
+    if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+      throw new AppError('Hồ sơ công khai chỉ được tra cứu bằng user ID', 400, 'USER_ID_REQUIRED');
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        createdAt: true,
+        profile: {
           select: {
-            id: true,
-            email: true,
-            role: true,
-            isActive: true,
-            createdAt: true,
-            profile: {
-              select: {
-                fullName: true,
-                avatarUrl: true,
-                avatarBadge: true,
-                phoneNumber: true,
-                campus: true,
-                reputationScore: true,
-                campusCoins: true,
-                kyc: true,
-                bankAccount: true,
-              },
-            },
+            fullName: true,
+            avatarUrl: true,
+            avatarBadge: true,
+            campus: true,
+            reputationScore: true,
           },
-        })
-      : await prisma.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            isActive: true,
-            createdAt: true,
-            profile: {
-              select: {
-                fullName: true,
-                avatarUrl: true,
-                avatarBadge: true,
-                phoneNumber: true,
-                campus: true,
-                reputationScore: true,
-                campusCoins: true,
-                kyc: true,
-                bankAccount: true,
-              },
-            },
-          },
-        });
+        },
+      },
+    });
 
     if (!user) {
       throw new AppError('Không tìm thấy người dùng', 404, 'USER_NOT_FOUND');
     }
-
-    const isPrivileged =
-      currentUser &&
-      (currentUser.role === 'ADMIN' || currentUser.userId === user.id);
-
-    // Che mờ email nếu không phải ADMIN hoặc chính chủ (chống cào dữ liệu email sinh viên)
-    const safeEmail = isPrivileged || isEmail
-      ? user.email
-      : user.email.replace(/(.{2})(.*)(?=@)/, (_m, p1, p2) => p1 + '*'.repeat(Math.max(p2.length, 3)));
 
     // Tính toán số liệu thống kê THẬT 100% từ Database
     const [dealCount, reviewAgg, activeListingsCount] = await Promise.all([
@@ -200,27 +162,15 @@ export class UserService {
 
     return {
       id: user.id,
-      email: safeEmail,
       fullName: user.profile?.fullName,
       avatarUrl: user.profile?.avatarUrl,
-      phoneNumber: isPrivileged
-        ? user.profile?.phoneNumber
-        : user.profile?.phoneNumber
-          ? user.profile.phoneNumber.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
-          : undefined,
-      role: user.role,
       campus: user.profile?.campus,
-      campusCoins: isPrivileged ? (user.profile?.campusCoins ?? 0) : undefined,
+      avatarBadge: user.profile?.avatarBadge,
       reputationScore: user.profile?.reputationScore ?? 100,
       dealCount,
       reviewCount,
       rating,
       activeListingsCount,
-      kyc: user.profile?.kyc ? {
-        status: user.profile.kyc.status,
-      } : (user.email.endsWith('@fpt.edu.vn') ? { status: 'APPROVED' } : undefined),
-      bankAccount: isPrivileged ? user.profile?.bankAccount : undefined,
-      isActive: user.isActive,
       createdAt: user.createdAt,
     };
   }

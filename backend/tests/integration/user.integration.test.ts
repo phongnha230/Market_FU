@@ -1,20 +1,15 @@
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import app from '../../src/app';
-import { generateTokens } from '../../src/utils/token';
+import { ensureTestAuthUser } from '../helpers/authFixture';
 
 describe('Integration Test: User Module (/api/users)', () => {
-  const studentToken = generateTokens({
-    userId: '65f1a2b3c4d5e6f7a8b9c001',
-    role: 'STUDENT',
-    email: 'student.user@fpt.edu.vn',
-  }).accessToken;
-
-  const adminToken = generateTokens({
-    userId: '65f1a2b3c4d5e6f7a8b9c002',
-    role: 'ADMIN',
-    email: 'admin.user@fpt.edu.vn',
-  }).accessToken;
+  let studentToken = '';
+  let adminToken = '';
+  before(async () => {
+    studentToken = await ensureTestAuthUser('65f1a2b3c4d5e6f7a8b9c001', 'student.user@fpt.edu.vn', 'BUYER');
+    adminToken = await ensureTestAuthUser('65f1a2b3c4d5e6f7a8b9c002', 'admin.user@fpt.edu.vn', 'ADMIN');
+  });
 
   it('GET /api/users/:id với ID không tồn tại phải trả về 404 USER_NOT_FOUND', async () => {
     const server = app.listen(0);

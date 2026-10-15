@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { PresenceController } from './presence.controller';
-import { authenticate } from '../../middlewares/auth.middleware';
 
 const router = Router();
 const controller = new PresenceController();

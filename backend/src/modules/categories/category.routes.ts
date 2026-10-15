@@ -9,7 +9,7 @@ router.get('/', categoryController.getCategories);
 router.get('/:slug', categoryController.getCategoryBySlug);
 
 // Seed danh mục chuẩn FU (Hỗ trợ setup ban đầu nhanh chóng)
-router.post('/seed', categoryController.seedDefaultCategories);
+router.post('/seed', authenticate, authorize('ADMIN'), categoryController.seedDefaultCategories);
 
 // Protected routes (Dành riêng cho Quản trị viên ADMIN quản lý danh mục)
 router.post('/', authenticate, authorize('ADMIN'), categoryController.createCategory);

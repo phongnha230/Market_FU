@@ -108,8 +108,26 @@ export const queryCoinHistorySchema = z.object({
 export type QueryCoinHistoryInput = z.infer<typeof queryCoinHistorySchema>;
 
 export const claimQuestSchema = z.object({
-  questId: z.string({ required_error: 'Mã nhiệm vụ là bắt buộc' }),
-  amount: z.coerce.number().int().positive().max(200, 'Phần thưởng nhiệm vụ tối đa 200 Xu').default(20),
+  questId: z.string({ required_error: 'Mã nhiệm vụ là bắt buộc' }).min(1).max(80),
 });
 export type ClaimQuestInput = z.infer<typeof claimQuestSchema>;
+
+export const questConditionSchema = z.enum([
+  'DAILY_CHECKIN',
+  'APPROVED_KYC',
+  'CREATED_LISTING',
+  'COMPLETED_REVIEW',
+  'COMPLETED_SAFE_HANDOFF',
+]);
+export const questAdminInputSchema = z.object({
+  title: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).default(''),
+  rewardCoins: z.number().int().min(1).max(200),
+  conditionType: questConditionSchema,
+  cadence: z.enum(['ONCE', 'DAILY', 'WEEKLY']),
+  isActive: z.boolean().optional(),
+  iconType: z.string().max(30).default('other'),
+  managedBy: z.string().trim().max(100).default('Ban Quản Trị Sàn'),
+});
+export type QuestAdminInput = z.infer<typeof questAdminInputSchema>;
 

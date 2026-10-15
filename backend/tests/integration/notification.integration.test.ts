@@ -1,15 +1,13 @@
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import app from '../../src/app';
-import { generateTokens } from '../../src/utils/token';
+import { ensureTestAuthUser } from '../helpers/authFixture';
 
 describe('Integration Test: Notification Module (/api/notifications)', () => {
-  const dummyUser = {
-    userId: '65f1a2b3c4d5e6f7a8b9c0d1',
-    role: 'BUYER',
-    email: 'test_notification_user@fe.edu.vn',
-  };
-  const { accessToken } = generateTokens(dummyUser);
+  let accessToken = '';
+  before(async () => {
+    accessToken = await ensureTestAuthUser('65f1a2b3c4d5e6f7a8b9c0d1', 'test_notification_user@fe.edu.vn', 'BUYER');
+  });
 
   it('GET /api/notifications không có token phải trả về 401 UNAUTHORIZED', async () => {
     const server = app.listen(0);

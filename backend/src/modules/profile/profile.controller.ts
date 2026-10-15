@@ -10,7 +10,9 @@ import {
   createWithdrawalSchema,
   queryCoinHistorySchema,
   claimQuestSchema,
+  questAdminInputSchema,
 } from './profile.dto';
+import { questService } from './quest.service';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 
 export class ProfileController {
@@ -201,8 +203,47 @@ export class ProfileController {
     try {
       const authReq = req as AuthRequest;
       const validatedData = claimQuestSchema.parse(req.body);
-      const result = await profileService.claimQuest(authReq.user!.userId, validatedData);
+      const userId = authReq.user!.userId;
+      const result = validatedData.questId === 'quest-checkin'
+        ? { ...await profileService.checkInDaily(userId), questId: validatedData.questId }
+        : await questService.claim(userId, validatedData.questId);
       return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getQuests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      return sendSuccess(res, await questService.getForUser(authReq.user!.userId));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getQuestsAdmin = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      return sendSuccess(res, await questService.getAllForAdmin());
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createQuestAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const input = questAdminInputSchema.parse(req.body);
+      return sendSuccess(res, await questService.create(input), undefined, 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateQuestAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const questCode = Array.isArray(req.params.questCode) ? req.params.questCode[0] : req.params.questCode;
+      const input = questAdminInputSchema.partial().parse(req.body);
+      return sendSuccess(res, await questService.update(questCode, input));
     } catch (error) {
       next(error);
     }

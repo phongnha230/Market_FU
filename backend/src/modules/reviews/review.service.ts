@@ -501,6 +501,13 @@ export class ReviewService {
       throw new AppError('Không tìm thấy đánh giá cần chuyển trạng thái', 404, 'REVIEW_NOT_FOUND');
     }
 
+    if (review.reviewerId !== userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (user?.role !== 'ADMIN') {
+        throw new AppError('Chỉ người đánh giá hoặc quản trị viên mới có quyền đổi trạng thái công khai', 403, 'FORBIDDEN');
+      }
+    }
+
     const updated = await prisma.review.update({
       where: { id: review.id },
       data: {

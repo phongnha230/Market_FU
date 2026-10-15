@@ -50,6 +50,12 @@ router.patch('/admin/withdrawals/:id', authorize('ADMIN'), profileController.pro
 // Xem lịch sử biến động sổ cái CoinTransaction
 router.get('/coins/history', profileController.getCoinHistory);
 
+// Quest catalogue is personalized from verified backend activity.
+router.get('/quests', profileController.getQuests);
+router.get('/admin/quests', authorize('ADMIN'), profileController.getQuestsAdmin);
+router.post('/admin/quests', authorize('ADMIN'), profileController.createQuestAdmin);
+router.patch('/admin/quests/:questCode', authorize('ADMIN'), profileController.updateQuestAdmin);
+
 // Điểm danh nhận Xu hàng ngày & Nhiệm vụ tuần
 router.get('/check-in-status', profileController.getCheckInStatus);
 router.post('/check-in', profileController.checkInDaily);

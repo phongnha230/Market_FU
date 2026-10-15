@@ -491,53 +491,27 @@ export class ProfileService {
    * Xem hồ sơ công khai của một người bán / sinh viên khác
    */
   async getPublicProfile(targetUserId: string) {
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(targetUserId);
-    let profile = null;
-    if (isObjectId) {
-      profile = await prisma.profile.findFirst({
-        where: {
-          OR: [{ userId: targetUserId }, { id: targetUserId }],
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              role: true,
-              createdAt: true,
-              _count: {
-                select: {
-                  products: { where: { status: 'AVAILABLE' } },
-                  receivedReviews: true,
-                },
+    if (!/^[0-9a-fA-F]{24}$/.test(targetUserId)) {
+      throw new AppError('Hồ sơ công khai chỉ được tra cứu bằng user ID', 400, 'USER_ID_REQUIRED');
+    }
+    const profile = await prisma.profile.findFirst({
+      where: { userId: targetUserId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            role: true,
+            createdAt: true,
+            _count: {
+              select: {
+                products: { where: { status: 'AVAILABLE' } },
+                receivedReviews: true,
               },
             },
           },
         },
-      });
-    }
-
-    if (!profile) {
-      profile = await prisma.profile.findFirst({
-        where: {
-          fullName: targetUserId,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              role: true,
-              createdAt: true,
-              _count: {
-                select: {
-                  products: { where: { status: 'AVAILABLE' } },
-                  receivedReviews: true,
-                },
-              },
-            },
-          },
-        },
-      });
-    }
+      },
+    });
 
     if (!profile) {
       throw new AppError('Không tìm thấy người bán', 404, 'SELLER_NOT_FOUND');
@@ -917,7 +891,11 @@ export class ProfileService {
       throw new AppError('Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.', 400, 'ALREADY_CHECKED_IN_TODAY');
     }
 
-    const COIN_REWARD = 20;
+    const checkInQuest = await prisma.quest.findUnique({
+      where: { questCode: 'quest-checkin' },
+      select: { rewardCoins: true },
+    });
+    const coinReward = checkInQuest?.rewardCoins ?? 20;
 
     // 2. Thực hiện Transaction: Lưu DailyCheckIn + Cộng Xu + Ghi sổ cái CoinTransaction
     const result = await prisma.$transaction(async (tx) => {
@@ -925,14 +903,14 @@ export class ProfileService {
         data: {
           userId,
           dateStr: todayStr,
-          coinsAwarded: COIN_REWARD,
+          coinsAwarded: coinReward,
         },
       });
 
       const updatedProfile = await tx.profile.update({
         where: { userId },
         data: {
-          campusCoins: { increment: COIN_REWARD },
+          campusCoins: { increment: coinReward },
         },
         select: { campusCoins: true },
       });
@@ -940,10 +918,10 @@ export class ProfileService {
       await tx.coinTransaction.create({
         data: {
           userId,
-          amount: COIN_REWARD,
+          amount: coinReward,
           type: 'DAILY_CHECKIN',
           balanceAfter: updatedProfile.campusCoins,
-          description: `Điểm danh hàng ngày (+${COIN_REWARD} Xu)`,
+          description: `Điểm danh hàng ngày (+${coinReward} Xu)`,
         },
       });
 
@@ -960,103 +938,17 @@ export class ProfileService {
     // Bắn realtime socket thông báo số dư xu mới
     emitToUser(userId, 'profile:coins_updated', {
       campusCoins: result.newCoins,
-      reward: COIN_REWARD,
+      reward: coinReward,
       source: 'DAILY_CHECKIN',
     });
 
     return {
       success: true,
-      coinsAdded: COIN_REWARD,
+      coinsAdded: coinReward,
       newBalance: result.newCoins,
       dateStr: todayStr,
       monthlyCheckIns,
       checkedInAt: result.checkIn.createdAt,
-    };
-  }
-
-  /**
-   * Nhận thưởng nhiệm vụ tuần (Quest Coins) - Bảo mật: Xác thực định mức coin server-side chống gian lận
-   * Reset: Mỗi quest chỉ được claim 1 lần/tuần (Thứ 2 00:00 → Chủ Nhật 23:59 theo giờ UTC+7)
-   */
-  async claimQuest(userId: string, input: { questId: string; amount?: number }) {
-    // Whitelist định mức coin server-side nghiêm ngặt cho từng loại nhiệm vụ
-    const QUEST_REWARDS: Record<string, number> = {
-      'quest-review': 50,
-      'quest-kyc': 100,
-      'quest-post': 30,
-      'quest-safepoint': 40,
-      WEEKLY_001: 20,
-      WEEKLY_002: 50,
-      WEEKLY_LISTING: 50,
-      FIRST_REVIEW: 30,
-      KYC_COMPLETE: 100,
-      DAILY_SHARE: 10,
-    };
-
-    // Xác định mức thưởng: nếu có trong whitelist thì dùng giá trị server; nếu không thì chặn trần tối đa 200 coin
-    const predefinedReward = QUEST_REWARDS[input.questId];
-    const rewardCoins = predefinedReward !== undefined ? predefinedReward : Math.min(Math.max(1, Number(input.amount) || 20), 200);
-
-    // ── Kiểm tra đã claim quest này trong tuần hiện tại chưa (UTC+7) ──────────
-    const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000); // giờ VN (UTC+7)
-    const dayOfWeek = nowVN.getUTCDay(); // 0=CN, 1=T2, ..., 6=T7
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // số ngày kể từ T2
-    const startOfWeekVN = new Date(nowVN);
-    startOfWeekVN.setUTCHours(0, 0, 0, 0);
-    startOfWeekVN.setUTCDate(startOfWeekVN.getUTCDate() - daysFromMonday);
-    const startOfWeekUTC = new Date(startOfWeekVN.getTime() - 7 * 60 * 60 * 1000); // convert về UTC để query DB
-
-    const existingClaim = await prisma.coinTransaction.findFirst({
-      where: {
-        userId,
-        type: 'QUEST_REWARD',
-        referenceId: input.questId,
-        createdAt: { gte: startOfWeekUTC },
-      },
-    });
-
-    if (existingClaim) {
-      const nextMonday = new Date(startOfWeekVN);
-      nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
-      throw Object.assign(new Error('Bạn đã nhận thưởng nhiệm vụ này rồi, hãy quay lại tuần sau nhé!'), {
-        statusCode: 409,
-        resetAt: new Date(nextMonday.getTime() - 7 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedProfile = await tx.profile.update({
-        where: { userId },
-        data: { campusCoins: { increment: rewardCoins } },
-        select: { campusCoins: true },
-      });
-
-      await tx.coinTransaction.create({
-        data: {
-          userId,
-          amount: rewardCoins,
-          type: 'QUEST_REWARD',
-          referenceId: input.questId, // lưu để check duplicate tuần sau
-          balanceAfter: updatedProfile.campusCoins,
-          description: `Thưởng nhiệm vụ tuần [${input.questId}] (+${rewardCoins} Xu)`,
-        },
-      });
-
-      return updatedProfile.campusCoins;
-    });
-
-    emitToUser(userId, 'profile:coins_updated', {
-      campusCoins: result,
-      reward: rewardCoins,
-      source: 'QUEST_REWARD',
-    });
-
-    return {
-      success: true,
-      coinsAdded: rewardCoins,
-      newBalance: result,
-      questId: input.questId,
     };
   }
 

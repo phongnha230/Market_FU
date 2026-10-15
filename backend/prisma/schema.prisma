@@ -113,6 +113,12 @@ enum CoinTransactionType {
   QUEST_REWARD
 }
 
+enum QuestCadence {
+  ONCE
+  DAILY
+  WEEKLY
+}
+
 enum VoucherPartner {
   CANTEEN
   PASSIO
@@ -231,6 +237,7 @@ model User {
   submittedReports   Report[]            @relation("UserReports")
   vouchers           UserVoucher[]       @relation("UserVouchers")
   checkIns           DailyCheckIn[]      @relation("UserCheckIns")
+  questClaims        QuestClaim[]
 
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -509,6 +516,37 @@ model CoinTransaction {
   createdAt    DateTime            @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
+}
+
+model Quest {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  questCode     String       @unique
+  title         String
+  description   String
+  rewardCoins   Int
+  conditionType String
+  cadence       QuestCadence @default(WEEKLY)
+  isActive      Boolean      @default(true)
+  iconType      String       @default("other")
+  managedBy     String       @default("Ban Quản Trị Sàn")
+  claims        QuestClaim[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([isActive, cadence])
+}
+
+model QuestClaim {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId   String   @db.ObjectId
+  quest     Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+  cycleKey  String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, questId, cycleKey])
+  @@index([questId, cycleKey])
 }
 
 model KycVerification {
