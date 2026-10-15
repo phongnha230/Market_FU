@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { authenticate, authorize, AuthRequest } from '../../src/middlewares/auth.middleware';
 import { generateTokens } from '../../src/utils/token';
 import { AppError } from '../../src/middlewares/error.middleware';
+import { prisma } from '../../src/config/prisma';
 
 describe('Unit Test: Auth Middleware (authenticate & authorize)', () => {
   const mockRes = {} as any;
@@ -56,7 +57,7 @@ describe('Unit Test: Auth Middleware (authenticate & authorize)', () => {
       assert.strictEqual(nextCalled, false);
     });
 
-    it('Token hợp lệ phải gán req.user và gọi next()', () => {
+    it('Token hợp lệ phải kiểm tra DB, gán req.user và gọi next()', async () => {
       const payload = {
         userId: '65f1a2b3c4d5e6f7a8b9c001',
         role: 'STUDENT',
@@ -64,19 +65,43 @@ describe('Unit Test: Auth Middleware (authenticate & authorize)', () => {
       };
       const { accessToken } = generateTokens(payload);
       const req = { headers: { authorization: `Bearer ${accessToken}` } } as AuthRequest;
+      const originalFindUnique = prisma.user.findUnique;
+      (prisma.user as unknown as { findUnique: (...args: unknown[]) => Promise<unknown> }).findUnique = async () => ({
+        id: payload.userId,
+        email: payload.email,
+        role: payload.role,
+        isActive: true,
+        tokenVersion: 0,
+      });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          authenticate(req, mockRes, (error?: unknown) => error ? reject(error) : resolve());
+        });
+        assert.ok(req.user, 'req.user phải được gán');
+        assert.strictEqual(req.user.userId, payload.userId);
+        assert.strictEqual(req.user.email, payload.email);
+        assert.strictEqual(req.user.role, payload.role);
+      } finally {
+        (prisma.user as unknown as { findUnique: unknown }).findUnique = originalFindUnique;
+      }
+    });
 
-      let nextCalled = false;
-      const next = () => {
-        nextCalled = true;
-      };
-
-      authenticate(req, mockRes, next);
-
-      assert.strictEqual(nextCalled, true);
-      assert.ok(req.user, 'req.user phải được gán');
-      assert.strictEqual(req.user.userId, payload.userId);
-      assert.strictEqual(req.user.email, payload.email);
-      assert.strictEqual(req.user.role, payload.role);
+    it('Token có tokenVersion cũ bị thu hồi ngay lập tức', async () => {
+      const payload = { userId: '65f1a2b3c4d5e6f7a8b9c001', role: 'BUYER', email: 'test@fpt.edu.vn' };
+      const { accessToken } = generateTokens(payload, 0);
+      const req = { headers: { authorization: `Bearer ${accessToken}` } } as AuthRequest;
+      const originalFindUnique = prisma.user.findUnique;
+      (prisma.user as unknown as { findUnique: (...args: unknown[]) => Promise<unknown> }).findUnique = async () => ({
+        id: payload.userId, email: payload.email, role: payload.role, isActive: true, tokenVersion: 1,
+      });
+      try {
+        await assert.rejects(
+          new Promise<void>((resolve, reject) => authenticate(req, mockRes, (error?: unknown) => error ? reject(error) : resolve())),
+          (error: unknown) => error instanceof AppError && error.code === 'TOKEN_REVOKED'
+        );
+      } finally {
+        (prisma.user as unknown as { findUnique: unknown }).findUnique = originalFindUnique;
+      }
     });
   });
 

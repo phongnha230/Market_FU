@@ -6,6 +6,7 @@ export interface TokenPayload {
   userId: string;
   role: string;
   email: string;
+  tokenVersion?: number;
 }
 
 export interface RefreshTokenPayload extends TokenPayload {
@@ -14,7 +15,7 @@ export interface RefreshTokenPayload extends TokenPayload {
 }
 
 export const generateTokens = (payload: TokenPayload, tokenVersion: number = 0) => {
-  const accessToken = jwt.sign(payload, ENV.JWT_SECRET, {
+  const accessToken = jwt.sign({ ...payload, tokenVersion }, ENV.JWT_SECRET, {
     expiresIn: ENV.JWT_EXPIRES_IN as any,
   });
 

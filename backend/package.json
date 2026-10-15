@@ -21,6 +21,7 @@
     "test:api:admin": "bru run bruno-collection/07-Admin-And-Disputes --env Local",
     "test:lock": "tsx scripts/test-redis-distributed-lock.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "db:push": "prisma db push",
     "lint": "eslint src --ext .ts"
   },
   "prisma": {

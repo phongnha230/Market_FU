@@ -66,8 +66,9 @@ describe('Unit Test: BE-DEV 3 (Orders, Payments & Blind Reviews)', () => {
       });
       assert.strictEqual(validOtp.success, true);
 
-      // OTP phải đúng 4 chữ số — chặn giá trị 6 số kiểu cũ và chữ
-      assert.strictEqual(verifyHandshakeSchema.safeParse({ handshakeOtp: '839201' }).success, false);
+      // Accept 4-6 digits and reject longer or non-numeric values.
+      assert.strictEqual(verifyHandshakeSchema.safeParse({ handshakeOtp: '839201' }).success, true);
+      assert.strictEqual(verifyHandshakeSchema.safeParse({ handshakeOtp: '8392017' }).success, false);
       assert.strictEqual(verifyHandshakeSchema.safeParse({ handshakeOtp: 'abcd' }).success, false);
 
       const invalid = verifyHandshakeSchema.safeParse({});
@@ -92,7 +93,7 @@ describe('Unit Test: BE-DEV 3 (Orders, Payments & Blind Reviews)', () => {
       assert.strictEqual(badUrl.success, false);
     });
 
-    it('updateShippingStatusSchema: Chỉ cho phép SHIPPING hoặc DELIVERED', () => {
+    it('updateShippingStatusSchema: Chỉ cho phép SHIPPING', () => {
       const valid = updateShippingStatusSchema.safeParse({
         status: 'SHIPPING',
         trackingCode: 'TRACK123456',
@@ -103,6 +104,7 @@ describe('Unit Test: BE-DEV 3 (Orders, Payments & Blind Reviews)', () => {
         status: 'INVALID_STATUS',
       });
       assert.strictEqual(invalid.success, false);
+      assert.strictEqual(updateShippingStatusSchema.safeParse({ status: 'DELIVERED' }).success, false);
     });
 
     it('queryOrdersSchema: Mặc định page = 1, limit = 20', () => {

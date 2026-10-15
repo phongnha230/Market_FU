@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/token';
 import { AppError } from './error.middleware';
+import { prisma } from '../config/prisma';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
@@ -24,13 +25,30 @@ export const authenticate = (
     throw new AppError('Yêu cầu xác thực tài khoản (Token missing)', 401, 'UNAUTHORIZED');
   }
 
+  let decoded: TokenPayload;
   try {
-    const decoded = verifyAccessToken(token);
-    req.user = decoded;
-    next();
-  } catch (err: any) {
+    decoded = verifyAccessToken(token);
+  } catch {
     throw new AppError('Phiên đăng nhập không hợp lệ hoặc đã hết hạn', 401, 'INVALID_TOKEN');
   }
+  if (decoded.tokenVersion === undefined) {
+    throw new AppError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại', 401, 'TOKEN_REVOKED');
+  }
+  void prisma.user.findUnique({
+    where: { id: decoded.userId },
+    select: { id: true, role: true, email: true, isActive: true, tokenVersion: true },
+  }).then((user) => {
+    if (!user || !user.isActive) {
+      next(new AppError('Tài khoản không tồn tại hoặc đã bị khóa', 401, 'ACCOUNT_INACTIVE'));
+      return;
+    }
+    if (decoded.tokenVersion !== user.tokenVersion) {
+      next(new AppError('Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại', 401, 'TOKEN_REVOKED'));
+      return;
+    }
+    req.user = { userId: user.id, role: user.role, email: user.email, tokenVersion: user.tokenVersion };
+    next();
+  }).catch(next);
 };
 
 /**
@@ -52,17 +70,30 @@ export const authenticateOptional = (
     token = (req as any).cookies?.accessToken || (req as any).cookies?.auth_token;
   }
 
-  if (token) {
-    try {
-      const decoded = verifyAccessToken(token);
-      req.user = decoded;
-    } catch {
-      // Token không hợp lệ hoặc hết hạn -> coi như khách vãng lai
-      req.user = undefined;
-    }
+  if (!token) {
+    next();
+    return;
   }
-
-  next();
+  let decoded: TokenPayload;
+  try {
+    decoded = verifyAccessToken(token);
+  } catch {
+    next();
+    return;
+  }
+  if (decoded.tokenVersion === undefined) {
+    next();
+    return;
+  }
+  void prisma.user.findUnique({
+    where: { id: decoded.userId },
+    select: { id: true, role: true, email: true, isActive: true, tokenVersion: true },
+  }).then((user) => {
+    if (user?.isActive && decoded.tokenVersion === user.tokenVersion) {
+      req.user = { userId: user.id, role: user.role, email: user.email, tokenVersion: user.tokenVersion };
+    }
+    next();
+  }).catch(next);
 };
 
 export const authorize = (...roles: string[]) => {

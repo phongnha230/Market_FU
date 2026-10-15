@@ -486,7 +486,7 @@ export class AuthService {
         payload = {
           email,
           name: email.split('@')[0],
-          picture: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
+          picture: undefined,
         };
       } else {
         const allowedAudiences = [
@@ -812,11 +812,19 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new AppError('Email này chưa được đăng ký tài khoản trong hệ thống.', 404, 'USER_NOT_FOUND');
+      await setCache(`otp_cooldown:pwd:${email}`, Date.now() + 60 * 1000, 60);
+      return {
+        email,
+        message: 'Nếu email tồn tại, mã OTP khôi phục sẽ được gửi tới hộp thư của bạn.',
+      };
     }
 
     if (!user.isActive) {
-      throw new AppError('Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa.', 403, 'ACCOUNT_LOCKED');
+      await setCache(`otp_cooldown:pwd:${email}`, Date.now() + 60 * 1000, 60);
+      return {
+        email,
+        message: 'Nếu email tồn tại, mã OTP khôi phục sẽ được gửi tới hộp thư của bạn.',
+      };
     }
 
     // Sinh mã OTP ngẫu nhiên 6 chữ số bằng CSPRNG (Cryptographically Secure Pseudo-Random Number Generator)
@@ -850,7 +858,7 @@ export class AuthService {
 
     return {
       email: user.email,
-      message: 'Mã OTP xác thực đã được gửi tới email của bạn (hiệu lực trong 5 phút)',
+      message: 'Nếu email tồn tại, mã OTP khôi phục sẽ được gửi tới hộp thư của bạn.',
     };
   }
 
