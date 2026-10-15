@@ -7,6 +7,7 @@ import { AppError } from '../../middlewares/error.middleware';
 import { emitToUser } from '../../utils/socket';
 import { sendOrderCompletedReceiptEmail } from '../../config/mail';
 import { notificationService } from '../notifications/notification.service';
+import { ghnService } from './ghn.service';
 
 /**
  * B3-3 (Task 3.2): Webhook Receiver cho đối tác vận chuyển GHTK/GHN.
@@ -41,6 +42,18 @@ export const verifyShippingWebhookSignature = (
 
   if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
     throw new AppError('Chữ ký webhook vận chuyển không hợp lệ', 401, 'WEBHOOK_SIGNATURE_INVALID');
+  }
+};
+
+export const verifyGhnWebhookToken = (providedToken?: string): void => {
+  if (!providedToken) {
+    throw new AppError('Thiếu token webhook GHN', 401, 'WEBHOOK_TOKEN_MISSING');
+  }
+
+  const provided = Buffer.from(providedToken);
+  const expected = Buffer.from(ENV.SHIPPING_WEBHOOK_SECRET);
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    throw new AppError('Token webhook GHN không hợp lệ', 401, 'WEBHOOK_TOKEN_INVALID');
   }
 };
 
@@ -91,7 +104,7 @@ const mapCarrierStatus = (payload: ShippingWebhookPayload): 'SHIPPING' | 'DELIVE
 };
 
 export class ShippingWebhookService {
-  async processShippingWebhook(payload: ShippingWebhookPayload) {
+  async processShippingWebhook(payload: ShippingWebhookPayload, verifyWithGhnApi = false) {
     // 1. Trích mã đơn hàng MarketFU từ các biến thể field của carrier (GHTK/GHN)
     const orderCode =
       payload.order_code ||
@@ -168,6 +181,20 @@ export class ShippingWebhookService {
     // Webhook vận chuyển chỉ áp dụng cho đơn SHIP_COD
     if (order.orderType !== 'SHIP_COD' || !order.shipping) {
       return { success: false, message: 'Đơn hàng không phải dạng Ship COD', orderCode: order.orderCode };
+    }
+
+    if (verifyWithGhnApi) {
+      if (!ghnService.isConfigured()) {
+        throw new AppError('GHN API chưa được cấu hình để xác minh webhook', 503, 'GHN_VERIFICATION_UNAVAILABLE');
+      }
+
+      const providerTracking = order.shipping.trackingCode
+        ? await ghnService.getTrackingDetail(order.shipping.trackingCode)
+        : null;
+      const providerStatus = providerTracking ? mapCarrierStatus({ status: providerTracking.status }) : null;
+      if (!providerStatus || providerStatus !== mapped) {
+        throw new AppError('Trạng thái webhook không khớp với dữ liệu GHN đã xác minh', 401, 'GHN_WEBHOOK_UNVERIFIED');
+      }
     }
 
     // 5. Chống lặp/tránh tụt hạng trạng thái:

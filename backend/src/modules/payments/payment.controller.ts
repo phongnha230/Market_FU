@@ -4,6 +4,7 @@ import { webhookPaymentSchema, checkPaymentStatusSchema, WebhookPaymentInput } f
 import { sendSuccess } from '../../utils/response';
 import { isPayOsConfigured, getPayOsClient } from '../../config/payos';
 import { AppError } from '../../middlewares/error.middleware';
+import { AuthRequest } from '../../middlewares/auth.middleware';
 
 export class PaymentController {
   /**
@@ -27,14 +28,18 @@ export class PaymentController {
             req.query.token as string | undefined
         );
       } else if (req.body?.signature) {
-        if (isPayOsConfigured()) {
-          try {
-            await getPayOsClient().webhooks.verify(req.body);
-          } catch (payosErr: any) {
-            throw new AppError('Chữ ký webhook PayOS không hợp lệ', 401, 'PAYOS_SIGNATURE_INVALID');
-          }
+        if (!isPayOsConfigured()) {
+          throw new AppError('Chưa cấu hình xác thực webhook PayOS', 503, 'PAYOS_WEBHOOK_NOT_CONFIGURED');
         }
-      } else if (process.env.NODE_ENV === 'production') {
+        try {
+          await getPayOsClient().webhooks.verify(req.body);
+        } catch {
+          throw new AppError('Chữ ký webhook PayOS không hợp lệ', 401, 'PAYOS_SIGNATURE_INVALID');
+        }
+        if (req.body?.success !== true && req.body?.code !== '00') {
+          throw new AppError('Webhook PayOS không báo giao dịch thành công', 400, 'PAYOS_EVENT_NOT_SUCCESSFUL');
+        }
+      } else {
         throw new AppError('Thiếu chữ ký webhook xác thực', 401, 'WEBHOOK_SIGNATURE_MISSING');
       }
 
@@ -50,7 +55,13 @@ export class PaymentController {
         gateway: payosData ? 'PAYOS' : (body?.gateway || 'VIETQR'),
         transactionDate: payosData?.transactionDateTime || body?.transactionDate,
         referenceCode: payosData?.reference || body?.referenceCode,
+        transferType: body?.transferType,
+        eventStatus: payosData ? (body?.success === true || body?.code === '00' ? 'SUCCESS' : 'FAILED') : body?.status,
       };
+
+      if (!payosData && String(rawPayload.transferType || '').toLowerCase() !== 'in') {
+        throw new AppError('Chỉ chấp nhận webhook giao dịch tiền vào', 400, 'PAYMENT_TRANSFER_NOT_INCOMING');
+      }
 
       const payload = webhookPaymentSchema.parse(rawPayload);
       const result = await paymentService.processPaymentWebhook(payload, true);
@@ -70,7 +81,9 @@ export class PaymentController {
   async getStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { orderCode } = checkPaymentStatusSchema.parse(req.params);
-      const status = await paymentService.getPaymentStatus(orderCode);
+      const userId = (req as AuthRequest).user?.userId;
+      if (!userId) throw new AppError('Yêu cầu đăng nhập', 401, 'UNAUTHORIZED');
+      const status = await paymentService.getPaymentStatus(orderCode, userId);
       return sendSuccess(res, status);
     } catch (error) {
       next(error);

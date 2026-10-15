@@ -13,6 +13,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
     });
     const userIds = testUsers.map((u) => u.id);
     if (userIds.length > 0) {
+      await prisma.report.deleteMany({ where: { reporterId: { in: userIds } } });
       await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.coinTransaction.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.order.deleteMany({ where: { OR: [{ buyerId: { in: userIds } }, { sellerId: { in: userIds } }] } });
@@ -103,7 +104,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
         body: JSON.stringify({
           productId: product.id,
           orderType: 'MEETUP',
-          paymentMethod: 'VIETQR',
+          paymentMethod: 'CASH',
           coinsUsed: 10,
         }),
       });
@@ -155,6 +156,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
       if (productId) await prisma.product.deleteMany({ where: { id: productId } });
       const userIds = [buyerId, sellerId].filter(Boolean) as string[];
       if (userIds.length > 0) {
+        await prisma.report.deleteMany({ where: { reporterId: { in: userIds } } });
         await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
         await prisma.coinTransaction.deleteMany({ where: { userId: { in: userIds } } });
         await prisma.profile.deleteMany({ where: { userId: { in: userIds } } });
@@ -290,9 +292,21 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
         }),
       });
 
-      assert.strictEqual(deliverRes.status, 200);
-      const deliverData = (await deliverRes.json()) as any;
-      assert.strictEqual(deliverData.data.status, 'DELIVERED');
+      assert.strictEqual(deliverRes.status, 422);
+
+      const stillShipping = await prisma.order.findUnique({ where: { id: order.id } });
+      assert.strictEqual(stillShipping?.status, 'SHIPPING');
+
+      // Simulate the trusted carrier callback state for the buyer-confirmation flow.
+      const deliveredAt = new Date();
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'DELIVERED',
+          payment: { ...stillShipping!.payment, isPaid: true, paidAt: deliveredAt },
+          shipping: { ...stillShipping!.shipping!, deliveredAt },
+        },
+      });
 
       // 4. Buyer bấm Xác nhận đã nhận hàng (Confirm Delivery)
       const confirmRes = await fetch(`${baseUrl}/api/orders/${order.id}/confirm-delivery`, {

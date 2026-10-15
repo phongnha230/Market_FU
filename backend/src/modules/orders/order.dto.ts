@@ -45,11 +45,11 @@ export const verifyHandshakeSchema = z
     handshakeToken: z.string().max(200).optional(),
     handshakeOtp: z
       .string()
-      .regex(/^\d{4}$/, 'Mã OTP fallback phải đúng 4 chữ số (1000 - 9999)')
+      .regex(/^\d{4,6}$/, 'Mã OTP fallback phải từ 4 đến 6 chữ số')
       .optional(),
   })
   .refine((data) => data.handshakeToken || data.handshakeOtp, {
-    message: 'Bắt buộc phải cung cấp handshakeToken (từ mã QR) hoặc handshakeOtp (mã 4 số)',
+    message: 'Bắt buộc phải cung cấp handshakeToken (từ mã QR) hoặc handshakeOtp (mã 4-6 số)',
   });
 
 export type VerifyHandshakeInput = z.infer<typeof verifyHandshakeSchema>;
@@ -70,8 +70,8 @@ export type CreateOrderDisputeInput = z.infer<typeof createOrderDisputeSchema>;
 export const updateShippingStatusSchema = z.object({
   trackingCode: z.string().min(3, 'Mã vận đơn quá ngắn').optional(),
   shippingPartner: z.string().optional(),
-  status: z.enum(['SHIPPING', 'DELIVERED'], {
-    errorMap: () => ({ message: 'Trạng thái vận chuyển chỉ có thể là SHIPPING hoặc DELIVERED' }),
+  status: z.literal('SHIPPING', {
+    errorMap: () => ({ message: 'Chỉ hãng vận chuyển mới có thể xác nhận trạng thái đã giao' }),
   }),
 });
 

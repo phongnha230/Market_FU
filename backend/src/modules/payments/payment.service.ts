@@ -50,6 +50,10 @@ export class PaymentService {
     const rawContent = payload.content || payload.description || '';
     const transferAmount = Number(payload.transferAmount || payload.amount || 0);
 
+    if (payload.eventStatus && !['SUCCESS', 'success', '00'].includes(payload.eventStatus)) {
+      throw new AppError('Webhook báo giao dịch không thành công', 400, 'PAYMENT_EVENT_NOT_SUCCESSFUL');
+    }
+
     // Idempotency: cùng 1 giao dịch ngân hàng chỉ xử lý 1 lần
     const dedupeKey = `pay_wh:${payload.referenceCode || payload.transactionDate || ''}:${rawContent.slice(0, 60)}`;
     if (payload.referenceCode || payload.transactionDate) {
@@ -57,7 +61,6 @@ export class PaymentService {
       if (seen) {
         return { success: true, message: 'Webhook trùng lặp đã được bỏ qua (idempotent)' };
       }
-      await setCache(dedupeKey, true, PAYMENT_WEBHOOK_DEDUPE_TTL);
     }
 
     // Trích xuất mã orderCode từ nội dung chuyển khoản
@@ -145,11 +148,18 @@ export class PaymentService {
     });
 
     if (paidResult.count === 0) {
+      if (payload.referenceCode || payload.transactionDate) {
+        await setCache(dedupeKey, true, PAYMENT_WEBHOOK_DEDUPE_TTL);
+      }
       return {
         success: true,
         message: 'Đơn hàng đã được ghi nhận thanh toán trước đó (bỏ qua webhook trùng)',
         orderCode: order.orderCode,
       };
+    }
+
+    if (payload.referenceCode || payload.transactionDate) {
+      await setCache(dedupeKey, true, PAYMENT_WEBHOOK_DEDUPE_TTL);
     }
 
     const updatedOrder = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
@@ -205,11 +215,13 @@ export class PaymentService {
   /**
    * 2. Kiểm tra trạng thái thanh toán của một đơn hàng
    */
-  async getPaymentStatus(orderCode: string) {
+  async getPaymentStatus(orderCode: string, userId: string) {
     const order = await prisma.order.findUnique({
       where: { orderCode },
       select: {
         id: true,
+        buyerId: true,
+        sellerId: true,
         orderCode: true,
         status: true,
         payment: true,
@@ -219,6 +231,9 @@ export class PaymentService {
 
     if (!order) {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
+    }
+    if (order.buyerId !== userId && order.sellerId !== userId) {
+      throw new AppError('Bạn không có quyền xem trạng thái thanh toán của đơn này', 403, 'FORBIDDEN');
     }
 
     return {

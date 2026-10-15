@@ -9,6 +9,8 @@ export const webhookPaymentSchema = z.object({
   gateway: z.string().optional(),
   transactionDate: z.string().optional(),
   referenceCode: z.string().optional(),
+  transferType: z.string().optional(),
+  eventStatus: z.string().optional(),
 });
 
 export type WebhookPaymentInput = z.infer<typeof webhookPaymentSchema>;

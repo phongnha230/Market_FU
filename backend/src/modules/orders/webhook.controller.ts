@@ -3,6 +3,7 @@ import { shippingWebhookSchema } from './webhook.dto';
 import {
   shippingWebhookService,
   verifyShippingWebhookSignature,
+  verifyGhnWebhookToken,
   ShippingWebhookPayload,
 } from './webhook.service';
 
@@ -33,12 +34,13 @@ export class ShippingWebhookController {
   /**
    * POST /api/webhooks/ghn
    * Webhook endpoint riêng cho đối tác Giao Hàng Nhanh (GHN).
-   * Không bị ép chữ ký HMAC GHTK mà tiếp nhận payload chuẩn của GHN.
+   * Xác minh payload với GHN API trước khi cập nhật trạng thái đơn hàng.
    */
   handleGhnWebhook = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const payload = req.body as ShippingWebhookPayload;
-      const result = await shippingWebhookService.processShippingWebhook(payload);
+      verifyGhnWebhookToken(typeof req.query.token === 'string' ? req.query.token : undefined);
+      const payload = shippingWebhookSchema.parse(req.body) as ShippingWebhookPayload;
+      const result = await shippingWebhookService.processShippingWebhook(payload, true);
       return res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

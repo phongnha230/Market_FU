@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { paymentController } from './payment.controller';
+import { authenticate } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -10,6 +11,6 @@ export const paymentWebhookRouter = Router();
 paymentWebhookRouter.post('/payments', paymentController.handleWebhook);
 
 // Check payment status
-router.get('/order/:orderCode/status', paymentController.getStatus);
+router.get('/order/:orderCode/status', authenticate, paymentController.getStatus);
 
 export default router;

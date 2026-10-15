@@ -670,6 +670,14 @@ export class OrderService {
       throw new AppError('Chỉ các bên tham gia đơn hàng (Người mua hoặc Người bán) mới có quyền xác nhận Handshake nhận đồ', 403, 'UNAUTHORIZED_PARTICIPANT');
     }
 
+    if (order.orderType !== 'MEETUP') {
+      throw new AppError('Đơn giao vận chuyển phải được xác nhận bởi hãng vận chuyển', 400, 'HANDSHAKE_NOT_AVAILABLE_FOR_SHIPPING');
+    }
+
+    if (!order.payment.isPaid && order.payment.paymentMethod !== 'CASH') {
+      throw new AppError('Cần thanh toán thành công trước khi xác nhận bàn giao', 400, 'PAYMENT_REQUIRED');
+    }
+
     if (order.status === 'COMPLETED') {
       throw new AppError('Đơn hàng này đã được xác nhận hoàn tất trước đó', 400, 'ORDER_ALREADY_COMPLETED');
     }
@@ -816,7 +824,6 @@ export class OrderService {
    */
   private static readonly ALLOWED_SHIPPING_TRANSITIONS: Record<string, string[]> = {
     SHIPPING: ['PENDING', 'PAID', 'PROCESSING', 'SHIPPING'],
-    DELIVERED: ['SHIPPING', 'PENDING', 'PAID', 'PROCESSING'],
   };
 
   async updateShippingStatus(userId: string, orderId: string, input: UpdateShippingStatusInput) {
@@ -831,8 +838,8 @@ export class OrderService {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
-    if (order.sellerId !== userId && order.buyerId !== userId) {
-      throw new AppError('Chỉ người tham gia đơn hàng mới có quyền cập nhật trạng thái vận đơn', 403, 'FORBIDDEN');
+    if (order.sellerId !== userId) {
+      throw new AppError('Chỉ người bán mới có quyền bàn giao đơn hàng cho hãng vận chuyển', 403, 'FORBIDDEN');
     }
 
     // B3-9: Chặn cập nhật vận đơn trên đơn hẹn gặp trực tiếp (không có thực thể giao hàng)
@@ -859,12 +866,6 @@ export class OrderService {
     }
 
     const currentShipping = order.shipping;
-    const now = new Date();
-    const isDelivered = status === 'DELIVERED';
-    const warrantyEndsAt = isDelivered
-      ? new Date(now.getTime() + 48 * 60 * 60 * 1000) // 48 giờ vàng bao test KTX
-      : order.warrantyEndsAt;
-
     let finalPartner = input.shippingPartner || currentShipping.shippingPartner || 'GHN';
     let finalTrackingCode = trackingCode || currentShipping.trackingCode;
 
@@ -891,41 +892,24 @@ export class OrderService {
       }
     }
 
-    // B3-9: Khi DELIVERED, đồng bộ sản phẩm sang SOLD trong cùng transaction
-    const updated = await prisma.$transaction(async (tx) => {
-      if (isDelivered) {
-        await tx.product.update({
-          where: { id: order.productId },
-          data: { status: 'SOLD' },
-        });
-      }
-
-      return tx.order.update({
-        where: { id: orderId },
-        data: {
-          status,
-          warrantyEndsAt,
-          payment: isDelivered
-            ? { ...order.payment, isPaid: true, paidAt: order.payment.paidAt || now }
-            : order.payment,
-          shipping: {
-            ...currentShipping,
-            shippingPartner: finalPartner,
-            trackingCode: finalTrackingCode,
-            deliveredAt: isDelivered ? now : currentShipping.deliveredAt,
-          },
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        shipping: {
+          ...currentShipping,
+          shippingPartner: finalPartner,
+          trackingCode: finalTrackingCode,
         },
-      });
+      },
     });
 
     // Bắn thông báo tới người mua
-    const notifBody = isDelivered
-      ? `Đơn hàng #${order.orderCode} đã giao tới KTX! Bạn có 48 giờ kiểm tra cắm test thiết bị.`
-      : `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${trackingCode || currentShipping.trackingCode}).`;
+    const notifBody = `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${finalTrackingCode}).`;
 
     await notificationService.sendNotification({
       userId: order.buyerId,
-      title: isDelivered ? 'Kiện hàng đã giao tới nơi' : 'Đơn hàng đang vận chuyển',
+      title: 'Đơn hàng đang vận chuyển',
       body: notifBody,
       type: 'ORDER',
       targetUrl: '/orders',
@@ -1079,12 +1063,16 @@ export class OrderService {
       return order;
     }
 
-    if (order.status !== 'DELIVERED' && order.status !== 'SHIPPING') {
+    if (order.status !== 'DELIVERED') {
       throw new AppError(
-        'Đơn hàng chưa ở trạng thái đang giao hoặc đã giao để xác nhận hoàn tất',
+        'Hãng vận chuyển chưa xác nhận đơn hàng đã giao',
         400,
         'INVALID_ORDER_STATUS'
       );
+    }
+
+    if (!order.payment.isPaid) {
+      throw new AppError('Đơn hàng chưa được thanh toán', 400, 'PAYMENT_REQUIRED');
     }
 
     const now = new Date();
@@ -1481,57 +1469,11 @@ export class OrderService {
    * Người bán xác nhận đã giao đồ tận tay tại Safe-Point trong Campus
    */
   async sellerConfirmHandoff(sellerId: string, orderIdOrCode: string, otp?: string) {
-    if (otp && otp.trim()) {
-      return this.verifyHandshake(sellerId, orderIdOrCode, { handshakeOtp: otp.trim() });
+    if (!otp?.trim()) {
+      throw new AppError('Cần mã OTP của người mua để xác nhận bàn giao', 400, 'HANDSHAKE_CREDENTIAL_REQUIRED');
     }
 
-    const cleanCode = orderIdOrCode.replace(/^#/, '');
-    const order = await prisma.order.findFirst({
-      where: {
-        OR: [
-          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
-          { orderCode: orderIdOrCode },
-          { orderCode: `#${cleanCode}` },
-          { orderCode: cleanCode },
-        ],
-      },
-      include: { product: true, buyer: { select: { email: true, profile: { select: { fullName: true } } } } },
-    });
-
-    if (!order) {
-      throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
-    }
-
-    if (order.sellerId !== sellerId) {
-      throw new AppError('Chỉ người bán của đơn hàng mới có quyền thực hiện thao tác này', 403, 'UNAUTHORIZED_SELLER');
-    }
-
-    if (order.status === 'COMPLETED') {
-      return order;
-    }
-
-    const now = new Date();
-    const warrantyEndsAt = new Date(now.getTime() + order.warrantyHours * 60 * 60 * 1000);
-
-    const updated = await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'DELIVERED',
-        warrantyEndsAt,
-        shipping: order.shipping ? {
-          ...order.shipping,
-          deliveredAt: now,
-        } : undefined,
-        handshake: order.handshake ? {
-          ...order.handshake,
-          isVerified: true,
-          verifiedAt: now,
-        } : undefined,
-      },
-      include: { product: true },
-    });
-
-    return updated;
+    return this.verifyHandshake(sellerId, orderIdOrCode, { handshakeOtp: otp.trim() });
   }
 }
 
