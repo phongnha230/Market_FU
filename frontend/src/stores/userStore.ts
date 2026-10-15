@@ -245,9 +245,9 @@ export const useUserStore = create<UserState>()(
           }));
 
           // Tự động đồng bộ hồ sơ & ảnh avatar Cloudflare R2 từ DB cho phiên mới
-          if (email && email.includes('@')) {
+          if (email && email.includes('@') && get().accessToken) {
             import('@/services/apiClient').then(({ apiClient }) => {
-              apiClient.get(`/users/${encodeURIComponent(uKey)}`).then((res) => {
+              apiClient.get('/profile/me').then((res) => {
                 if (res.data?.data) {
                   import('@/lib/adapters').then(({ adaptBackendUser }) => {
                     const profile = adaptBackendUser(res.data.data);

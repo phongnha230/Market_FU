@@ -22,25 +22,23 @@ export interface BankAccountPayload {
   accountHolder?: string;
 }
 
+export interface ProfileQuest {
+  id: string;
+  title: string;
+  description: string;
+  coins: number;
+  iconType: string;
+  isCompleted: boolean;
+  isClaimed: boolean;
+  canClaim: boolean;
+  resetAt?: string;
+}
+
 export const profileService = {
   // 1. Lấy thông tin tài khoản hiện tại & đồng bộ vào Zustand
   async getProfile(): Promise<UserProfile> {
     const token = useUserStore.getState().accessToken;
     if (!token) {
-      const email = useUserStore.getState().user.email;
-      if (email && email.includes('@')) {
-        const response = await apiClient.get<ApiResponse<any>>(`/users/${encodeURIComponent(email.trim().toLowerCase())}`);
-        const userData = response.data.data;
-        const profile = adaptBackendUser(userData);
-        useUserStore.getState().setUser(profile);
-        import('@/stores/walletStore').then(({ useWalletStore }) => {
-          useWalletStore.setState({
-            campusCoins: profile.coins,
-            ...(profile.bankAccount?.accountNo ? { bankAccount: profile.bankAccount as any } : {}),
-          });
-        }).catch(() => {});
-        return profile;
-      }
       return useUserStore.getState().user;
     }
     const response = await apiClient.get<ApiResponse<any>>('/profile/me');
@@ -175,23 +173,21 @@ export const profileService = {
   },
 
   // 8. Nhận thưởng nhiệm vụ tuần
-  async claimQuest(questId: string, amount: number = 20): Promise<{
+  async getQuests(): Promise<ProfileQuest[]> {
+    const response = await apiClient.get<ApiResponse<ProfileQuest[]>>('/profile/quests');
+    return response.data.data || [];
+  },
+
+  async claimQuest(questId: string): Promise<{
     success: boolean;
     coinsAdded: number;
     newBalance: number;
     questId: string;
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/profile/claim-quest', {
-      questId,
-      amount,
-    });
+    const response = await apiClient.post<ApiResponse<any>>('/profile/claim-quest', { questId });
     const result = response.data.data;
     if (result?.success) {
-      const currentClaimed = useUserStore.getState().user.claimedQuestIds || [];
-      useUserStore.getState().updateProfile({
-        coins: result.newBalance,
-        claimedQuestIds: [...currentClaimed, questId],
-      });
+      useUserStore.getState().updateProfile({ coins: result.newBalance });
     }
     return result;
   },

@@ -137,7 +137,7 @@ export const orderService = {
   // 5. Cập nhật thông tin vận chuyển
   async updateShippingStatus(
     orderId: string,
-    params: { status: 'SHIPPING' | 'DELIVERED'; trackingCode?: string; shippingPartner?: string }
+    params: { status: 'SHIPPING'; trackingCode?: string; shippingPartner?: string }
   ): Promise<BackendOrder> {
     const response = await apiClient.patch<ApiResponse<BackendOrder>>(
       `/orders/${orderId}/shipping`,

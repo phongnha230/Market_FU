@@ -4,6 +4,7 @@ import { notificationService } from '@/services/notificationService';
 export function playNotificationSound() {
   if (typeof window === 'undefined') return;
   try {
+    if (localStorage.getItem('fu_sound_enabled') === 'false') return;
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();

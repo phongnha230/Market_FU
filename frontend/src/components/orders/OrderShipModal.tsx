@@ -18,7 +18,6 @@ export default function OrderShipModal({
 }: OrderShipModalProps) {
   const [partner, setPartner] = useState('GHN');
   const [trackingCode, setTrackingCode] = useState('');
-  const [targetStatus, setTargetStatus] = useState<'SHIPPING' | 'DELIVERED'>('SHIPPING');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -41,12 +40,6 @@ export default function OrderShipModal({
 
   useEffect(() => {
     if (order) {
-      if (order.status === 'shipping' && order.type !== 'inter-campus') {
-        setTargetStatus('DELIVERED');
-      } else {
-        setTargetStatus('SHIPPING');
-      }
-
       const existingCode = typeof order.tracking === 'string' ? order.tracking : order.tracking?.trackingCode;
       if (existingCode && typeof existingCode === 'string' && existingCode.trim()) {
         setTrackingCode(existingCode);
@@ -74,7 +67,7 @@ export default function OrderShipModal({
       setSubmitting(true);
       setErrorMsg(null);
       await orderService.updateShippingStatus(order.id, {
-        status: targetStatus,
+        status: 'SHIPPING',
         trackingCode: trackingCode.trim().toUpperCase(),
         shippingPartner: partner,
       });
@@ -150,36 +143,15 @@ export default function OrderShipModal({
                 <span>Đơn hàng vận chuyển Liên Campus ({partner})</span>
               </div>
               <p className="text-[11px] text-amber-700 leading-relaxed">
-                Người bán bàn giao kiện hàng cho bưu cục GHN. Tiến trình giao tới <strong>sảnh KTX điểm đến</strong> sẽ do Bưu tá GHN hoặc Người mua xác nhận khi nhận hàng.
+                Người bán bàn giao kiện hàng cho bưu cục. Trạng thái đã giao được đồng bộ từ hãng vận chuyển.
               </p>
             </div>
           ) : (
             <div>
               <label className="text-xs font-bold text-slate-700">Trạng thái vận chuyển cần cập nhật</label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={() => setTargetStatus('SHIPPING')}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border text-center transition cursor-pointer ${
-                    targetStatus === 'SHIPPING'
-                      ? 'border-orange-500 bg-orange-50 text-orange-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  🚚 Đang vận chuyển
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetStatus('DELIVERED')}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border text-center transition cursor-pointer ${
-                    targetStatus === 'DELIVERED'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  🏢 Đã giao tới sảnh KTX
-                </button>
-              </div>
+              <p className="mt-1 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-bold text-orange-700">
+                🚚 Bàn giao vận chuyển
+              </p>
             </div>
           )}
 
@@ -247,20 +219,12 @@ export default function OrderShipModal({
               type="submit"
               disabled={submitting}
               className={`rounded-xl px-5 py-2 text-xs font-bold text-white transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 ${
-                targetStatus === 'DELIVERED'
-                  ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : 'bg-orange-600 hover:bg-orange-700'
+                'bg-orange-600 hover:bg-orange-700'
               }`}
             >
               <PackageCheck className="h-3.5 w-3.5" />
               <span>
-                {submitting
-                  ? 'Đang cập nhật...'
-                  : targetStatus === 'DELIVERED'
-                  ? 'Xác nhận: Đã giao tới KTX'
-                  : isAlreadyShipping
-                  ? 'Cập nhật mã vận đơn'
-                  : 'Xác nhận gửi hàng'}
+                {submitting ? 'Đang cập nhật...' : isAlreadyShipping ? 'Cập nhật mã vận đơn' : 'Xác nhận gửi hàng'}
               </span>
             </button>
           </div>

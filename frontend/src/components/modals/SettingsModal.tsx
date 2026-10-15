@@ -13,6 +13,7 @@ import {
   Save,
 } from 'lucide-react';
 import { CAMPUSES } from '@/constants/marketplace';
+import { useUserStore } from '@/stores/userStore';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -43,6 +44,8 @@ export default function SettingsModal({
       if (savedSound !== null) setSoundEnabled(savedSound === 'true');
       const savedStrict = localStorage.getItem('fu_strict_buyers');
       if (savedStrict !== null) setVerifiedBuyersOnly(savedStrict === 'true');
+      const savedDraft = localStorage.getItem('fu_auto_draft');
+      if (savedDraft !== null) setAutoSaveDraft(savedDraft === 'true');
     }
   }, [isOpen]);
 
@@ -76,7 +79,11 @@ export default function SettingsModal({
       localStorage.setItem('fu_show_phone', String(showPhonePublic));
       localStorage.setItem('fu_sound_enabled', String(soundEnabled));
       localStorage.setItem('fu_strict_buyers', String(verifiedBuyersOnly));
+      localStorage.setItem('fu_auto_draft', String(autoSaveDraft));
     }
+    useUserStore.getState().updateSettings({
+      soundEnabled,
+    });
     if (onCampusChange) {
       onCampusChange(defaultCampus);
     }
@@ -90,11 +97,16 @@ export default function SettingsModal({
       localStorage.removeItem('fu_show_phone');
       localStorage.removeItem('fu_sound_enabled');
       localStorage.removeItem('fu_strict_buyers');
+      localStorage.removeItem('fu_auto_draft');
     }
+    useUserStore.getState().updateSettings({
+      soundEnabled: true,
+    });
     setDefaultCampus('hola');
     setShowPhonePublic(true);
     setSoundEnabled(true);
     setVerifiedBuyersOnly(true);
+    setAutoSaveDraft(true);
     onToast('🔄 Đã khôi phục toàn bộ cài đặt mặc định của hệ thống!');
   };
 

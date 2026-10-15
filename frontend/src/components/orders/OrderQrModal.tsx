@@ -148,29 +148,6 @@ export default function OrderQrModal({
     }
   };
 
-  const handleDirectHandoff = async () => {
-    if (!order) return;
-    setIsVerifying(true);
-    setErrorMessage(null);
-    const targetIdOrCode = order.id || order.code?.replace('#', '') || orderId;
-
-    try {
-      await orderService.sellerConfirmHandoff(targetIdOrCode);
-      useOrderStore.getState().updateOrderStatus(order.code, 'delivered', 'Người bán đã bàn giao tận tay tại Safe-Point');
-      setIsCompleted(true);
-      addCoins(20);
-      if (onSuccess) onSuccess();
-    } catch {
-      // Fallback update
-      useOrderStore.getState().updateOrderStatus(order.code, 'delivered', 'Người bán đã bàn giao tận tay tại Safe-Point');
-      setIsCompleted(true);
-      addCoins(20);
-      if (onSuccess) onSuccess();
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-y-auto">
@@ -392,20 +369,6 @@ export default function OrderQrModal({
                 className="w-full rounded-xl bg-orange-700 py-3 text-xs font-bold text-white hover:bg-orange-800 disabled:opacity-50 cursor-pointer shadow-xs transition"
               >
                 {isVerifying ? 'Đang xác thực Handshake...' : 'Xác nhận Bàn giao (Qua mã OTP 4 số)'}
-              </Button>
-
-              <div className="relative my-2 text-center">
-                <span className="bg-white px-2 text-[11px] text-slate-400">hoặc nếu người mua không mang điện thoại</span>
-              </div>
-
-              <Button
-                type="button"
-                disabled={isVerifying}
-                onClick={handleDirectHandoff}
-                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-bold text-white cursor-pointer shadow-xs transition flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Đã giao đồ tận tay tại Safe-Point (Bàn giao trực tiếp)</span>
               </Button>
 
               <Button

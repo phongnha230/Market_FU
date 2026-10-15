@@ -144,22 +144,7 @@ export default function ProfilePage() {
   };
 
   React.useEffect(() => {
-    profileService.getProfile().catch(() => {
-      // Fallback khi mở phiên mới hoặc token chưa đồng bộ: tải thông tin & avatar từ DB qua email
-      const email = userData.email || useUserStore.getState().user.email;
-      if (email && email.includes('@')) {
-        import('@/services/apiClient').then(({ apiClient }) => {
-          apiClient.get(`/users/${encodeURIComponent(email.trim().toLowerCase())}`).then((res) => {
-            if (res.data?.data) {
-              import('@/lib/adapters').then(({ adaptBackendUser }) => {
-                const profile = adaptBackendUser(res.data.data);
-                useUserStore.getState().setUser(profile);
-              });
-            }
-          }).catch(() => {});
-        }).catch(() => {});
-      }
-    });
+    profileService.getProfile().catch(() => {});
     profileService.getCheckInStatus().catch(() => {});
 
     if (typeof window !== 'undefined') {

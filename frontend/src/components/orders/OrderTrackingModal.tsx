@@ -22,7 +22,6 @@ export default function OrderTrackingModal({
   const [liveTracking, setLiveTracking] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -61,24 +60,6 @@ export default function OrderTrackingModal({
     { title: 'Vận chuyển liên Hub', desc: partner, status: order.status === 'shipping' ? 'current' : order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
     { title: 'Giao hàng tới KTX', desc: 'Sảnh KTX điểm đến', status: order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
   ];
-
-  const handleSimulateDelivery = async () => {
-    try {
-      setSimulating(true);
-      await orderService.updateShippingStatus(order.id, {
-        status: 'DELIVERED',
-        trackingCode: trackingCode,
-        shippingPartner: partner,
-      });
-      const updated = await orderService.getOrderTracking(order.id || order.code.replace('#', ''));
-      if (updated) setLiveTracking(updated);
-      onStatusUpdated?.('DELIVERED');
-    } catch (err: any) {
-      console.error('Lỗi cập nhật bưu tá:', err);
-    } finally {
-      setSimulating(false);
-    }
-  };
 
   const handleSyncTracking = async () => {
     try {
@@ -256,20 +237,9 @@ export default function OrderTrackingModal({
             </p>
 
             {viewerRole === 'seller' && (
-              <div className="pt-2 border-t border-orange-200/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <span className="text-[10px] text-slate-500 italic">
-                  * Mô phỏng bưu tá giao hàng (Dành cho Người bán / Bưu cục):
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSimulateDelivery}
-                  disabled={simulating}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 active:scale-95 shrink-0"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>{simulating ? 'Đang cập nhật...' : '🛵 [Bưu tá GHN] Đã phát tới KTX'}</span>
-                </button>
-              </div>
+              <p className="pt-2 border-t border-orange-200/60 text-[10px] text-slate-500 italic">
+                Trạng thái đã giao được xác nhận trực tiếp với hãng vận chuyển.
+              </p>
             )}
           </div>
         )}

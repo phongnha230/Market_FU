@@ -161,18 +161,23 @@ function LoginFormContent() {
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
       '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
     const google = typeof window !== 'undefined' ? (window as any).google : undefined;
-    if (google?.accounts?.id) {
+    if (google?.accounts?.id && !(window as any).__googleGsiInitialized) {
       try {
         google.accounts.id.initialize({
           client_id: clientId,
           callback: (response: any) => {
             if (response?.credential) {
-              executeGoogleLogin(response.credential);
+              if (typeof (window as any).__onGoogleCredential === 'function') {
+                (window as any).__onGoogleCredential(response.credential);
+              } else {
+                executeGoogleLogin(response.credential);
+              }
             }
           },
           auto_select: false,
           cancel_on_tap_outside: true,
         });
+        (window as any).__googleGsiInitialized = true;
       } catch (err) {
         console.warn('Lỗi khởi tạo Google Auth:', err);
       }
@@ -285,6 +290,7 @@ function LoginFormContent() {
               alt="FPT 5Campus Marketplace"
               fill
               priority
+              sizes="(max-width: 640px) 144px, 176px"
               className="object-contain object-left"
             />
           </div>
@@ -321,6 +327,7 @@ function LoginFormContent() {
                     src="/fpt-5campus-logo.png"
                     alt="FPT 5Campus"
                     fill
+                    sizes="160px"
                     className="object-contain object-left"
                   />
                 </div>
@@ -405,6 +412,7 @@ function LoginFormContent() {
                     src="/products/books-mas291.jpg"
                     alt="Giáo trình"
                     fill
+                    sizes="56px"
                     className="object-cover"
                   />
                 </div>

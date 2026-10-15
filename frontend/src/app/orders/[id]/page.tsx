@@ -71,43 +71,6 @@ export default function OrderDetailPage() {
   const [isShipModalOpen, setIsShipModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isConfirmingDelivery, setIsConfirmingDelivery] = useState(false);
-  const [isMarkingDelivered, setIsMarkingDelivered] = useState(false);
-
-  const handleMarkDelivered = async () => {
-    if (!order) return;
-    setIsMarkingDelivered(true);
-    try {
-      const code =
-        typeof order.tracking === 'string'
-          ? order.tracking
-          : order.tracking?.trackingCode || 'GHN89213812';
-      await orderService.updateShippingStatus(order.id, {
-        status: 'DELIVERED',
-        trackingCode: code,
-        shippingPartner: 'GHN',
-      });
-      updateOrderStatus(order.code, 'delivered', 'Đã giao tới nơi • Bắt đầu 48h test');
-      setOrder((prev) =>
-        prev ? { ...prev, status: 'delivered', statusText: 'Đã giao tới nơi • Bắt đầu 48h test' } : null
-      );
-      showToast('🛵 Bưu tá đã phát hàng tới sảnh KTX! Đã kích hoạt 48 giờ bao test cho Người mua.', 'success');
-      orderService
-        .getOrderTracking(order.id || cleanCode)
-        .then((t) => {
-          if (t) setLiveTracking(t);
-        })
-        .catch(() => {});
-    } catch {
-      updateOrderStatus(order.code, 'delivered', 'Đã giao tới nơi • Bắt đầu 48h test');
-      setOrder((prev) =>
-        prev ? { ...prev, status: 'delivered', statusText: 'Đã giao tới nơi • Bắt đầu 48h test' } : null
-      );
-      showToast('🛵 Đã cập nhật trạng thái: Đã phát tới sảnh KTX (Chế độ demo).', 'success');
-    } finally {
-      setIsMarkingDelivered(false);
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -968,19 +931,8 @@ export default function OrderDetailPage() {
                         </Badge>
                       </div>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Kiện hàng đang được luân chuyển. Bạn có thể bấm <strong>Đồng bộ GHN</strong> ở khung hành trình hoặc cập nhật tiến độ bưu tá bên dưới:
+                        Kiện hàng đang được luân chuyển. Trạng thái đã giao sẽ được đồng bộ sau khi hãng vận chuyển xác nhận.
                       </p>
-                      <div className="pt-2 border-t border-slate-100">
-                        <Button
-                          type="button"
-                          onClick={handleMarkDelivered}
-                          disabled={isMarkingDelivered}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs h-9 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span>{isMarkingDelivered ? 'Đang cập nhật...' : '🛵 [Bưu tá GHN] Đã phát tới sảnh KTX'}</span>
-                        </Button>
-                      </div>
                     </div>
                   )}
 
@@ -1275,15 +1227,9 @@ export default function OrderDetailPage() {
                   <span className="truncate">Bàn giao GHN</span>
                 </Button>
               ) : isOrderShipping ? (
-                <Button
-                  type="button"
-                  onClick={handleMarkDelivered}
-                  disabled={isMarkingDelivered}
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{isMarkingDelivered ? 'Đang cập nhật...' : '🛵 [GHN] Đã phát tới KTX'}</span>
-                </Button>
+                <div className="h-11 rounded-xl bg-orange-50 border border-orange-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-orange-800">
+                  🚚 Chờ hãng vận chuyển xác nhận đã giao
+                </div>
               ) : isOrderDelivered ? (
                 <div className="h-11 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-emerald-800">
                   ⏳ Đang 48h bao test an toàn

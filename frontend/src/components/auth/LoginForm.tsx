@@ -65,6 +65,16 @@ export default function LoginForm({
   const [rememberMe, setRememberMe] = useState(true);
   const [isGsiRendered, setIsGsiRendered] = useState(false);
   const googleBtnRef = React.useRef<HTMLDivElement>(null);
+  const onGoogleSuccessRef = React.useRef(onGoogleSuccess);
+
+  React.useEffect(() => {
+    onGoogleSuccessRef.current = onGoogleSuccess;
+    if (typeof window !== 'undefined') {
+      (window as any).__onGoogleCredential = (credential: string) => {
+        onGoogleSuccessRef.current?.(credential);
+      };
+    }
+  }, [onGoogleSuccess]);
 
   React.useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1093899519891-c9r9jv1imm3s104crlhels37fl71stuo.apps.googleusercontent.com';
@@ -73,16 +83,19 @@ export default function LoginForm({
       const google = typeof window !== 'undefined' ? (window as any).google : undefined;
       if (google?.accounts?.id && googleBtnRef.current) {
         try {
-          google.accounts.id.initialize({
-            client_id: clientId,
-            callback: (response: any) => {
-              if (response?.credential) {
-                onGoogleSuccess?.(response.credential);
-              }
-            },
-            auto_select: false,
-            cancel_on_tap_outside: true,
-          });
+          if (!(window as any).__googleGsiInitialized) {
+            google.accounts.id.initialize({
+              client_id: clientId,
+              callback: (response: any) => {
+                if (response?.credential) {
+                  onGoogleSuccessRef.current?.(response.credential);
+                }
+              },
+              auto_select: false,
+              cancel_on_tap_outside: true,
+            });
+            (window as any).__googleGsiInitialized = true;
+          }
 
           googleBtnRef.current.innerHTML = '';
           google.accounts.id.renderButton(googleBtnRef.current, {
@@ -111,7 +124,7 @@ export default function LoginForm({
     }, 400);
 
     return () => clearInterval(interval);
-  }, [onGoogleSuccess, isGsiRendered]);
+  }, [isGsiRendered]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
