@@ -180,9 +180,9 @@ export default function KycRegistrationModal({
   const [phone, setPhone] = useState(user.phone || '');
 
   // Student card uploads (Front, Back & Selfie)
-  const [studentFrontCardUrl, setStudentFrontCardUrl] = useState<string>(SAMPLE_STUDENT_CARDS.front);
-  const [studentBackCardUrl, setStudentBackCardUrl] = useState<string>(SAMPLE_STUDENT_CARDS.back);
-  const [studentSelfieUrl, setStudentSelfieUrl] = useState<string>(user.avatarUrl || SAMPLE_STUDENT_CARDS.selfie);
+  const [studentFrontCardUrl, setStudentFrontCardUrl] = useState<string>('');
+  const [studentBackCardUrl, setStudentBackCardUrl] = useState<string>('');
+  const [studentSelfieUrl, setStudentSelfieUrl] = useState<string>(user.avatarUrl || '');
 
   // Seller specific - Store Info
   const [storeName, setStoreName] = useState(user.name ? `Góc Pass Đồ ${user.name}` : '');
@@ -196,8 +196,8 @@ export default function KycRegistrationModal({
 
   // Seller specific - Citizen ID (CCCD)
   const [citizenId, setCitizenId] = useState('');
-  const [citizenFrontCardUrl, setCitizenFrontCardUrl] = useState<string>(SAMPLE_CITIZEN_CARDS.front);
-  const [citizenBackCardUrl, setCitizenBackCardUrl] = useState<string>(SAMPLE_CITIZEN_CARDS.back);
+  const [citizenFrontCardUrl, setCitizenFrontCardUrl] = useState<string>('');
+  const [citizenBackCardUrl, setCitizenBackCardUrl] = useState<string>('');
 
   const [agreed, setAgreed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -315,8 +315,12 @@ export default function KycRegistrationModal({
       console.error('Lỗi khi nộp hồ sơ KYC:', err);
       const msg = err.response?.data?.message || err.message;
       if (msg) {
-        onShowToast(`Lưu ý: ${msg}`, 'error');
+        onShowToast(`Lỗi: ${msg}`, 'error');
+      } else {
+        onShowToast('Không thể gửi hồ sơ xác thực. Vui lòng thử lại!', 'error');
       }
+      setIsSubmitting(false);
+      return;
     }
 
     // Submit application to store

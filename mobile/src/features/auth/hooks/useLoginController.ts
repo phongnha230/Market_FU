@@ -116,12 +116,30 @@ export function useLoginController(
     setCaptchaError(false);
   }, []);
 
-  const handleForgotPass = useCallback(() => {
-    Alert.alert(
-      '🔑 Quên mật khẩu',
-      'Vui lòng truy cập cổng FAP (fap.fpt.edu.vn) hoặc liên hệ IT Helpdesk FPT để lấy lại mật khẩu email / tài khoản MSSV.'
-    );
-  }, []);
+  const handleForgotPass = useCallback(async () => {
+    const emailToUse = loginIdentifier.trim();
+    if (!emailToUse || !emailToUse.includes('@')) {
+      Alert.alert(
+        '🔑 Quên mật khẩu',
+        'Vui lòng nhập Email FPT (@fpt.edu.vn / @fe.edu.vn) vào ô đăng nhập, sau đó bấm lại "Quên mật khẩu" để nhận mã OTP khôi phục.'
+      );
+      return;
+    }
+
+    try {
+      await authMobileService.forgotPassword(emailToUse);
+      Alert.alert(
+        '📩 Đã gửi mã OTP khôi phục!',
+        `Hệ thống đã gửi mã OTP 6 số đến email ${emailToUse}. Vui lòng kiểm tra hộp thư (hoặc mục Spam).`
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi mã khôi phục. Vui lòng kiểm tra lại email.';
+      Alert.alert('Lỗi', msg);
+    }
+  }, [loginIdentifier]);
 
   const handleLoginSubmit = useCallback(async () => {
     if (!loginIdentifier.trim()) {

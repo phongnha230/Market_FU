@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load biến môi trường từ file .env
+// Ưu tiên load .env.test nếu đang chạy test
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: '.env.test' });
+}
 dotenv.config();
 
 /**
@@ -100,32 +103,43 @@ const envSchema = z.object({
 });
 
 const parseEnv = () => {
+  const isTest = process.env.NODE_ENV === 'test';
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {
-    console.error('❌ [CONFIG ERROR] Phát hiện biến môi trường không hợp lệ trong .env:');
-    parsed.error.issues.forEach((issue) => {
-      console.error(`   👉 [${issue.path.join('.')}] - ${issue.message}`);
-    });
-
     if (process.env.NODE_ENV === 'production') {
+      console.error('❌ [CONFIG ERROR] Phát hiện biến môi trường không hợp lệ trong .env:');
+      parsed.error.issues.forEach((issue) => {
+        console.error(`   👉 [${issue.path.join('.')}] - ${issue.message}`);
+      });
       console.error('💥 Không thể khởi động ứng dụng trên Production do thiếu biến môi trường bắt buộc!');
       process.exit(1);
     }
 
-    // Trong môi trường dev/test, fallback tự sinh chuỗi bảo mật ngẫu nhiên trong bộ nhớ (không hardcode secret vào git)
+    if (!isTest) {
+      console.warn('⚠️ [CONFIG WARNING] Phát hiện biến môi trường chưa hoàn thiện trong .env (đang dùng fallback an toàn cho dev):');
+      parsed.error.issues.forEach((issue) => {
+        console.warn(`   👉 [${issue.path.join('.')}] - ${issue.message}`);
+      });
+    }
+
+    // Trong môi trường dev/test, fallback tự sinh chuỗi bảo mật an toàn trong bộ nhớ (không hardcode secret vào git)
     const crypto = require('crypto');
-    const devFallbackSecret = () => crypto.randomBytes(32).toString('hex');
-    const devFallbackShort = () => crypto.randomBytes(16).toString('hex');
+    const testSecret32 = 'ci_test_jwt_secret_key_12345678901234567890123456789012';
+    const testSecret16 = 'ci_test_secret_key_min16chars';
+    const devFallbackSecret = () => (isTest ? testSecret32 : crypto.randomBytes(32).toString('hex'));
+    const devFallbackShort = () => (isTest ? testSecret16 : crypto.randomBytes(16).toString('hex'));
 
     return envSchema.parse({
       ...process.env,
-      DATABASE_URL: process.env.DATABASE_URL || 'mongodb://localhost:27017/campus_market_dev',
+      DATABASE_URL:
+        process.env.DATABASE_URL ||
+        (isTest ? 'mongodb://127.0.0.1:27017/campus_market_test' : 'mongodb://localhost:27017/campus_market_dev'),
       JWT_SECRET: process.env.JWT_SECRET || devFallbackSecret(),
       JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || devFallbackSecret(),
       SHIPPING_WEBHOOK_SECRET: process.env.SHIPPING_WEBHOOK_SECRET || devFallbackShort(),
       PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || devFallbackShort(),
-      HANDSHAKE_QR_SECRET: process.env.HANDSHAKE_QR_SECRET || devFallbackSecret(),
+      HANDSHAKE_QR_SECRET: process.env.HANDSHAKE_QR_SECRET || (isTest ? testSecret32 : devFallbackSecret()),
     });
   }
 

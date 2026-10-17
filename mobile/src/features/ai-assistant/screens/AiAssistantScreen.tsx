@@ -72,7 +72,9 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
       id: p.id || `prod_${Date.now()}_${idx}`,
       domTag: p.safePoint || p.meetupLocation || p.campus || 'Campus FPT',
       conditionBadge: conditionText,
-      trustScore: '98% MSSV',
+      trustScore: p.seller?.reputationScore
+        ? `${p.seller.reputationScore}% Uy tín`
+        : (p.seller?.isKycVerified || p.seller?.role === 'SELLER' ? '100% MSSV' : 'Đã duyệt'),
       title: p.title || 'Món đồ sinh viên FPT',
       sellerInfo: p.categoryType
         ? `Danh mục: ${p.categoryType}`
@@ -485,8 +487,22 @@ export const AiAssistantScreen: React.FC = () => {
         flatListRef.current?.scrollToEnd({ animated: true });
         return;
       }
-    } catch {
-      // Backend offline hoặc lỗi mạng -> Rơi vào fallback thông minh cục bộ
+    } catch (err: any) {
+      console.log('AI Assistant server error:', err?.message);
+      if (isAuthenticated) {
+        const errorReply: ChatMessage = {
+          id: `ai_${Date.now()}`,
+          sender: 'ai',
+          time: 'Vừa xong',
+          campusHeader: `GEMINI AI - ${currentCampus}`,
+          text: 'Rất tiếc, trợ lý AI đang quá tải hoặc gặp gián đoạn kết nối. Vui lòng thử lại sau giây lát hoặc tra cứu trực tiếp bằng thanh tìm kiếm!',
+        };
+        const finalMsgs = [...nextMsgs, errorReply];
+        setMessages(finalMsgs);
+        saveChatState(finalMsgs, sessionId);
+        flatListRef.current?.scrollToEnd({ animated: true });
+        return;
+      }
     }
 
     // Phản hồi cho khách (lượt dùng thử duy nhất) hoặc offline fallback

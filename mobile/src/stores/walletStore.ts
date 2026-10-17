@@ -118,46 +118,51 @@ export const useWalletStore = create<WalletState>()(
           };
         }
 
-        const newTx: WalletTransaction = {
-          id: `wtx_${Date.now()}`,
-          type: 'WITHDRAW',
-          title: `Rút tiền về ATM ${bankInfo.bankName} (${bankInfo.accountNo})`,
-          amount: amount,
-          date: 'Vừa xong',
-          status: 'PENDING',
-          bankName: bankInfo.bankName,
-          accountNo: bankInfo.accountNo,
-          referenceCode: `WD-${Math.floor(100000 + Math.random() * 900000)}`,
-        };
-
-        const updatedWallet: UserWallet = {
-          ...wallet,
-          availableBalance: wallet.availableBalance - amount,
-          transactions: [newTx, ...wallet.transactions],
-        };
-
-        set((state) => ({
-          walletsByUser: {
-            ...state.walletsByUser,
-            [currentId]: updatedWallet,
-          },
-        }));
-
-        // Bắn ngầm lên Backend /profile/withdrawals
-        profileMobileService
-          .submitWithdrawal({
+        try {
+          const res = await profileMobileService.submitWithdrawal({
             amount,
             bankName: bankInfo.bankName,
             accountNumber: bankInfo.accountNo,
             accountHolderName: bankInfo.accountName,
-            note: `Rút tiền từ Mobile App - ${newTx.referenceCode}`,
-          })
-          .catch(() => {});
+            note: `Rút tiền từ Mobile App - ATM ${bankInfo.bankName}`,
+          });
 
-        return {
-          success: true,
-          message: `Lệnh rút ${amount.toLocaleString('vi-VN')}đ về ngân hàng ${bankInfo.bankName} đã gửi thành công! Admin sẽ xử lý trong 5-15 phút.`,
-        };
+          const newTx: WalletTransaction = {
+            id: res?.id || `wtx_${Date.now()}`,
+            type: 'WITHDRAW',
+            title: `Rút tiền về ATM ${bankInfo.bankName} (${bankInfo.accountNo})`,
+            amount: amount,
+            date: 'Vừa xong',
+            status: 'PENDING',
+            bankName: bankInfo.bankName,
+            accountNo: bankInfo.accountNo,
+            referenceCode: res?.id || `WD-${Math.floor(100000 + Math.random() * 900000)}`,
+          };
+
+          const updatedWallet: UserWallet = {
+            ...wallet,
+            availableBalance: Math.max(0, wallet.availableBalance - amount),
+            transactions: [newTx, ...wallet.transactions],
+          };
+
+          set((state) => ({
+            walletsByUser: {
+              ...state.walletsByUser,
+              [currentId]: updatedWallet,
+            },
+          }));
+
+          return {
+            success: true,
+            message: `Lệnh rút ${amount.toLocaleString('vi-VN')}đ về ngân hàng ${bankInfo.bankName} đã gửi thành công! Admin sẽ xử lý trong 5-15 phút.`,
+          };
+        } catch (apiErr: any) {
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || 'Không thể tạo yêu cầu rút tiền. Vui lòng thử lại sau.';
+          return {
+            success: false,
+            message: errMsg,
+          };
+        }
       },
 
       deposit: async (amount) => {
@@ -176,13 +181,12 @@ export const useWalletStore = create<WalletState>()(
           title: 'Nạp tiền vào ví Escrow qua VietQR',
           amount,
           date: 'Vừa xong',
-          status: 'SUCCESS',
+          status: 'PENDING',
           referenceCode: `DEP-${Math.floor(100000 + Math.random() * 900000)}`,
         };
 
         const updatedWallet: UserWallet = {
           ...wallet,
-          availableBalance: wallet.availableBalance + amount,
           transactions: [newTx, ...wallet.transactions],
         };
 
@@ -195,7 +199,7 @@ export const useWalletStore = create<WalletState>()(
 
         return {
           success: true,
-          message: `Nạp ${amount.toLocaleString('vi-VN')}đ vào ví thành công!`,
+          message: `Đã ghi nhận yêu cầu nạp ${amount.toLocaleString('vi-VN')}đ, đang chờ ngân hàng đối soát.`,
         };
       },
 

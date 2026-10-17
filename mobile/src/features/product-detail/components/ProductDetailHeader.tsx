@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ProductDetailHeaderProps {
@@ -8,6 +8,8 @@ interface ProductDetailHeaderProps {
   isSaved: boolean;
   onToggleSaved: () => void;
   onOpenReport?: () => void;
+  productId?: string;
+  productTitle?: string;
 }
 
 export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = memo(({
@@ -16,7 +18,17 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = memo(({
   isSaved,
   onToggleSaved,
   onOpenReport,
+  productId,
+  productTitle,
 }) => {
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Xem món đồ này trên Market FU: ${productTitle || 'Sản phẩm FPT'}\nhttps://marketfu.fpt.edu.vn/posts/${productId || ''}`,
+      });
+    } catch {}
+  };
+
   return (
     <View style={styles.header}>
       <TouchableOpacity
@@ -58,7 +70,7 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = memo(({
         <TouchableOpacity
           style={styles.btn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => Alert.alert('Chia sẻ', 'Chia sẻ sản phẩm này')}
+          onPress={handleShare}
         >
           <Ionicons name="share-social-outline" size={20} color="#0F172A" />
         </TouchableOpacity>

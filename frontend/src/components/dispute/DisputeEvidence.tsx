@@ -39,20 +39,7 @@ export default function DisputeEvidence({
 }: DisputeEvidenceProps) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
-  const [evidenceList, setEvidenceList] = React.useState<Array<{ id: string; url: string; name: string; size: string; isVideo?: boolean }>>([
-    {
-      id: 'default-1',
-      url: '/products/keyboard-detail.jpg',
-      name: 'IMG_KiemTra_NgoaiQuan.jpg',
-      size: '2.8 MB • Vừa chụp',
-    },
-    {
-      id: 'default-2',
-      url: '/products/keyboard-akko.jpg',
-      name: 'IMG_TestPhim_KhongNhan.jpg',
-      size: '2.1 MB • Vừa chụp',
-    },
-  ]);
+  const [evidenceList, setEvidenceList] = React.useState<Array<{ id: string; url: string; name: string; size: string; isVideo?: boolean }>>([]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -153,30 +140,36 @@ export default function DisputeEvidence({
               </div>
             </div>
           ))}
-
           {/* Video Test Card */}
-          <div className="relative rounded-2xl overflow-hidden border border-blue-200 bg-blue-50/60 p-3 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-[10px] font-bold">
-              <Badge className="rounded bg-rose-600 text-white px-1.5 py-0.2 border-none hover:bg-rose-600">
-                VIDEO TEST
-              </Badge>
-              <span className="text-slate-500">10.2 MB</span>
-            </div>
-
-            <div className="my-3 flex flex-col items-center justify-center text-center">
-              <div className="h-10 w-10 rounded-full bg-fpt-orange text-white flex items-center justify-center shadow-md mb-1 cursor-pointer hover:scale-105 transition">
-                <Play className="h-4 w-4 fill-white ml-0.5" />
+          {uploadedProofVideoUrl ? (
+            <div className="relative rounded-2xl overflow-hidden border border-blue-200 bg-blue-50/60 p-3 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[10px] font-bold">
+                <Badge className="rounded bg-rose-600 text-white px-1.5 py-0.2 border-none hover:bg-rose-600">
+                  VIDEO BẰNG CHỨNG
+                </Badge>
+                <span className="text-emerald-600 font-bold">Đã tải lên</span>
               </div>
-              <span className="font-bold text-xs text-slate-800">
-                Video_Unbox_KiemTra.mp4
-              </span>
-              <span className="text-[10px] text-slate-500">Thời lượng: 00:48</span>
-            </div>
 
-            <div className="rounded-lg bg-white/90 p-1.5 text-center text-[10px] font-medium text-slate-600">
-              Được quay tại Safe-Point KTX
+              <div className="my-3 flex flex-col items-center justify-center text-center">
+                <a
+                  href={uploadedProofVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-fpt-orange text-white flex items-center justify-center shadow-md mb-1 cursor-pointer hover:scale-105 transition"
+                >
+                  <Play className="h-4 w-4 fill-white ml-0.5" />
+                </a>
+                <span className="font-bold text-xs text-slate-800">
+                  Video bằng chứng mở hộp
+                </span>
+                <span className="text-[10px] text-slate-500">Bấm để xem video</span>
+              </div>
+
+              <div className="rounded-lg bg-white/90 p-1.5 text-center text-[10px] font-medium text-slate-600">
+                Lưu trữ an toàn trên máy chủ
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         {/* Hidden File Input */}

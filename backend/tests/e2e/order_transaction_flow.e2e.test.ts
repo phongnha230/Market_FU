@@ -335,7 +335,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
     }
   });
 
-  it('Luồng 3 (Hủy đơn hàng PENDING): Buyer đặt hàng -> Buyer hủy đơn -> Sản phẩm trả lại AVAILABLE & Hoàn FPT Coin', async () => {
+  it('Luồng 3 (Hủy đơn hàng PENDING): Hoàn sản phẩm, coin và voucher đúng một lần', async () => {
     const server = app.listen(0);
     const address = server.address();
     if (!address || typeof address === 'string') {
@@ -348,6 +348,8 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
     let sellerId: string | null = null;
     let productId: string | null = null;
     let orderId: string | null = null;
+    let voucherId: string | null = null;
+    let userVoucherId: string | null = null;
 
     try {
       const seller = await prisma.user.create({
@@ -388,6 +390,24 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
       });
       productId = product.id;
 
+      const voucher = await prisma.voucher.create({
+        data: {
+          title: 'Voucher hủy đơn E2E',
+          coinCost: 0,
+          discountValue: 10000,
+        },
+      });
+      voucherId = voucher.id;
+      const userVoucher = await prisma.userVoucher.create({
+        data: {
+          userId: buyer.id,
+          voucherId: voucher.id,
+          voucherCode: `CANCEL-E2E-${Date.now()}`,
+          expiredAt: new Date(Date.now() + 86400000),
+        },
+      });
+      userVoucherId = userVoucher.id;
+
       const buyerToken = generateTokens({ userId: buyer.id, role: buyer.role, email: buyer.email }).accessToken;
 
       // 1. Tạo đơn kèm sử dụng 5 coins
@@ -401,6 +421,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
           productId: product.id,
           orderType: 'MEETUP',
           coinsUsed: 5,
+          voucherCode: userVoucher.voucherCode,
         }),
       });
 
@@ -410,6 +431,7 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
       // Coin bị trừ còn 15
       let buyerProf = await prisma.profile.findUnique({ where: { userId: buyer.id } });
       assert.strictEqual(buyerProf?.campusCoins, 15);
+      assert.strictEqual((await prisma.userVoucher.findUnique({ where: { id: userVoucher.id } }))?.status, 'USED');
 
       // 2. Buyer hủy đơn
       const cancelRes = await fetch(`${baseUrl}/api/orders/${orderId}/cancel`, {
@@ -431,9 +453,20 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
 
       buyerProf = await prisma.profile.findUnique({ where: { userId: buyer.id } });
       assert.strictEqual(buyerProf?.campusCoins, 20, 'FPT Coin phải được hoàn trả lại đầy đủ (15 + 5 = 20)');
+      assert.strictEqual((await prisma.userVoucher.findUnique({ where: { id: userVoucher.id } }))?.status, 'UNUSED');
+
+      const repeatedCancel = await fetch(`${baseUrl}/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ reason: 'Hủy lặp' }),
+      });
+      assert.strictEqual(repeatedCancel.status, 400);
+      assert.strictEqual((await prisma.profile.findUnique({ where: { userId: buyer.id } }))?.campusCoins, 20);
 
     } finally {
       if (orderId) await prisma.order.deleteMany({ where: { id: orderId } });
+      if (userVoucherId) await prisma.userVoucher.deleteMany({ where: { id: userVoucherId } });
+      if (voucherId) await prisma.voucher.deleteMany({ where: { id: voucherId } });
       if (productId) await prisma.product.deleteMany({ where: { id: productId } });
       const userIds = [buyerId, sellerId].filter(Boolean) as string[];
       if (userIds.length > 0) {

@@ -96,7 +96,7 @@ export const useEditListingController = () => {
     if (price === null || !currentProduct?.id) return;
 
     try {
-      await productMobileService.updateProduct(currentProduct.id, {
+      let savedProduct = await productMobileService.updateProduct(currentProduct.id, {
         title: formData.title.trim(),
         price,
         category: formData.category,
@@ -107,27 +107,27 @@ export const useEditListingController = () => {
         description: currentProduct.description,
       });
 
-      if (formData.status && formData.status !== currentProduct.status) {
-        await productMobileService.updateProductStatus(currentProduct.id, formData.status);
+      if (formData.status !== savedProduct.status &&
+          (formData.status === 'AVAILABLE' || formData.status === 'HIDDEN') &&
+          savedProduct.status !== 'PENDING_APPROVAL') {
+        savedProduct = await productMobileService.updateProductStatus(currentProduct.id, formData.status);
       }
-    } catch (e: any) {
-      console.log('⚠️ [updateProduct API error, saving to local store]:', e?.message);
+      updateProduct(currentProduct.id, {
+        ...savedProduct,
+        allowNegotiate: formData.allowNegotiate,
+      });
+
+      Alert.alert(
+        savedProduct.status === 'PENDING_APPROVAL' ? 'Đang chờ duyệt lại' : '✅ Thành công',
+        savedProduct.status === 'PENDING_APPROVAL'
+          ? 'Ảnh hoặc mô tả mới đã được lưu. Tin sẽ hiển thị lại sau khi quản trị viên duyệt.'
+          : 'Tin đăng đã được cập nhật thành công!'
+      );
+      navigation.goBack();
+    } catch (error: any) {
+      console.error('Could not update listing', error);
+      Alert.alert('Không thể cập nhật tin', error?.response?.data?.error?.message || error?.message || 'Vui lòng thử lại.');
     }
-
-    updateProduct(currentProduct.id, {
-      title: formData.title.trim(),
-      price,
-      category: formData.category,
-      condition: formData.condition,
-      safePoint: formData.safePoint,
-      campus: sellerCampus,
-      status: formData.status,
-      allowNegotiate: formData.allowNegotiate,
-      hashtags: formData.hashtags,
-    });
-
-    Alert.alert('✅ Thành công', 'Tin đăng đã được cập nhật thành công!');
-    navigation.goBack();
   }, [formData, currentProduct?.id, currentProduct?.status, currentProduct?.description, updateProduct, sellerCampus, navigation]);
 
   const handleDelete = useCallback(() => {

@@ -31,7 +31,15 @@
     "plugins": [
       "expo-asset",
       "expo-font",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F27024",
+          "defaultChannel": "system_channel"
+        }
+      ]
     ]
   }
 }

@@ -25,24 +25,7 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
     }
     Alert.alert(
       'Nạp tiền ví Campus Escrow',
-      'Chọn số tiền nạp nhanh thử nghiệm qua VietQR Napas 24/7:',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: '+200.000đ',
-          onPress: async () => {
-            await depositToWallet(200000);
-            Alert.alert('Nạp tiền thành công', 'Đã cộng 200.000đ vào số dư ví của bạn.');
-          },
-        },
-        {
-          text: '+500.000đ',
-          onPress: async () => {
-            await depositToWallet(500000);
-            Alert.alert('Nạp tiền thành công', 'Đã cộng 500.000đ vào số dư ví của bạn.');
-          },
-        },
-      ]
+      'Vui lòng mở chức năng nạp tiền VietQR Napas 24/7 để quét mã và đối soát tự động qua ngân hàng.'
     );
   };
 

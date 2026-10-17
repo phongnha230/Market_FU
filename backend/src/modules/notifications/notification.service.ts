@@ -88,12 +88,21 @@ export class NotificationService {
 
     // Tách riêng Web Push token (JSON subscription) và Mobile FCM tokens
     const webTokens = allTokens.filter(
-      (t) => t.deviceType === 'WEB' || t.token.trim().startsWith('{"endpoint"')
+      (t) => (t.deviceType === 'WEB' && t.token.trim().startsWith('{')) || t.token.trim().startsWith('{"endpoint"')
     );
+
+    // Tự động dọn dẹp các token rác/legacy string của WEB trong MongoDB
+    const garbageWebTokens = allTokens
+      .filter((t) => t.deviceType === 'WEB' && !t.token.trim().startsWith('{'))
+      .map((t) => t.token);
+    if (garbageWebTokens.length > 0) {
+      prisma.deviceToken.deleteMany({ where: { token: { in: garbageWebTokens } } }).catch(() => {});
+    }
+
     const mobileTokens = (fcmTokens && fcmTokens.length > 0)
-      ? fcmTokens.filter((t) => t && !t.trim().startsWith('{"endpoint"'))
+      ? fcmTokens.filter((t) => t && !t.trim().startsWith('{'))
       : allTokens
-          .filter((t) => t.deviceType !== 'WEB' && !t.token.trim().startsWith('{"endpoint"'))
+          .filter((t) => t.deviceType !== 'WEB' && !t.token.trim().startsWith('{'))
           .map((t) => t.token);
 
     // C1: Gửi Web Push (Chuẩn W3C VAPID cho trình duyệt Chrome, Edge, Firefox, Safari)
@@ -354,6 +363,21 @@ export class NotificationService {
       throw new AppError('Token thiết bị không hợp lệ', 400, 'INVALID_DEVICE_TOKEN');
     }
 
+    if (deviceType === 'WEB') {
+      try {
+        const parsed = JSON.parse(trimmedToken);
+        if (!parsed.endpoint) {
+          throw new Error('Thiếu trường endpoint');
+        }
+      } catch {
+        throw new AppError(
+          'Token Web Push phải là chuỗi JSON PushSubscription hợp lệ chứa endpoint',
+          400,
+          'INVALID_WEB_PUSH_SUBSCRIPTION'
+        );
+      }
+    }
+
     const record = await prisma.deviceToken.upsert({
       where: { token: trimmedToken },
       create: {
@@ -388,6 +412,38 @@ export class NotificationService {
     });
 
     return { message: 'Đã hủy đăng ký token thiết bị thành công' };
+  }
+
+  /**
+   * 8. Gửi thử nghiệm Push Notification (Web Push VAPID & FCM Mobile) cho người dùng
+   */
+  async sendTestPushToUser(userId: string, title?: string, body?: string) {
+    const testTitle = title || '🔔 [Test] Thông báo Thử Nghiệm Push';
+    const testBody = body || 'Hệ thống Push Notification (FCM Mobile & WebPush) đang hoạt động chuẩn xác!';
+
+    const noti = await this.sendNotification({
+      userId,
+      title: testTitle,
+      body: testBody,
+      type: 'SYSTEM',
+      targetUrl: '/notifications',
+    });
+
+    const devices = await prisma.deviceToken.findMany({
+      where: { userId },
+      select: { deviceType: true, token: true, updatedAt: true },
+    });
+
+    return {
+      message: 'Đã phát lệnh gửi Test Push Notification thành công',
+      notificationId: noti.id,
+      registeredDevicesCount: devices.length,
+      devices: devices.map((d) => ({
+        deviceType: d.deviceType || 'UNKNOWN',
+        tokenPreview: d.token.length > 35 ? `${d.token.slice(0, 35)}...` : d.token,
+        updatedAt: d.updatedAt,
+      })),
+    };
   }
 
   // 2. Lấy danh sách thông báo của người dùng kèm phân trang

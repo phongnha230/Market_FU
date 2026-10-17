@@ -18,7 +18,7 @@ import {
 } from './order.dto';
 import { calculateShippingFee } from './shipping-matrix';
 import { ghnService } from './ghn.service';
-import { CampusLocation } from '@prisma/client';
+import { CampusLocation, Order } from '@prisma/client';
 
 /** Tự động trích xuất mã Campus FPT từ địa chỉ giao nhận */
 export function detectCampusFromAddress(address?: string): CampusLocation | null {
@@ -184,67 +184,40 @@ export class OrderService {
 
     // B3-NEGOTIATION: Kiểm tra nếu đơn hàng có áp dụng giá thương lượng (agreedPrice) được người bán chấp thuận trong Chat
     let finalProductPrice = product.price;
-    if (agreedPrice && agreedPrice > 0 && agreedPrice < product.price) {
+    if (agreedPrice !== undefined) {
+      if (agreedPrice <= 0 || agreedPrice >= product.price) {
+        throw new AppError('Giá thương lượng không hợp lệ so với giá niêm yết', 400, 'INVALID_AGREED_PRICE');
+      }
       try {
-        // Giới hạn thời gian hiệu lực của deal trả giá là 30 phút
-        const OFFER_EXPIRATION_MINUTES = 30;
-        const offerExpiryThreshold = new Date(Date.now() - OFFER_EXPIRATION_MINUTES * 60 * 1000);
-
+        const offerExpiryThreshold = new Date(Date.now() - 30 * 60 * 1000);
+        const acceptedOffer = {
+          conversation: { productId, buyerId },
+          senderId: product.sellerId,
+          offerPrice: agreedPrice,
+          text: { contains: '[OFFER_ACCEPTED]' },
+        } as const;
         const verifiedOffer = await prisma.message.findFirst({
-          where: {
-            conversation: {
-              productId,
-              buyerId,
-            },
-            createdAt: { gte: offerExpiryThreshold },
-            OR: [
-              // 1. Người bán chủ động gửi đề xuất mức giá này
-              { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
-              // 2. Người bán xác nhận đồng ý bằng cú pháp hệ thống [OFFER_ACCEPTED]
-              { senderId: product.sellerId, text: { contains: '[OFFER_ACCEPTED]' } },
-              // 3. Người bán xác nhận đồng ý chốt giá trong tin nhắn văn bản
-              { senderId: product.sellerId, text: { contains: `${agreedPrice.toLocaleString('vi-VN')}` } },
-            ],
-          },
-          orderBy: { createdAt: 'desc' },
+          where: { ...acceptedOffer, createdAt: { gte: offerExpiryThreshold } },
+          select: { id: true },
         });
-
-        if (verifiedOffer) {
-          finalProductPrice = agreedPrice;
-        } else {
-          // Kiểm tra xem có thỏa thuận cũ đã quá hạn 30 phút không để báo lỗi rõ ràng cho người mua
+        if (!verifiedOffer) {
           const expiredOffer = await prisma.message.findFirst({
-            where: {
-              conversation: {
-                productId,
-                buyerId,
-              },
-              createdAt: { lt: offerExpiryThreshold },
-              OR: [
-                { senderId: product.sellerId, messageType: 'OFFER_PRICE', offerPrice: agreedPrice },
-                { senderId: product.sellerId, text: { contains: '[OFFER_ACCEPTED]' } },
-                { senderId: product.sellerId, text: { contains: `${agreedPrice.toLocaleString('vi-VN')}` } },
-              ],
-            },
+            where: { ...acceptedOffer, createdAt: { lt: offerExpiryThreshold } },
+            select: { id: true },
           });
-
-          if (expiredOffer) {
-            throw new AppError(
-              'Mức giá thỏa thuận đã hết hiệu lực (quá 30 phút). Vui lòng thương lượng lại với người bán hoặc mua theo giá niêm yết.',
-              400,
-              'OFFER_EXPIRED'
-            );
-          }
-
-          console.warn(`⚠️ Mức giá ${agreedPrice} chưa được người bán chấp thuận trong chat, giữ nguyên giá gốc niêm yết: ${product.price}`);
-          finalProductPrice = product.price;
+          throw new AppError(
+            expiredOffer
+              ? 'Mức giá thỏa thuận đã hết hiệu lực. Vui lòng thương lượng lại hoặc mua theo giá niêm yết.'
+              : 'Người bán chưa chấp nhận đúng mức giá này. Vui lòng kiểm tra lại trong chat.',
+            409,
+            expiredOffer ? 'OFFER_EXPIRED' : 'OFFER_NOT_ACCEPTED'
+          );
         }
-      } catch (checkErr: any) {
-        if (checkErr?.code === 'OFFER_EXPIRED' || checkErr?.name === 'AppError') {
-          throw checkErr;
-        }
-        console.warn('⚠️ Lỗi kiểm tra offer trong chat, an toàn giữ nguyên giá niêm yết:', checkErr);
-        finalProductPrice = product.price;
+        finalProductPrice = agreedPrice;
+      } catch (checkErr) {
+        if (checkErr instanceof AppError) throw checkErr;
+        console.error('Không thể xác minh giá thương lượng', { buyerId, productId, agreedPrice, error: checkErr });
+        throw new AppError('Chưa thể xác minh giá thương lượng. Vui lòng thử lại.', 503, 'OFFER_VERIFICATION_UNAVAILABLE');
       }
     }
 
@@ -294,41 +267,20 @@ export class OrderService {
     const vietqrTemplate = ENV.VIETQR_TEMPLATE || 'compact2';
     const vietqrUrl = `https://img.vietqr.io/image/${vietqrBank}-${vietqrAccount}-${vietqrTemplate}.png?amount=${totalAmount}&addInfo=${orderCode}&accountName=${vietqrName}`;
 
-    // 6.1. Tích hợp Cổng thanh toán trực tuyến PayOS (Web Checkout)
+    // 6.1. Reserve a unique PayOS code before persisting the order. Create the remote link afterwards.
     let payosOrderCode: number | null = null;
-    let payosCheckoutUrl: string | null = null;
 
     if (paymentMethod === 'PAYOS_WEB') {
-      // PayOS yêu cầu orderCode dạng số nguyên độc nhất (integer)
-      payosOrderCode = Number(Date.now().toString().slice(-7) + Math.floor(100 + Math.random() * 900));
-
-      if (isPayOsConfigured()) {
-        try {
-          const payos = getPayOsClient();
-          const cleanDesc = `Thanh toan ${orderCode}`.slice(0, 25);
-          const paymentLink = await payos.paymentRequests.create({
-            orderCode: payosOrderCode,
-            amount: totalAmount,
-            description: cleanDesc,
-            cancelUrl: `${ENV.CLIENT_URL}/checkout?cancelled=true`,
-            returnUrl: `${ENV.CLIENT_URL}/checkout/success?orderCode=${orderCode}&paymentMethod=payos&status=PAID`,
-            items: [
-              {
-                name: product.title.slice(0, 45),
-                quantity: 1,
-                price: totalAmount,
-              },
-            ],
-          });
-          payosCheckoutUrl = paymentLink.checkoutUrl;
-        } catch (payosErr: any) {
-          console.warn('⚠️ Lỗi khi gọi PayOS gateway, chuyển sang chế độ fallback:', payosErr?.message || payosErr);
-          payosCheckoutUrl = `${ENV.CLIENT_URL}/checkout/success?orderCode=${orderCode}&paymentMethod=payos&simulated=true`;
-        }
-      } else {
-        // Fallback khi dev chưa cấu hình key PayOS trên môi trường local
-        payosCheckoutUrl = `${ENV.CLIENT_URL}/checkout/success?orderCode=${orderCode}&paymentMethod=payos&simulated=true`;
+      if (!isPayOsConfigured()) {
+        throw new AppError(
+          'PayOS chưa được cấu hình. Hãy kiểm tra PAYOS_CLIENT_ID, PAYOS_API_KEY và PAYOS_CHECKSUM_KEY.',
+          503,
+          'PAYOS_NOT_CONFIGURED'
+        );
       }
+
+      // PayOS yêu cầu orderCode dạng số nguyên độc nhất (integer)
+      payosOrderCode = Date.now() * 1000 + crypto.randomInt(0, 1000);
     }
 
     // 7. Thực thi Transaction đảm bảo tính toàn vẹn dữ liệu
@@ -406,7 +358,8 @@ export class OrderService {
             totalAmount,
             vietqrUrl,
             payosOrderCode,
-            payosCheckoutUrl,
+            payosCheckoutUrl: null,
+            appliedUserVoucherId,
             paymentMethod,
             isPaid: false,
           },
@@ -447,6 +400,73 @@ export class OrderService {
       return order;
     });
 
+    let readyOrder = newOrder;
+    if (paymentMethod === 'PAYOS_WEB' && payosOrderCode !== null) {
+      const payos = getPayOsClient();
+      let checkoutUrl: string;
+      try {
+        const paymentLink = await payos.paymentRequests.create({
+          orderCode: payosOrderCode,
+          amount: totalAmount,
+          description: `Thanh toan ${orderCode}`.slice(0, 25),
+          cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&cancelled=true`,
+          // PayOS appends its own numeric orderCode; keep our order code in a separate parameter.
+          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos`,
+          items: [{ name: product.title.slice(0, 45), quantity: 1, price: totalAmount }],
+        });
+        if (!paymentLink.checkoutUrl) throw new Error('PayOS did not return a checkout URL');
+        checkoutUrl = paymentLink.checkoutUrl;
+      } catch (payosError) {
+        console.error('PayOS checkout creation failed', { orderCode, error: payosError });
+        let canReleaseReservation = false;
+        try {
+          const remote = await payos.paymentRequests.cancel(payosOrderCode, 'Order setup failed');
+          canReleaseReservation = remote.status === 'CANCELLED';
+        } catch (cancelError) {
+          const createStatus = (payosError as { status?: number })?.status;
+          const cancelStatus = (cancelError as { status?: number })?.status;
+          canReleaseReservation = cancelStatus === 404 || [400, 401, 403, 422].includes(createStatus ?? 0);
+          console.error('PayOS checkout cleanup result', { orderCode, createStatus, cancelStatus });
+        }
+        if (canReleaseReservation) {
+          await this.cancelPendingOrderInDb(newOrder, 'Không thể khởi tạo PayOS', buyerId);
+        }
+        throw new AppError(
+          canReleaseReservation
+            ? 'Không thể tạo liên kết PayOS; đơn đã được hủy và hoàn lại quyền mua.'
+            : `Không xác định được trạng thái PayOS cho đơn ${orderCode}. Vui lòng kiểm tra đơn trước khi thử lại.`,
+          502,
+          canReleaseReservation ? 'PAYOS_CHECKOUT_CREATION_FAILED' : 'PAYOS_CHECKOUT_STATE_UNKNOWN'
+        );
+      }
+
+      try {
+        await prisma.order.update({
+          where: { id: newOrder.id },
+          data: { payment: { update: { payosCheckoutUrl: checkoutUrl } } },
+        });
+        readyOrder = {
+          ...newOrder,
+          payment: { ...newOrder.payment, payosCheckoutUrl: checkoutUrl },
+        };
+      } catch (persistError) {
+        console.error('PayOS link persistence failed', { orderCode, error: persistError });
+        try {
+          const cancelledLink = await payos.paymentRequests.cancel(payosOrderCode, 'Order persistence failed');
+          if (cancelledLink.status === 'CANCELLED') {
+            await this.cancelPendingOrderInDb(newOrder, 'Không thể lưu liên kết PayOS', buyerId);
+          }
+        } catch (cancelError) {
+          console.error('PayOS link cancellation after persistence failure failed', { orderCode, error: cancelError });
+        }
+        throw new AppError(
+          `Không thể hoàn tất thanh toán PayOS cho đơn ${orderCode}. Vui lòng kiểm tra đơn trước khi thử lại.`,
+          502,
+          'PAYOS_CHECKOUT_PERSIST_FAILED'
+        );
+      }
+    }
+
     // Ghi nhận Audit Log sự kiện khóa tiền cọc Escrow cho VPS giám sát
     auditLogger.recordEscrowHold({
       orderId: newOrder.id,
@@ -459,13 +479,17 @@ export class OrderService {
     });
 
     // 8. Bắn thông báo Realtime & Push tới người bán
-    await notificationService.sendNotification({
-      userId: product.sellerId,
-      title: 'Đơn đặt hàng mới',
-      body: `Bạn có đơn hàng mới #${orderCode} cho món "${product.title}" (${orderType === 'MEETUP' ? 'Hẹn gặp Safe Handoff' : 'Giao Ship COD'})!`,
-      type: 'ORDER',
-      targetUrl: '/orders',
-    });
+    try {
+      await notificationService.sendNotification({
+        userId: product.sellerId,
+        title: 'Đơn đặt hàng mới',
+        body: `Bạn có đơn hàng mới #${orderCode} cho món "${product.title}" (${orderType === 'MEETUP' ? 'Hẹn gặp Safe Handoff' : 'Giao Ship COD'})!`,
+        type: 'ORDER',
+        targetUrl: '/orders',
+      });
+    } catch (notificationError) {
+      console.error('Order was created but seller notification failed', { orderCode, error: notificationError });
+    }
 
     emitToUser(product.sellerId, 'new_order_received', {
       orderId: newOrder.id,
@@ -473,7 +497,7 @@ export class OrderService {
       productTitle: product.title,
     });
 
-    return newOrder;
+    return readyOrder;
     } finally {
       await releaseLock(lock);
     }
@@ -952,7 +976,42 @@ export class OrderService {
       throw new AppError('Chỉ có thể hủy đơn hàng khi đơn chưa thanh toán hoặc chưa gửi hàng', 400, 'CANNOT_CANCEL');
     }
 
+    if (order.payment.paymentMethod === 'PAYOS_WEB' && order.payment.payosOrderCode) {
+      if (!order.payment.payosCheckoutUrl) {
+        throw new AppError('Liên kết PayOS đang được khởi tạo, vui lòng thử lại sau', 409, 'PAYOS_SETUP_IN_PROGRESS');
+      }
+      const payos = getPayOsClient();
+      let remoteStatus: string;
+      try {
+        const remoteOrder = await payos.paymentRequests.cancel(order.payment.payosOrderCode, reason);
+        remoteStatus = remoteOrder.status;
+      } catch (cancelError) {
+        try {
+          const remoteOrder = await payos.paymentRequests.get(order.payment.payosOrderCode);
+          remoteStatus = remoteOrder.status;
+        } catch (lookupError) {
+          console.error('Could not verify PayOS cancellation', { orderCode: order.orderCode, cancelError, lookupError });
+          throw new AppError('Chưa thể xác nhận hủy thanh toán PayOS. Vui lòng thử lại sau.', 503, 'PAYOS_CANCEL_UNCONFIRMED');
+        }
+      }
+      if (!['CANCELLED', 'EXPIRED', 'FAILED'].includes(remoteStatus)) {
+        throw new AppError('PayOS chưa xác nhận hủy; đơn có thể đang được thanh toán', 409, 'PAYOS_PAYMENT_IN_PROGRESS');
+      }
+    }
+
+    return this.cancelPendingOrderInDb(order, reason, userId);
+  }
+
+  private async cancelPendingOrderInDb(order: Order, reason: string, actorId: string) {
     const cancelledOrder = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: order.id, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError('Đơn hàng đã đổi trạng thái, không thể hủy hoặc hoàn xu lần nữa', 409, 'ORDER_NOT_PENDING');
+      }
+
       // Hoàn lại FPT Coin nếu người mua đã dùng coin giảm giá
       if (order.payment.coinsUsed > 0) {
         await tx.profile.update({
@@ -979,17 +1038,23 @@ export class OrderService {
         });
       }
 
+      if (order.payment.appliedUserVoucherId) {
+        await tx.userVoucher.updateMany({
+          where: { id: order.payment.appliedUserVoucherId, userId: order.buyerId, status: 'USED' },
+          data: { status: 'UNUSED', usedAt: null },
+        });
+      }
+
       // Trả lại trạng thái AVAILABLE cho sản phẩm
-      await tx.product.update({
-        where: { id: order.productId },
+      const released = await tx.product.updateMany({
+        where: { id: order.productId, status: 'RESERVED' },
         data: { status: 'AVAILABLE' },
       });
+      if (released.count !== 1) {
+        throw new AppError('Không thể trả trạng thái sản phẩm về AVAILABLE', 409, 'PRODUCT_NOT_RESERVED');
+      }
 
-      // Cập nhật trạng thái CANCELLED
-      return tx.order.update({
-        where: { id: orderId },
-        data: { status: 'CANCELLED' },
-      });
+      return tx.order.findUniqueOrThrow({ where: { id: order.id } });
     });
 
     // Ghi nhận Audit Log sự kiện hủy đơn & hoàn tiền/xu cho người mua
@@ -1000,19 +1065,23 @@ export class OrderService {
       amount: order.payment.totalAmount,
       coinsRefunded: order.payment.coinsUsed,
       reason,
-      actor: userId,
+      actor: actorId,
     });
 
-    const otherUserId = order.buyerId === userId ? order.sellerId : order.buyerId;
-    await notificationService.sendNotification({
-      userId: otherUserId,
-      title: 'Đơn hàng đã bị hủy',
-      body: `Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}`,
-      type: 'ORDER',
-      targetUrl: '/orders',
-    });
+    const otherUserId = order.buyerId === actorId ? order.sellerId : order.buyerId;
+    try {
+      await notificationService.sendNotification({
+        userId: otherUserId,
+        title: 'Đơn hàng đã bị hủy',
+        body: `Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}`,
+        type: 'ORDER',
+        targetUrl: '/orders',
+      });
+    } catch (notificationError) {
+      console.error('Order was cancelled but notification failed', { orderCode: order.orderCode, error: notificationError });
+    }
 
-    emitToUser(otherUserId, 'order_cancelled', { orderId, orderCode: order.orderCode });
+    emitToUser(otherUserId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
 
     return cancelledOrder;
   }

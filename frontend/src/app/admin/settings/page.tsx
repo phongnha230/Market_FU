@@ -9,6 +9,27 @@ export default function AdminSettingsPage() {
   const [ssoEnabled, setSsoEnabled] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleSaveSettings = () => {
+    try {
+      localStorage.setItem('admin_system_settings', JSON.stringify({
+        autoApprove,
+        ssoEnabled,
+        emailAlerts,
+        maintenanceMode,
+        updatedAt: new Date().toISOString(),
+      }));
+      showToast('✅ Đã lưu cấu hình hệ thống thành công!');
+    } catch {
+      showToast('❌ Không thể lưu cấu hình. Vui lòng thử lại!');
+    }
+  };
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
     <button
@@ -91,10 +112,21 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 rounded-xl bg-fpt-orange px-5 py-3 text-sm font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs active:scale-95 transition">
-          <Save className="h-4 w-4" />
-          Lưu cài đặt
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveSettings}
+            className="flex items-center gap-2 rounded-xl bg-fpt-orange px-5 py-3 text-sm font-bold text-white hover:bg-fpt-orange-hover cursor-pointer shadow-xs active:scale-95 transition"
+          >
+            <Save className="h-4 w-4" />
+            Lưu cài đặt
+          </button>
+          {toastMessage && (
+            <span className="text-xs font-bold text-emerald-600 animate-in fade-in">
+              {toastMessage}
+            </span>
+          )}
+        </div>
       </div>
     </AdminLayoutShell>
   );

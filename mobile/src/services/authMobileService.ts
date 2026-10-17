@@ -251,6 +251,34 @@ export const authMobileService = {
     const res = await apiClient.patch<ApiResponse<any>>('/auth/change-password', payload);
     return res.data?.data || { message: 'Đổi mật khẩu thành công!' };
   },
+
+  /**
+   * Quên mật khẩu - gửi OTP về email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const res = await apiClient.post<ApiResponse<any>>('/auth/forgot-password', {
+      email: email.trim().toLowerCase(),
+    });
+    return res.data?.data || { message: 'Đã gửi mã OTP khôi phục về email của bạn.' };
+  },
+
+  /**
+   * Đặt lại mật khẩu với mã OTP
+   */
+  async resetPassword(payload: {
+    email: string;
+    otp: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<{ message: string }> {
+    const res = await apiClient.post<ApiResponse<any>>('/auth/reset-password', {
+      email: payload.email.trim().toLowerCase(),
+      otp: payload.otp.trim(),
+      newPassword: payload.newPassword,
+      confirmPassword: payload.confirmPassword,
+    });
+    return res.data?.data || { message: 'Đặt lại mật khẩu thành công!' };
+  },
 };
 
 /**

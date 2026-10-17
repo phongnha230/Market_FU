@@ -105,4 +105,20 @@ export class NotificationController {
   getVapidPublicKey = async (_req: Request, res: Response) => {
     return sendSuccess(res, { publicKey: vapidPublicKey });
   };
+
+  // POST /api/notifications/test-push
+  sendTestPush = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { title, body } = req.body || {};
+      const result = await notificationService.sendTestPushToUser(
+        authReq.user!.userId,
+        title,
+        body
+      );
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

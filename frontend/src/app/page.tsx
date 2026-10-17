@@ -8,6 +8,7 @@ import FeaturedSection from '@/components/FeaturedSection';
 import SafetyBanner from '@/components/SafetyBanner';
 import LatestPostsSection from '@/components/LatestPostsSection';
 import Footer from '@/components/Footer';
+import HomePromoPopup from '@/components/HomePromoPopup';
 
 import { useRouter } from 'next/navigation';
 
@@ -32,6 +33,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-100 selection:text-fpt-orange">
+      <HomePromoPopup />
       {/* 1. Header & Navigation with Clean Logo from Image 2 */}
       <Navbar
         selectedCampus={selectedCampus}

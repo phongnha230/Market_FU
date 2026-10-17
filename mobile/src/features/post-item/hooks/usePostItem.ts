@@ -199,46 +199,33 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
         description: finalDescription,
       });
 
-      if (created) {
-        addProduct(created);
-      }
-    } catch (err: any) {
-      console.log('⚠️ [createProduct backend error, fallback to local store]:', err?.message);
-      // Fallback lưu local store nếu backend offline
-      addProduct({
-        title: title.trim(),
-        price: rawPrice,
-        condition: selectedCondition === 'new' ? 'Mới 100%' : 'Like new 99%',
-        category: selectedCategory === 'book' ? 'books' : selectedCategory === 'dom' ? 'dom' : selectedCategory === 'vovinam' ? 'vovinam' : 'electronics',
-        images: finalImageUrls,
-        campus: sellerCampus, // Khóa cứng theo cơ sở Seller đăng ký
-        sellerId: currentSeller.id,
-        sellerName: currentSeller.name,
-        sellerCohort: currentSeller.cohort || `${sellerCampus} Tech Store`,
-        sellerRating: currentSeller.rating || 5.0,
-        sellerIsVerified: true,
-        safePoint: selectedSafePoint,
-        allowNegotiate,
-        campusShipEnabled,
-        hashtags,
-        description: finalDescription,
-      });
-    }
+        if (created) {
+          addProduct(created);
+        }
 
-    Alert.alert(
-      '🎉 Đăng tin thành công!',
-      `Món đồ "${title}" của bạn đã được niêm yết tại cơ sở ${sellerCampus} (khóa theo hồ sơ Seller của bạn).`,
-      [
-        {
-          text: 'Xem tin đăng của tôi',
-          onPress: () => {
-            if (onSubmitSuccess) onSubmitSuccess();
-            else if (onGoBack) onGoBack();
-          },
-        },
-      ]
-    );
-  };
+        Alert.alert(
+          '🎉 Đăng tin thành công!',
+          `Món đồ "${title}" của bạn đã được gửi lên hệ thống và đang chờ duyệt tại cơ sở ${sellerCampus}.`,
+          [
+            {
+              text: 'Xem tin đăng của tôi',
+              onPress: () => {
+                if (onSubmitSuccess) onSubmitSuccess();
+                else if (onGoBack) onGoBack();
+              },
+            },
+          ]
+        );
+      } catch (err: any) {
+        console.log('⚠️ [createProduct backend error]:', err?.message);
+        const errorMsg =
+          err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          'Không thể đăng bài bán. Vui lòng kiểm tra lại thông tin và kết nối mạng.';
+        Alert.alert('Không thể đăng tin', errorMsg);
+      }
+    };
 
   return {
     title,

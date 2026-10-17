@@ -67,8 +67,16 @@ export default function Navbar({
 
   React.useEffect(() => {
     setIsMounted(true);
-    initWebPush().catch(() => {});
   }, []);
+
+  const userData = useUserStore((state) => state.user);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+
+  React.useEffect(() => {
+    if (isMounted && isLoggedIn) {
+      initWebPush().catch(() => {});
+    }
+  }, [isMounted, isLoggedIn]);
 
   React.useEffect(() => {
     if (selectedCampus) {
@@ -76,14 +84,12 @@ export default function Navbar({
     }
   }, [selectedCampus]);
 
-  const userData = useUserStore((state) => state.user);
   const isSeller = userData.kycStatus === 'approved_seller';
   const isEduEmail = Boolean(
     userData.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     userData.email?.toLowerCase().endsWith('@fe.edu.vn')
   );
   const isVerifiedStudent = isEduEmail || userData.kycStatus === 'approved_student' || userData.kycStatus === 'approved_seller';
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const logout = useUserStore((state) => state.logout);
   const updateProfile = useUserStore((state) => state.updateProfile);
   const favoritesCount = useFavoriteStore((state) => state.favorites.length);

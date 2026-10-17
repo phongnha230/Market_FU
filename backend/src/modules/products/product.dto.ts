@@ -87,6 +87,11 @@ export const updateProductStatusSchema = z.object({
 
 export const rejectProductSchema = z.object({
   reason: z.string().min(2, 'Lý do từ chối ít nhất 2 ký tự').max(500, 'Lý do từ chối tối đa 500 ký tự'),
+  expectedUpdatedAt: z.string().datetime(),
+});
+
+export const approveProductSchema = z.object({
+  expectedUpdatedAt: z.string().datetime(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;

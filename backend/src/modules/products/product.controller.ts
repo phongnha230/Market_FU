@@ -8,6 +8,7 @@ import {
   updateProductStatusSchema,
   queryProductSchema,
   boostProductSchema,
+  approveProductSchema,
   rejectProductSchema,
 } from './product.dto';
 import { sendSuccess } from '../../utils/response';
@@ -65,7 +66,7 @@ export class ProductController {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const viewerIp = (req as any).user?.userId || req.ip || 'anonymous';
-      const product = await productService.getProductById(id, viewerIp);
+      const product = await productService.getProductById(id, viewerIp, (req as AuthRequest).user?.userId, (req as AuthRequest).user?.role);
       sendSuccess(res, product);
     } catch (error) {
       next(error);
@@ -81,7 +82,7 @@ export class ProductController {
         allStatuses: 'true', // Hiện tất cả trạng thái (available, sold, hidden...)
         limit: 50,
       });
-      const { products, pagination } = await productService.getProducts(query);
+      const { products, pagination } = await productService.getProducts(query, { ownerId: req.user!.userId });
       sendSuccess(res, products, pagination);
     } catch (error) {
       next(error);
@@ -260,7 +261,8 @@ export class ProductController {
   async approveProduct(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const result = await productService.approveProduct(req.user!.userId, id);
+      const { expectedUpdatedAt } = approveProductSchema.parse(req.body);
+      const result = await productService.approveProduct(req.user!.userId, id, expectedUpdatedAt);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
@@ -271,8 +273,8 @@ export class ProductController {
   async rejectProduct(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const { reason } = rejectProductSchema.parse(req.body);
-      const result = await productService.rejectProduct(req.user!.userId, id, reason);
+      const { reason, expectedUpdatedAt } = rejectProductSchema.parse(req.body);
+      const result = await productService.rejectProduct(req.user!.userId, id, reason, expectedUpdatedAt);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

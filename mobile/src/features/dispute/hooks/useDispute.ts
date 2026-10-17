@@ -101,8 +101,9 @@ export const useDispute = (
       setIsSubmitting(true);
 
       if (orderId) {
+        const videoEvidence = evidenceList.find((e) => e.isVideo)?.source?.uri;
+        await orderMobileService.createDispute(orderId, fullReason, videoEvidence);
         useOrderStore.getState().createDispute(orderId, fullReason);
-        await orderMobileService.createDispute(orderId, fullReason).catch(() => {});
       }
 
       Alert.alert(
@@ -111,8 +112,11 @@ export const useDispute = (
         [{ text: 'Đã hiểu', onPress: onGoBack }]
       );
     } catch (err: any) {
-      Alert.alert('Thông báo', err?.response?.data?.message || err?.message || 'Đã gửi hồ sơ khiếu nại thành công.');
-      if (onGoBack) onGoBack();
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi khiếu nại lúc này. Vui lòng thử lại sau.';
+      Alert.alert('Gửi khiếu nại thất bại', errorMessage);
     } finally {
       setIsSubmitting(false);
     }

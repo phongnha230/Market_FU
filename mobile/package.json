@@ -31,6 +31,7 @@
     "expo-image": "~57.0.5",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "^57.0.2",
+    "expo-notifications": "^58.1.5",
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "^57.0.3",
     "firebase": "^12.19.0",

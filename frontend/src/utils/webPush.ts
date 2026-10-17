@@ -1,31 +1,8 @@
-import { notificationService } from '@/services/notificationService';
+import { webPushService, playNotificationChime } from '@/services/webPushService';
 
 // Âm thanh thông báo nhẹ nhàng (Web Audio API không cần tải file mp3)
 export function playNotificationSound() {
-  if (typeof window === 'undefined') return;
-  try {
-    if (localStorage.getItem('fu_sound_enabled') === 'false') return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
-
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  } catch {
-    // Trình duyệt chưa tương tác âm thanh
-  }
+  playNotificationChime();
 }
 
 // 1. Đăng ký Service Worker
@@ -45,7 +22,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
-// 2. Yêu cầu quyền gửi thông báo từ người dùng
+// 2. Yêu cầu quyền gửi thông báo từ người dùng & Đăng ký Push Subscription thật
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'denied';
@@ -54,13 +31,10 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      // Đăng ký token giả định hoặc token thiết bị lên backend
-      const deviceToken = `web-token-${navigator.userAgent.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`;
-      try {
-        await notificationService.registerDeviceToken(deviceToken, 'WEB');
-      } catch {
-        // Lưu offline
-      }
+      // Đăng ký PushSubscription thật với VAPID key qua webPushService
+      await webPushService.subscribeUser(true).catch((err) => {
+        console.warn('⚠️ [WebPush] Lỗi đăng ký PushSubscription:', err?.message);
+      });
     }
     return permission;
   } catch (err) {
@@ -81,7 +55,7 @@ export async function showDesktopNotification(options: {
   }
 
   // Phát âm thanh báo hiệu
-  playNotificationSound();
+  playNotificationChime();
 
   // Kiểm tra quyền
   if (Notification.permission !== 'granted') {
@@ -131,12 +105,11 @@ export async function showDesktopNotification(options: {
 
 // 4. Khởi tạo toàn diện Web Push khi ứng dụng khởi chạy
 export async function initWebPush() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !webPushService.isSupported()) return;
   await registerServiceWorker();
 
-  // Nếu người dùng đã Allow từ trước thì tự động đăng ký token
-  if ('Notification' in window && Notification.permission === 'granted') {
-    const existingToken = `web-token-${navigator.userAgent.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '')}`;
-    notificationService.registerDeviceToken(existingToken, 'WEB').catch(() => {});
+  // Nếu người dùng đã cấp quyền từ trước, đồng bộ Push Subscription thật lên Backend
+  if (Notification.permission === 'granted') {
+    await webPushService.subscribeUser(false).catch(() => {});
   }
 }

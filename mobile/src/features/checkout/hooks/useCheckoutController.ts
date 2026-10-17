@@ -6,6 +6,7 @@ import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useVoucherStore } from '../../../stores/voucherStore';
 import { orderMobileService } from '../../../services/orderMobileService';
 import { fromBackendCampus } from '../../../lib/backendMappers';
+import * as WebBrowser from 'expo-web-browser';
 
 export function useCheckoutController() {
   const navigation = useNavigation<any>();
@@ -142,19 +143,7 @@ export function useCheckoutController() {
       return;
     }
 
-    if (code === 'FPTK20WELCOME' || code === 'FPTCARE') {
-      setAppliedVoucher({
-        code,
-        discount: 30000,
-        title: 'Chào đón tân sinh viên FPT (-30k)',
-      });
-      setIsVoucherModalOpen(false);
-      setCustomVoucherInput('');
-      Alert.alert('Thành công', 'Đã áp dụng mã giảm giá 30.000đ!');
-      return;
-    }
-
-    // Check in user's saved vouchers
+    // Kiểm tra trong danh sách Voucher khả dụng của người dùng
     const matched = myVouchers.find((v) => v.voucherCode.toUpperCase() === code && v.status === 'UNUSED');
     if (matched) {
       setAppliedVoucher({
@@ -168,7 +157,7 @@ export function useCheckoutController() {
       return;
     }
 
-    Alert.alert('Không tìm thấy', 'Mã voucher không tồn tại hoặc đã hết hạn sử dụng.');
+    Alert.alert('Không tìm thấy', 'Mã voucher không tồn tại trong ví của bạn hoặc đã hết hạn sử dụng.');
   }, [customVoucherInput, myVouchers]);
 
   const handleNavigateVoucherList = useCallback(() => {
@@ -262,6 +251,19 @@ export function useCheckoutController() {
 
       addOrder(createdOrder);
 
+      if (selectedPayment === 'fptpay') {
+        if (!createdOrder.paymentCheckoutUrl) {
+          Alert.alert('PayOS chưa sẵn sàng', 'Backend không trả về liên kết thanh toán PayOS. Đơn chưa được xác nhận đã thanh toán.');
+        } else {
+          try {
+            await WebBrowser.openBrowserAsync(createdOrder.paymentCheckoutUrl);
+          } catch (browserError) {
+            console.error('Could not open PayOS checkout URL', browserError);
+            Alert.alert('Không mở được PayOS', 'Đơn đang chờ thanh toán. Mở lại đơn hàng để tiếp tục thanh toán.');
+          }
+        }
+      }
+
       if (appliedVoucher?.code) {
         useVoucherCode(appliedVoucher.code).catch(() => {});
       }
@@ -285,69 +287,25 @@ export function useCheckoutController() {
         isDifferentCampus,
         fromCampus: product.sellerCampus || 'Hòa Lạc',
         toCampus: buyerCampus,
+        paymentPending: selectedPayment === 'fptpay',
+        paymentCheckoutUrl: createdOrder.paymentCheckoutUrl,
       });
     } catch (err: any) {
       console.log('⚠️ [createOrder error]:', err?.message);
 
       const apiErrorMessage = err.response?.data?.error?.message || err.response?.data?.message;
-      if (apiErrorMessage && err.response?.status && err.response.status >= 400 && err.response.status < 500) {
-        Alert.alert('Không thể đặt đơn', apiErrorMessage);
+      if (selectedPayment === 'fptpay' || isAgreedPriceApplied) {
+        Alert.alert(
+          selectedPayment === 'fptpay' ? 'Không thể tạo thanh toán PayOS' : 'Không thể xác minh giá đã thương lượng',
+          apiErrorMessage || 'Backend chưa xác nhận được đơn hàng. Vui lòng thử lại khi có kết nối.'
+        );
         return;
       }
-
-      // Fallback offline resilient handling
-      const fallbackOtp = Math.floor(1000 + Math.random() * 9000).toString();
-      const fallbackCode = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-      const formattedSlot = `${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`;
-
-      const fallbackOrder: OrderItem = {
-        id: `ord_${Date.now()}`,
-        orderNumber: fallbackCode,
-        productId: product.id,
-        productTitle: product.title,
-        price: effectiveProductPrice,
-        totalAmount,
-        productImage: product.image,
-        sellerId: product.sellerId || '',
-        sellerName: product.sellerName || 'Người bán FPT',
-        sellerCohort: product.sellerCohort || '',
-        sellerCampus: product.sellerCampus || 'Hòa Lạc',
-        buyerId: user?.id || '',
-        buyerName: user?.name || 'Sinh viên FPT',
-        buyerCohort: user?.cohort || '',
-        buyerCampus: user?.campus || 'Hòa Lạc',
-        status: 'ESCROW_PAID',
-        statusLabel: isMeetup
-          ? '🛡️ Đã hẹn Safe-Handoff - Xác thực mã QR'
-          : '📦 Đang chuyển phát xe FPT Bus 24h',
-        statusColor: isMeetup ? '#059669' : '#EA580C',
-        statusBg: isMeetup ? '#ECFDF5' : '#FFF7ED',
-        safePoint: selectedSafePoint,
-        timeSlot: formattedSlot,
-        handshakeOtp: isMeetup ? fallbackOtp : undefined,
-        createdAt: 'Vừa xong',
-        isReviewed: false,
-      };
-
-      addOrder(fallbackOrder);
-
-      navigation.replace('CheckoutSuccess', {
-        orderCode: fallbackCode,
-        orderId: fallbackOrder.id,
-        totalAmount,
-        product: {
-          title: product.title,
-          sellerName: product.sellerName,
-          sellerCohort: product.sellerCohort,
-          image: product.image,
-        },
-        safePoint: selectedSafePoint,
-        handshakeOtp: fallbackOtp,
-        timeSlot: formattedSlot,
-        isDifferentCampus,
-        fromCampus: product.sellerCampus || 'Hòa Lạc',
-        toCampus: user?.campus || 'Đà Nẵng',
-      });
+      
+      Alert.alert(
+        'Không thể đặt đơn',
+        apiErrorMessage || err?.message || 'Có lỗi xảy ra khi tạo đơn hàng trên máy chủ. Vui lòng thử lại.'
+      );
     } finally {
       setIsSubmitting(false);
     }

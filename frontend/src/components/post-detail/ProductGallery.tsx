@@ -18,6 +18,9 @@ interface ProductGalleryProps {
   onSelectImage: (idx: number) => void;
   onShare: () => void;
   copiedLink: boolean;
+  condition?: string;
+  campusTag?: string;
+  meetupLocation?: string;
 }
 
 export default function ProductGallery({
@@ -26,7 +29,11 @@ export default function ProductGallery({
   onSelectImage,
   onShare,
   copiedLink,
+  condition = 'Đã qua sử dụng',
+  campusTag = 'Campus FPT',
+  meetupLocation,
 }: ProductGalleryProps) {
+  const [isFullscreenOpen, setIsFullscreenOpen] = React.useState(false);
   const safeActiveIndex = Math.min(
     Math.max(0, activeImageIndex),
     Math.max(0, galleryImages.length - 1)
@@ -57,7 +64,7 @@ export default function ProductGallery({
             Đã kiểm tra chất lượng
           </span>
           <span className="inline-flex items-center gap-1 rounded-lg bg-slate-900/85 backdrop-blur-xs px-2.5 py-1 text-xs font-bold text-white shadow-xs">
-            ⭐ Mới 99% Like New
+            ⭐ {condition}
           </span>
         </div>
 
@@ -77,6 +84,7 @@ export default function ProductGallery({
           </button>
           <button
             type="button"
+            onClick={() => setIsFullscreenOpen(true)}
             title="Xem toàn màn hình"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-slate-700 shadow-sm hover:bg-white hover:text-fpt-orange transition active:scale-95 cursor-pointer"
           >
@@ -89,6 +97,35 @@ export default function ProductGallery({
           {galleryImages.length > 0 ? safeActiveIndex + 1 : 0} / {galleryImages.length} Ảnh
         </div>
       </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      {isFullscreenOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setIsFullscreenOpen(false)}
+        >
+          <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setIsFullscreenOpen(false)}
+              className="absolute top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40 transition cursor-pointer"
+            >
+              ✕
+            </button>
+            <div className="relative w-full h-full max-h-[85vh]">
+              <Image
+                src={safeMainSrc}
+                alt={activeImg?.alt || 'Hình ảnh sản phẩm'}
+                fill
+                className="object-contain"
+                sizes="100vw"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Thumbnails Row */}
       {galleryImages.length > 1 && (
@@ -139,20 +176,20 @@ export default function ProductGallery({
           <div className="rounded-xl bg-white/90 border border-emerald-100 p-3 space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span>Trực tiếp tại Campus</span>
+              <span>Trực tiếp tại {campusTag}</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-snug">
-              Hẹn gặp sảnh KTX Dom A hoặc Căng-tin Hòa Lạc.
+              {meetupLocation ? `Hẹn gặp tại ${meetupLocation}.` : `Hẹn gặp tại điểm an toàn Safe-Point thuộc ${campusTag}.`}
             </p>
           </div>
 
           <div className="rounded-xl bg-white/90 border border-emerald-100 p-3 space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span>Test đồ tại chỗ</span>
+              <span>Kiểm tra tại chỗ</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-snug">
-              Cắm test phím gõ thử thoải mái trước khi chuyển khoản.
+              Kiểm tra tình trạng món đồ trực tiếp trước khi xác nhận thanh toán.
             </p>
           </div>
 

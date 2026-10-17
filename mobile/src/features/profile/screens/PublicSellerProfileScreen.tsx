@@ -239,7 +239,12 @@ export const PublicSellerProfileScreen: React.FC = () => {
   }, []);
 
   const handleToggleReviewPublic = useCallback(
-    (orderId: string) => {
+    async (orderId: string) => {
+      try {
+        await reviewMobileService.toggleReviewPublic(orderId);
+      } catch (err: any) {
+        console.log('toggleReviewPublic error:', err?.message);
+      }
       toggleReviewPublic(orderId);
       Alert.alert('⚡ Cập nhật hiển thị', 'Đã thay đổi trạng thái công khai của đánh giá!');
     },

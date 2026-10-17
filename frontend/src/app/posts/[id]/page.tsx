@@ -296,6 +296,9 @@ export default function ProductDetailPage() {
             onSelectImage={setActiveImageIndex}
             onShare={handleShare}
             copiedLink={copiedLink}
+            condition={product.condition}
+            campusTag={product.campusTag || product.campus}
+            meetupLocation={product.meetupLocation}
           />
 
           {/* RIGHT COLUMN: PRODUCT DETAILS & SELLER (5 COLS) */}
@@ -445,7 +448,11 @@ export default function ProductDetailPage() {
         </div>
 
         {/* 4. SIMILAR PRODUCTS IN CAMPUS */}
-        <SimilarProductsSection products={similarProducts} />
+        <SimilarProductsSection
+          products={similarProducts}
+          campusName={product.campusTag || product.campus}
+          category={product.category}
+        />
       </main>
 
       {/* 5. FOOTER */}

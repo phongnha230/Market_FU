@@ -10,7 +10,7 @@ interface ProductBottomBarProps {
   isOwnProduct?: boolean;
   onManageOwnProduct?: () => void;
   isSoldOrReserved?: boolean;
-  status?: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
+  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
 }
 
 export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
@@ -38,7 +38,9 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.soldNoticeTitle}>
-                {status === 'SOLD' ? 'Món đồ này đã được bán thành công' : 'Món đồ này đang có bạn hẹn cọc'}
+                {status === 'SOLD' ? 'Món đồ này đã được bán thành công'
+                  : status === 'RESERVED' ? 'Món đồ này đang có bạn hẹn cọc'
+                  : 'Tin đăng này chưa thể giao dịch'}
               </Text>
               <Text style={styles.soldNoticeSub}>
                 {status === 'SOLD'

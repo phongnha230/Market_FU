@@ -73,14 +73,12 @@ export const WithdrawDisputeModal: React.FC<WithdrawDisputeModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      // Fallback cho UX nếu API mock
-      console.log('⚠️ [WithdrawDispute fallback]:', err?.message);
-      Alert.alert(
-        '🎉 Đã ghi nhận rút khiếu nại',
-        'Khiếu nại tranh chấp đã được hủy. Đơn hàng quay lại trạng thái bảo vệ Escrow thông thường.'
-      );
-      onSuccess();
-      onClose();
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể rút đơn khiếu nại lúc này. Vui lòng thử lại sau.';
+      setErrorMsg(msg);
+      Alert.alert('Rút khiếu nại thất bại', msg);
     } finally {
       setSubmitting(false);
     }

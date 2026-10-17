@@ -139,7 +139,7 @@ export const useVoucherStore = create<VoucherState>()(
           set({ isLoading: true });
           const { voucherMobileService } = await import('../services/voucherMobileService');
           const list = await voucherMobileService.getVouchers();
-          if (Array.isArray(list) && list.length > 0) {
+          if (Array.isArray(list)) {
             set({ availableVouchers: list });
           }
         } catch (e: any) {
@@ -157,7 +157,7 @@ export const useVoucherStore = create<VoucherState>()(
           const { activeUserId, myVouchersByUser } = get();
           const currentId = activeUserId || 'anonymous';
 
-          if (Array.isArray(my) && my.length > 0) {
+          if (Array.isArray(my)) {
             set({
               myVouchers: my,
               myVouchersByUser: {
@@ -235,49 +235,10 @@ export const useVoucherStore = create<VoucherState>()(
             voucher: newUV,
           };
         } catch (err: any) {
-          // Fallback ngoại tuyến (Optimistic Offline)
-          useWalletStore.getState().deductCoins(item.coinCost);
-          const userStore = getUserStore();
-          const currentUser = userStore?.getState().user;
-          if (currentUser && userStore) {
-            userStore.getState().updateUser({
-              coins: Math.max(0, (currentUser.coins || 0) - item.coinCost),
-            });
-          }
-
-          const randomCode = `FUV-${item.partner.substring(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + (item.validDays || 30));
-
-          const offlineUV: UserVoucher = {
-            id: `uv-${Date.now()}`,
-            userId: currentId,
-            voucherId: item.id,
-            voucher: item,
-            voucherCode: randomCode,
-            status: 'UNUSED',
-            expiredAt: expiryDate.toLocaleDateString('vi-VN'),
-            createdAt: new Date().toLocaleDateString('vi-VN'),
-          };
-
-          const currentList = myVouchersByUser[currentId] || [];
-          const updatedList = [offlineUV, ...currentList];
-
-          set((state) => ({
-            availableVouchers: state.availableVouchers.map((v) =>
-              v.id === voucherId ? { ...v, quantity: Math.max(0, v.quantity - 1) } : v
-            ),
-            myVouchers: updatedList,
-            myVouchersByUser: {
-              ...myVouchersByUser,
-              [currentId]: updatedList,
-            },
-          }));
-
+          const errMsg = err?.response?.data?.message || err?.message || 'Không thể đổi voucher. Vui lòng kiểm tra lại số dư Xu!';
           return {
-            success: true,
-            message: `Đổi thành công voucher "${item.title}"!`,
-            voucher: offlineUV,
+            success: false,
+            message: errMsg,
           };
         }
       },

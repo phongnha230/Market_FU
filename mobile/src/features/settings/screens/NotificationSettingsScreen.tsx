@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestNotificationPermission, registerForPushNotificationsAsync } from '../../../services/notificationMobileService';
 import { useNotificationStore } from '../../../stores/notificationStore';
+
+const STORAGE_KEY_NOTIF = 'user_notification_settings_v1';
 
 const HeaderNavBtn: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
@@ -33,6 +36,42 @@ export const NotificationSettingsScreen: React.FC = () => {
   const [voucherPromos, setVoucherPromos] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrateEnabled, setVibrateEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_NOTIF)
+      .then((val) => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (typeof parsed.chatMessages === 'boolean') setChatMessages(parsed.chatMessages);
+            if (typeof parsed.orderUpdates === 'boolean') setOrderUpdates(parsed.orderUpdates);
+            if (typeof parsed.safePointAlerts === 'boolean') setSafePointAlerts(parsed.safePointAlerts);
+            if (typeof parsed.voucherPromos === 'boolean') setVoucherPromos(parsed.voucherPromos);
+            if (typeof parsed.soundEnabled === 'boolean') setSoundEnabled(parsed.soundEnabled);
+            if (typeof parsed.vibrateEnabled === 'boolean') setVibrateEnabled(parsed.vibrateEnabled);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const updateNotifSetting = (key: string, val: boolean) => {
+    const updated = {
+      chatMessages: key === 'chatMessages' ? val : chatMessages,
+      orderUpdates: key === 'orderUpdates' ? val : orderUpdates,
+      safePointAlerts: key === 'safePointAlerts' ? val : safePointAlerts,
+      voucherPromos: key === 'voucherPromos' ? val : voucherPromos,
+      soundEnabled: key === 'soundEnabled' ? val : soundEnabled,
+      vibrateEnabled: key === 'vibrateEnabled' ? val : vibrateEnabled,
+    };
+    if (key === 'chatMessages') setChatMessages(val);
+    if (key === 'orderUpdates') setOrderUpdates(val);
+    if (key === 'safePointAlerts') setSafePointAlerts(val);
+    if (key === 'voucherPromos') setVoucherPromos(val);
+    if (key === 'soundEnabled') setSoundEnabled(val);
+    if (key === 'vibrateEnabled') setVibrateEnabled(val);
+    AsyncStorage.setItem(STORAGE_KEY_NOTIF, JSON.stringify(updated)).catch(() => {});
+  };
 
   const handleToggleMasterPush = async (val: boolean) => {
     if (val) {
@@ -128,7 +167,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Tin nhắn người mua / người bán',
             'Thông báo khi có người hỏi mua, trả giá sản phẩm',
             chatMessages,
-            setChatMessages
+            (val) => updateNotifSetting('chatMessages', val)
           )}
           <View style={styles.divider} />
           {renderSwitchRow(
@@ -138,7 +177,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Tiến độ đơn hàng & Escrow',
             'Cập nhật khi người mua cọc tiền hoặc bấm giải ngân',
             orderUpdates,
-            setOrderUpdates
+            (val) => updateNotifSetting('orderUpdates', val)
           )}
           <View style={styles.divider} />
           {renderSwitchRow(
@@ -148,7 +187,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Trạm Safe-Point Handoff',
             'Nhắc nhở giờ hẹn giao nhận tại sảnh tòa nhà',
             safePointAlerts,
-            setSafePointAlerts
+            (val) => updateNotifSetting('safePointAlerts', val)
           )}
         </View>
 
@@ -162,7 +201,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Voucher & Khuyến mãi Campus',
             'Thông báo mã giảm giá dịch vụ ăn uống & đồ KTX',
             voucherPromos,
-            setVoucherPromos
+            (val) => updateNotifSetting('voucherPromos', val)
           )}
           <View style={styles.divider} />
           {renderSwitchRow(
@@ -172,7 +211,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Âm thanh thông báo',
             'Phát tiếng chuông khi có tin nhắn mới',
             soundEnabled,
-            setSoundEnabled
+            (val) => updateNotifSetting('soundEnabled', val)
           )}
           <View style={styles.divider} />
           {renderSwitchRow(
@@ -182,7 +221,7 @@ export const NotificationSettingsScreen: React.FC = () => {
             'Rung khi có thông báo',
             'Rung nhẹ điện thoại',
             vibrateEnabled,
-            setVibrateEnabled
+            (val) => updateNotifSetting('vibrateEnabled', val)
           )}
         </View>
       </ScrollView>

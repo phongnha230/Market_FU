@@ -219,7 +219,7 @@ export class ProductService {
     });
 
     // Chỉ đồng bộ sang Meilisearch engine khi bài đăng được duyệt hiển thị (AVAILABLE)
-    if (product.status === 'AVAILABLE') {
+    if (product.approvedAt && ['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status)) {
       await syncProductToMeili(product);
       try {
         broadcastEvent('product:created', sanitizeProductSeller(product));
@@ -229,8 +229,8 @@ export class ProductService {
     return sanitizeProductSeller(product);
   }
 
-  async getProducts(query: QueryProductInput) {
-    const { campus, categoryId, category, categoryType: queryCatType, condition, minPrice, maxPrice, search, hashtag, sellerId, allStatuses, sortBy } = query as any;
+  async getProducts(query: QueryProductInput, scope?: { ownerId: string }) {
+    const { campus, categoryId, category, categoryType: queryCatType, condition, minPrice, maxPrice, search, hashtag, sellerId, sortBy } = query as any;
     const page = Math.max(1, Number((query as any).page) || 1);
     const limit = Math.max(1, Math.min(100, Number((query as any).limit) || 20));
     const skip = (page - 1) * limit;
@@ -248,7 +248,7 @@ export class ProductService {
     }
 
     // 1. Thử tìm kiếm thông minh bằng Meilisearch (Tiếng Việt không dấu & Chịu lỗi chính tả)
-    if (search && search.trim().length > 0) {
+    if (!scope && search && search.trim().length > 0) {
       trendingService.recordSearchKeyword(search.trim()).catch(() => {});
       const meiliResult = await searchProductsMeili(search.trim(), {
         campus,
@@ -312,14 +312,11 @@ export class ProductService {
       // Nếu meiliResult === null (Meilisearch offline) -> tự động trôi xuống fallback Prisma bên dưới
     }
 
-    const where: any = {};
-    if (query.status) {
-      where.status = query.status;
-    } else if (!allStatuses) {
-      where.status = 'AVAILABLE';
-    }
+    // Only the authenticated owner's endpoint may request non-public states.
+    const where: any = scope ? { sellerId: scope.ownerId } : { status: 'AVAILABLE' };
+    if (scope && query.status) where.status = query.status;
 
-    if (sellerId) where.sellerId = sellerId;
+    if (sellerId && !scope) where.sellerId = sellerId;
     if (campus) where.campus = campus;
     if (finalCatType) {
       where.categoryType = finalCatType;
@@ -385,7 +382,7 @@ export class ProductService {
   }
 
   // 3. Chi tiết sản phẩm + Tăng lượt xem có cơ chế chống spam (Throttle 15 phút / viewer)
-  async getProductById(id: string, viewerKey?: string) {
+  async getProductById(id: string, viewerKey?: string, viewerId?: string, viewerRole?: string) {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -405,6 +402,11 @@ export class ProductService {
       throw new AppError('Không tìm thấy món đồ này trên sàn', 404, 'PRODUCT_NOT_FOUND');
     }
 
+    if (['PENDING_APPROVAL', 'REJECTED', 'HIDDEN', 'EXPIRED'].includes(product.status) &&
+        product.sellerId !== viewerId && viewerRole !== 'ADMIN') {
+      throw new AppError('Tin đăng này hiện không hiển thị công khai', 404, 'PRODUCT_NOT_FOUND');
+    }
+
     // Chống spam tăng ảo lượt xem (Chỉ tăng nếu chưa xem trong 15 phút gần nhất) - B1-7: Redis-backed
     let shouldIncrementView = true;
     if (viewerKey) {
@@ -417,7 +419,7 @@ export class ProductService {
       }
     }
 
-    if (shouldIncrementView) {
+    if (shouldIncrementView && product.status === 'AVAILABLE') {
       await prisma.product.update({
         where: { id },
         data: { viewsCount: { increment: 1 } },
@@ -440,12 +442,12 @@ export class ProductService {
       throw new AppError('Bạn không có quyền gia hạn sản phẩm của người khác', 403, 'FORBIDDEN');
     }
 
-    // B1-9 Fix: Chặn gia hạn sản phẩm đã bán hoặc đang trong giao dịch giữ chỗ
-    if (product.status === 'SOLD' || product.status === 'RESERVED') {
+    // Gia hạn không được dùng để đưa tin đang chờ duyệt hoặc bị từ chối ra chợ.
+    if (!['AVAILABLE', 'EXPIRED'].includes(product.status) || !product.approvedAt) {
       throw new AppError(
-        'Không thể gia hạn sản phẩm đã bán hoặc đang trong giao dịch giữ chỗ',
-        400,
-        'CANNOT_RENEW_SOLD_PRODUCT'
+        'Chỉ có thể gia hạn tin đã được duyệt và không có đơn giữ chỗ',
+        409,
+        'PRODUCT_RENEWAL_NOT_ALLOWED'
       );
     }
 
@@ -453,13 +455,16 @@ export class ProductService {
     newExpiredAt.setDate(newExpiredAt.getDate() + 30);
 
     const updated = await prisma.product.update({
-      where: { id },
+      where: { id, status: product.status, updatedAt: product.updatedAt },
       data: {
         expiredAt: newExpiredAt,
         status: 'AVAILABLE',
         renewCount: { increment: 1 },
       },
     });
+
+    await syncProductToMeili(updated);
+    await delCachePattern('products:*').catch((error) => console.error('Product cache invalidation failed', { productId: id, error }));
 
     return updated;
   }
@@ -482,8 +487,25 @@ export class ProductService {
       throw new AppError('Bạn không có quyền cập nhật trạng thái sản phẩm của người khác', 403, 'FORBIDDEN');
     }
 
+    if (product.status === 'RESERVED' || product.status === 'SOLD') {
+      throw new AppError('Không thể đổi trạng thái tin đang có đơn giữ chỗ hoặc đã bán', 409, 'PRODUCT_STATUS_LOCKED');
+    }
+    if (product.status === 'PENDING_APPROVAL' || product.status === 'REJECTED') {
+      throw new AppError('Tin đăng phải được quản trị viên duyệt trước khi đổi trạng thái', 409, 'PRODUCT_REVIEW_REQUIRED');
+    }
+    if (status === 'AVAILABLE' &&
+      (!product.approvedAt || !['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status))) {
+      throw new AppError('Tin đăng phải được quản trị viên duyệt trước khi hiển thị', 409, 'PRODUCT_REVIEW_REQUIRED');
+    }
+    if (status === 'RESERVED') {
+      throw new AppError('Trạng thái giữ chỗ chỉ được cập nhật qua giao dịch đơn hàng', 409, 'ORDER_STATUS_REQUIRED');
+    }
+    if (status === 'SOLD' && (!product.approvedAt || !['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status))) {
+      throw new AppError('Chỉ tin đã được duyệt mới có thể đánh dấu đã bán', 409, 'PRODUCT_REVIEW_REQUIRED');
+    }
+
     const updated = await prisma.product.update({
-      where: { id },
+      where: { id, status: product.status, updatedAt: product.updatedAt },
       data: { status },
       include: {
         seller: publicSellerSelect,
@@ -504,6 +526,8 @@ export class ProductService {
     } else {
       await deleteProductFromMeili(id);
     }
+    await delCachePattern('products:*').catch((error) => console.error('Product cache invalidation failed', { productId: id, error }));
+    await delCachePattern('categories:*').catch((error) => console.error('Category cache invalidation failed', { productId: id, error }));
 
     try {
       broadcastEvent('product:updated', sanitizeProductSeller(updated));
@@ -723,8 +747,8 @@ export class ProductService {
       throw new AppError('Bạn không có quyền chỉnh sửa món đồ của người khác', 403, 'FORBIDDEN');
     }
 
-    if (product.status === 'SOLD') {
-      throw new AppError('Không thể chỉnh sửa sản phẩm đã được bán', 400, 'PRODUCT_ALREADY_SOLD');
+    if (product.status === 'SOLD' || product.status === 'RESERVED') {
+      throw new AppError('Không thể chỉnh sửa sản phẩm đã bán hoặc đang có đơn đặt', 409, 'PRODUCT_NOT_EDITABLE');
     }
 
     // Nếu sản phẩm đã được Admin duyệt (AVAILABLE):
@@ -813,9 +837,14 @@ export class ProductService {
     }
 
     const finalCategoryType = input.categoryType || (input.category as any);
+    const descriptionChanged = input.description !== undefined && input.description.trim() !== product.description.trim();
+    const imagesChanged = hasNewImages || (hasImageUrls &&
+      JSON.stringify(updatedImages.map((image) => image.imageUrl)) !== JSON.stringify(product.images.map((image) => image.imageUrl)));
+    const needsReview = ['AVAILABLE', 'HIDDEN', 'EXPIRED', 'REJECTED'].includes(product.status) &&
+      (descriptionChanged || imagesChanged);
 
-    const updated = await prisma.product.update({
-      where: { id: productId },
+    const persistUpdate = () => prisma.product.update({
+      where: { id: productId, status: product.status, updatedAt: product.updatedAt },
       data: {
         ...(input.title && { title: input.title }),
         ...(input.description && { description: input.description }),
@@ -832,6 +861,7 @@ export class ProductService {
         ...(input.allowShipping !== undefined && { allowShipping: input.allowShipping }),
         ...(input.hashtags !== undefined && { hashtags: input.hashtags }),
         ...((hasNewImages || hasImageUrls) && { images: updatedImages }),
+        ...(needsReview && { status: 'PENDING_APPROVAL', approvedAt: null, moderatedBy: null, rejectionReason: null }),
       },
       include: {
         seller: {
@@ -855,9 +885,42 @@ export class ProductService {
         },
       },
     });
+    let updated: Awaited<ReturnType<typeof persistUpdate>>;
+    try {
+      updated = await persistUpdate();
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') {
+        throw new AppError('Tin đăng đã thay đổi trạng thái hoặc nội dung. Vui lòng tải lại.', 409, 'PRODUCT_CHANGED');
+      }
+      console.error('Could not update product', { productId, sellerId, error });
+      throw error;
+    }
 
     // Đồng bộ thông tin mới sang Meilisearch
-    await syncProductToMeili(updated);
+    if (needsReview) {
+      await deleteProductFromMeili(productId);
+      await delCachePattern('products:*').catch((error) => console.error('Product cache invalidation failed', { productId, error }));
+      await delCachePattern('categories:*').catch((error) => console.error('Category cache invalidation failed', { productId, error }));
+      try {
+        await notificationService.sendNotification({
+          userId: sellerId,
+          title: 'Tin đăng đang chờ duyệt lại',
+          body: `Tin đăng "${updated.title}" đã được cập nhật ảnh hoặc mô tả và đang chờ quản trị viên duyệt lại.`,
+          type: 'SYSTEM',
+          targetUrl: `/posts/${productId}`,
+        });
+      } catch (error) {
+        console.error('Product re-review notification failed', { productId, sellerId, error });
+      }
+    } else if (updated.status === 'AVAILABLE') {
+      await syncProductToMeili(updated);
+      await delCachePattern('products:*').catch((error) => console.error('Product cache invalidation failed', { productId, error }));
+    }
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch (error) {
+      console.error('Product update broadcast failed', { productId, error });
+    }
 
     return updated;
   }
@@ -1002,15 +1065,23 @@ export class ProductService {
     });
 
     if (meiliResult) {
-      return meiliResult.hits.map((h) => ({
-        id: h.id,
-        title: h.title,
-        price: h.price,
-        imageUrl: h.imageUrl,
-        categoryName: h.categoryName || '',
-        campus: h.campus,
-        hashtags: h.hashtags?.slice(0, 3) ?? [],
-      }));
+      const liveProducts = await prisma.product.findMany({
+        where: { id: { in: meiliResult.productIds }, status: 'AVAILABLE' },
+        select: { id: true, title: true, price: true, images: true, campus: true, hashtags: true, category: { select: { name: true } } },
+      });
+      const byId = new Map(liveProducts.map((product) => [product.id, product]));
+      return meiliResult.productIds.flatMap((id) => {
+        const product = byId.get(id);
+        return product ? [{
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          imageUrl: product.images[0]?.imageUrl || '',
+          categoryName: product.category?.name || '',
+          campus: product.campus,
+          hashtags: product.hashtags.slice(0, 3),
+        }] : [];
+      });
     }
 
     // ── Fallback: MongoDB regex ──────────────────────────────────────────────
@@ -1142,17 +1213,9 @@ export class ProductService {
   }
 
   // 15. Quản trị viên duyệt tin đăng
-  async approveProduct(adminId: string, productId: string) {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
-    }
-
-    const updated = await prisma.product.update({
-      where: { id: productId },
+  async approveProduct(adminId: string, productId: string, expectedUpdatedAt: string) {
+    const persistApproval = () => prisma.product.update({
+      where: { id: productId, status: 'PENDING_APPROVAL', updatedAt: new Date(expectedUpdatedAt) },
       data: {
         status: 'AVAILABLE',
         approvedAt: new Date(),
@@ -1164,6 +1227,16 @@ export class ProductService {
         category: true,
       },
     });
+    let updated: Awaited<ReturnType<typeof persistApproval>>;
+    try {
+      updated = await persistApproval();
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') {
+        throw new AppError('Tin đăng đã thay đổi hoặc không còn chờ duyệt. Vui lòng tải lại.', 409, 'PRODUCT_REVIEW_STALE');
+      }
+      console.error('Could not approve product', { productId, adminId, error });
+      throw error;
+    }
 
     // Đồng bộ tin đăng đã duyệt sang Meilisearch engine để người mua tìm thấy
     await syncProductToMeili(updated);
@@ -1180,11 +1253,11 @@ export class ProductService {
     // Gửi thông báo thời gian thực cho Người bán
     try {
       await notificationService.sendNotification({
-        userId: product.sellerId,
+        userId: updated.sellerId,
         title: 'Tin đăng đã được phê duyệt! 🎉',
-        body: `Tin đăng "${product.title}" của bạn đã được kiểm duyệt thành công và hiện đang hiển thị công khai trên chợ.`,
+        body: `Tin đăng "${updated.title}" của bạn đã được kiểm duyệt thành công và hiện đang hiển thị công khai trên chợ.`,
         type: 'SYSTEM',
-        targetUrl: `/posts/${product.id}`,
+        targetUrl: `/posts/${updated.id}`,
       });
     } catch (notifErr) {
       console.warn('Failed to send approval notification:', notifErr);
@@ -1194,17 +1267,9 @@ export class ProductService {
   }
 
   // 16. Quản trị viên từ chối duyệt tin đăng
-  async rejectProduct(adminId: string, productId: string, reason: string) {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
-    }
-
-    const updated = await prisma.product.update({
-      where: { id: productId },
+  async rejectProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt: string) {
+    const persistRejection = () => prisma.product.update({
+      where: { id: productId, status: 'PENDING_APPROVAL', updatedAt: new Date(expectedUpdatedAt) },
       data: {
         status: 'REJECTED',
         rejectionReason: reason,
@@ -1215,6 +1280,16 @@ export class ProductService {
         category: true,
       },
     });
+    let updated: Awaited<ReturnType<typeof persistRejection>>;
+    try {
+      updated = await persistRejection();
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') {
+        throw new AppError('Tin đăng đã thay đổi hoặc không còn chờ duyệt. Vui lòng tải lại.', 409, 'PRODUCT_REVIEW_STALE');
+      }
+      console.error('Could not reject product', { productId, adminId, error });
+      throw error;
+    }
 
     // Xóa khỏi Meilisearch nếu có
     await deleteProductFromMeili(productId);
@@ -1227,9 +1302,9 @@ export class ProductService {
     // Gửi thông báo cho Người bán kèm lý do từ chối
     try {
       await notificationService.sendNotification({
-        userId: product.sellerId,
+        userId: updated.sellerId,
         title: 'Tin đăng bị từ chối duyệt ⚠️',
-        body: `Tin đăng "${product.title}" của bạn không được duyệt. Lý do: ${reason}`,
+        body: `Tin đăng "${updated.title}" của bạn không được duyệt. Lý do: ${reason}`,
         type: 'SYSTEM',
         targetUrl: `/profile`,
       });

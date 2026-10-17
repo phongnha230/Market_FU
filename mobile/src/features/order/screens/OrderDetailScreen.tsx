@@ -10,9 +10,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as WebBrowser from 'expo-web-browser';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore } from '../../../stores/orderStore';
 import { orderMobileService } from '../../../services/orderMobileService';
+import paymentMobileService from '../../../services/paymentMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { OrderStatusTimeline } from '../components/OrderStatusTimeline';
 import { OrderSafePointQrCard } from '../components/OrderSafePointQrCard';
@@ -42,6 +44,8 @@ export const OrderDetailScreen: React.FC = () => {
 
   const orderId = route.params?.orderId || '';
   const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  const [payosCheckoutUrl, setPayosCheckoutUrl] = useState(matchedOrder?.paymentCheckoutUrl);
+  const [sellerId, setSellerId] = useState(matchedOrder?.sellerId);
 
   const product = useMemo(() => {
     return (
@@ -67,6 +71,8 @@ export const OrderDetailScreen: React.FC = () => {
       ? 'cancelled'
       : matchedOrder?.status === 'DISPUTED'
       ? 'disputed'
+      : matchedOrder?.status === 'PENDING_SAFEPOINT'
+      ? 'pending'
       : route.params?.status || 'escrow_holding';
 
   const [orderStatus, setOrderStatus] = useState<string>(initialStatus);
@@ -83,7 +89,10 @@ export const OrderDetailScreen: React.FC = () => {
           else if (order.status === 'DELIVERED') setOrderStatus('delivered');
           else if (order.status === 'CANCELLED') setOrderStatus('cancelled');
           else if (order.status === 'DISPUTED') setOrderStatus('disputed');
+          else if (order.status === 'PENDING_SAFEPOINT') setOrderStatus('pending');
           else setOrderStatus('escrow_holding');
+          setPayosCheckoutUrl(order.paymentCheckoutUrl);
+          setSellerId(order.sellerId);
           if (order.isReviewed) setIsReviewed(true);
         })
         .catch(() => {});
@@ -119,7 +128,22 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus]);
 
   const safePoint = matchedOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
-  const isSeller = user?.role === 'SELLER' || (matchedOrder && user?.id === matchedOrder?.sellerId);
+  const isSeller = Boolean(user?.id && sellerId === user.id);
+
+  const handleResumePayOs = async () => {
+    if (!payosCheckoutUrl) return;
+    try {
+      await WebBrowser.openBrowserAsync(payosCheckoutUrl);
+      const paymentStatus = await paymentMobileService.checkPaymentStatus(matchedOrder?.orderNumber || orderId);
+      if (paymentStatus.isPaid) {
+        setOrderStatus('escrow_holding');
+        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã thanh toán Escrow', '#EA580C', '#FFF7ED');
+      }
+    } catch (error) {
+      console.error('Could not reopen PayOS from order detail', error);
+      Alert.alert('Không mở được PayOS', 'Vui lòng thử lại hoặc hủy đơn để tạo đơn mới.');
+    }
+  };
   const isInterCampus = Boolean(
     (matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus) ||
     matchedOrder?.orderType === 'SHIP_COD'
@@ -286,6 +310,13 @@ export const OrderDetailScreen: React.FC = () => {
         <OrderStatusTimeline orderStatus={orderStatus} />
         <OrderProductSummaryCard product={product} />
 
+        {!isSeller && orderStatus === 'pending' && !!payosCheckoutUrl && (
+          <TouchableOpacity style={styles.payosRetryButton} onPress={handleResumePayOs}>
+            <Ionicons name="card-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.payosRetryText}>Tiếp tục thanh toán PayOS</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Chỉ hiện banner liên campus khi 2 campus khác nhau */}
         {matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus && (
           <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
@@ -395,6 +426,20 @@ const styles = StyleSheet.create({
   scrollBody: {
     paddingHorizontal: 16,
     paddingBottom: 40,
+  },
+  payosRetryButton: {
+    marginTop: 14,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  payosRetryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   sectionHeader: {
     fontSize: 11.5,

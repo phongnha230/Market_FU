@@ -91,11 +91,10 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isLoading: true });
 
-          // 1. Thử đăng nhập trực tiếp qua Backend API trước
           try {
             const backendRes = await authMobileService.login({
               email: identifier,
-              password: password || '123456',
+              password: password || '',
             });
             if (backendRes.user && backendRes.token) {
               set({
@@ -112,32 +111,17 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
               };
             }
-          } catch (apiErr: any) {
-            console.log('⚠️ [Backend Auth API Unreachable/Offline, falling back to local accounts]:', apiErr?.message);
-          }
-
-          // 2. Fallback ngoại tuyến qua local accountStorage
-          const loggedUser = await accountStorage.loginAccount(identifier, password);
-          if (!loggedUser) {
             return {
               success: false,
-              message: 'Tài khoản hoặc mật khẩu không chính xác. Hãy kiểm tra lại!',
+              message: 'Không nhận được thông tin xác thực từ máy chủ.',
+            };
+          } catch (apiErr: any) {
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || 'Tài khoản hoặc mật khẩu không chính xác. Hãy kiểm tra lại!';
+            return {
+              success: false,
+              message: errMsg,
             };
           }
-          const token = `token_${Date.now()}_${loggedUser.id}`;
-          set({
-            user: loggedUser,
-            token,
-            isAuthenticated: true,
-            hasCompletedOnboarding: true,
-          });
-          syncUserToStores(loggedUser.id);
-          await get().loadRegisteredAccounts();
-          return {
-            success: true,
-            message: 'Đăng nhập thành công (Chế độ Local/Offline)!',
-            user: loggedUser,
-          };
         } catch (error: any) {
           return {
             success: false,
@@ -164,7 +148,6 @@ export const useUserStore = create<UserState>()(
             roleEmail = 'buyer@fpt.edu.vn';
           }
 
-          // 1. Thử đăng nhập qua Backend trước để lấy JWT token thật
           try {
             const backendRes = await authMobileService.login({
               email: roleEmail,
@@ -185,26 +168,17 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
               };
             }
+            return {
+              success: false,
+              message: 'Không tìm thấy tài khoản vai trò này.',
+            };
           } catch (apiErr: any) {
-            console.log('ℹ️ [Backend Role Login Offline/Unreachable, using local mock]:', apiErr?.message);
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || 'Không thể đăng nhập tài khoản vai trò test. Vui lòng kiểm tra Backend.';
+            return {
+              success: false,
+              message: errMsg,
+            };
           }
-
-          // 2. Fallback ngoại tuyến
-          const testUser = await accountStorage.getTestAccountByRole(targetRole);
-          const token = `token_${Date.now()}_${testUser.id}`;
-          set({
-            user: testUser,
-            token,
-            isAuthenticated: true,
-            hasCompletedOnboarding: true,
-          });
-          syncUserToStores(testUser.id);
-          await get().loadRegisteredAccounts();
-          return {
-            success: true,
-            message: `Đăng nhập thành công với vai trò ${testUser.role}!`,
-            user: testUser,
-          };
         } catch (error: any) {
           return {
             success: false,
@@ -221,7 +195,7 @@ export const useUserStore = create<UserState>()(
           const effectiveName = userData.fullName || userData.name || 'Sinh viên FPT';
           const effectivePassword = userData.password || password;
 
-          // 1. Thử đăng ký trực tiếp qua Backend API
+          // Đăng ký trực tiếp qua Backend API
           try {
             const backendRes = await authMobileService.register({
               fullName: effectiveName,
@@ -235,22 +209,9 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
                 token: backendRes.token,
                 isAuthenticated: true,
+                hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
-              await accountStorage.registerAccount(
-                {
-                  name: effectiveName,
-                  studentId: userData.studentId,
-                  email: userData.email,
-                  campus: userData.campus,
-                  phone: userData.phone,
-                  major: userData.major,
-                  roomNumber: userData.roomNumber || userData.dormRoom,
-                  dormRoom: userData.dormRoom || userData.roomNumber,
-                  bio: userData.bio,
-                },
-                effectivePassword
-              );
               await get().loadRegisteredAccounts();
               return {
                 success: true,
@@ -258,40 +219,17 @@ export const useUserStore = create<UserState>()(
                 user: backendRes.user,
               };
             }
+            return {
+              success: false,
+              message: 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.',
+            };
           } catch (apiErr: any) {
-            console.log('⚠️ [Backend Register Unreachable, fallback local]:', apiErr?.message);
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || 'Không thể đăng ký tài khoản. Vui lòng thử lại.';
+            return {
+              success: false,
+              message: errMsg,
+            };
           }
-
-          // 2. Fallback lưu trữ offline
-          const newUser = await accountStorage.registerAccount(
-            {
-              name: effectiveName,
-              studentId: userData.studentId,
-              email: userData.email,
-              campus: userData.campus,
-              phone: userData.phone,
-              major: userData.major,
-              roomNumber: userData.roomNumber || userData.dormRoom,
-              dormRoom: userData.dormRoom || userData.roomNumber,
-              bio: userData.bio,
-            },
-            effectivePassword
-          );
-
-          const token = `token_${Date.now()}_${newUser.id}`;
-          set({
-            user: newUser,
-            token,
-            isAuthenticated: true,
-            hasCompletedOnboarding: true,
-          });
-          syncUserToStores(newUser.id);
-          await get().loadRegisteredAccounts();
-          return {
-            success: true,
-            message: 'Đăng ký tài khoản thành công (Offline)!',
-            user: newUser,
-          };
         } catch (error: any) {
           return {
             success: false,

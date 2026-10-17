@@ -53,22 +53,18 @@ export const DepositCoinModal: React.FC<DepositCoinModalProps> = ({
 
   const handleConfirmTransfer = useCallback(async () => {
     setIsVerifying(true);
-    await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
-
-    // Optimistically credit coins & escrow balance
-    addCoins(selectedPkg.coins);
     await deposit(selectedPkg.amount);
-
     setIsVerifying(false);
+
     Alert.alert(
-      '🎉 Nạp thành công!',
-      `Đã cộng +${selectedPkg.coins} Xu và ${selectedPkg.amount.toLocaleString(
+      '⏳ Đã gửi yêu cầu nạp tiền!',
+      `Hệ thống đã ghi nhận yêu cầu nạp ${selectedPkg.amount.toLocaleString(
         'vi-VN'
-      )}đ vào Ví Campus của bạn.`
+      )}đ (${selectedPkg.coins} Xu). Giao dịch đang chờ ngân hàng đối soát và sẽ tự động cập nhật vào ví của bạn trong 1-3 phút.`
     );
     setStep('SELECT');
     onClose();
-  }, [selectedPkg, addCoins, deposit, onClose]);
+  }, [selectedPkg, deposit, onClose]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

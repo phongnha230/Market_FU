@@ -109,6 +109,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     productTitle: product.title || item.productTitle || 'Sản phẩm giao dịch',
     price: Number(item.payment?.price ?? totalAmount),
     totalAmount,
+    paymentCheckoutUrl: item.payment?.payosCheckoutUrl || undefined,
     productImage:
       (Array.isArray(product.images) && product.images[0]?.imageUrl) ||
       (Array.isArray(product.images) && typeof product.images[0] === 'string' && product.images[0]) ||
@@ -175,7 +176,8 @@ export const orderMobileService = {
       };
     }
 
-    const res = await apiClient.post<ApiResponse<any>>('/orders', body);
+    // PayOS checkout-link creation happens during order creation and can take longer than a normal API call.
+    const res = await apiClient.post<ApiResponse<any>>('/orders', body, { timeout: 30000 });
     return adaptBackendOrderToMobile(res.data.data);
   },
 

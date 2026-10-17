@@ -234,6 +234,19 @@ export const chatMobileService = {
       await apiClient.patch(`/chats/conversations/${conversationId}/read`);
     } catch {}
   },
+
+  /**
+   * Xóa cuộc trò chuyện
+   */
+  async deleteConversation(conversationId: string): Promise<boolean> {
+    try {
+      await apiClient.delete(`/chats/conversations/${conversationId}`);
+      return true;
+    } catch (e: any) {
+      console.log('⚠️ [deleteConversation error]:', e?.message);
+      return false;
+    }
+  },
 };
 
 export default chatMobileService;

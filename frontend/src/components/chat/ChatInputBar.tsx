@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
+import { safehandoffService } from '@/services/safehandoffService';
 
 const SAFE_POINTS = [
   {
@@ -78,6 +79,7 @@ export default function ChatInputBar({
 }: ChatInputBarProps) {
   const [activeMenu, setActiveMenu] = useState<'safepoint' | 'qr' | 'emoji' | null>(null);
   const [copiedQr, setCopiedQr] = useState(false);
+  const [safePoints, setSafePoints] = useState<Array<{ id: string; name: string; desc: string; icon: any; badge: string }>>(SAFE_POINTS);
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +89,27 @@ export default function ChatInputBar({
   const userBankName = currentUser.bankAccount?.bankName || 'TPBank (FPT Edu)';
   const userAccountName = currentUser.bankAccount?.accountName || currentUser.name || 'SINH VIEN FPT';
   const qrImageUrl = `https://img.vietqr.io/image/TPB-${encodeURIComponent(userAccountNo)}-compact2.png?amount=0&addInfo=Market%20FU%20Chuyen%20khoan&accountName=${encodeURIComponent(userAccountName)}`;
+
+  // Tải danh sách điểm Safe-Point hoạt động thực tế từ Backend
+  useEffect(() => {
+    safehandoffService
+      .getHubs()
+      .then((res) => {
+        if (res?.hubs && res.hubs.length > 0) {
+          const mapped = res.hubs.map((hub) => ({
+            id: hub.id,
+            name: hub.name,
+            desc: hub.locationDetails || hub.notes || `Khu vực an toàn ${hub.campus}`,
+            icon: Building2,
+            badge: hub.isOperating ? 'Hoạt động' : 'Tạm nghỉ',
+          }));
+          setSafePoints(mapped);
+        }
+      })
+      .catch(() => {
+        // Dự phòng danh sách Safe-Point mặc định nếu mạng offline
+      });
+  }, []);
 
   // Đóng popover khi click ra ngoài
   useEffect(() => {
@@ -118,7 +141,7 @@ export default function ChatInputBar({
   };
 
   // Chọn điểm Safe-Point
-  const handleSelectSafePoint = (point: typeof SAFE_POINTS[0]) => {
+  const handleSelectSafePoint = (point: { id: string; name: string; desc: string; icon: any; badge: string }) => {
     setActiveMenu(null);
     onSendMessage(`Hẹn điểm bàn giao đồ tại Sảnh: ${point.name} (${point.desc})`);
     onShowToast(`📍 Đã gửi vị trí hẹn gặp Safe-Point tại ${point.name}!`);
@@ -176,7 +199,7 @@ export default function ChatInputBar({
           </div>
 
           <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
-            {SAFE_POINTS.map((sp) => {
+            {safePoints.map((sp) => {
               const Icon = sp.icon;
               return (
                 <button

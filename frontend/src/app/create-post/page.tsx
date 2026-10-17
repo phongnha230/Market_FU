@@ -601,34 +601,12 @@ export default function CreatePostPage() {
         return;
       }
 
-      // Fallback lưu local store nếu backend chưa phản hồi
-      const defaultMeetup = pickupLocation || availableMeetingLocations[0]?.name || 'Sảnh Tòa nhà chính';
-      const newPost = addProduct({
-        title: title.trim(),
-        price: Number(price) || 0,
-        originalPrice: Math.round((Number(price) || 0) * 1.3),
-        imageUrl: images[0] || '/products/book-prf192.jpg',
-        images: [...images],
-        badges: [condition, negotiable ? 'Có fix SV' : 'Giá chuẩn'],
-        location: `${getCampusShortName(campus)} • ${defaultMeetup}`,
-        campusTag: getCampusShortName(campus),
-        campus,
-        description: description || `Pass lại "${title.trim()}". Hàng chính chủ dùng giữ gìn cẩn thận.`,
-        meetupLocation: defaultMeetup,
-        seller: {
-          name: currentUser.name,
-          cohort: currentUser.cohort,
-          initial: currentUser.name.split(' ').pop()?.charAt(0) || 'Q',
-          verified: true,
-        },
-        category,
-      });
-
-      try {
-        localStorage.removeItem('fu_post_draft');
-      } catch {}
-      setCreatedPostId(newPost.id);
-      setIsSuccessModalOpen(true);
+      const errMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Có lỗi xảy ra khi đăng bài. Vui lòng kiểm tra lại thông tin và kết nối mạng.';
+      showToast(`❌ ${errMsg}`);
     }
   };
 

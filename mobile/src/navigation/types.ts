@@ -55,6 +55,7 @@ export type RootStackParamList = {
     | undefined;
   CheckoutSuccess:
     | {
+        orderId?: string;
         orderCode: string;
         totalAmount: number;
         product?: any;
@@ -65,6 +66,8 @@ export type RootStackParamList = {
         isDifferentCampus?: boolean;
         fromCampus?: string;
         toCampus?: string;
+        paymentPending?: boolean;
+        paymentCheckoutUrl?: string;
       }
     | undefined;
   EditListing:

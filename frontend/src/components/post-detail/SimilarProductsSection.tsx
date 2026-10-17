@@ -8,10 +8,14 @@ import { ProductItem } from '@/types/product';
 
 interface SimilarProductsSectionProps {
   products?: ProductItem[];
+  campusName?: string;
+  category?: string;
 }
 
 export default function SimilarProductsSection({
   products = [],
+  campusName = 'Hòa Lạc',
+  category,
 }: SimilarProductsSectionProps) {
   if (!products || products.length === 0) {
     return null;
@@ -21,6 +25,11 @@ export default function SimilarProductsSection({
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
   };
 
+  const filterUrl = `/posts?${new URLSearchParams({
+    ...(campusName ? { campus: campusName } : {}),
+    ...(category ? { category } : {}),
+  }).toString()}`;
+
   return (
     <section className="pt-8 border-t border-slate-200/80 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -28,19 +37,19 @@ export default function SimilarProductsSection({
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-fpt-orange" />
             <h2 className="text-lg sm:text-xl font-black text-slate-900">
-              Sản phẩm tương tự cùng Campus Hòa Lạc
+              Sản phẩm tương tự cùng Campus {campusName}
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tiện hẹn gặp nhận ngay trong ngày giữa các KTX Dom A, B, C, D
+            Tiện hẹn gặp nhận ngay trong ngày trong khuôn viên campus {campusName}
           </p>
         </div>
 
         <Link
-          href="/posts?category=electronics"
+          href={filterUrl}
           className="inline-flex items-center gap-1 text-xs font-bold text-fpt-orange hover:underline"
         >
-          <span>Xem tất cả thiết bị tại HL</span>
+          <span>Xem tất cả bài đăng liên quan</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>

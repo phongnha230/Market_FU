@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY_PRIVACY = 'user_privacy_settings_v1';
 
 const PrivacyHeaderNavBtn: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
@@ -25,6 +28,33 @@ export const PrivacySettingsScreen: React.FC = () => {
   const [hideRoomNumber, setHideRoomNumber] = useState(true);
   const [hideMssvPublic, setHideMssvPublic] = useState(false);
   const [campusOnlyListing, setCampusOnlyListing] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_PRIVACY)
+      .then((val) => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (typeof parsed.hideRoomNumber === 'boolean') setHideRoomNumber(parsed.hideRoomNumber);
+            if (typeof parsed.hideMssvPublic === 'boolean') setHideMssvPublic(parsed.hideMssvPublic);
+            if (typeof parsed.campusOnlyListing === 'boolean') setCampusOnlyListing(parsed.campusOnlyListing);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const updateSetting = (key: string, val: boolean) => {
+    const updated = {
+      hideRoomNumber: key === 'hideRoomNumber' ? val : hideRoomNumber,
+      hideMssvPublic: key === 'hideMssvPublic' ? val : hideMssvPublic,
+      campusOnlyListing: key === 'campusOnlyListing' ? val : campusOnlyListing,
+    };
+    if (key === 'hideRoomNumber') setHideRoomNumber(val);
+    if (key === 'hideMssvPublic') setHideMssvPublic(val);
+    if (key === 'campusOnlyListing') setCampusOnlyListing(val);
+    AsyncStorage.setItem(STORAGE_KEY_PRIVACY, JSON.stringify(updated)).catch(() => {});
+  };
 
   const handleClearCache = () => {
     Alert.alert('Xóa bộ nhớ đệm', 'Giải phóng 48.2 MB hình ảnh và dữ liệu tạm?', [
@@ -94,7 +124,7 @@ export const PrivacySettingsScreen: React.FC = () => {
             </View>
             <Switch
               value={hideRoomNumber}
-              onValueChange={setHideRoomNumber}
+              onValueChange={(val) => updateSetting('hideRoomNumber', val)}
               thumbColor={hideRoomNumber ? '#F27024' : '#F1F5F9'}
               trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
             />
@@ -112,7 +142,7 @@ export const PrivacySettingsScreen: React.FC = () => {
             </View>
             <Switch
               value={hideMssvPublic}
-              onValueChange={setHideMssvPublic}
+              onValueChange={(val) => updateSetting('hideMssvPublic', val)}
               thumbColor={hideMssvPublic ? '#F27024' : '#F1F5F9'}
               trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
             />
@@ -130,7 +160,7 @@ export const PrivacySettingsScreen: React.FC = () => {
             </View>
             <Switch
               value={campusOnlyListing}
-              onValueChange={setCampusOnlyListing}
+              onValueChange={(val) => updateSetting('campusOnlyListing', val)}
               thumbColor={campusOnlyListing ? '#F27024' : '#F1F5F9'}
               trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
             />

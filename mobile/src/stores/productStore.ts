@@ -19,7 +19,7 @@ export interface ProductItem {
   sellerCohort?: string;
   sellerRating?: number;
   sellerIsVerified?: boolean;
-  status: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
+  status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
   safePoint?: string;
   allowNegotiate?: boolean;
   campusShipEnabled?: boolean;

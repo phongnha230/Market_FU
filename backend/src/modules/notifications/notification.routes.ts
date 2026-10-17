@@ -16,6 +16,7 @@ router.patch('/:id/read', notificationController.markAsRead);
 router.patch('/read-all', notificationController.markAllAsRead);
 router.post('/fcm-token', notificationController.registerDeviceToken);
 router.post('/device-token', notificationController.registerDeviceToken);
+router.post('/test-push', notificationController.sendTestPush);
 router.delete('/fcm-token', notificationController.removeDeviceToken);
 router.delete('/device-token', notificationController.removeDeviceToken);
 router.delete('/:id', notificationController.deleteNotification);

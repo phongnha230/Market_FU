@@ -38,7 +38,7 @@ export interface ProductDetailData {
   categoryType?: string;
   sellerId?: string;
   sellerCohort?: string;
-  status?: 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN';
+  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
   isSoldOrReserved?: boolean;
   safePointInfo: {
     name: string;

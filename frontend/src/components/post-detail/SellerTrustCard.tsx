@@ -13,6 +13,8 @@ interface SellerTrustCardProps {
   onRequireAuth?: (action: 'chat') => void;
 }
 
+import { chatService } from '@/services/chatService';
+
 export default function SellerTrustCard({
   seller,
   postId,
@@ -20,17 +22,35 @@ export default function SellerTrustCard({
 }: SellerTrustCardProps) {
   const router = useRouter();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const [isStartingChat, setIsStartingChat] = React.useState(false);
 
   const sellerProfileUrl = `/sellers/${encodeURIComponent(seller.id || seller.name)}`;
 
-  const handleChatClick = (e: React.MouseEvent) => {
+  const handleChatClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (!isLoggedIn) {
-      e.preventDefault();
       if (onRequireAuth) {
         onRequireAuth('chat');
       } else {
         router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       }
+      return;
+    }
+
+    try {
+      setIsStartingChat(true);
+      if (postId) {
+        const conv = await chatService.createOrGetConversation(postId, seller.id);
+        if (conv?.id) {
+          router.push(`/chat?id=${conv.id}`);
+          return;
+        }
+      }
+      router.push(`/chat${seller.id ? `?sellerId=${encodeURIComponent(seller.id)}` : ''}`);
+    } catch {
+      router.push('/chat');
+    } finally {
+      setIsStartingChat(false);
     }
   };
 
@@ -62,9 +82,10 @@ export default function SellerTrustCard({
         <button
           type="button"
           onClick={handleChatClick}
-          className="text-xs font-bold text-fpt-orange hover:underline cursor-pointer"
+          disabled={isStartingChat}
+          className="text-xs font-bold text-fpt-orange hover:underline cursor-pointer disabled:opacity-50"
         >
-          Nhắn tin &gt;
+          {isStartingChat ? 'Đang mở chat...' : 'Nhắn tin >'}
         </button>
       </div>
 

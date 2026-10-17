@@ -195,23 +195,16 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
  */
 export async function syncTokenWithBackend(token: string) {
   try {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
     const authState = useAuthStore.getState();
     const jwtToken = authState.token;
 
     if (!jwtToken) return;
 
-    await fetch(`${apiUrl}/api/notifications/device-token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        token,
-        deviceType: Platform.OS.toUpperCase(), // 'ANDROID' | 'IOS'
-      }),
+    await apiClient.post('/notifications/device-token', {
+      token,
+      deviceType: Platform.OS.toUpperCase(), // 'ANDROID' | 'IOS'
     });
+    console.log('✅ [Push Notification] Đã đồng bộ Device Token lên Backend:', token.slice(0, 25) + '...');
   } catch (error: any) {
     console.warn('⚠️ [Device Token Sync Error]:', error?.message);
   }
@@ -222,20 +215,15 @@ export async function syncTokenWithBackend(token: string) {
  */
 export async function unregisterDeviceToken(token: string) {
   try {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
     const authState = useAuthStore.getState();
     const jwtToken = authState.token;
 
     if (!jwtToken) return;
 
-    await fetch(`${apiUrl}/api/notifications/device-token`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({ token }),
+    await apiClient.delete('/notifications/device-token', {
+      data: { token },
     });
+    console.log('✅ [Push Notification] Đã hủy đăng ký Device Token');
   } catch (error: any) {
     console.warn('⚠️ [Device Token Unregister Error]:', error?.message);
   }

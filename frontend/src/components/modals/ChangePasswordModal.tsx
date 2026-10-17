@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, CheckCircle2, KeyRound } from 'lucide-react';
+import { X, CheckCircle2, KeyRound, Loader2 } from 'lucide-react';
+import { authService } from '@/services/authService';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function ChangePasswordModal({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -30,8 +32,12 @@ export default function ChangePasswordModal({
 
   const strength = getStrength(newPassword);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentPassword) {
+      setError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
     if (newPassword.length < 6) {
       setError('Mật khẩu mới phải có ít nhất 6 ký tự.');
       return;
@@ -40,9 +46,29 @@ export default function ChangePasswordModal({
       setError('Mật khẩu xác nhận không khớp.');
       return;
     }
-    setError(null);
-    onSuccess();
-    onClose();
+    if (currentPassword === newPassword) {
+      setError('Mật khẩu mới không được trùng với mật khẩu hiện tại.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      await authService.changePassword(currentPassword, newPassword, confirmPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại!';
+      setError(errMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -143,10 +169,20 @@ export default function ChangePasswordModal({
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition cursor-pointer"
+              disabled={isLoading}
+              className="flex items-center gap-1.5 rounded-xl bg-fpt-orange px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-fpt-orange-hover transition cursor-pointer disabled:opacity-60"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Cập nhật mật khẩu</span>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang xử lý...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Cập nhật mật khẩu</span>
+                </>
+              )}
             </button>
           </div>
         </form>

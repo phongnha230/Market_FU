@@ -206,5 +206,17 @@ export const profileService = {
       pagination: (response.data as any).pagination || { total: 0, page: 1, limit: 20 },
     };
   },
+
+  // 11. Lịch sử biến động Xu từ Backend
+  async getCoinHistory(): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/profile/coins/history');
+    return response.data?.data || [];
+  },
+
+  // 12. Mua huy hiệu avatar bằng Xu
+  async buyAvatarBadge(badgeId: string): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/profile/badges/buy', { badgeId });
+    return response.data?.data;
+  },
 };
 

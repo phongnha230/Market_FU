@@ -48,6 +48,8 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         isSaved={isSaved}
         onToggleSaved={handleToggleFavorite}
         onOpenReport={actions.handleOpenReport}
+        productId={product.id}
+        productTitle={product.title}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>

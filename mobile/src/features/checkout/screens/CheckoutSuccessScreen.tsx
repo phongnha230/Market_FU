@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
+import paymentMobileService from '../../../services/paymentMobileService';
+import { orderMobileService } from '../../../services/orderMobileService';
+import { useOrderStore } from '../../../stores/orderStore';
 
 export const CheckoutSuccessScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const fetchOrders = useOrderStore((state) => state.fetchOrders);
 
   const {
+    orderId = '',
     orderCode = '',
     totalAmount = 0,
     product = {
@@ -33,9 +39,65 @@ export const CheckoutSuccessScreen: React.FC = () => {
     isDifferentCampus = false,
     fromCampus = 'Cơ sở gửi',
     toCampus = 'Cơ sở nhận',
+    paymentPending = false,
+    paymentCheckoutUrl = '',
   } = route.params || {};
 
   const [copiedOtp, setCopiedOtp] = useState(false);
+  const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(!paymentPending);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+
+  useEffect(() => {
+    if (!paymentPending || isPaymentConfirmed || !orderCode) return;
+
+    let isActive = true;
+    const checkStatus = async () => {
+      const status = await paymentMobileService.checkPaymentStatus(orderCode);
+      if (isActive && status.isPaid) setIsPaymentConfirmed(true);
+    };
+
+    void checkStatus();
+    const intervalId = setInterval(() => void checkStatus(), 4000);
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }, [isPaymentConfirmed, orderCode, paymentPending]);
+
+  const handleRetryPayment = async () => {
+    if (!paymentCheckoutUrl) return;
+    try {
+      await WebBrowser.openBrowserAsync(paymentCheckoutUrl);
+      const status = await paymentMobileService.checkPaymentStatus(orderCode);
+      if (status.isPaid) setIsPaymentConfirmed(true);
+    } catch (error) {
+      console.error('Could not reopen PayOS checkout', error);
+      Alert.alert('Không mở được PayOS', 'Vui lòng thử lại hoặc hủy đơn để tạo đơn mới.');
+    }
+  };
+
+  const handleCancelOrder = () => {
+    if (!orderId || isCancellingOrder) return;
+    Alert.alert('Hủy đơn hàng?', 'PayOS và đơn hàng sẽ được hủy; sản phẩm, xu và voucher sẽ được trả lại.', [
+      { text: 'Giữ đơn', style: 'cancel' },
+      {
+        text: 'Hủy đơn',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsCancellingOrder(true);
+            await orderMobileService.cancelOrder(orderId, 'Người mua hủy thanh toán PayOS');
+            await fetchOrders();
+            navigation.replace('OrderList');
+          } catch (error: any) {
+            Alert.alert('Chưa hủy được đơn', error?.response?.data?.error?.message || error?.message || 'Vui lòng thử lại sau.');
+          } finally {
+            setIsCancellingOrder(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
@@ -80,14 +142,33 @@ export const CheckoutSuccessScreen: React.FC = () => {
       >
         {/* Banner Success */}
         <View style={styles.successBanner}>
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" size={32} color="#FFFFFF" />
+          <View style={[styles.checkCircle, paymentPending && !isPaymentConfirmed && styles.pendingCircle]}>
+            <Ionicons name={paymentPending && !isPaymentConfirmed ? 'time-outline' : 'checkmark'} size={32} color="#FFFFFF" />
           </View>
-          <Text style={styles.successTitle}>Đặt Hàng & Cọc Tiền Thành Công!</Text>
+          <Text style={styles.successTitle}>
+            {paymentPending && !isPaymentConfirmed ? 'Đơn hàng đang chờ PayOS xác nhận' : 'Đặt Hàng & Cọc Tiền Thành Công!'}
+          </Text>
           <Text style={styles.successSub}>
-            Tiền của bạn đã được chuyển vào quỹ ký quỹ <Text style={styles.boldText}>Escrow FPT Market</Text>. Người bán sẽ chỉ nhận được tiền sau khi bạn kiểm tra và xác nhận hàng ưng ý.
+            {paymentPending && !isPaymentConfirmed
+              ? 'Thanh toán chỉ được xác nhận sau khi backend nhận webhook hợp lệ từ PayOS. Màn hình sẽ tự cập nhật khi giao dịch hoàn tất.'
+              : <>Tiền của bạn đã được chuyển vào quỹ ký quỹ <Text style={styles.boldText}>Escrow FPT Market</Text>. Người bán sẽ chỉ nhận được tiền sau khi bạn kiểm tra và xác nhận hàng ưng ý.</>}
           </Text>
         </View>
+
+        {paymentPending && !isPaymentConfirmed && (
+          <View style={styles.pendingActions}>
+            {!!paymentCheckoutUrl && (
+              <TouchableOpacity style={styles.retryPaymentButton} onPress={handleRetryPayment}>
+                <Text style={styles.retryPaymentText}>Mở lại PayOS để thanh toán</Text>
+              </TouchableOpacity>
+            )}
+            {!!orderId && (
+              <TouchableOpacity style={styles.cancelPaymentButton} onPress={handleCancelOrder} disabled={isCancellingOrder}>
+                <Text style={styles.cancelPaymentText}>{isCancellingOrder ? 'Đang hủy đơn...' : 'Hủy đơn và trả sản phẩm'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Digital Ticket Card */}
         <View style={styles.ticketCard}>
@@ -332,6 +413,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 10,
     boxShadow: '0 6px 10px rgba(5, 150, 105, 0.4)',
+  },
+  pendingActions: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  retryPaymentButton: {
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  retryPaymentText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  cancelPaymentButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  cancelPaymentText: {
+    color: '#475569',
+    fontWeight: '700',
+  },
+  pendingCircle: {
+    backgroundColor: '#D97706',
+    boxShadow: '0 6px 10px rgba(217, 119, 6, 0.35)',
   },
   successTitle: {
     fontSize: 18,

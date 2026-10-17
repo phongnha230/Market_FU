@@ -69,6 +69,7 @@ export interface AdminPostItem {
   email?: string;
   rejectionReason?: string;
   approvedAt?: string;
+  updatedAt: string;
 }
 
 function adaptBackendToAdminPost(p: any): AdminPostItem {
@@ -173,6 +174,7 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
     email,
     rejectionReason: p.rejectionReason,
     approvedAt: p.approvedAt,
+    updatedAt: p.updatedAt,
   };
 }
 
@@ -276,7 +278,9 @@ export default function AdminPostsPage() {
   // Phê duyệt 1 tin đăng (gọi API thật)
   const handleApprove = async (rawId: string) => {
     try {
-      await ProductService.approveProduct(rawId);
+      const currentPost = posts.find((post) => post.rawId === rawId);
+      if (!currentPost?.updatedAt) throw new Error('Thiếu thời điểm cập nhật tin. Vui lòng tải lại danh sách.');
+      await ProductService.approveProduct(rawId, currentPost.updatedAt);
       setPosts((prev) =>
         prev.map((p) =>
           p.rawId === rawId
@@ -315,6 +319,7 @@ export default function AdminPostsPage() {
       }));
       showToast('✅ Đã duyệt và kích hoạt tin đăng hiển thị trên sàn!');
     } catch (err: any) {
+      if (err?.response?.status === 409) await fetchProducts(true);
       showToast(`🚫 Lỗi duyệt tin: ${err?.message || 'Vui lòng thử lại'}`, 'error');
     }
   };
@@ -335,7 +340,7 @@ export default function AdminPostsPage() {
 
     try {
       setIsRejecting(true);
-      await ProductService.rejectProduct(rejectModalTarget.rawId, rejectReason.trim());
+      await ProductService.rejectProduct(rejectModalTarget.rawId, rejectReason.trim(), rejectModalTarget.updatedAt);
 
       setPosts((prev) =>
         prev.map((p) =>
@@ -380,6 +385,10 @@ export default function AdminPostsPage() {
       setRejectModalTarget(null);
       setRejectReason('');
     } catch (err: any) {
+      if (err?.response?.status === 409) {
+        setRejectModalTarget(null);
+        await fetchProducts(true);
+      }
       showToast(`🚫 Lỗi từ chối: ${err?.message || 'Vui lòng thử lại'}`, 'error');
     } finally {
       setIsRejecting(false);
@@ -400,7 +409,7 @@ export default function AdminPostsPage() {
     let successCount = 0;
     for (const item of toApprove) {
       try {
-        await ProductService.approveProduct(item.rawId);
+        await ProductService.approveProduct(item.rawId, item.updatedAt);
         successCount++;
       } catch {
         // bỏ qua lỗi đơn lẻ

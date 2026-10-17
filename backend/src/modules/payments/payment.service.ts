@@ -139,11 +139,7 @@ export class PaymentService {
       where: { id: order.id, status: 'PENDING' },
       data: {
         status: 'PAID',
-        payment: {
-          ...order.payment,
-          isPaid: true,
-          paidAt: now,
-        },
+        payment: { update: { isPaid: true, paidAt: now } },
       },
     });
 

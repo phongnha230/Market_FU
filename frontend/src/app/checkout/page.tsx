@@ -304,6 +304,10 @@ function CheckoutContent() {
           setIsSubmitting(false);
           return;
         }
+        if (paymentMethod === 'payos' || isAgreedPriceApplied ||
+            (err?.response?.status >= 400 && err?.response?.status < 500)) {
+          throw err;
+        }
         console.warn('Backend createOrder failed or offline, using resilient fallback:', err);
       }
 
@@ -338,9 +342,13 @@ function CheckoutContent() {
       }
 
       // Handle PayOS Gateway redirection if returned by backend
-      if (paymentMethod === 'payos' && createdBackendOrder?.payment?.payosCheckoutUrl) {
+      if (paymentMethod === 'payos') {
+        const payosCheckoutUrl = createdBackendOrder?.payment?.payosCheckoutUrl;
+        if (!payosCheckoutUrl) {
+          throw new Error('Backend không trả về liên kết thanh toán PayOS.');
+        }
         showToast('🔗 Đang chuyển hướng tới Cổng thanh toán trực tuyến PayOS...');
-        window.location.href = createdBackendOrder.payment.payosCheckoutUrl;
+        window.location.href = payosCheckoutUrl;
         return;
       }
 
@@ -350,8 +358,9 @@ function CheckoutContent() {
           `/checkout/success?orderCode=${finalCode}&paymentMethod=${paymentMethod}&amount=${totalAmount}&productId=${productData.id}&meetupLocation=${encodeURIComponent(selectedHub)}&appointmentTime=${encodeURIComponent(appointmentIso || '')}`
         );
       }, 600);
-    } catch {
-      showToast('Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại!');
+    } catch (err: any) {
+      const apiMessage = err?.response?.data?.error?.message || err?.response?.data?.message;
+      showToast(apiMessage || err?.message || 'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại!');
     } finally {
       setIsSubmitting(false);
     }

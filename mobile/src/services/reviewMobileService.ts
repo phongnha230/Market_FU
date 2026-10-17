@@ -63,6 +63,21 @@ export const reviewMobileService = {
       return { reviews: [], stats: undefined };
     }
   },
+
+  /**
+   * Bật/tắt trạng thái công khai đánh giá
+   */
+  async toggleReviewPublic(orderId: string): Promise<any> {
+    try {
+      const res = await apiClient.post<ApiResponse<any>>(
+        `/reviews/order/${encodeURIComponent(orderId)}/toggle-public`
+      );
+      return res.data?.data;
+    } catch (error) {
+      console.error('Failed to toggle review public:', error);
+      throw error;
+    }
+  },
 };
 
 export default reviewMobileService;

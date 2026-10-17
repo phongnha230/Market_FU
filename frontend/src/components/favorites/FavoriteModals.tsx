@@ -252,7 +252,7 @@ export default function FavoriteModals({
                   Nhắn hỏi mua ngay
                 </button>
                 <Link
-                  href="/posts/feat-1"
+                  href={`/posts/${previewItem.id}`}
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
                 >
                   Xem bài đăng gốc

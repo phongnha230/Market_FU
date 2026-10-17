@@ -328,14 +328,14 @@ export const ProductService = {
   },
 
   // 14. [Admin] Phê duyệt tin đăng
-  async approveProduct(id: string): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/approve`);
+  async approveProduct(id: string, expectedUpdatedAt: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/approve`, { expectedUpdatedAt });
     return response.data.data;
   },
 
   // 15. [Admin] Từ chối tin đăng kèm lý do
-  async rejectProduct(id: string, reason: string): Promise<any> {
-    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason });
+  async rejectProduct(id: string, reason: string, expectedUpdatedAt: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason, expectedUpdatedAt });
     return response.data.data;
   },
 };

@@ -182,6 +182,7 @@ type OrderPayment {
   vietqrUrl        String?
   payosOrderCode   Int?      // Mã orderCode cho cổng thanh toán PayOS (Web)
   payosCheckoutUrl String?   // Link thanh toán PayOS dành cho Web
+  appliedUserVoucherId String? // Voucher đã dùng, để hoàn lại khi hủy đơn chưa thanh toán
   paymentMethod    String?   @default("VIETQR") // "PAYOS_WEB" | "VIETQR" | "CASH"
   isPaid           Boolean   @default(false)
   paidAt           DateTime?

@@ -14,6 +14,38 @@ function getInitials(name?: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function formatMessageTime(timeStr?: string): string {
+  if (!timeStr) return '';
+  if (/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr;
+  const d = new Date(timeStr);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return timeStr;
+}
+
+function formatDateHeader(dateStr?: string): string {
+  if (!dateStr) {
+    const now = new Date();
+    return `Hôm nay, ${now.toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return `Hôm nay, ${now.toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  }
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return `Hôm nay, ${d.toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return `Hôm qua, ${d.toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+  }
+  return d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 function OfferCountdown({ acceptedAt }: { acceptedAt?: number }) {
   const [timeLeft, setTimeLeft] = React.useState<number>(() => {
     if (!acceptedAt) return 30 * 60;
@@ -88,7 +120,7 @@ export default function MessageHistory({
         {/* Date Divider */}
         <div className="flex items-center justify-center my-2">
           <span className="rounded-full bg-slate-200/80 px-3 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-            Hôm nay, 24 Tháng 10
+            {formatDateHeader(messages[0]?.time)}
           </span>
         </div>
 
@@ -443,7 +475,7 @@ export default function MessageHistory({
                     isMe ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  <span>{msg.time}</span>
+                  <span>{formatMessageTime(msg.time)}</span>
                   {isMe && <CheckCheck className="h-3 w-3 text-emerald-500" />}
                 </div>
               </div>

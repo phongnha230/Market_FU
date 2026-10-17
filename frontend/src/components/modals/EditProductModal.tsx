@@ -44,6 +44,7 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Đã lưu thay đổi thành công!');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateProduct = useProductStore((state) => state.updateProduct);
 
@@ -112,8 +113,12 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
         images: updated.images,
         meetupLocation: updated.meetupLocation,
         badges: updated.badges,
+        status: updated.status,
       });
 
+      setSuccessMessage(updated.status === 'PENDING_APPROVAL'
+        ? 'Đã lưu thay đổi. Tin đang chờ quản trị viên duyệt lại.'
+        : 'Đã lưu thay đổi thành công!');
       setSuccess(true);
       setTimeout(() => {
         onSaved(updated);
@@ -279,7 +284,7 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
           {success && (
             <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-3 py-2.5 text-xs text-green-700">
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              <span>Đã lưu thay đổi thành công!</span>
+              <span>{successMessage}</span>
             </div>
           )}
 

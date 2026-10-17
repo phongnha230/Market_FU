@@ -47,6 +47,7 @@ export interface OrderItem {
   safePoint: string;
   timeSlot: string;
   totalAmount: number;
+  paymentCheckoutUrl?: string;
   isReviewed?: boolean;
   reviewData?: OrderReviewData;
   handshakeOtp?: string;

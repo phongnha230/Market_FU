@@ -145,7 +145,8 @@ export const useManageListings = () => {
               Alert.alert('🎉 Thành công', `Đã gia hạn 30 ngày cho tin "${title}"!`);
               fetchMyProducts();
             } catch (err: any) {
-              Alert.alert('Thông báo', err?.response?.data?.message || err?.message || 'Đã gia hạn tin đăng thành công.');
+              console.error('Could not renew listing', err);
+              Alert.alert('Không thể gia hạn tin', err?.response?.data?.error?.message || err?.message || 'Vui lòng thử lại.');
               fetchMyProducts();
             }
           },
@@ -168,10 +169,9 @@ export const useManageListings = () => {
               updateProductInKho(id, { status: 'SOLD' });
               Alert.alert('🎉 Chúc mừng!', 'Tin đã được chuyển vào mục Đã bán.');
               fetchMyProducts();
-            } catch {
-              updateProductInKho(id, { status: 'SOLD' });
-              Alert.alert('🎉 Chúc mừng!', 'Tin đã được chuyển vào mục Đã bán.');
-              fetchMyProducts();
+            } catch (error: any) {
+              console.error('Could not mark listing as sold', error);
+              Alert.alert('Không thể đánh dấu đã bán', error?.response?.data?.error?.message || error?.message || 'Vui lòng thử lại.');
             }
           },
         },
@@ -195,10 +195,9 @@ export const useManageListings = () => {
               updateProductInKho(id, { status: nextStatus });
               Alert.alert('Thành công', `Tin đăng đã được ${actionText.toLowerCase()}.`);
               fetchMyProducts();
-            } catch {
-              updateProductInKho(id, { status: nextStatus });
-              Alert.alert('Thành công', `Tin đăng đã được ${actionText.toLowerCase()}.`);
-              fetchMyProducts();
+            } catch (error: any) {
+              console.error('Could not change listing visibility', error);
+              Alert.alert('Không thể đổi trạng thái tin', error?.response?.data?.error?.message || error?.message || 'Vui lòng thử lại.');
             }
           },
         },

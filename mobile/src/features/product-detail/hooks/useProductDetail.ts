@@ -1,15 +1,18 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { DEFAULT_PRODUCT_DETAIL, RELATED_PRODUCTS } from '../constants/product-detail.constants';
 import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { useProductStore, ProductItem } from '../../../stores/productStore';
 import { useUserStore } from '../../../stores/userStore';
 import { productMobileService } from '../../../services/productMobileService';
 import { profileMobileService } from '../../../services/profileMobileService';
+import { chatMobileService } from '../../../services/chatMobileService';
 import { fromBackendCategory } from '../../../lib/backendMappers';
 import { ProductDetailData } from '../types/product-detail.types';
 
 export const useProductDetail = (productId?: string) => {
+  const navigation = useNavigation<any>();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [remoteProduct, setRemoteProduct] = useState<ProductItem | null>(null);
   const [sellerPublicProfile, setSellerPublicProfile] = useState<any>(null);
@@ -112,7 +115,7 @@ export const useProductDetail = (productId?: string) => {
       sellerId: found.sellerId,
       sellerCohort: found.sellerCohort,
       status: found.status,
-      isSoldOrReserved: found.status === 'SOLD' || found.status === 'RESERVED' || found.status === 'HIDDEN',
+      isSoldOrReserved: found.status !== 'AVAILABLE',
       seller: {
         id: found.sellerId,
         name: found.sellerName || 'Sinh viên FPT',
@@ -150,25 +153,61 @@ export const useProductDetail = (productId?: string) => {
   };
 
   const handleBuyNow = () => {
-    Alert.alert(
-      '🛒 Đặt mua ngay',
-      `Xác nhận thanh toán Escrow ${product.price}đ cho ${product.title}?\n\nTiền sẽ được giữ an toàn đến khi bạn nhận hàng tại Safe-Point.`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xác nhận thanh toán',
-          onPress: () =>
-            Alert.alert('✅ Đặt hàng thành công!', 'Người bán đã được thông báo. Hẹn gặp tại Sảnh Tòa Alpha!'),
-        },
-      ]
-    );
+    if (isOwnProduct) {
+      Alert.alert('Thông báo', 'Bạn không thể mua sản phẩm do chính bạn đăng bán!');
+      return;
+    }
+    const numericPrice =
+      typeof product.price === 'number'
+        ? product.price
+        : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 0;
+
+    navigation.navigate('Checkout', {
+      product: {
+        id: product.id,
+        title: product.title,
+        price: numericPrice,
+        priceStr: `${numericPrice.toLocaleString('vi-VN')}đ`,
+        image: product.images?.[0],
+        sellerName: product.seller?.name || 'Người bán FPT',
+        sellerCampus: product.campus || 'Cơ sở FPT',
+        sellerId: product.seller?.id || product.sellerId || '',
+      },
+      safePoint: product.safePointInfo?.name,
+    });
   };
 
-  const handleChat = () => {
-    Alert.alert(
-      '💬 Hẹn Safe-Handoff',
-      `Mở cuộc hội thoại với ${product.seller.name} để thỏa thuận thời gian gặp tại Safe-Point.`
-    );
+  const handleChat = async () => {
+    if (isOwnProduct) {
+      Alert.alert('Thông báo', 'Bạn không thể tự nhắn tin với chính mình!');
+      return;
+    }
+    const numericPrice =
+      typeof product.price === 'number'
+        ? product.price
+        : parseInt(String(product.price || '').replace(/[^\d]/g, ''), 10) || 0;
+
+    try {
+      if (product.id) {
+        await chatMobileService.createOrGetConversation(product.id);
+      }
+    } catch {}
+
+    navigation.navigate('ChatDetail', {
+      partner: {
+        id: product.seller?.id || product.sellerId || 'partner',
+        name: product.seller?.name || 'Người bán FPT',
+        avatar: product.seller?.avatarUrl || '',
+        cohort: product.seller?.major || 'Sinh viên FPT',
+        isOnline: true,
+      },
+      product: {
+        id: product.id,
+        title: product.title,
+        price: `${numericPrice.toLocaleString('vi-VN')}đ`,
+        image: product.images?.[0],
+      },
+    });
   };
 
   return {

@@ -200,17 +200,13 @@ function ReviewContent() {
           proofVideoUrl: proofVideoUrl.trim() || undefined,
           isAnonymous,
         };
+        await orderService.updateReview(rawOrderId, {
+          rating,
+          comment,
+          images: reviewMediaList.map((m) => m.url),
+          proofVideoUrl: proofVideoUrl.trim() || null,
+        });
         updateOrderReview(orderCode, partialData);
-        try {
-          await orderService.updateReview(rawOrderId, {
-            rating,
-            comment,
-            images: reviewMediaList.map((m) => m.url),
-            proofVideoUrl: proofVideoUrl.trim() || null,
-          });
-        } catch {
-          // offline fallback
-        }
         showToast('✅ Đã cập nhật thành công đánh giá đơn hàng!');
         setTimeout(() => {
           router.push('/orders');

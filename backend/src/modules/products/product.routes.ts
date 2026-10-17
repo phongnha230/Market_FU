@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { productController } from './product.controller';
-import { authenticate, authorize } from '../../middlewares/auth.middleware';
+import { authenticate, authenticateOptional, authorize } from '../../middlewares/auth.middleware';
 import { productUploadMiddleware } from '../../middlewares/upload.middleware';
 
 const router = Router();
@@ -26,7 +26,7 @@ router.get('/trending/items', productController.getTrendingItems);
 // Meilisearch autocomplete suggest (đặt trước :id)
 router.get('/suggest', productController.suggestProducts);
 
-router.get('/:id', productController.getProductById);
+router.get('/:id', authenticateOptional, productController.getProductById);
 
 // Protected routes (Đăng bán, cập nhật, đổi trạng thái, xóa món đồ)
 router.post('/', authenticate, productUploadMiddleware, productController.createProduct);

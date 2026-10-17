@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import {
@@ -45,19 +45,23 @@ import {
 } from 'lucide-react';
 
 function OrderSuccessContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const orderCode = searchParams.get('orderCode') || 'ORD-88392-HCM-HL';
+  const orderCode = searchParams.get('appOrderCode') || searchParams.get('orderCode') || 'ORD-88392-HCM-HL';
   const paymentMethodParam = searchParams.get('paymentMethod') || 'payos';
   const amountParam = searchParams.get('amount');
   const productId = searchParams.get('productId');
 
   const paymentMethod = paymentMethodParam.toLowerCase();
   const isOnlinePayment = paymentMethod === 'vietqr' || paymentMethod === 'payos';
+  const payosWasCancelled = searchParams.get('cancelled') === 'true' || searchParams.get('cancel') === 'true';
 
   const [backendOrder, setBackendOrder] = useState<BackendOrder | null>(null);
   const [isPaid, setIsPaid] = useState<boolean>(() => {
-    return searchParams.get('status') === 'PAID' || paymentMethodParam.toLowerCase() === 'cod';
+    // The return URL is user-controlled navigation data. Only the backend can confirm online payments.
+    return paymentMethodParam.toLowerCase() === 'cod';
   });
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedVoucher, setCopiedVoucher] = useState(false);
@@ -86,6 +90,19 @@ function OrderSuccessContent() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCancelPendingOrder = async () => {
+    if (!backendOrder?.id || isCancellingOrder) return;
+    try {
+      setIsCancellingOrder(true);
+      await orderService.cancelOrder(backendOrder.id, 'Người mua hủy thanh toán PayOS');
+      router.push('/orders');
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || error?.message || 'Chưa thể hủy đơn. Vui lòng thử lại.');
+    } finally {
+      setIsCancellingOrder(false);
+    }
   };
 
   const handleCopyOrderCode = () => {
@@ -441,6 +458,11 @@ function OrderSuccessContent() {
             {/* CARD 2A: MÃ VIETQR CHUYỂN KHOẢN ESCROW (KHI CHƯA THANH TOÁN) */}
             {isOnlinePayment && !isPaid ? (
               <Card className="rounded-2xl border-2 border-orange-300 bg-white p-5 sm:p-6 shadow-md">
+                {paymentMethod === 'payos' && payosWasCancelled && (
+                  <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+                    Bạn đã đóng thanh toán trên PayOS. Đơn vẫn đang chờ thanh toán; hãy hủy đơn để sản phẩm và ưu đãi được trả lại.
+                  </p>
+                )}
                 <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <QrCode className="h-5 w-5 text-fpt-orange" />
@@ -552,7 +574,7 @@ function OrderSuccessContent() {
                       </p>
                     </div>
 
-                    {backendOrder?.payment?.payosCheckoutUrl && (
+                    {backendOrder?.payment?.payosCheckoutUrl && !payosWasCancelled && (
                       <div className="pt-2">
                         <a
                           href={backendOrder.payment.payosCheckoutUrl}
@@ -565,6 +587,16 @@ function OrderSuccessContent() {
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       </div>
+                    )}
+                    {paymentMethod === 'payos' && backendOrder?.id && (
+                      <button
+                        type="button"
+                        onClick={handleCancelPendingOrder}
+                        disabled={isCancellingOrder}
+                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {isCancellingOrder ? 'Đang hủy đơn...' : 'Hủy đơn và trả sản phẩm về chợ'}
+                      </button>
                     )}
                   </div>
                 </div>

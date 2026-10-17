@@ -246,10 +246,8 @@ export class VoucherService {
     const expiredAt = new Date();
     expiredAt.setDate(expiredAt.getDate() + voucher.validDays);
 
-    const newBalance = profile.campusCoins - voucher.coinCost;
-
     // Thực hiện trừ xu, trừ kho, tạo UserVoucher và ghi sổ cái CoinTransaction trong 1 Transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const redeemTransaction = () => prisma.$transaction(async (tx) => {
       // 1. Trừ số lượng kho có điều kiện (Chống Race Condition Oversell khi nhiều request song song)
       const voucherUpdate = await tx.voucher.updateMany({
         where: { id: voucherId, quantity: { gt: 0 }, isActive: true },
@@ -270,12 +268,17 @@ export class VoucherService {
         throw new AppError('Số dư Xu không đủ để đổi voucher này', 400, 'INSUFFICIENT_COINS');
       }
 
+      const updatedProfile = await tx.profile.findUniqueOrThrow({
+        where: { userId },
+        select: { campusCoins: true },
+      });
+
       // 3. Ghi lịch sử biến động sổ cái
       await tx.coinTransaction.create({
         data: {
           userId,
           amount: -voucher.coinCost,
-          balanceAfter: newBalance,
+          balanceAfter: updatedProfile.campusCoins,
           type: 'REDEEM_VOUCHER',
           description: `Đổi ${voucher.coinCost.toLocaleString()} Xu nhận voucher: ${voucher.title}`,
           referenceId: voucherId,
@@ -304,22 +307,39 @@ export class VoucherService {
         },
       });
 
-      return userVoucher;
+      return { userVoucher, remainingCoins: updatedProfile.campusCoins };
     });
+    let result: Awaited<ReturnType<typeof redeemTransaction>> | undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        result = await redeemTransaction();
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2034' || attempt === 2) {
+          console.error('Voucher redemption transaction failed', { userId, voucherId, attempt, error });
+          throw error;
+        }
+      }
+    }
+    if (!result) throw new AppError('Không thể hoàn tất đổi voucher', 503, 'VOUCHER_REDEMPTION_UNAVAILABLE');
 
     // Bắn thông báo realtime và Push Noti
-    await notificationService.sendNotification({
-      userId,
-      title: '🎟️ Đổi Voucher thành công!',
-      body: `Bạn đã đổi thành công "${voucher.title}". Mã voucher của bạn là ${voucherCode}. Hạn dùng đến ${expiredAt.toLocaleDateString('vi-VN')}.`,
-      type: 'SYSTEM',
-      targetUrl: '/profile/vouchers',
-    });
+    try {
+      await notificationService.sendNotification({
+        userId,
+        title: '🎟️ Đổi Voucher thành công!',
+        body: `Bạn đã đổi thành công "${voucher.title}". Mã voucher của bạn là ${voucherCode}. Hạn dùng đến ${expiredAt.toLocaleDateString('vi-VN')}.`,
+        type: 'SYSTEM',
+        targetUrl: '/profile/vouchers',
+      });
+    } catch (notificationError) {
+      console.error('Voucher redeemed but notification failed', { userId, voucherId, error: notificationError });
+    }
 
     return {
       message: 'Đổi voucher thành công! Bạn có thể sử dụng mã tại quầy đối tác trong campus.',
-      userVoucher: result,
-      remainingCoins: newBalance,
+      userVoucher: result.userVoucher,
+      remainingCoins: result.remainingCoins,
     };
   }
 
