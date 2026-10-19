@@ -102,6 +102,22 @@ export class OrderController {
   }
 
   /**
+   * POST /api/orders/:id/confirm-order
+   * Người bán xác nhận đồng ý đơn hàng và chốt lịch hẹn gặp
+   */
+  async sellerConfirmOrder(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const order = await orderService.sellerConfirmOrder(
+        req.user!.userId,
+        req.params.id as string
+      );
+      return sendSuccess(res, order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PATCH /api/orders/:id/shipping
    * Cập nhật trạng thái vận đơn
    */

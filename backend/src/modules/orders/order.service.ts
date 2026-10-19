@@ -3,7 +3,7 @@ import { prisma } from '../../config/prisma';
 import { ENV } from '../../config/env';
 import { getCache, setCache, delCache, acquireLock, releaseLock } from '../../config/redis';
 import { AppError } from '../../middlewares/error.middleware';
-import { emitToUser } from '../../utils/socket';
+import { emitToUser, getIO } from '../../utils/socket';
 import { sendOrderCompletedReceiptEmail } from '../../config/mail';
 import { notificationService } from '../notifications/notification.service';
 import { auditLogger } from '../../utils/auditLogger';
@@ -496,6 +496,76 @@ export class OrderService {
       orderCode,
       productTitle: product.title,
     });
+
+    // 9. Tự động gửi tin nhắn xác nhận đơn hàng vào khung Chat giữa Người mua & Người bán
+    try {
+      let conversation = await prisma.conversation.findFirst({
+        where: {
+          buyerId,
+          sellerId: product.sellerId,
+          productId: product.id,
+        },
+      });
+
+      if (!conversation) {
+        conversation = await prisma.conversation.create({
+          data: {
+            buyerId,
+            sellerId: product.sellerId,
+            productId: product.id,
+          },
+        });
+      }
+
+      const orderTypeText = orderType === 'MEETUP' ? 'Hẹn gặp Safe-Handoff' : 'Giao hàng Ship COD';
+      const orderMessageText = `[ORDER_CREATED] Đơn hàng #${orderCode} đã được tạo thành công! Tổng tiền: ${totalAmount.toLocaleString('vi-VN')}đ (${orderTypeText}). Tiền cọc Escrow đã được bảo chứng an toàn.`;
+
+      const savedMessage = await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderId: buyerId,
+          messageType: 'TEXT',
+          text: orderMessageText,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  reputationScore: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastMessageText: `[Đã đặt đơn #${orderCode}]`,
+          lastMessageAt: savedMessage.createdAt,
+        },
+      });
+
+      const io = getIO();
+      io?.to(`conversation_${conversation.id}`).emit('receive_message', savedMessage);
+
+      emitToUser(product.sellerId, 'new_message_notification', {
+        conversationId: conversation.id,
+        productId: product.id,
+        senderName: savedMessage.sender?.profile?.fullName || 'Người mua',
+        text: `[Đã đặt đơn #${orderCode}]`,
+        createdAt: savedMessage.createdAt,
+      });
+    } catch (chatError) {
+      console.error('Order was created but chat message broadcast failed', { orderCode, error: chatError });
+    }
 
     return readyOrder;
     } finally {
@@ -1543,6 +1613,120 @@ export class OrderService {
     }
 
     return this.verifyHandshake(sellerId, orderIdOrCode, { handshakeOtp: otp.trim() });
+  }
+
+  /**
+   * Người bán xác nhận đồng ý đơn hàng và chốt lịch hẹn gặp Safe-Point
+   */
+  async sellerConfirmOrder(sellerId: string, orderIdOrCode: string) {
+    if (!isValidObjectId(orderIdOrCode) && !/^ORD-/.test(orderIdOrCode)) {
+      throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          { orderCode: orderIdOrCode },
+        ],
+      },
+      include: {
+        product: { select: { id: true, title: true, price: true } },
+      },
+    });
+
+    if (!order) {
+      throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
+    }
+
+    if (order.sellerId !== sellerId) {
+      throw new AppError('Bạn không phải người bán của đơn hàng này', 403, 'FORBIDDEN');
+    }
+
+    if (order.status !== 'PENDING') {
+      throw new AppError('Đơn hàng này đã được xác nhận hoặc đã kết thúc', 400, 'ORDER_ALREADY_CONFIRMED');
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'PAID',
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            images: true,
+            campus: true,
+            meetupLocation: true,
+          },
+        },
+        buyer: { select: COUNTERPARTY_SELECT },
+        seller: { select: COUNTERPARTY_SELECT },
+      },
+    });
+
+    // 1. Gửi thông báo tới người mua
+    try {
+      await notificationService.sendNotification({
+        userId: order.buyerId,
+        title: 'Người bán đã đồng ý lịch hẹn!',
+        body: `Người bán đã xác nhận đơn #${order.orderCode}. Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} để bàn giao!`,
+        type: 'ORDER',
+        targetUrl: '/orders',
+      });
+    } catch (e) {
+      console.error('Notification error on confirm order:', e);
+    }
+
+    // 2. Realtime socket event
+    emitToUser(order.buyerId, 'order_confirmed', {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: 'PAID',
+    });
+    emitToUser(order.sellerId, 'order_confirmed', {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: 'PAID',
+    });
+
+    // 3. Tự động gửi tin nhắn chốt hẹn vào khung Chat
+    try {
+      const conv = await prisma.conversation.findFirst({
+        where: {
+          buyerId: order.buyerId,
+          sellerId: order.sellerId,
+          productId: order.productId,
+        },
+      });
+      if (conv) {
+        const confirmMsgText = `[APPOINTMENT_CONFIRMED] Mình đã xác nhận đồng ý đơn hàng #${order.orderCode} và chốt lịch hẹn! Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} nhé.`;
+        const savedMsg = await prisma.message.create({
+          data: {
+            conversationId: conv.id,
+            senderId: sellerId,
+            messageType: 'TEXT',
+            text: confirmMsgText,
+          },
+        });
+        await prisma.conversation.update({
+          where: { id: conv.id },
+          data: {
+            lastMessageText: `[Đã chốt hẹn đơn #${order.orderCode}]`,
+            lastMessageAt: savedMsg.createdAt,
+          },
+        });
+        const io = getIO();
+        io?.to(`conversation_${conv.id}`).emit('receive_message', savedMsg);
+      }
+    } catch (chatErr) {
+      console.error('Chat confirm broadcast error:', chatErr);
+    }
+
+    return updated;
   }
 }
 

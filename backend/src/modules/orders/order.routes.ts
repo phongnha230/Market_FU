@@ -18,6 +18,7 @@ router.get('/:id', orderController.getOrderDetail);
 router.get('/:id/tracking', orderController.getOrderTracking);
 router.post('/:id/handshake', orderController.verifyHandshake);
 router.post('/:id/seller-confirm-handoff', orderController.sellerConfirmHandoff);
+router.post('/:id/confirm-order', orderController.sellerConfirmOrder);
 router.patch('/:id/shipping', orderController.updateShippingStatus);
 router.post('/:id/cancel', orderController.cancelOrder);
 

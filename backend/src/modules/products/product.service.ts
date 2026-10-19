@@ -840,8 +840,8 @@ export class ProductService {
     const descriptionChanged = input.description !== undefined && input.description.trim() !== product.description.trim();
     const imagesChanged = hasNewImages || (hasImageUrls &&
       JSON.stringify(updatedImages.map((image) => image.imageUrl)) !== JSON.stringify(product.images.map((image) => image.imageUrl)));
-    const needsReview = ['AVAILABLE', 'HIDDEN', 'EXPIRED', 'REJECTED'].includes(product.status) &&
-      (descriptionChanged || imagesChanged);
+    const needsReview = product.status === 'REJECTED' || (['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status) &&
+      (descriptionChanged || imagesChanged));
 
     const persistUpdate = () => prisma.product.update({
       where: { id: productId, status: product.status, updatedAt: product.updatedAt },

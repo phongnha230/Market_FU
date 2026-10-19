@@ -64,9 +64,8 @@ export class ReviewService {
       throw new AppError('Bạn đã gửi đánh giá cho đơn hàng này rồi', 400, 'ALREADY_REVIEWED');
     }
 
-    // 4. Kiểm tra xem đối tác đã gửi đánh giá trước đó chưa
-    const partnerReview = order.reviews.find((r) => r.reviewerId === revieweeId);
-    const shouldMakePublic = !!partnerReview; // Cả hai bên đã đánh giá -> Mở khóa công khai 2 chiều
+    // 4. Hướng A: Đánh giá của Người Mua được CÔNG KHAI NGAY LẬP TỨC (Không cần chờ người bán)
+    const shouldMakePublic = true;
 
     // Task 3.3: Người mua được tặng Xu (video test -> +200), người bán viết review không cộng Xu
     const coinReward = isBuyer ? (proofVideoUrl ? REVIEW_COIN_WITH_VIDEO : REVIEW_COIN_BASE) : 0;
@@ -85,22 +84,13 @@ export class ReviewService {
             comment,
             images: images ?? [],
             proofVideoUrl: proofVideoUrl ?? null,
-            isPublic: shouldMakePublic,
-            revealedAt: shouldMakePublic ? new Date() : null,
+            isPublic: true,
+            revealedAt: new Date(),
           },
         });
 
-        // Nếu cả hai bên đều đã đánh giá -> Cập nhật review của đối tác sang isPublic = true
-        if (shouldMakePublic && partnerReview) {
-          await tx.review.update({
-            where: { id: partnerReview.id },
-            data: { isPublic: true, revealedAt: new Date() },
-          });
-
-          // Cộng điểm uy tín theo kết quả đánh giá của 2 chiều
-          await this.applyReputationInsideTx(tx, revieweeId, rating);
-          await this.applyReputationInsideTx(tx, reviewerId, partnerReview.rating);
-        }
+        // Hướng A: Cộng điểm uy tín ngay lập tức cho Người Bán nhận đánh giá
+        await this.applyReputationInsideTx(tx, revieweeId, rating);
 
         // Thưởng Xu + ghi sổ cái CoinTransaction (B3-7: đủ balanceAfter)
         if (coinReward > 0) {
@@ -138,27 +128,16 @@ export class ReviewService {
       throw error;
     }
 
-    // 6. Gửi thông báo Realtime & Push
-    if (shouldMakePublic) {
-      await notificationService.sendNotification({
-        userId: revieweeId,
-        title: 'Đánh giá 2 chiều đã mở khóa!',
-        body: `Cả hai bên đã hoàn tất đánh giá cho đơn #${order.orderCode}. Điểm uy tín của bạn đã được cập nhật.`,
-        type: 'ORDER',
-        targetUrl: `/orders`,
-      });
-      emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
-      emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
-    } else {
-      await notificationService.sendNotification({
-        userId: revieweeId,
-        title: 'Bạn có một đánh giá mới',
-        body: `Đối tác đã gửi một đánh giá kín cho bạn trên đơn #${order.orderCode}. Hãy viết đánh giá của bạn để cùng mở khóa nhé!`,
-        type: 'ORDER',
-        targetUrl: `/orders/review?orderId=${order.id}`,
-      });
-      emitToUser(revieweeId, 'review_received_blind', { orderId: order.id, orderCode: order.orderCode });
-    }
+    // 6. Gửi thông báo Realtime & Push ngay lập tức cho Người Bán
+    await notificationService.sendNotification({
+      userId: revieweeId,
+      title: '🎉 Bạn nhận được đánh giá mới!',
+      body: `Người mua vừa đánh giá ${rating}★ cho đơn hàng #${order.orderCode}: "${comment || 'Rất hài lòng & uy tín'}"`,
+      type: 'ORDER',
+      targetUrl: `/orders`,
+    });
+    emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
+    emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
 
     return newReview;
   }
@@ -247,7 +226,6 @@ export class ReviewService {
     }
 
     const baseWhere: Prisma.ReviewWhereInput = {
-      isPublic: true,
       ...(rating ? { rating } : {}),
       ...(hasImages ? { images: { isEmpty: false } } : {}),
     };
@@ -266,7 +244,6 @@ export class ReviewService {
 
     const receivedStatsWhere = {
       revieweeId: targetUserId,
-      isPublic: true,
     };
 
     const [total, reviews, allReceivedReviews] = await Promise.all([
@@ -388,24 +365,8 @@ export class ReviewService {
       },
     });
 
-    // Chỉ hiển thị review nếu nó đã public hoặc chính user là người viết
-    const visibleReviews = reviews.map((r) => {
-      if (r.isPublic || r.reviewerId === userId) {
-        return r;
-      }
-      return {
-        id: r.id,
-        orderId: r.orderId,
-        reviewerId: r.reviewerId,
-        revieweeId: r.revieweeId,
-        rating: 0,
-        comment: 'Đánh giá đang được ẩn (Blind Review) cho đến khi cả hai bên hoàn tất.',
-        isPublic: false,
-        createdAt: r.createdAt,
-      };
-    });
-
-    return visibleReviews;
+    // Hướng A: Đánh giá luôn công khai và minh bạch cho cả Người Mua & Người Bán
+    return reviews;
   }
 
   /**
