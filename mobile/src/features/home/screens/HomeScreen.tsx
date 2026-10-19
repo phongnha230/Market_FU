@@ -235,7 +235,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     );
 
     return list;
-  }, [isSeller, inventoryStats.total, isAuthenticated, navigation]);
+  }, [
+    isSeller,
+    inventoryStats.total,
+    khoAttentionCount,
+    activeOrdersCount,
+    unreadChatCount,
+    isAuthenticated,
+    navigation,
+    handleOpenKho,
+  ]);
 
   // Thuật toán xác định TIN XU HƯỚNG / NỔI BẬT:
   // Dựa vào độ tương tác (viewsCount + likesCount * 3) hoặc sản phẩm có lượt xem cao

@@ -8,6 +8,7 @@ import {
   TextInput,
   Linking,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -211,7 +212,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginTop: 14,
-    boxShadow: '0 4px 8px rgba(234, 88, 12, 0.25)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#EA580C',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   heroTitle: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
   heroSub: { fontSize: 12, color: 'rgba(255, 255, 255, 0.9)', marginTop: 4, lineHeight: 18 },

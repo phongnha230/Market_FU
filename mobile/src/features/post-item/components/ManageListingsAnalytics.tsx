@@ -2,12 +2,29 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
+export interface ActiveHandoffOrderSummary {
+  id: string;
+  orderNumber?: string;
+  partnerName: string;
+  timeSlot?: string;
+  safePoint?: string;
+  productTitle?: string;
+}
+
 interface ManageListingsAnalyticsProps {
+  totalViews?: number;
+  dealsCount?: number;
+  activeOrder?: ActiveHandoffOrderSummary | null;
   onSafeHandoffPress: () => void;
+  onExploreSafePoints?: () => void;
 }
 
 export const ManageListingsAnalytics: React.FC<ManageListingsAnalyticsProps> = ({
+  totalViews = 0,
+  dealsCount = 0,
+  activeOrder,
   onSafeHandoffPress,
+  onExploreSafePoints,
 }) => {
   return (
     <>
@@ -19,8 +36,8 @@ export const ManageListingsAnalytics: React.FC<ManageListingsAnalyticsProps> = (
             <MaterialCommunityIcons name="trending-up" size={20} color="#DC2626" />
           </View>
           <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>1.240 lượt xem</Text>
-            <Text style={styles.statSub}>30 ngày qua</Text>
+            <Text style={styles.statNumber}>{totalViews.toLocaleString('vi-VN')} lượt xem</Text>
+            <Text style={styles.statSub}>Kho tin của bạn</Text>
           </View>
         </View>
 
@@ -32,36 +49,60 @@ export const ManageListingsAnalytics: React.FC<ManageListingsAnalyticsProps> = (
             <MaterialCommunityIcons name="handshake-outline" size={20} color="#059669" />
           </View>
           <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>28 sinh viên FPT</Text>
-            <Text style={styles.statSub}>Đã kết nối deal</Text>
+            <Text style={styles.statNumber}>{dealsCount} kết nối</Text>
+            <Text style={styles.statSub}>Đã chốt & giao dịch</Text>
           </View>
         </View>
       </View>
 
-      {/* 4. SAFE-HANDOFF NHẮC NHỞ */}
-      <TouchableOpacity
-        style={styles.reminderCard}
-        activeOpacity={0.85}
-        onPress={onSafeHandoffPress}
-      >
-        <View style={styles.reminderClockCircle}>
-          <Ionicons name="time" size={20} color="#FFFFFF" />
-        </View>
-
-        <View style={styles.reminderContentCol}>
-          <View style={styles.reminderTitleRow}>
-            <Text style={styles.reminderTitle}>SAFE-HANDOFF NHẮC NHỞ</Text>
-            <View style={styles.reminderGreenDot} />
+      {/* 4. SAFE-HANDOFF NHẮC NHỞ HOẶC ĐIỂM HẸN SAFE-POINT */}
+      {activeOrder ? (
+        <TouchableOpacity
+          style={styles.reminderCard}
+          activeOpacity={0.85}
+          onPress={onSafeHandoffPress}
+        >
+          <View style={styles.reminderClockCircle}>
+            <Ionicons name="time" size={20} color="#FFFFFF" />
           </View>
-          <Text style={styles.reminderDesc}>
-            Hẹn lúc <Text style={styles.reminderOrangeText}>16:30 hôm nay</Text> tại{' '}
-            <Text style={styles.reminderBold}>Dom B KTX</Text> với bạn{' '}
-            <Text style={styles.reminderBold}>Hoàng Long (HE180293)</Text>
-          </Text>
-        </View>
 
-        <Ionicons name="chevron-forward" size={18} color="#EA580C" style={styles.reminderArrow} />
-      </TouchableOpacity>
+          <View style={styles.reminderContentCol}>
+            <View style={styles.reminderTitleRow}>
+              <Text style={styles.reminderTitle}>SAFE-HANDOFF NHẮC NHỞ</Text>
+              <View style={styles.reminderGreenDot} />
+            </View>
+            <Text style={styles.reminderDesc}>
+              Hẹn lúc <Text style={styles.reminderOrangeText}>{activeOrder.timeSlot || 'Hôm nay'}</Text> tại{' '}
+              <Text style={styles.reminderBold}>{activeOrder.safePoint || 'Trạm Safe-Point Campus'}</Text> với bạn{' '}
+              <Text style={styles.reminderBold}>{activeOrder.partnerName}</Text>
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={18} color="#EA580C" style={styles.reminderArrow} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.reminderCard, styles.safePointHubCard]}
+          activeOpacity={0.85}
+          onPress={onExploreSafePoints || onSafeHandoffPress}
+        >
+          <View style={[styles.reminderClockCircle, styles.safePointHubIcon]}>
+            <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+          </View>
+
+          <View style={styles.reminderContentCol}>
+            <View style={styles.reminderTitleRow}>
+              <Text style={[styles.reminderTitle, { color: '#0369A1' }]}>ĐIỂM GIAO DỊCH SAFE-POINT</Text>
+              <View style={[styles.reminderGreenDot, { backgroundColor: '#0284C7' }]} />
+            </View>
+            <Text style={styles.reminderDesc}>
+              Tra cứu các trạm giao dịch có bàn test đồ & camera an ninh tại <Text style={styles.reminderBold}>Sảnh Alpha & KTX</Text>
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={18} color="#0284C7" style={styles.reminderArrow} />
+        </TouchableOpacity>
+      )}
     </>
   );
 };
@@ -183,5 +224,12 @@ const styles = StyleSheet.create({
   },
   reminderArrow: {
     marginLeft: 4,
+  },
+  safePointHubCard: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+  },
+  safePointHubIcon: {
+    backgroundColor: '#0284C7',
   },
 });

@@ -97,15 +97,15 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   const isSeller = user?.role === 'SELLER';
   const isVerified = (user?.isKycVerified || isSeller) && user?.kycStatus !== 'PENDING';
 
-  // 1. Badge Đơn mua: Đếm các đơn hàng đang hoạt động / cần chú ý (đang thanh toán, chờ gặp Safe-Point, khiếu nại)
+  // 1. Badge Đơn mua/Đơn bán: Đếm các đơn hàng đang hoạt động / cần chú ý (đang thanh toán, chờ gặp Safe-Point, khiếu nại)
   const activeOrdersCount = useMemo(() => {
     if (!isAuthenticated || !user?.id) return 0;
     return orders.filter(
       (o) =>
-        o.buyerId === user.id &&
+        (isSeller ? o.sellerId === user.id || o.buyerId === user.id : o.buyerId === user.id) &&
         ['PENDING_SAFEPOINT', 'ESCROW_PAID', 'HANDOVER_CONFIRMED', 'DISPUTED'].includes(o.status)
     ).length;
-  }, [orders, isAuthenticated, user?.id]);
+  }, [orders, isAuthenticated, user?.id, isSeller]);
 
   // 2. Badge Kho hàng: Chỉ hiện khi có tin cần người bán chú ý (tin bị từ chối cần sửa hoặc tin chờ duyệt)
   const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import { ManageListingsTabs, ListingStatus } from '../components/ManageListingsT
 import { ManageListingsCard } from '../components/ManageListingsCard';
 import { useManageListings } from '../hooks/useManageListings';
 import { BoostProductModal } from '../../seller/components/BoostProductModal';
+import { useUserStore } from '../../../stores/userStore';
+import { useOrderStore } from '../../../stores/orderStore';
 
 export type { ListingStatus };
 
@@ -116,12 +118,49 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
     }
   }, [navigation]);
 
-  const handleSafeHandoffReminderPress = useCallback(() => {
-    Alert.alert(
-      '🤝 Nhắc nhở Safe-Handoff',
-      'Lịch hẹn: 16:30 hôm nay tại Dom B KTX với bạn Hoàng Long (HE180293).\n\nĐịa điểm có bàn test đồ điện tử và camera an ninh trường học.'
+  const { user } = useUserStore();
+  const { orders } = useOrderStore();
+  const currentUserId = user?.id || '';
+
+  const activeHandoffOrder = useMemo(() => {
+    const found = orders.find(
+      (o) =>
+        (o.sellerId === currentUserId || o.buyerId === currentUserId) &&
+        ['PENDING_SAFEPOINT', 'ESCROW_PAID', 'HANDOVER_CONFIRMED'].includes(o.status)
     );
-  }, []);
+    if (!found) return null;
+    return {
+      id: found.id,
+      orderNumber: found.orderNumber,
+      partnerName:
+        found.sellerId === currentUserId
+          ? found.buyerName || 'Người mua'
+          : found.sellerName || 'Người bán',
+      timeSlot: found.timeSlot,
+      safePoint: found.safePoint,
+      productTitle: found.productTitle,
+    };
+  }, [orders, currentUserId]);
+
+  const totalViews = useMemo(() => {
+    return filteredListings.reduce((sum, item) => sum + (item.views || 0), 0);
+  }, [filteredListings]);
+
+  const dealsCount = useMemo(() => {
+    return soldCount + scheduledCount;
+  }, [soldCount, scheduledCount]);
+
+  const handleSafeHandoffReminderPress = useCallback(() => {
+    if (activeHandoffOrder) {
+      navigation.navigate('OrderDetail', { orderId: activeHandoffOrder.id });
+    } else {
+      navigation.navigate('SafePointHubs');
+    }
+  }, [navigation, activeHandoffOrder]);
+
+  const handleExploreSafePoints = useCallback(() => {
+    navigation.navigate('SafePointHubs');
+  }, [navigation]);
 
   // 1. Nếu chưa đăng nhập (Guest)
   if (!isAuthenticated) {
@@ -174,7 +213,13 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
         }
       >
-        <ManageListingsAnalytics onSafeHandoffPress={handleSafeHandoffReminderPress} />
+        <ManageListingsAnalytics
+          totalViews={totalViews}
+          dealsCount={dealsCount}
+          activeOrder={activeHandoffOrder}
+          onSafeHandoffPress={handleSafeHandoffReminderPress}
+          onExploreSafePoints={handleExploreSafePoints}
+        />
 
         <ManageListingsTabs
           activeTab={activeTab}
