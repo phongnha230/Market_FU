@@ -53,6 +53,8 @@ interface SellerReviewItem {
   productTitle?: string;
   orderCode?: string;
   direction?: 'received' | 'given';
+  replyComment?: string;
+  repliedAt?: string;
 }
 
 interface RatingStats {
@@ -137,57 +139,68 @@ export default function SellerProfilePage() {
     );
   }, [orders, sellerData.id, sellerData.name, decodedId]);
 
-  const hasMyBlindReview =
-    myReviewedOrderWithSeller &&
-    myReviewedOrderWithSeller.reviewData &&
-    !myReviewedOrderWithSeller.reviewData.isPublic;
-
-  const hasMyPublicReview =
-    myReviewedOrderWithSeller &&
-    myReviewedOrderWithSeller.reviewData &&
-    myReviewedOrderWithSeller.reviewData.isPublic;
-
-  // Hợp nhất đánh giá công khai của người dùng vào danh sách hiển thị
+  // Hợp nhất đánh giá của người dùng vào danh sách hiển thị (Chuẩn Option A: Đánh giá 1 chiều công khai ngay)
   const displayedReviews = useMemo(() => {
     let list = [...sellerReviews];
-    if (hasMyPublicReview && reviewDirection === 'received') {
-      const rev = myReviewedOrderWithSeller!.reviewData!;
-      const alreadyIncluded = list.some((r) => r.orderCode === myReviewedOrderWithSeller!.code);
+    if (myReviewedOrderWithSeller?.reviewData && reviewDirection === 'received') {
+      const rev = myReviewedOrderWithSeller.reviewData;
+      const alreadyIncluded = list.some((r) => r.orderCode === myReviewedOrderWithSeller.code);
       if (!alreadyIncluded) {
         list.unshift({
-          id: `local-${myReviewedOrderWithSeller!.code}`,
+          id: `local-${myReviewedOrderWithSeller.code}`,
           rating: rev.rating || 5,
           comment: rev.comment || 'Đã mua và đánh giá sản phẩm thành công tại Safe-Point.',
           reviewerName: currentUser?.name || 'Bạn (Tôi)',
           reviewerCohort: 'Sinh viên FPT',
           reviewerCampus: currentUser?.campus || 'FPT Campus',
           reviewerAvatar: currentUser?.avatarUrl,
-          createdAt: new Date(rev.reviewedAt).toLocaleDateString('vi-VN'),
+          createdAt: rev.reviewedAt ? new Date(rev.reviewedAt).toLocaleDateString('vi-VN') : 'Gần đây',
           images: rev.images || [],
-          productTitle: myReviewedOrderWithSeller!.product?.title,
-          orderCode: myReviewedOrderWithSeller!.code,
+          productTitle: myReviewedOrderWithSeller.product?.title,
+          orderCode: myReviewedOrderWithSeller.code,
           direction: 'received',
+          replyComment: rev.replyComment,
+          repliedAt: rev.repliedAt,
         });
+      } else {
+        list = list.map((r) =>
+          r.orderCode === myReviewedOrderWithSeller.code
+            ? { ...r, replyComment: rev.replyComment || r.replyComment, repliedAt: rev.repliedAt || r.repliedAt }
+            : r
+        );
       }
     }
     return list;
-  }, [sellerReviews, hasMyPublicReview, reviewDirection, myReviewedOrderWithSeller, currentUser]);
+  }, [sellerReviews, reviewDirection, myReviewedOrderWithSeller, currentUser]);
 
-  // Cập nhật lại thống kê đánh giá nếu có đánh giá công khai
+  // Cập nhật lại thống kê đánh giá tự động dựa trên toàn bộ đánh giá đang hiển thị
   const displayedStats = useMemo(() => {
-    if (hasMyPublicReview && reviewDirection === 'received') {
-      const extraCount = ratingStats.totalReceived === 0 ? 1 : ratingStats.totalReceived + 1;
-      const userRating = myReviewedOrderWithSeller!.reviewData!.rating || 5;
-      const currentAvg = ratingStats.averageRating || userRating;
-      const newAvg = Number((((currentAvg * ratingStats.totalReceived) + userRating) / extraCount).toFixed(1));
+    if (reviewDirection === 'received' && displayedReviews.length > 0) {
+      const total = displayedReviews.length;
+      const sum = displayedReviews.reduce((acc, r) => acc + (r.rating || 5), 0);
+      const avg = Number((sum / total).toFixed(1));
+      const dist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+      displayedReviews.forEach((r) => {
+        const star = Math.min(5, Math.max(1, Math.round(r.rating || 5)));
+        dist[star] = (dist[star] || 0) + 1;
+      });
       return {
-        ...ratingStats,
-        totalReceived: extraCount,
-        averageRating: newAvg,
+        totalReceived: total,
+        averageRating: avg,
+        ratingDistribution: dist,
       };
     }
-    return ratingStats;
-  }, [ratingStats, hasMyPublicReview, reviewDirection, myReviewedOrderWithSeller]);
+
+    if (ratingStats.totalReceived > 0) {
+      return ratingStats;
+    }
+
+    return {
+      totalReceived: sellerData.reviewCount || 0,
+      averageRating: sellerData.rating ?? null,
+      ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+    };
+  }, [displayedReviews, reviewDirection, ratingStats, sellerData.reviewCount, sellerData.rating]);
 
   // Load seller base profile & listings
   useEffect(() => {
@@ -528,16 +541,16 @@ export default function SellerProfilePage() {
                 Đánh giá trung bình
               </div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                {sellerData.reviewCount > 0 && sellerData.rating !== null ? (
+                {displayedStats.totalReceived > 0 && displayedStats.averageRating !== null ? (
                   <span className="flex items-center gap-1">
-                    {sellerData.rating} <span className="text-amber-500">★</span>
+                    {displayedStats.averageRating.toFixed(1)} <span className="text-amber-500">★</span>
                   </span>
                 ) : (
                   <span className="text-base text-slate-400 font-bold">Chưa có đánh giá</span>
                 )}
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">
-                {sellerData.reviewCount > 0 ? `${sellerData.reviewCount} lượt đánh giá thực tế` : 'Mới tham gia'}
+                {displayedStats.totalReceived > 0 ? `${displayedStats.totalReceived} lượt đánh giá thực tế` : 'Mới tham gia'}
               </div>
             </div>
           </div>
@@ -712,93 +725,6 @@ export default function SellerProfilePage() {
                 </div>
               </div>
 
-              {/* BLIND REVIEW BANNER CHO BẢN THÂN NGƯỜI MUA NẾU ĐÃ GỬI ĐÁNH GIÁ KÍN */}
-              {hasMyBlindReview && reviewDirection === 'received' && (
-                <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50/90 via-orange-50/60 to-amber-100/40 p-5 sm:p-6 shadow-xs space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex items-start gap-3.5">
-                      <div className="p-3 rounded-2xl bg-amber-500 text-white shadow-sm shrink-0">
-                        <Lock className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-black uppercase tracking-wider text-amber-900 bg-amber-200/90 px-2.5 py-0.5 rounded-full">
-                            🔒 ĐÁNH GIÁ KÍN CỦA BẠN (BLIND REVIEW)
-                          </span>
-                          <span className="text-[11px] font-bold text-amber-700">
-                            Đơn {myReviewedOrderWithSeller?.code}
-                          </span>
-                        </div>
-                        <h3 className="text-base sm:text-lg font-black text-slate-900 mt-1">
-                          Đánh giá của bạn đang được bảo mật kín
-                        </h3>
-                        <p className="text-xs text-amber-900/80 leading-relaxed max-w-2xl mt-0.5">
-                          Để tránh hiện tượng trả đũa sao, đánh giá này hiện chỉ có <strong>bạn và hệ thống</strong> xem được. Đánh giá sẽ tự động mở khóa công khai sau <strong>7 ngày</strong> hoặc ngay khi người bán này gửi đánh giá cho bạn.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      <Button
-                        type="button"
-                        onClick={() => setIsReviewDetailModalOpen(true)}
-                        variant="outline"
-                        className="h-auto rounded-xl border-amber-400 bg-white hover:bg-amber-100 text-amber-900 px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <Edit3 className="h-3.5 w-3.5 text-amber-700" />
-                        <span>Xem lại / Sửa</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={async () => {
-                          if (myReviewedOrderWithSeller) {
-                            toggleReviewPublic(myReviewedOrderWithSeller.code);
-                            try {
-                              await orderService.toggleReviewPublic(myReviewedOrderWithSeller.code);
-                            } catch {}
-                            showToast('🎉 Đã thử mở khóa đánh giá sang chế độ công khai trên trang này!', 'success');
-                          }
-                        }}
-                        className="h-auto rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                      >
-                        <Unlock className="h-3.5 w-3.5" />
-                        <span>⚡ Thử mở khóa công khai</span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Mini snippet of the user's review */}
-                  <div className="rounded-xl bg-white/90 border border-amber-200 p-4 space-y-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-700">Đánh giá của bạn:</span>
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star
-                              key={s}
-                              className={`h-4 w-4 ${
-                                s <= (myReviewedOrderWithSeller?.reviewData?.rating || 5)
-                                  ? 'fill-amber-400 text-amber-400'
-                                  : 'fill-slate-200 text-slate-200'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-xs font-black text-slate-900 ml-1">
-                          {myReviewedOrderWithSeller?.reviewData?.rating || 5}.0
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-semibold text-slate-400">
-                        {myReviewedOrderWithSeller?.product?.title}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-700 italic">
-                      &ldquo;{myReviewedOrderWithSeller?.reviewData?.comment || 'Giao dịch tại Safe-Point rất an toàn, đóng gói kỹ.'}&rdquo;
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* RATING OVERVIEW BAR (Khi đang xem đánh giá nhận được) */}
               {reviewDirection === 'received' && displayedStats.totalReceived > 0 && (
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
@@ -809,7 +735,7 @@ export default function SellerProfilePage() {
                       <span className="text-amber-500 text-3xl">★</span>
                     </div>
                     <div className="text-xs font-semibold text-slate-500">
-                      Dựa trên {displayedStats.totalReceived} đánh giá đã mở khóa
+                      Dựa trên {displayedStats.totalReceived} đánh giá thực tế
                     </div>
                     <div className="flex items-center justify-center gap-1 pt-1">
                       {[1, 2, 3, 4, 5].map((s) => (
@@ -856,7 +782,7 @@ export default function SellerProfilePage() {
                       : 'Người dùng này chưa viết đánh giá nào khi mua hàng'}
                   </h3>
                   <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                    Hệ thống áp dụng cơ chế <strong>Đánh giá kín 2 chiều (Blind Review)</strong>. Khi bạn mua hàng và cả hai bên hoàn tất giao dịch tại Safe-Point, đánh giá sẽ được tự động mở khóa công khai!
+                    Người bán này chưa nhận được đánh giá nào từ người mua. Đánh giá sẽ được cập nhật công khai ngay sau khi đơn hàng hoàn tất tại Safe-Point!
                   </p>
                 </div>
               ) : (
@@ -912,6 +838,24 @@ export default function SellerProfilePage() {
                         {rev.comment}
                       </p>
 
+                      {/* Phản hồi từ Người Bán (nếu có) */}
+                      {rev.replyComment && (
+                        <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3.5 space-y-1.5 ml-2 sm:ml-4 border-l-4 border-l-fpt-orange">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="h-3.5 w-3.5 text-fpt-orange" />
+                            <span className="text-xs font-black text-slate-900">Phản hồi từ Người Bán</span>
+                            {rev.repliedAt && (
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                • {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-800 leading-relaxed italic bg-white/80 p-2.5 rounded-lg border border-orange-100/80">
+                            &ldquo;{rev.replyComment}&rdquo;
+                          </p>
+                        </div>
+                      )}
+
                       {/* Proof Images if attached */}
                       {rev.images && rev.images.length > 0 && (
                         <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -935,13 +879,25 @@ export default function SellerProfilePage() {
                         </div>
                       )}
 
-                      {/* Bottom Footer: Safe Handoff Badge & Time */}
-                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
+                      {/* Bottom Footer: Safe Handoff Badge & Time & View detail button */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px] text-slate-400 flex-wrap gap-2">
                         <span className="flex items-center gap-1 text-emerald-700 font-semibold">
                           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                           Đã giao dịch qua Safe-Point & Escrow FPT Care
                         </span>
-                        <span>{rev.createdAt}</span>
+                        <div className="flex items-center gap-3">
+                          {myReviewedOrderWithSeller && rev.orderCode === myReviewedOrderWithSeller.code && (
+                            <button
+                              type="button"
+                              onClick={() => setIsReviewDetailModalOpen(true)}
+                              className="text-fpt-orange font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                              <span>{isOwnProfile ? 'Xem phản hồi' : 'Xem lại / Sửa'}</span>
+                            </button>
+                          )}
+                          <span>{rev.createdAt}</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1021,6 +977,7 @@ export default function SellerProfilePage() {
         isOpen={isReviewDetailModalOpen}
         onClose={() => setIsReviewDetailModalOpen(false)}
         order={myReviewedOrderWithSeller}
+        isSeller={isOwnProfile}
       />
 
       <Footer />

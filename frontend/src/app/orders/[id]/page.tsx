@@ -1184,6 +1184,7 @@ export default function OrderDetailPage() {
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
         order={order}
+        isSeller={isSellerViewer}
       />
 
       {/* MOBILE STICKY BOTTOM ACTION BAR (Chỉ hiển thị trên điện thoại < md) */}

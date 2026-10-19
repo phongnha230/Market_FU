@@ -866,6 +866,10 @@ export default function OrdersPage() {
           setSelectedReviewOrder(null);
         }}
         order={selectedReviewOrder}
+        isSeller={
+          activeMainTab === 'selling' ||
+          (Boolean(userData?.id) && Boolean(selectedReviewOrder?.sellerId) && selectedReviewOrder?.sellerId === userData?.id)
+        }
       />
 
       <Footer />

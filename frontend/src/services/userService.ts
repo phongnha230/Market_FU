@@ -39,8 +39,19 @@ export const userService = {
     const res = await apiClient.get<ApiResponse<BackendUserItem[]>>('/users', {
       params,
     });
+    const rawUsers: any[] = res.data.data || [];
+    const users: BackendUserItem[] = rawUsers.map((u: any) => ({
+      ...u,
+      fullName: u.fullName || u.profile?.fullName || '',
+      campus: u.campus || u.profile?.campus || '',
+      phoneNumber: u.phoneNumber || u.profile?.phoneNumber || '',
+      avatarUrl: u.avatarUrl || u.profile?.avatarUrl || null,
+      avatarBadge: u.avatarBadge || u.profile?.avatarBadge || null,
+      campusCoins: u.campusCoins ?? u.profile?.campusCoins ?? 0,
+      reputationScore: u.reputationScore ?? u.profile?.reputationScore ?? 100,
+    }));
     return {
-      users: res.data.data || [],
+      users,
       pagination: res.data.meta as any,
     };
   },

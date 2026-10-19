@@ -244,7 +244,7 @@ function ReviewContent() {
 
       markOrderReviewed(orderCode, fullReviewData);
       addCoins(earnedCoins);
-      showToast(`🎉 Cảm ơn bạn! Đã ghi nhận đánh giá 2 chiều (Blind Review) và cộng +${earnedCoins} Xu vào tài khoản.`);
+      showToast(`🎉 Cảm ơn bạn! Đã đăng đánh giá công khai và cộng +${earnedCoins} Xu vào tài khoản.`);
       setTimeout(() => {
         router.push('/orders');
       }, 1200);

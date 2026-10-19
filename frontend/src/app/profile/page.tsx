@@ -1196,7 +1196,7 @@ export default function ProfilePage() {
                       <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                         <p className="text-sm font-semibold text-slate-600">Chưa có đánh giá nào</p>
                         <p className="text-xs text-slate-400 mt-1">
-                          Đánh giá từ người mua sẽ hiển thị tại đây sau khi hoàn tất giao dịch và công khai (Blind Review).
+                          Đánh giá từ người mua sẽ hiển thị tại đây sau khi người mua đánh giá đơn hàng đã hoàn tất tại Safe-Point.
                         </p>
                       </div>
                     ) : (
@@ -1252,6 +1252,22 @@ export default function ProfilePage() {
                                 <p className="text-xs text-slate-700 leading-relaxed">
                                   &quot;{rev.comment}&quot;
                                 </p>
+                              )}
+
+                              {rev.replyComment && (
+                                <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 space-y-1 ml-2 border-l-4 border-l-fpt-orange">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900">
+                                    <span className="text-fpt-orange">↳</span> Phản hồi của bạn (Người bán)
+                                    {rev.repliedAt && (
+                                      <span className="text-[10px] text-slate-400 font-normal">
+                                        • {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-800 italic bg-white/80 p-2 rounded-lg border border-orange-100">
+                                    &quot;{rev.replyComment}&quot;
+                                  </p>
+                                </div>
                               )}
 
                               {rev.proofVideoUrl && (

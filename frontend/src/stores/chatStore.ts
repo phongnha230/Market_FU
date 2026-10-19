@@ -75,6 +75,7 @@ interface ChatState {
   sendOfferPrice: (conversationId: string, offerPrice: number) => ChatMessage;
   proposeMeetupLocation: (conversationId: string, location: string) => ChatMessage;
   markAsRead: (conversationId: string) => void;
+  markAllAsRead: () => void;
   getTotalUnreadCount: () => number;
   getConversationMessages: (conversationId: string) => ChatMessage[];
   deleteConversation: (conversationId: string) => void;
@@ -304,19 +305,32 @@ export const useChatStore = create<ChatState>()(
               updatedMsgs = [...currentMsgs, newMsg];
             }
 
+            const isCurrentlyActive = state.activeConversationId === conversationId;
+            if (isCurrentlyActive && incomingSenderId !== state.activeUserId) {
+              socketClient.markAsRead(conversationId);
+              chatService.markAsRead(conversationId).catch(() => {});
+            }
+
             const updatedConversations = state.conversations.map((c) =>
               c.id === conversationId
                 ? {
                     ...c,
                     lastMessageText: newMsg.text || 'Tin nhắn mới',
                     lastMessageAt: newMsg.createdAt,
-                    unreadCount: state.activeConversationId === conversationId ? 0 : (c.unreadCount || 0) + 1,
+                    unreadCount: isCurrentlyActive ? 0 : (c.unreadCount || 0) + 1,
                   }
                 : c
             );
 
+            const uId = state.activeUserId;
             return {
               conversations: updatedConversations,
+              conversationsByUser: uId
+                ? {
+                    ...state.conversationsByUser,
+                    [uId]: updatedConversations,
+                  }
+                : state.conversationsByUser,
               messagesByConversation: {
                 ...state.messagesByConversation,
                 [conversationId]: updatedMsgs,
@@ -511,17 +525,51 @@ export const useChatStore = create<ChatState>()(
       markAsRead: (conversationId) => {
         socketClient.markAsRead(conversationId);
         chatService.markAsRead(conversationId).catch(() => {});
-        set((state) => ({
-          conversations: state.conversations.map((c) =>
+        set((state) => {
+          const uId = state.activeUserId;
+          const updatedConversations = state.conversations.map((c) =>
             c.id === conversationId ? { ...c, unreadCount: 0 } : c
-          ),
-          messagesByConversation: {
-            ...state.messagesByConversation,
-            [conversationId]: (state.messagesByConversation[conversationId] || []).map((m) => ({
-              ...m,
-              isRead: true,
-            })),
-          },
+          );
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updatedConversations,
+                }
+              : state.conversationsByUser,
+            messagesByConversation: {
+              ...state.messagesByConversation,
+              [conversationId]: (state.messagesByConversation[conversationId] || []).map((m) => ({
+                ...m,
+                isRead: true,
+              })),
+            },
+          };
+        });
+      },
+
+      markAllAsRead: () => {
+        const state = get();
+        state.conversations.forEach((c) => {
+          if (c.unreadCount > 0) {
+            socketClient.markAsRead(c.id);
+            chatService.markAsRead(c.id).catch(() => {});
+          }
+        });
+        const uId = state.activeUserId;
+        const updatedConversations = state.conversations.map((c) => ({
+          ...c,
+          unreadCount: 0,
+        }));
+        set((st) => ({
+          conversations: updatedConversations,
+          conversationsByUser: uId
+            ? {
+                ...st.conversationsByUser,
+                [uId]: updatedConversations,
+              }
+            : st.conversationsByUser,
         }));
       },
 

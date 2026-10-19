@@ -169,7 +169,7 @@ export const orderService = {
     return response.data.data;
   },
 
-  // 7. Gửi đánh giá 2 chiều (Blind Review)
+  // 7. Gửi đánh giá đơn hàng (Option A: Công khai ngay)
   async submitReview(params: {
     orderId: string;
     rating: number;
@@ -206,6 +206,13 @@ export const orderService = {
   async toggleReviewPublic(orderId: string): Promise<any> {
     const cleanId = orderId.replace(/^#/, '');
     const response = await apiClient.post<ApiResponse<any>>(`/reviews/order/${cleanId}/toggle-public`);
+    return response.data.data;
+  },
+
+  // 8.0.2. Người bán gửi phản hồi đánh giá của người mua
+  async replyReview(orderId: string, replyComment: string): Promise<any> {
+    const cleanId = orderId.replace(/^#/, '');
+    const response = await apiClient.post<ApiResponse<any>>(`/reviews/order/${cleanId}/reply`, { replyComment });
     return response.data.data;
   },
 

@@ -56,12 +56,18 @@ export const chatService = {
     conversations: BackendConversation[];
     meta?: any;
   }> {
-    const response = await apiClient.get<ApiResponse<BackendConversation[]>>('/chats/conversations', {
+    const response = await apiClient.get<any>('/chats/conversations', {
       params,
     });
+    const rawData = response.data?.data;
+    const list: BackendConversation[] = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray(rawData?.conversations)
+      ? rawData.conversations
+      : [];
     return {
-      conversations: response.data.data || [],
-      meta: response.data.meta,
+      conversations: list,
+      meta: response.data?.meta || rawData?.pagination,
     };
   },
 
@@ -73,13 +79,19 @@ export const chatService = {
     messages: BackendMessage[];
     meta?: any;
   }> {
-    const response = await apiClient.get<ApiResponse<BackendMessage[]>>(
+    const response = await apiClient.get<any>(
       `/chats/conversations/${conversationId}/messages`,
       { params }
     );
+    const rawData = response.data?.data;
+    const list: BackendMessage[] = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray(rawData?.messages)
+      ? rawData.messages
+      : [];
     return {
-      messages: response.data.data || [],
-      meta: response.data.meta,
+      messages: list,
+      meta: response.data?.meta || rawData?.pagination,
     };
   },
 

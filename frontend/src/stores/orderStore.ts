@@ -19,6 +19,8 @@ export interface OrderReviewData {
   isPublic?: boolean;
   canEdit?: boolean;
   bonusCoins?: number;
+  replyComment?: string;
+  repliedAt?: string;
 }
 
 export interface OrderItem {
@@ -100,6 +102,7 @@ interface OrderState {
   updateOrderStatus: (idOrCode: string, status: OrderItem['status'], statusText?: string) => void;
   markOrderReviewed: (idOrCode: string, reviewData?: OrderReviewData) => void;
   updateOrderReview: (idOrCode: string, reviewData: Partial<OrderReviewData>) => void;
+  replyOrderReview: (idOrCode: string, replyComment: string) => void;
   toggleReviewPublic: (idOrCode: string) => void;
   getOrder: (idOrCode: string) => OrderItem | undefined;
   resetOrders: () => void;
@@ -392,7 +395,7 @@ export const useOrderStore = create<OrderState>()(
           comment: 'Đã hoàn tất kiểm tra và nhận hàng an toàn tại Safe-Point!',
           tags: ['mota', 'donggoi'],
           reviewedAt: new Date().toISOString(),
-          isPublic: false,
+          isPublic: true,
           canEdit: true,
           bonusCoins: 100,
         };
@@ -403,7 +406,7 @@ export const useOrderStore = create<OrderState>()(
               return {
                 ...o,
                 reviewed: true,
-                reviewData: defaultReview,
+                reviewData: { ...defaultReview, isPublic: true },
                 status: 'completed' as const,
                 statusText: `Đã đánh giá ${defaultReview.rating} sao • Đã nhận +${defaultReview.bonusCoins || 100} Coins`,
                 statusColor: 'text-emerald-600',
@@ -429,12 +432,13 @@ export const useOrderStore = create<OrderState>()(
               const currentRev = o.reviewData || {
                 rating: 5,
                 reviewedAt: new Date().toISOString(),
-                isPublic: false,
+                isPublic: true,
                 canEdit: true,
               };
               const newRev: OrderReviewData = {
                 ...currentRev,
                 ...partialData,
+                isPublic: true,
                 reviewedAt: new Date().toISOString(),
               };
               return {
@@ -442,6 +446,39 @@ export const useOrderStore = create<OrderState>()(
                 reviewed: true,
                 reviewData: newRev,
                 statusText: `Đã cập nhật đánh giá ${newRev.rating} sao`,
+              };
+            }
+            return o;
+          });
+
+          return {
+            orders: updatedOrders,
+            ordersByUser: activeUid
+              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
+              : state.ordersByUser,
+          };
+        });
+      },
+
+      replyOrderReview: (idOrCode, replyComment) => {
+        const activeUid = get().activeUserId;
+        set((state) => {
+          const updatedOrders = state.orders.map((o) => {
+            if (o.id === idOrCode || o.code === idOrCode) {
+              const currentRev = o.reviewData || {
+                rating: 5,
+                reviewedAt: new Date().toISOString(),
+                isPublic: true,
+                canEdit: true,
+              };
+              const newRev: OrderReviewData = {
+                ...currentRev,
+                replyComment,
+                repliedAt: new Date().toISOString(),
+              };
+              return {
+                ...o,
+                reviewData: newRev,
               };
             }
             return o;

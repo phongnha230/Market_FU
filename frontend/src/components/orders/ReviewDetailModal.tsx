@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   X,
   Star,
-  Lock,
-  Unlock,
   CheckCircle2,
   Calendar,
   Coins,
@@ -15,12 +13,13 @@ import {
   Edit3,
   ExternalLink,
   AlertCircle,
-  Truck,
   Package,
   User,
   Sparkles,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
-import { Button, Badge, Card } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
@@ -30,6 +29,7 @@ interface ReviewDetailModalProps {
   onClose: () => void;
   order?: OrderItem | null;
   onEdit?: (order: OrderItem) => void;
+  isSeller?: boolean;
 }
 
 const TAG_LABELS: Record<string, string> = {
@@ -53,14 +53,17 @@ export default function ReviewDetailModal({
   onClose,
   order,
   onEdit,
+  isSeller = false,
 }: ReviewDetailModalProps) {
   const router = useRouter();
-  const toggleReviewPublic = useOrderStore((s) => s.toggleReviewPublic);
+  const replyOrderReview = useOrderStore((s) => s.replyOrderReview);
   const currentUser = useUserStore((s) => s.user);
 
   const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
-  const [isToggling, setIsToggling] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -70,37 +73,14 @@ export default function ReviewDetailModal({
     tags: ['mota', 'donggoi'],
     images: order.product?.imageUrl ? [order.product.imageUrl] : [],
     reviewedAt: new Date().toISOString(),
-    isPublic: false,
+    isPublic: true,
     canEdit: true,
     bonusCoins: 100,
   };
 
-  const isPublic = Boolean(review.isPublic);
-
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
-  };
-
-  const handleTogglePublic = async () => {
-    setIsToggling(true);
-    try {
-      toggleReviewPublic(order.code);
-      try {
-        await orderService.toggleReviewPublic(order.code);
-      } catch {
-        // Backend offline / mock fallback
-      }
-      showToast(
-        !isPublic
-          ? '🎉 Đã mở khóa đánh giá sang chế độ CÔNG KHAI trên hồ sơ người bán!'
-          : '🔒 Đã chuyển đánh giá về chế độ KÍN (Blind Review)!'
-      );
-    } catch {
-      showToast('Không thể thay đổi trạng thái lúc này.');
-    } finally {
-      setIsToggling(false);
-    }
   };
 
   const handleEditReview = () => {
@@ -112,6 +92,36 @@ export default function ReviewDetailModal({
       router.push(`/orders/review?code=${encodeURIComponent(cleanCode)}&mode=edit`);
     }
   };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) {
+      showToast('⚠️ Vui lòng nhập nội dung phản hồi trước khi gửi.');
+      return;
+    }
+    setIsSubmittingReply(true);
+    try {
+      replyOrderReview(order.code, replyText.trim());
+      try {
+        await orderService.replyReview(order.code, replyText.trim());
+      } catch {
+        // Mock / offline fallback
+      }
+      showToast('🎉 Đã gửi phản hồi công khai thành công!');
+      setIsReplying(false);
+      setReplyText('');
+    } catch {
+      showToast('Không thể gửi phản hồi lúc này.');
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  // Tên người mua hiển thị
+  const buyerDisplayName =
+    (order as any).buyerName ||
+    (order as any).buyer?.name ||
+    (order as any).buyer?.fullName ||
+    (isSeller ? 'Người mua FPT' : (currentUser?.name || 'Bạn'));
 
   // Student anonymous ID
   const buyerId =
@@ -147,7 +157,7 @@ export default function ReviewDetailModal({
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-1">
-              Đánh giá của bạn về đơn hàng
+              {isSeller ? 'Đánh giá từ Người Mua' : 'Đánh giá của bạn về đơn hàng'}
             </h2>
           </div>
           <button
@@ -161,84 +171,33 @@ export default function ReviewDetailModal({
 
         {/* Modal Body */}
         <div className="p-5 sm:p-6 space-y-5">
-          {/* 1. BLIND REVIEW STATUS BANNER */}
-          {!isPublic ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:p-4.5 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-amber-200/80 text-amber-900 shrink-0 mt-0.5">
-                  <Lock className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-black text-amber-950">
-                      Đang bảo mật kín (Blind Review)
-                    </h4>
-                    <span className="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full">
-                      Chưa hiển thị trên hồ sơ Người Bán
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-relaxed mt-1">
-                    Nhằm đảm bảo tính khách quan và tránh trả đũa sao, đánh giá này hiện chỉ có <strong>bạn và hệ thống</strong> xem được. Đánh giá sẽ tự động mở khóa công khai sau <strong>7 ngày</strong> hoặc ngay khi Người Bán gửi đánh giá phản hồi lại.
-                  </p>
-                </div>
+          {/* 1. PUBLIC REVIEW STATUS BANNER */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-4.5 space-y-2">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-emerald-200/80 text-emerald-900 shrink-0 mt-0.5">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
-
-              <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-[11px] text-amber-700 font-medium">
-                  Muốn xem trước hiển thị công khai trên hồ sơ người bán?
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleTogglePublic}
-                  disabled={isToggling}
-                  className="h-auto py-1.5 px-3 text-xs font-bold rounded-xl bg-white border-amber-300 text-amber-900 hover:bg-amber-100 shadow-2xs transition"
-                >
-                  <Unlock className="h-3.5 w-3.5 mr-1 text-amber-700" />
-                  <span>⚡ Thử mở khóa công khai ngay</span>
-                </Button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-black text-emerald-950">
+                    {isSeller
+                      ? '🌟 Đã nhận đánh giá công khai từ Người Mua'
+                      : '🌍 Đã mở khóa công khai trên Hồ sơ Người Bán'}
+                  </h4>
+                  <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
+                    Public Review
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-800 leading-relaxed mt-1">
+                  {isSeller
+                    ? `Người mua (${buyerDisplayName}) đã hoàn tất đơn tại Safe-Point và đánh giá giao dịch. Điểm uy tín của bạn đã được cộng tức thì vào hồ sơ Người Bán.`
+                    : 'Đánh giá của bạn đã được ghi nhận trực tiếp và hiển thị công khai trên hồ sơ của người bán, cộng điểm uy tín tức thì để hỗ trợ cộng đồng sinh viên FPT tham khảo.'}
+                </p>
               </div>
             </div>
-          ) : (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-4.5 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-emerald-200/80 text-emerald-900 shrink-0 mt-0.5">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-black text-emerald-950">
-                      Đã mở khóa công khai trên Hồ sơ Người Bán
-                    </h4>
-                    <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
-                      Public Profile
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-800 leading-relaxed mt-1">
-                    Đánh giá này đã hoàn tất quá trình Blind Review và đang được hiển thị trực tiếp trên trang cá nhân của Người Bán cho toàn bộ sinh viên 5 Campus cùng theo dõi.
-                  </p>
-                </div>
-              </div>
+          </div>
 
-              <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-[11px] text-emerald-700 font-medium">
-                  Cơ chế bảo mật 2 chiều hoạt động hoàn hảo.
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleTogglePublic}
-                  disabled={isToggling}
-                  className="h-auto py-1 px-2.5 text-[11px] font-bold rounded-xl bg-white border-emerald-300 text-emerald-900 hover:bg-emerald-100 shadow-2xs transition"
-                >
-                  <Lock className="h-3 w-3 mr-1 text-emerald-700" />
-                  <span>Ẩn lại vào chế độ kín (Demo)</span>
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* 2. PRODUCT & SELLER SNIPPET CARD */}
+          {/* 2. PRODUCT & PARTNER SNIPPET CARD */}
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="relative h-14 w-14 rounded-xl overflow-hidden bg-white border border-slate-200 shrink-0">
@@ -258,7 +217,11 @@ export default function ReviewDetailModal({
                 </div>
                 <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
                   <User className="h-3 w-3 text-slate-400" />
-                  <span>Người bán: <strong>{order.product?.seller?.name || 'Seller FPT'}</strong></span>
+                  {isSeller ? (
+                    <span>Người mua: <strong>{buyerDisplayName}</strong></span>
+                  ) : (
+                    <span>Người bán: <strong>{order.product?.seller?.name || 'Seller FPT'}</strong></span>
+                  )}
                 </div>
               </div>
             </div>
@@ -309,9 +272,92 @@ export default function ReviewDetailModal({
             )}
 
             {/* Comment Body */}
-            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-xs sm:text-sm text-slate-800 leading-relaxed italic">
-              &ldquo;{review.comment || 'Người mua không để lại nhận xét bằng lời.'}&rdquo;
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                {isSeller ? `NHẬN XÉT TỪ NGƯỜI MUA (${buyerDisplayName}):` : 'BÌNH LUẬN CỦA BẠN:'}
+              </span>
+              <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-xs sm:text-sm text-slate-800 leading-relaxed italic">
+                &ldquo;{review.comment || (isSeller ? 'Người mua không để lại nhận xét bằng lời.' : 'Bạn không để lại nhận xét bằng lời.')}&rdquo;
+              </div>
             </div>
+
+            {/* Phản hồi từ Người Bán (nếu đã có) */}
+            {review.replyComment && (
+              <div className="rounded-2xl border border-orange-200 bg-orange-50/70 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-orange-100 text-fpt-orange">
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-black text-slate-900">Phản hồi từ Người Bán</span>
+                  {review.repliedAt && (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      • {new Date(review.repliedAt).toLocaleDateString('vi-VN')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed italic bg-white/80 p-3 rounded-xl border border-orange-100">
+                  &ldquo;{review.replyComment}&rdquo;
+                </p>
+              </div>
+            )}
+
+            {/* Form Người bán gửi phản hồi nếu chưa có */}
+            {isSeller && !review.replyComment && (
+              <div className="rounded-2xl border border-orange-200/90 bg-orange-50/40 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-fpt-orange" />
+                  <span className="text-xs font-black text-slate-900">
+                    Phản hồi công khai tới người mua:
+                  </span>
+                </div>
+
+                {isReplying ? (
+                  <div className="space-y-3">
+                    <textarea
+                      rows={3}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Ví dụ: Cảm ơn bạn đã tin tưởng ủng hộ shop nhé! Chúc bạn học tốt..."
+                      className="w-full text-xs sm:text-sm p-3 rounded-xl border border-orange-200 bg-white focus:outline-none focus:ring-2 focus:ring-fpt-orange text-slate-800 placeholder:text-slate-400"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsReplying(false);
+                          setReplyText('');
+                        }}
+                        className="rounded-xl border-slate-200 text-xs font-bold px-3 py-1.5"
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSendReply}
+                        disabled={isSubmittingReply}
+                        className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        <span>{isSubmittingReply ? 'Đang gửi...' : 'Gửi phản hồi'}</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsReplying(true)}
+                    className="w-full rounded-xl border-orange-300 bg-white hover:bg-orange-50 text-fpt-orange text-xs font-bold py-2.5 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Viết phản hồi cho đánh giá này</span>
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Attached Proof Media Gallery */}
             {review.images && review.images.length > 0 && (
@@ -357,9 +403,13 @@ export default function ReviewDetailModal({
               </div>
               <div>
                 <div className="font-extrabold text-slate-900">
-                  +{review.bonusCoins || 100} Xu Thưởng FPT
+                  {isSeller
+                    ? `+${review.rating === 5 ? 5 : 2} Điểm uy tín`
+                    : `+${review.bonusCoins || 100} Xu Thưởng FPT`}
                 </div>
-                <div className="text-[11px] text-slate-500">Đã cộng vào ví xu sinh viên</div>
+                <div className="text-[11px] text-slate-500">
+                  {isSeller ? 'Đã cộng vào hồ sơ Người Bán' : 'Đã cộng vào ví xu sinh viên'}
+                </div>
               </div>
             </div>
 
@@ -369,10 +419,12 @@ export default function ReviewDetailModal({
               </div>
               <div>
                 <div className="font-extrabold text-slate-900">
-                  {review.isAnonymous !== false ? `Ẩn danh (${anonymousBadge})` : (currentUser?.name || 'Sinh viên FPT')}
+                  {isSeller
+                    ? buyerDisplayName
+                    : (review.isAnonymous !== false ? `Ẩn danh (${anonymousBadge})` : (currentUser?.name || 'Sinh viên FPT'))}
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Thời gian: {new Date(review.reviewedAt).toLocaleDateString('vi-VN')}
+                  Thời gian: {review.reviewedAt ? new Date(review.reviewedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
                 </div>
               </div>
             </div>
@@ -382,7 +434,15 @@ export default function ReviewDetailModal({
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 flex items-start gap-2.5 text-[11px] text-slate-500 leading-relaxed">
             <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
             <span>
-              <strong>Chính sách minh bạch FPT Care:</strong> Người dùng <strong>không thể tự ý xóa đánh giá</strong> nhằm tránh xóa dấu vết gian lận hoặc ép xóa đánh giá tiêu cực. Bạn có thể bấm <strong>Chỉnh sửa đánh giá</strong> bên dưới để cập nhật lại nhận xét và số sao.
+              {isSeller ? (
+                <>
+                  <strong>Chính sách minh bạch FPT Care:</strong> Người bán <strong>không thể tự ý sửa hay xóa đánh giá</strong> của người mua để bảo đảm tính khách quan và uy tín. Bạn có thể gửi phản hồi công khai lịch sự ở trên.
+                </>
+              ) : (
+                <>
+                  <strong>Chính sách minh bạch FPT Care:</strong> Người dùng <strong>không thể tự ý xóa đánh giá</strong> nhằm tránh xóa dấu vết gian lận hoặc ép xóa đánh giá tiêu cực. Bạn có thể bấm <strong>Chỉnh sửa đánh giá</strong> bên dưới để cập nhật lại nhận xét và số sao.
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -398,14 +458,16 @@ export default function ReviewDetailModal({
             Đóng
           </Button>
 
-          <Button
-            type="button"
-            onClick={handleEditReview}
-            className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-5 py-2.5 flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
-          >
-            <Edit3 className="h-4 w-4" />
-            <span>Chỉnh sửa đánh giá</span>
-          </Button>
+          {!isSeller && (
+            <Button
+              type="button"
+              onClick={handleEditReview}
+              className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-5 py-2.5 flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Chỉnh sửa đánh giá</span>
+            </Button>
+          )}
         </div>
       </div>
 

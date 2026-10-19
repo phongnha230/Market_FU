@@ -253,7 +253,49 @@ export interface CampusMetricBreakdown {
   name: string;
   totalOrders: number;
   completedOrders: number;
+  safePointOrders?: number;
+  campusShipOrders?: number;
   gmv: number;
+}
+
+export interface TrendDataPoint {
+  periodKey: string;
+  label: string;
+  shortLabel: string;
+  escrowVolume: number;
+  orderCount: number;
+  completedCount: number;
+}
+
+export interface CategoryMetricBreakdown {
+  name: string;
+  categoryType: string;
+  count: number;
+  pct: string;
+  dot: string;
+  stroke: string;
+}
+
+export interface RadarMetrics {
+  kycVerificationPct: number;
+  safeHandoffPct: number;
+  peerReputationScore: number;
+  aiFraudSafetyPct: number;
+  escrowProtectionPct: number;
+  totalScore: number;
+}
+
+export interface AvailableSemester {
+  key: string;
+  label: string;
+  isCurrent?: boolean;
+}
+
+export interface SummaryHighlights {
+  avgEscrowHours: string;
+  avgOrderValue: number;
+  fastestHub: string;
+  topCampusName: string;
 }
 
 export interface SemesterAnalyticsData {
@@ -278,5 +320,11 @@ export interface SemesterAnalyticsData {
     operatingHubsCount: number;
   };
   campusBreakdown: CampusMetricBreakdown[];
+  trendData?: TrendDataPoint[];
+  categoryBreakdown?: CategoryMetricBreakdown[];
+  totalProductsCount?: number;
+  radarMetrics?: RadarMetrics;
+  summaryHighlights?: SummaryHighlights;
+  availableSemesters?: AvailableSemester[];
 }
 

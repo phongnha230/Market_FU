@@ -22,12 +22,18 @@ export const notificationService = {
     notifications: BackendNotification[];
     meta?: any;
   }> {
-    const response = await apiClient.get<ApiResponse<BackendNotification[]>>('/notifications', {
+    const response = await apiClient.get<any>('/notifications', {
       params,
     });
+    const rawData = response.data?.data;
+    const list: BackendNotification[] = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray(rawData?.notifications)
+      ? rawData.notifications
+      : [];
     return {
-      notifications: response.data.data || [],
-      meta: response.data.meta,
+      notifications: list,
+      meta: response.data?.meta || rawData?.pagination,
     };
   },
 

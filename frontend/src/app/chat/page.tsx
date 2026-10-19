@@ -668,6 +668,7 @@ function ChatContent() {
             selectedConvId={selectedConvId}
             onSelectConv={(id) => {
               setSelectedConvId(id);
+              chatStore.setActiveConversation(id);
               setConversations((prev) =>
                 prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
               );
@@ -677,6 +678,7 @@ function ChatContent() {
             filterTab={filterTab}
             onFilterChange={setFilterTab}
             onMarkAllRead={() => {
+              chatStore.markAllAsRead();
               setConversations((prev) =>
                 prev.map((c) => ({ ...c, unreadCount: 0 }))
               );
