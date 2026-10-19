@@ -315,6 +315,8 @@ export const useKhoValue = (): KhoContextType => {
   // Thống kê kho hàng
   const inventoryStats: InventoryStats = useMemo(() => {
     let active = 0;
+    let pending = 0;
+    let rejected = 0;
     let reserved = 0;
     let sold = 0;
     let hidden = 0;
@@ -328,6 +330,10 @@ export const useKhoValue = (): KhoContextType => {
       if (item.status === 'AVAILABLE') {
         active += 1;
         estimatedRevenue += item.price;
+      } else if (item.status === 'PENDING_APPROVAL') {
+        pending += 1;
+      } else if (item.status === 'REJECTED') {
+        rejected += 1;
       } else if (item.status === 'RESERVED') {
         reserved += 1;
         estimatedRevenue += item.price;
@@ -341,6 +347,8 @@ export const useKhoValue = (): KhoContextType => {
     return {
       total: myListings.length,
       active,
+      pending,
+      rejected,
       reserved,
       sold,
       hidden,

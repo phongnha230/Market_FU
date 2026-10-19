@@ -13,6 +13,8 @@ import { useKhoValue } from './useKhoValue';
 export interface InventoryStats {
   total: number;
   active: number;
+  pending: number;
+  rejected: number;
   reserved: number;
   sold: number;
   hidden: number;

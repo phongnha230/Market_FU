@@ -118,9 +118,9 @@ export const useEditListingController = () => {
       });
 
       Alert.alert(
-        savedProduct.status === 'PENDING_APPROVAL' ? 'Đang chờ duyệt lại' : '✅ Thành công',
+        savedProduct.status === 'PENDING_APPROVAL' ? '🎉 Đã gửi lại tin đăng!' : '✅ Thành công',
         savedProduct.status === 'PENDING_APPROVAL'
-          ? 'Ảnh hoặc mô tả mới đã được lưu. Tin sẽ hiển thị lại sau khi quản trị viên duyệt.'
+          ? 'Tin đăng đã được cập nhật và chuyển sang trạng thái Chờ duyệt để Ban Quản Trị xem xét lại.'
           : 'Tin đăng đã được cập nhật thành công!'
       );
       navigation.goBack();
@@ -149,6 +149,8 @@ export const useEditListingController = () => {
     formData,
     updateField,
     isApproved,
+    isRejected: currentProduct?.status === 'REJECTED',
+    rejectionReason: currentProduct?.rejectionReason,
     sellerCampus,
     handleSave,
     handleDelete,

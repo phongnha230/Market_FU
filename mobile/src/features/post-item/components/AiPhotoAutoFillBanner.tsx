@@ -1,83 +1,89 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PostCategory, PostCondition } from '../types/post-item.types';
+import aiMobileService from '../../../services/aiMobileService';
 
 interface AiPhotoAutoFillBannerProps {
   hasImages: boolean;
+  imageUri?: string;
   onAutoFill: (data: {
     title: string;
     category: PostCategory;
     condition: PostCondition;
     price: string;
     description: string;
-    tags: string[];
+    tags?: string[];
   }) => void;
 }
 
-const AI_PRESETS = [
-  {
-    title: 'Giáo trình Cấu trúc Dữ liệu & Giải thuật CSD201 (Kèm Note Lab)',
-    category: 'books' as PostCategory,
-    condition: 'good' as PostCondition,
-    price: '95.000',
-    description: 'Sách in màu chuẩn FPT Edu, không rách gáy, có highlight các câu hỏi thường gặp thi PE/FE. Tặng kèm source code 5 bài lab qua Google Drive.',
-    tags: ['#csd201', '#giao_trinh', '#pe_fe'],
-  },
-  {
-    title: 'Võ phục Vovinam FPT University size L (Kèm đai xanh)',
-    category: 'vovinam' as PostCategory,
-    condition: 'like_new' as PostCondition,
-    price: '140.000',
-    description: 'Áo võ mua kỳ trước mới mặc 3 buổi thi qua môn. Vải dày dặn, logo FPT thêu sắc nét, giặt sạch thơm tho. Nhận hàng tại KTX Dom A.',
-    tags: ['#vovinam', '#vo_phuc', '#the_chat'],
-  },
-  {
-    title: 'Bàn phím cơ không dây Akko 3087 v2 Silent Switch cho SV CNTT',
-    category: 'it' as PostCategory,
-    condition: 'like_new' as PostCondition,
-    price: '480.000',
-    description: 'Phím gõ cực êm không gây ồn phòng KTX, switch bấm nảy, fullbox kèm dây type-C và keypuller. Phù hợp sinh viên code đêm.',
-    tags: ['#akko', '#ban_phim_co', '#cntt'],
-  },
-];
-
 export const AiPhotoAutoFillBanner: React.FC<AiPhotoAutoFillBannerProps> = ({
   hasImages,
+  imageUri,
   onAutoFill,
 }) => {
   const [isScanning, setIsScanning] = useState(false);
-  const presetIndexRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filledSuccess, setFilledSuccess] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  const handleScanAndFill = async () => {
+    if (!hasImages || !imageUri) {
+      Alert.alert(
+        'Chưa có ảnh sản phẩm',
+        'Vui lòng chụp hoặc chọn ít nhất 1 ảnh sản phẩm phía trên trước khi để AI quét nhận diện.'
+      );
+      return;
+    }
 
-  const handleScanAndFill = () => {
     setIsScanning(true);
     setFilledSuccess(false);
 
-    // Simulate AI scanning image delay
-    timerRef.current = setTimeout(() => {
-      const nextIndex = (presetIndexRef.current + 1) % AI_PRESETS.length;
-      presetIndexRef.current = nextIndex;
-      const chosen = AI_PRESETS[nextIndex];
+    try {
+      const result = await aiMobileService.scanProductImage(imageUri);
 
-      onAutoFill(chosen);
+      // Map category
+      let category: PostCategory = 'dorm';
+      const catUpper = (result.category || '').toUpperCase();
+      if (catUpper.includes('BOOK')) category = 'books';
+      else if (catUpper.includes('ELECTRONIC') || catUpper.includes('IT') || catUpper.includes('LAPTOP')) category = 'electronics';
+      else if (catUpper.includes('VOVINAM') || catUpper.includes('CLOTH') || catUpper.includes('FASHION')) category = 'fashion';
+      else if (catUpper.includes('GAME') || catUpper.includes('HOBBY')) category = 'hobbies';
+      else if (catUpper.includes('SERVICE')) category = 'services';
+      else category = 'dorm';
+
+      // Map condition
+      let condition: PostCondition = 'good';
+      const condUpper = (result.condition || '').toUpperCase();
+      if (condUpper.includes('100') || condUpper.includes('SEAL')) condition = 'seal';
+      else if (condUpper.includes('99') || condUpper.includes('LIKE')) condition = 'likenew';
+      else if (condUpper.includes('CŨ') || condUpper.includes('USED') || condUpper.includes('FAIR')) condition = 'used';
+      else condition = 'good';
+
+      const rawPrice = result.estimatedPrice || (result as any).suggestedPrice || 100000;
+      const priceStr = String(rawPrice);
+
+      const title = result.title || 'Món đồ sinh viên FPT';
+      const description = result.description || 'Đồ sinh viên FPT còn sử dụng tốt.';
+
+      onAutoFill({
+        title,
+        category,
+        condition,
+        price: priceStr,
+        description,
+        tags: [`#${category}`, '#fpt_marketplace'],
+      });
+
       setIsScanning(false);
       setFilledSuccess(true);
 
       Alert.alert(
         '✨ AI Campus Vision đã nhận diện xong!',
-        `Nhận diện: "${chosen.title}"\n• Danh mục: Tự động phân loại\n• Giá gợi ý: ${chosen.price}đ (so sánh 5Campus)\n• Tình trạng: Đã chọn\n\nBạn có thể chỉnh sửa lại theo ý muốn trước khi đăng!`
+        `Nhận diện: "${title}"\n• Danh mục: ${category.toUpperCase()}\n• Giá gợi ý: ${Number(priceStr).toLocaleString('vi-VN')} đ\n• Tình trạng: ${condition === 'seal' ? 'Mới 100%' : condition === 'likenew' ? 'Mới 99%' : condition === 'good' ? 'Dùng rất tốt' : 'Pass thanh lý'}\n\nBạn có thể chỉnh sửa lại theo ý muốn trước khi đăng!`
       );
-    }, 1200);
+    } catch (err: any) {
+      setIsScanning(false);
+      Alert.alert('Lỗi nhận diện AI', err?.message || 'Không thể quét ảnh bằng AI, vui lòng tự điền thông tin.');
+    }
   };
 
   return (

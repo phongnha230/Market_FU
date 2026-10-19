@@ -140,48 +140,6 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* 3.5. Banner Đánh giá kín của bạn cho Người Bán này (nếu có) */}
-      {reviewDirection === 'received' && myBlindReview && (
-        <View style={styles.myBlindReviewCard}>
-          <View style={styles.myBlindReviewHeader}>
-            <View style={styles.myBlindIconCircle}>
-              <Ionicons name="lock-closed" size={15} color="#D97706" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.myBlindReviewTitle}>Đánh giá kín của bạn cho Người Bán này</Text>
-              <Text style={styles.myBlindReviewSub}>
-                Đơn hàng #{myBlindReview.orderNumber || myBlindReview.id} • {myBlindReview.reviewData?.rating || 5}★ ({myBlindReview.reviewData?.reviewedAt || 'Gần đây'})
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.myBlindReviewDesc}>
-            {myBlindReview.reviewData?.comment ? `"${myBlindReview.reviewData.comment}"` : 'Đã gửi đánh giá 5 sao cho người bán.'}
-          </Text>
-          <Text style={styles.myBlindReviewNotice}>
-            🔒 Đang áp dụng cơ chế <Text style={{ fontWeight: '700' }}>Blind Review 2 chiều</Text> để đảm bảo công bằng. Đánh giá sẽ tự động hiển thị công khai khi người bán hoàn tất đánh giá lại bạn hoặc sau 7 ngày!
-          </Text>
-          <View style={styles.myBlindActions}>
-            <TouchableOpacity
-              style={styles.myBlindViewBtn}
-              activeOpacity={0.8}
-              onPress={() => onOpenMyReviewDetail?.(myBlindReview)}
-            >
-              <Ionicons name="eye-outline" size={14} color="#EA580C" />
-              <Text style={styles.myBlindViewBtnText}>Xem lại / Chỉnh sửa</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.myBlindUnlockBtn}
-              activeOpacity={0.8}
-              onPress={() => onToggleReviewPublic?.(myBlindReview.orderNumber || myBlindReview.id)}
-            >
-              <Ionicons name="sparkles" size={14} color="#059669" />
-              <Text style={styles.myBlindUnlockBtnText}>⚡ Thử mở khóa công khai</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* 4. Reviews List */}
       {reviews.length === 0 ? (
         <View style={styles.emptyCard}>
@@ -194,7 +152,9 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
               : 'Người dùng này chưa viết đánh giá nào'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            Hệ thống áp dụng cơ chế Đánh giá kín 2 chiều (Blind Review). Đánh giá sẽ tự động công khai sau khi hoàn tất giao dịch tại Safe-Point!
+            {reviewDirection === 'received'
+              ? 'Người bán này chưa nhận được đánh giá nào từ người mua.'
+              : 'Chưa có đánh giá nào được gửi đi.'}
           </Text>
         </View>
       ) : (
@@ -270,6 +230,20 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
                         <Image source={{ uri: imgUri }} style={styles.imageThumb} contentFit="cover" />
                       </TouchableOpacity>
                     ))}
+                  </View>
+                )}
+
+                {/* Seller Reply */}
+                {(rev.replyComment || rev.reply) && (
+                  <View style={styles.sellerReplyCard}>
+                    <View style={styles.sellerReplyHeader}>
+                      <Ionicons name="return-down-forward" size={13} color="#EA580C" />
+                      <Text style={styles.sellerReplyTitle}>Phản hồi từ Người Bán</Text>
+                      {rev.repliedAt && (
+                        <Text style={styles.sellerReplyTime}>• {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.sellerReplyText}>{rev.replyComment || rev.reply}</Text>
                   </View>
                 )}
 
@@ -615,86 +589,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  myBlindReviewCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: 8,
+  sellerReplyCard: {
+    backgroundColor: '#FFF7ED',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F97316',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
   },
-  myBlindReviewHeader: {
+  sellerReplyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
+    marginBottom: 4,
   },
-  myBlindIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sellerReplyTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#C2410C',
   },
-  myBlindReviewTitle: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  myBlindReviewSub: {
+  sellerReplyTime: {
     fontSize: 10.5,
-    color: '#92400E',
-    marginTop: 1,
+    color: '#9A3412',
   },
-  myBlindReviewDesc: {
+  sellerReplyText: {
     fontSize: 12,
-    color: '#451A03',
-    fontStyle: 'italic',
+    color: '#7C2D12',
     lineHeight: 16,
-  },
-  myBlindReviewNotice: {
-    fontSize: 11,
-    color: '#78350F',
-    lineHeight: 15,
-  },
-  myBlindActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  myBlindViewBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 8,
-    paddingVertical: 7,
-  },
-  myBlindViewBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#EA580C',
-  },
-  myBlindUnlockBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 8,
-    paddingVertical: 7,
-  },
-  myBlindUnlockBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#059669',
   },
 });
 

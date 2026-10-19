@@ -9,7 +9,7 @@ export interface SafePointHub {
   badge: string;
 }
 
-export const DEFAULT_SAFEPOINT_HUBS: SafePointHub[] = [
+const DEFAULT_SAFEPOINT_HUBS: SafePointHub[] = [
   {
     id: 'hub-1',
     name: 'Sảnh Tòa Alpha (Khu vực có bàn test & Camera 24/7)',
@@ -36,7 +36,7 @@ export const DEFAULT_SAFEPOINT_HUBS: SafePointHub[] = [
   },
 ];
 
-export const TIME_SLOTS = [
+const TIME_SLOTS = [
   { label: '11:30 - 12:30 (Trưa ca 2)', icon: 'sunny-outline', short: 'Trưa ca 2' },
   { label: '16:30 - 17:15 (Chiều ca 4)', icon: 'partly-sunny-outline', short: 'Chiều ca 4' },
   { label: '17:30 - 18:30 (Tan học chiều)', icon: 'time-outline', short: 'Tan học' },

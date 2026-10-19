@@ -229,7 +229,7 @@ export const AiAssistantScreen: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [inputText, setInputText] = useState<string>('');
-  const [guestQuestionCount, setGuestQuestionCount] = useState<number>(0);
+  const guestQuestionCountRef = useRef<number>(0);
 
   // Modal lịch sử phiên chat
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
@@ -244,7 +244,7 @@ export const AiAssistantScreen: React.FC = () => {
       .then((val) => {
         if (val) {
           const num = parseInt(val, 10);
-          setGuestQuestionCount(isNaN(num) ? 0 : num);
+          guestQuestionCountRef.current = isNaN(num) ? 0 : num;
         }
       })
       .catch(() => {});
@@ -252,12 +252,15 @@ export const AiAssistantScreen: React.FC = () => {
 
   // 2. Load tin nhắn & session đã lưu cho user hiện tại
   useEffect(() => {
+    let isMounted = true;
     const loadSavedState = async () => {
       try {
         const [savedMsgsStr, savedSessId] = await Promise.all([
           AsyncStorage.getItem(storageMessagesKey),
           AsyncStorage.getItem(storageSessionKey),
         ]);
+
+        if (!isMounted) return;
 
         if (savedMsgsStr) {
           const parsed = JSON.parse(savedMsgsStr);
@@ -279,6 +282,9 @@ export const AiAssistantScreen: React.FC = () => {
     };
 
     loadSavedState();
+    return () => {
+      isMounted = false;
+    };
   }, [storageMessagesKey, storageSessionKey]);
 
   // Lưu tin nhắn & session ID vào AsyncStorage
@@ -382,7 +388,7 @@ export const AiAssistantScreen: React.FC = () => {
     // --- CHECK QUOTA KHÁCH VÃNG LAI ---
     if (!isAuthenticated) {
       // Nếu khách đã dùng hết 1 câu -> Chặn từ câu thứ 2
-      if (guestQuestionCount >= 1) {
+      if (guestQuestionCountRef.current >= 1) {
         const userMsg: ChatMessage = {
           id: `u_${Date.now()}`,
           sender: 'user',
@@ -419,9 +425,8 @@ export const AiAssistantScreen: React.FC = () => {
       }
 
       // Khách hỏi câu đầu tiên -> Tăng biến đếm và lưu lại
-      const nextCount = guestQuestionCount + 1;
-      setGuestQuestionCount(nextCount);
-      AsyncStorage.setItem(GUEST_COUNT_KEY, String(nextCount)).catch(() => {});
+      guestQuestionCountRef.current += 1;
+      AsyncStorage.setItem(GUEST_COUNT_KEY, String(guestQuestionCountRef.current)).catch(() => {});
     }
 
     const userMsg: ChatMessage = {
@@ -639,7 +644,16 @@ export const AiAssistantScreen: React.FC = () => {
   const handleScanVision = () => {
     Alert.alert(
       '📷 Quét định giá bằng AI Vision',
-      'Tính năng quét ảnh món đồ bằng Gemini Vision: Tự động nhận diện tình trạng máy, tra cứu giá đồ cũ quanh KTX và soạn sẵn bài đăng trong 3 giây!'
+      'Tính năng quét ảnh món đồ bằng Gemini Vision: Tự động nhận diện tình trạng máy, tra cứu giá đồ cũ quanh KTX và soạn sẵn bài đăng trong 3 giây!',
+      [
+        { text: 'Đóng', style: 'cancel' },
+        {
+          text: 'Mở đăng tin AI ngay',
+          onPress: () => {
+            navigation.navigate('PostItem');
+          },
+        },
+      ]
     );
   };
 
@@ -648,17 +662,21 @@ export const AiAssistantScreen: React.FC = () => {
     else navigation.navigate('MainTabs', { screen: 'Home' });
   };
 
+  const userAvatar = user?.avatarUrl || user?.avatar;
+  const userName = user?.name || 'Bạn';
+
   const renderMessageItem = useCallback(
     ({ item }: { item: ChatMessage }) => (
       <AiAssistantMessageItem
         message={item}
-        userName={user?.name || 'Bạn'}
+        userName={userName}
+        userAvatar={userAvatar}
         onProductDetail={handleProductDetail}
         onContactSeller={handleContactSeller}
         onActionChip={handleActionChip}
       />
     ),
-    [user?.name, handleProductDetail, handleContactSeller, handleActionChip]
+    [userName, userAvatar, handleProductDetail, handleContactSeller, handleActionChip]
   );
 
   const listHeader = useCallback(
@@ -677,6 +695,8 @@ export const AiAssistantScreen: React.FC = () => {
       <AiAssistantTopBar
         insetsTop={insets.top}
         currentCampus={currentCampus}
+        userAvatar={userAvatar}
+        userName={userName}
         onBack={handleBack}
         onHome={() => navigation.navigate('MainTabs', { screen: 'Home' })}
         onNotification={() => navigation.navigate('Notification')}

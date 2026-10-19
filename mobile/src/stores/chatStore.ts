@@ -35,6 +35,8 @@ export interface ConversationItem {
   productPrice: number;
   productImage: any;
   messages: ChatMessage[];
+  buyerId?: string;
+  sellerId?: string;
 }
 
 const INITIAL_CONVERSATIONS: ConversationItem[] = [];
@@ -58,7 +60,7 @@ export const useChatStore = create<ChatState>()(
         try {
           set({ isLoading: true });
           const liveList = await chatMobileService.getConversations();
-          if (liveList && liveList.length > 0) {
+          if (Array.isArray(liveList)) {
             set((state) => ({
               conversations: liveList.map((item) => {
                 const existing = state.conversations.find((c) => c.id === item.id);
@@ -69,12 +71,14 @@ export const useChatStore = create<ChatState>()(
                   partnerAvatar: item.participantAvatar,
                   lastMessage: item.lastMessage,
                   lastTime: item.lastMessageTime,
-                  unreadCount: item.unreadCount,
+                  unreadCount: item.unreadCount || 0,
                   productId: item.productId || 'prod_dell_24',
                   productTitle: item.productTitle || 'Món đồ Campus',
                   productPrice: item.productPrice || 0,
                   productImage: item.productImage || require('../../assets/products/monitor-dell-24.jpg'),
                   messages: existing?.messages || [],
+                  buyerId: item.buyerId,
+                  sellerId: item.sellerId,
                 };
               }),
             }));

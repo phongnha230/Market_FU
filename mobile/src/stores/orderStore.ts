@@ -16,6 +16,8 @@ export interface OrderReviewData {
   isPublic?: boolean;
   canEdit?: boolean;
   bonusCoins?: number;
+  replyComment?: string;
+  repliedAt?: string;
 }
 
 export interface OrderItem {
@@ -46,6 +48,7 @@ export interface OrderItem {
   statusBg?: string;
   safePoint: string;
   timeSlot: string;
+  deliveryNote?: string;
   totalAmount: number;
   paymentCheckoutUrl?: string;
   isReviewed?: boolean;
@@ -78,6 +81,7 @@ interface OrderState {
   ) => { success: boolean; message: string };
   markOrderReviewed: (orderId: string, reviewData?: OrderReviewData) => void;
   updateOrderReview: (orderId: string, reviewData: Partial<OrderReviewData>) => void;
+  replyOrderReview: (orderId: string, replyComment: string) => void;
   toggleReviewPublic: (orderId: string) => void;
   createDispute: (orderId: string, reason: string) => void;
   getBuyerOrders: (buyerId: string) => OrderItem[];
@@ -86,6 +90,8 @@ interface OrderState {
   isLoading: boolean;
   fetchOrders: () => Promise<OrderItem[]>;
 }
+
+let inFlightOrdersPromise: Promise<OrderItem[]> | null = null;
 
 export const useOrderStore = create<OrderState>()(
   persist(
@@ -99,19 +105,28 @@ export const useOrderStore = create<OrderState>()(
       },
 
       fetchOrders: async () => {
-        try {
-          set({ isLoading: true });
-          const liveOrders = await orderMobileService.getOrders();
-          if (Array.isArray(liveOrders)) {
-            set({ orders: liveOrders });
-            return liveOrders;
-          }
-        } catch (e: any) {
-          console.log('⚠️ [Backend orders offline, using local store]:', e?.message);
-        } finally {
-          set({ isLoading: false });
+        if (inFlightOrdersPromise) {
+          return inFlightOrdersPromise;
         }
-        return get().orders;
+
+        inFlightOrdersPromise = (async () => {
+          try {
+            set({ isLoading: true });
+            const liveOrders = await orderMobileService.getOrders();
+            if (Array.isArray(liveOrders)) {
+              set({ orders: liveOrders });
+              return liveOrders;
+            }
+          } catch (e: any) {
+            console.log('⚠️ [Backend orders offline, using local store]:', e?.message);
+          } finally {
+            set({ isLoading: false });
+            inFlightOrdersPromise = null;
+          }
+          return get().orders;
+        })();
+
+        return inFlightOrdersPromise;
       },
 
       createOrder: (orderData) => {
@@ -241,7 +256,7 @@ export const useOrderStore = create<OrderState>()(
                     images: [],
                     isAnonymous: true,
                     reviewedAt: 'Hôm nay',
-                    isPublic: false,
+                    isPublic: true,
                     canEdit: true,
                     bonusCoins: 100,
                   },
@@ -261,7 +276,7 @@ export const useOrderStore = create<OrderState>()(
               ? {
                   ...o,
                   reviewData: o.reviewData
-                    ? { ...o.reviewData, ...updatedReviewData }
+                    ? { ...o.reviewData, ...updatedReviewData, isPublic: true }
                     : {
                         rating: updatedReviewData.rating || 5,
                         comment: updatedReviewData.comment,
@@ -270,11 +285,36 @@ export const useOrderStore = create<OrderState>()(
                         proofVideoUrl: updatedReviewData.proofVideoUrl,
                         isAnonymous: updatedReviewData.isAnonymous ?? true,
                         reviewedAt: 'Vừa cập nhật',
-                        isPublic: updatedReviewData.isPublic ?? false,
+                        isPublic: true,
                         canEdit: true,
                         bonusCoins: updatedReviewData.bonusCoins || 100,
                       },
                   statusLabel: `⭐ Đã đánh giá ${updatedReviewData.rating || o.reviewData?.rating || 5} sao`,
+                }
+              : o
+          ),
+        }));
+      },
+
+      replyOrderReview: (orderId, replyComment) => {
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId
+              ? {
+                  ...o,
+                  reviewData: o.reviewData
+                    ? {
+                        ...o.reviewData,
+                        replyComment,
+                        repliedAt: 'Vừa xong',
+                      }
+                    : {
+                        rating: 5,
+                        reviewedAt: 'Gần đây',
+                        isPublic: true,
+                        replyComment,
+                        repliedAt: 'Vừa xong',
+                      },
                 }
               : o
           ),

@@ -26,26 +26,28 @@ export const useDispute = (
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleReason = (id: string) => {
-    setSelectedReasons((prev) => {
-      const next = prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id];
-      const primaryReason = next[0] || id;
-      const refundText = isCod
-        ? 'Kính mong Sàn giữ đối soát COD và hỗ trợ hoàn tiền về STK Ngân hàng / Ví của em.'
-        : 'Kính mong Sàn tạm khóa Escrow và hỗ trợ hoàn tiền bảo hộ.';
+    const next = selectedReasons.includes(id)
+      ? selectedReasons.filter((r) => r !== id)
+      : [...selectedReasons, id];
 
-      if (primaryReason === 'defect') {
-        setDescription(`Món hàng ${productTitle || 'sản phẩm'} nhận từ bạn ${sellerName || 'người bán'} khi bóc hộp cắm test thực tế tại KTX thì không hoạt động bình thường, bị lỗi chức năng so với cam kết. ${refundText}`);
-      } else if (primaryReason === 'wrong_item') {
-        setDescription(`Sản phẩm ${productTitle || 'sản phẩm'} nhận được khác hoàn toàn với hình ảnh, model và tình trạng mô tả trong bài đăng của bạn ${sellerName || 'người bán'}. ${refundText}`);
-      } else if (primaryReason === 'damaged') {
-        setDescription(`Kiện hàng ${productTitle || 'sản phẩm'} bị va đập, nứt vỡ/trầy xước nặng trong khâu vận chuyển khi nhận tại sảnh KTX. ${refundText}`);
-      } else if (primaryReason === 'missing') {
-        setDescription(`Kiện hàng ${productTitle || 'sản phẩm'} bị thiếu các phụ kiện đi kèm/quà tặng theo thỏa thuận với người bán ${sellerName || 'người bán'}. ${refundText}`);
-      } else if (primaryReason === 'fake') {
-        setDescription(`Sau khi kiểm tra linh kiện và serial, em phát hiện món đồ không đúng chuẩn cam kết của bạn ${sellerName || 'người bán'}. ${refundText}`);
-      }
-      return next;
-    });
+    setSelectedReasons(next);
+
+    const primaryReason = next[0] || id;
+    const refundText = isCod
+      ? 'Kính mong Sàn giữ đối soát COD và hỗ trợ hoàn tiền về STK Ngân hàng / Ví của em.'
+      : 'Kính mong Sàn tạm khóa Escrow và hỗ trợ hoàn tiền bảo hộ.';
+
+    if (primaryReason === 'defect') {
+      setDescription(`Món hàng ${productTitle || 'sản phẩm'} nhận từ bạn ${sellerName || 'người bán'} khi bóc hộp cắm test thực tế tại KTX thì không hoạt động bình thường, bị lỗi chức năng so với cam kết. ${refundText}`);
+    } else if (primaryReason === 'wrong_item') {
+      setDescription(`Sản phẩm ${productTitle || 'sản phẩm'} nhận được khác hoàn toàn với hình ảnh, model và tình trạng mô tả trong bài đăng của bạn ${sellerName || 'người bán'}. ${refundText}`);
+    } else if (primaryReason === 'damaged') {
+      setDescription(`Kiện hàng ${productTitle || 'sản phẩm'} bị va đập, nứt vỡ/trầy xước nặng trong khâu vận chuyển khi nhận tại sảnh KTX. ${refundText}`);
+    } else if (primaryReason === 'missing') {
+      setDescription(`Kiện hàng ${productTitle || 'sản phẩm'} bị thiếu các phụ kiện đi kèm/quà tặng theo thỏa thuận với người bán ${sellerName || 'người bán'}. ${refundText}`);
+    } else if (primaryReason === 'fake') {
+      setDescription(`Sau khi kiểm tra linh kiện và serial, em phát hiện món đồ không đúng chuẩn cam kết của bạn ${sellerName || 'người bán'}. ${refundText}`);
+    }
   };
 
   const addEvidenceFromPicker = useCallback(async () => {
@@ -57,7 +59,7 @@ export const useDispute = (
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
         quality: 0.8,
       });

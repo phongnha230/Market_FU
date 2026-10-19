@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../stores/useAuthStore';
 import { useCampusStore } from '../../../stores/useCampusStore';
 import { useKycStore } from '../../../stores/kycStore';
 import { useOrderStore } from '../../../stores/orderStore';
+import { useNotificationStore } from '../../../stores/notificationStore';
 import { profileMobileService } from '../../../services/profileMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 
@@ -15,6 +16,9 @@ export const useProfile = () => {
   const { user, logout, updateUserProfile } = useAuthStore();
   const { currentCampus } = useCampusStore();
   const { orders, fetchOrders } = useOrderStore();
+  const unreadNotifsCount = useNotificationStore(
+    (s) => s.notifications.filter((n) => n.unread).length
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   /**
@@ -98,6 +102,7 @@ export const useProfile = () => {
 
   /**
    * Tính toán số lượng đơn hàng theo dữ liệu thực tế của user (không dùng mock data ảo)
+   * Riêng "Đã hoàn tất" chỉ hiện badge khi có đơn hoàn tất CHƯA ĐÁNH GIÁ (đánh giá xong thì badge biến mất)
    */
   const dynamicOrderStats = useMemo(() => {
     if (!userId) {
@@ -105,7 +110,7 @@ export const useProfile = () => {
         { id: 'o1', label: isSeller ? 'Chờ duyệt' : 'Chờ xác nhận', count: 0, icon: 'time-outline' },
         { id: 'o2', label: 'Chờ Handoff', count: 0, icon: 'hand-left-outline' },
         { id: 'o3', label: 'Đang giao', count: 0, icon: 'bicycle-outline' },
-        { id: 'o4', label: 'Đã hoàn tất', count: 0, icon: 'checkmark-done-outline' },
+        { id: 'o4', label: 'Chờ đánh giá', count: 0, icon: 'star-outline' },
       ];
     }
 
@@ -126,17 +131,76 @@ export const useProfile = () => {
       (o) => o.status === 'HANDOVER_CONFIRMED' || (o.status as any) === 'SHIPPING' || (o.status as any) === 'DELIVERED'
     ).length;
 
-    const completedCount = myOrders.filter(
-      (o) => o.status === 'COMPLETED'
+    // Chỉ đếm các đơn hoàn tất CHƯA ĐÁNH GIÁ (đánh giá xong thì badge biến mất)
+    const unreviewedCompletedCount = myOrders.filter(
+      (o) => o.status === 'COMPLETED' && !o.isReviewed
     ).length;
 
     return [
       { id: 'o1', label: isSeller ? 'Chờ duyệt' : 'Chờ xác nhận', count: pendingCount, icon: 'time-outline' },
       { id: 'o2', label: 'Chờ Handoff', count: escrowCount, icon: 'hand-left-outline' },
       { id: 'o3', label: 'Đang giao', count: shippingCount, icon: 'bicycle-outline' },
-      { id: 'o4', label: 'Đã hoàn tất', count: completedCount, icon: 'checkmark-done-outline' },
+      { id: 'o4', label: 'Chờ đánh giá', count: unreviewedCompletedCount, icon: 'star-outline' },
     ];
   }, [orders, userId, isSeller]);
+
+  /**
+   * Đồng bộ badge động cho danh sách Tùy chọn & Cài đặt trong Profile
+   */
+  const dynamicSettingItems = useMemo(() => {
+    const disputedCount = orders.filter(
+      (o) => (isSeller ? o.sellerId === userId : o.buyerId === userId) && o.status === 'DISPUTED'
+    ).length;
+
+    return SETTING_ITEMS.map((item) => {
+      // 1. Xác thực Thẻ SV & KYC
+      if (item.id === 's1') {
+        const isVerified = Boolean(
+          user?.isKycVerified ||
+          user?.kycStatus === 'APPROVED' ||
+          ((user?.role as string) !== 'UNVERIFIED' && Boolean(user?.studentId))
+        );
+        if (isVerified) {
+          return { ...item, badge: 'Đã duyệt', badgeColor: '#10B981', dotAlert: false };
+        }
+        if (user?.kycStatus === 'PENDING') {
+          return { ...item, badge: 'Chờ duyệt', badgeColor: '#F59E0B', dotAlert: true };
+        }
+        if (user?.kycStatus === 'REJECTED') {
+          return { ...item, badge: 'Cần gửi lại', badgeColor: '#EF4444', dotAlert: true };
+        }
+        return { ...item, badge: 'Chưa KYC', badgeColor: '#EA580C', dotAlert: true };
+      }
+
+      // 2. Trung tâm khiếu nại & hoàn tiền
+      if (item.id === 's4') {
+        if (disputedCount > 0) {
+          return {
+            ...item,
+            badge: `${disputedCount} đang xử lý`,
+            badgeColor: '#EF4444',
+            dotAlert: true,
+          };
+        }
+        return { ...item, badge: undefined, dotAlert: false };
+      }
+
+      // 3. Thông báo
+      if (item.id === 's5') {
+        if (unreadNotifsCount > 0) {
+          return {
+            ...item,
+            badge: `${unreadNotifsCount} mới`,
+            badgeColor: '#EF4444',
+            dotAlert: true,
+          };
+        }
+        return { ...item, badge: undefined, dotAlert: false };
+      }
+
+      return item;
+    });
+  }, [user, orders, userId, isSeller, unreadNotifsCount]);
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
@@ -157,7 +221,7 @@ export const useProfile = () => {
   return {
     user,
     currentCampus,
-    settingItems: SETTING_ITEMS,
+    settingItems: dynamicSettingItems,
     orderStats: dynamicOrderStats,
     isRefreshing,
     onRefresh,

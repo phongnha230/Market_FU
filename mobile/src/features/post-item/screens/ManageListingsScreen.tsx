@@ -37,6 +37,7 @@ export interface ListingItemData {
   status: ListingStatus;
   isBoosted?: boolean;
   rawStatus?: string;
+  rejectionReason?: string;
 }
 
 export interface ManageListingsScreenProps {
@@ -61,6 +62,8 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
     onRefresh,
     filteredListings,
     activeCount,
+    pendingCount,
+    rejectedCount,
     scheduledCount,
     soldCount,
     handleBoost,
@@ -177,6 +180,8 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           activeCount={activeCount}
+          pendingCount={pendingCount}
+          rejectedCount={rejectedCount}
           scheduledCount={scheduledCount}
           soldCount={soldCount}
         />

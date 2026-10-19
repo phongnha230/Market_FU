@@ -18,6 +18,8 @@ import { ChatDetailInputBar } from '../components/ChatDetailInputBar';
 import { chatMobileService } from '../../../services/chatMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { useUserStore } from '../../../stores/userStore';
+import { useChatStore } from '../../../stores/chatStore';
+import { getSafeAvatar } from '../../../lib/imageResolver';
 import * as ImagePicker from 'expo-image-picker';
 
 const QUICK_REPLIES = [
@@ -53,19 +55,37 @@ export const ChatDetailScreen: React.FC = () => {
   const currentUserId = user?.id || 'me';
 
   const routePartner = route.params?.partner;
-  const partner = useMemo(
-    () =>
-      routePartner || {
-        id: 'u-partner',
-        name: 'Người bán FPT',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        cohort: 'Sinh viên FPT',
-        isOnline: true,
-      },
-    [routePartner]
-  );
-
   const routeProduct = route.params?.product;
+
+  const rawPartnerAvatar =
+    routePartner?.avatar ||
+    routeProduct?.seller?.avatarUrl ||
+    routeProduct?.seller?.avatar ||
+    routeProduct?.sellerAvatar ||
+    '';
+
+  const initialPartnerName = routePartner?.name || routeProduct?.sellerName || 'Người bán FPT';
+
+  const [partner, setPartner] = useState(() => ({
+    id: routePartner?.id || routeProduct?.sellerId || 'u-partner',
+    name: initialPartnerName,
+    avatar: getSafeAvatar(rawPartnerAvatar, initialPartnerName),
+    cohort: routePartner?.cohort || routeProduct?.sellerCohort || 'Sinh viên FPT',
+    isOnline: routePartner?.isOnline ?? true,
+  }));
+
+  useEffect(() => {
+    if (routePartner) {
+      const pName = routePartner.name || partner.name;
+      setPartner((prev) => ({
+        ...prev,
+        ...routePartner,
+        name: pName,
+        avatar: getSafeAvatar(routePartner.avatar || prev.avatar, pName),
+      }));
+    }
+  }, [routePartner]);
+
   const product = useMemo(
     () =>
       routeProduct || {
@@ -84,6 +104,15 @@ export const ChatDetailScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isBuyer, setIsBuyer] = useState<boolean>(() => {
+    if (route.params?.isBuyer !== undefined) return Boolean(route.params.isBuyer);
+    if (route.params?.initialOffer) return true;
+    const prodSellerId = routeProduct?.sellerId || routeProduct?.seller?.id || routeProduct?.userId;
+    if (prodSellerId && currentUserId && currentUserId !== 'me') {
+      return prodSellerId !== currentUserId;
+    }
+    return true;
+  });
   const inputTextRef = useRef(inputText);
   const initialOfferUiHandledRef = useRef(false);
   const initialOfferApiHandledRef = useRef(false);
@@ -101,9 +130,34 @@ export const ChatDetailScreen: React.FC = () => {
 
       if (!activeConvId && product?.id) {
         try {
-          activeConvId = await chatMobileService.createOrGetConversation(product.id);
+          const convRes = await chatMobileService.createOrGetConversationDetails(product.id);
+          activeConvId = convRes.conversationId;
           if (isMounted && activeConvId) {
             setConversationId(activeConvId);
+          }
+          if (isMounted && convRes.conversation) {
+            const cBuyerId = convRes.conversation.buyerId;
+            const cSellerId = convRes.conversation.sellerId;
+            if (cBuyerId && currentUserId) {
+              setIsBuyer(cBuyerId === currentUserId);
+            } else if (cSellerId && currentUserId) {
+              setIsBuyer(cSellerId !== currentUserId);
+            }
+          }
+          if (isMounted && convRes.partner) {
+            const p = convRes.partner;
+            const pAvatar = p.profile?.avatarUrl || p.avatarUrl || p.avatar;
+            const pName = p.profile?.fullName || p.name;
+            const pCohort = p.profile?.major || p.cohort;
+            setPartner((prev) => {
+              const finalName = pName || prev.name;
+              return {
+                ...prev,
+                name: finalName,
+                avatar: getSafeAvatar(pAvatar, finalName),
+                cohort: pCohort || prev.cohort,
+              };
+            });
           }
         } catch (e: any) {
           console.log('⚠️ [createOrGetConversation info]:', e?.message);
@@ -114,11 +168,19 @@ export const ChatDetailScreen: React.FC = () => {
         try {
           const remoteMsgs = await chatMobileService.getMessages(activeConvId, currentUserId);
           if (isMounted && remoteMsgs && remoteMsgs.length > 0) {
-            const acceptMsg = remoteMsgs.find(
+            // Deduplicate remote messages by ID
+            const seenIds = new Set<string>();
+            const uniqueRemote = remoteMsgs.filter((m) => {
+              if (seenIds.has(m.id)) return false;
+              seenIds.add(m.id);
+              return true;
+            });
+
+            const acceptMsg = uniqueRemote.find(
               (m) => m.message?.includes('[OFFER_ACCEPTED]') || m.message?.toLowerCase().includes('đồng ý chốt')
             );
             const hasAccepted = Boolean(acceptMsg);
-            const hasRejected = remoteMsgs.some(
+            const hasRejected = uniqueRemote.some(
               (m) => m.message?.includes('[OFFER_REJECTED]') || m.message?.toLowerCase().includes('từ chối đề xuất')
             );
 
@@ -143,9 +205,12 @@ export const ChatDetailScreen: React.FC = () => {
               defaultOfferStatus = 'declined';
             }
 
-            const mapped: MessageItem[] = remoteMsgs.map((m) => {
+            const mapped: MessageItem[] = uniqueRemote.map((m) => {
               const isImg = m.messageType === 'IMAGE' || Boolean(m.imageUrl);
-              const msgType: any = isImg
+              const isOrder = Boolean(m.message?.startsWith('[ORDER_CREATED]'));
+              const msgType: any = isOrder
+                ? 'order'
+                : isImg
                 ? 'image'
                 : m.messageType === 'OFFER_PRICE'
                 ? 'offer'
@@ -170,7 +235,22 @@ export const ChatDetailScreen: React.FC = () => {
                 } : undefined,
               };
             });
-            setMessages(mapped);
+
+            setMessages((prev) => {
+              // Giữ lại các tin nhắn optimistic đang chờ gửi nếu remote chưa có
+              const pendingOptimistic = prev.filter(
+                (p) => (p.id.startsWith('offer-') || p.id.startsWith('m-')) && !seenIds.has(p.id)
+              );
+              const filteredPending = pendingOptimistic.filter((opt) => {
+                if (opt.type === 'offer') {
+                  return !uniqueRemote.some(
+                    (r) => r.messageType === 'OFFER_PRICE' && r.offerPrice === opt.offerData?.offeredPrice
+                  );
+                }
+                return true;
+              });
+              return [...mapped, ...filteredPending];
+            });
           }
         } catch (err: any) {
           console.log('⚠️ [getMessages info]:', err?.message);
@@ -191,9 +271,14 @@ export const ChatDetailScreen: React.FC = () => {
 
     socketMobileService.joinConversation(conversationId);
     socketMobileService.markMessageRead(conversationId);
+    useChatStore.getState().markConversationAsRead(conversationId);
 
     const unsubMsg = socketMobileService.onReceiveMessage((rawMsg: any) => {
       if (rawMsg?.conversationId && rawMsg.conversationId !== conversationId) return;
+
+      // Đánh dấu đã đọc ngay vì người dùng đang ở trực tiếp trong màn hình chat này
+      socketMobileService.markMessageRead(conversationId);
+      useChatStore.getState().markConversationAsRead(conversationId);
 
       const isMe = rawMsg.senderId === currentUserId;
       const text = rawMsg.text || rawMsg.content || rawMsg.message || '';
@@ -218,8 +303,11 @@ export const ChatDetailScreen: React.FC = () => {
         );
       }
 
+      const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));
       const isImg = rawMsg.messageType === 'IMAGE' || Boolean(rawMsg.mediaUrl || rawMsg.imageUrl);
-      const msgType: any = isImg
+      const msgType: any = isOrder
+        ? 'order'
+        : isImg
         ? 'image'
         : rawMsg.messageType === 'OFFER_PRICE'
         ? 'offer'
@@ -246,7 +334,48 @@ export const ChatDetailScreen: React.FC = () => {
       };
 
       setMessages((prev) => {
+        // Tránh trùng lặp tin nhắn theo ID đã có
         if (prev.some((m) => m.id === incoming.id)) return prev;
+
+        // Nếu là tin nhắn mặc cả từ chính mình -> Reconcile / thay thế tin nhắn optimistic
+        if (isMe && incoming.type === 'offer') {
+          const pendingIdx = prev.findIndex(
+            (m) =>
+              m.type === 'offer' &&
+              m.sender === 'me' &&
+              (m.id.startsWith('offer-') || m.id.startsWith('pending-'))
+          );
+          if (pendingIdx !== -1) {
+            const next = [...prev];
+            next[pendingIdx] = incoming;
+            return next;
+          }
+        }
+
+        // Nếu là tin nhắn text từ chính mình -> Reconcile tin nhắn optimistic có cùng nội dung
+        if (isMe && incoming.type === 'text') {
+          const pendingIdx = prev.findIndex(
+            (m) => m.type === 'text' && m.sender === 'me' && m.id.startsWith('m-') && m.text === incoming.text
+          );
+          if (pendingIdx !== -1) {
+            const next = [...prev];
+            next[pendingIdx] = incoming;
+            return next;
+          }
+        }
+
+        // Nếu là tin nhắn điểm hẹn từ chính mình -> Reconcile tin nhắn safepoint optimistic
+        if (isMe && incoming.type === 'safepoint') {
+          const pendingIdx = prev.findIndex(
+            (m) => m.type === 'safepoint' && m.sender === 'me' && m.id.startsWith('safe-')
+          );
+          if (pendingIdx !== -1) {
+            const next = [...prev];
+            next[pendingIdx] = incoming;
+            return next;
+          }
+        }
+
         return [...prev, incoming];
       });
     });
@@ -265,6 +394,7 @@ export const ChatDetailScreen: React.FC = () => {
 
     return () => {
       socketMobileService.leaveConversation(conversationId);
+      useChatStore.getState().markConversationAsRead(conversationId);
       unsubMsg();
       unsubTyping();
       unsubStopTyping();
@@ -273,37 +403,55 @@ export const ChatDetailScreen: React.FC = () => {
 
   // If navigated with initial offer from MakeOfferModal
   useEffect(() => {
-    if (initialOffer) {
-      if (!initialOfferUiHandledRef.current) {
-        initialOfferUiHandledRef.current = true;
-        const offerMsg: MessageItem = {
-          id: 'offer-' + Date.now(),
-          sender: 'me',
-          type: 'offer',
-          text: initialOffer.message,
-          time: 'Vừa xong',
-          offerData: {
-            originalPrice: initialOffer.originalPrice || 480000,
-            offeredPrice: initialOffer.offeredPrice || 430000,
-            status: 'pending',
-          },
-        };
-        setMessages((prev) => [...prev, offerMsg]);
-      }
+    if (!initialOffer) return;
 
-      if (conversationId && initialOffer.offeredPrice && !initialOfferApiHandledRef.current) {
-        initialOfferApiHandledRef.current = true;
-        chatMobileService.sendOfferPrice(conversationId, initialOffer.offeredPrice).catch(() => {});
-      }
+    if (!initialOfferUiHandledRef.current) {
+      initialOfferUiHandledRef.current = true;
+      const offerMsg: MessageItem = {
+        id: 'offer-' + Date.now(),
+        sender: 'me',
+        type: 'offer',
+        text: initialOffer.message || `Đề xuất giá mới: ${initialOffer.offeredPrice.toLocaleString('vi-VN')}đ`,
+        time: 'Vừa xong',
+        offerData: {
+          originalPrice: initialOffer.originalPrice || (typeof product.price === 'number' ? product.price : 500000),
+          offeredPrice: initialOffer.offeredPrice || 430000,
+          status: 'pending',
+        },
+      };
+      setMessages((prev) => [...prev, offerMsg]);
     }
-  }, [initialOffer, conversationId]);
+
+    if (conversationId && initialOffer.offeredPrice && !initialOfferApiHandledRef.current) {
+      initialOfferApiHandledRef.current = true;
+      chatMobileService
+        .sendOfferPrice(conversationId, initialOffer.offeredPrice, initialOffer.message)
+        .then((sentMsg) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id.startsWith('offer-')
+                ? {
+                    ...m,
+                    id: sentMsg.id,
+                    text: sentMsg.message || m.text,
+                  }
+                : m
+            )
+          );
+        })
+        .catch((err) => {
+          console.log('⚠️ [sendOfferPrice error]:', err?.message);
+        });
+    }
+  }, [initialOffer, conversationId, product.price]);
 
   const handleSendMessage = useCallback((textToSend?: string) => {
     const text = (textToSend || inputTextRef.current).trim();
     if (!text) return;
 
+    const optimisticId = 'm-' + Date.now();
     const newMsg: MessageItem = {
-      id: 'm-' + Date.now(),
+      id: optimisticId,
       sender: 'me',
       type: 'text',
       text,
@@ -314,7 +462,14 @@ export const ChatDetailScreen: React.FC = () => {
     setInputText('');
 
     if (conversationId) {
-      chatMobileService.sendMessage(conversationId, text, 'TEXT').catch(() => {});
+      chatMobileService
+        .sendMessage(conversationId, text, 'TEXT')
+        .then((sentMsg) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === optimisticId ? { ...m, id: sentMsg.id } : m))
+          );
+        })
+        .catch(() => {});
     }
   }, [conversationId]);
 
@@ -395,16 +550,26 @@ export const ChatDetailScreen: React.FC = () => {
           priceStr: `${offeredPrice.toLocaleString('vi-VN')}đ`,
         },
         agreedPrice: offeredPrice,
+        conversationId,
       });
     },
-    [navigation, product]
+    [navigation, product, conversationId]
   );
 
   const handleBookSafePoint = useCallback((safePointLocation?: string) => {
     navigation.navigate('Checkout', {
       product,
       safePoint: safePointLocation,
+      conversationId,
     });
+  }, [navigation, product, conversationId]);
+
+  const handleViewOrder = useCallback((orderCode?: string) => {
+    if (orderCode) {
+      navigation.navigate('OrderDetail', { orderId: orderCode, product });
+    } else {
+      navigation.navigate('OrderList');
+    }
   }, [navigation, product]);
 
   const handlePickSafePoint = useCallback(() => {
@@ -474,13 +639,15 @@ export const ChatDetailScreen: React.FC = () => {
     ({ item }: { item: MessageItem }) => (
       <ChatDetailMessageItem
         item={item}
+        isBuyer={isBuyer}
         onAcceptOffer={handleAcceptOffer}
         onRejectOffer={handleRejectOffer}
         onBookSafePoint={handleBookSafePoint}
         onCheckoutOffer={handleCheckoutOffer}
+        onViewOrder={handleViewOrder}
       />
     ),
-    [handleAcceptOffer, handleRejectOffer, handleBookSafePoint, handleCheckoutOffer]
+    [isBuyer, handleAcceptOffer, handleRejectOffer, handleBookSafePoint, handleCheckoutOffer, handleViewOrder]
   );
 
   const renderQuickReply = useCallback(

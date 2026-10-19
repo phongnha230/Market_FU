@@ -29,6 +29,58 @@ export interface CreateOrderPayload {
   };
 }
 
+export function formatAppointmentSlot(appointmentTime?: string | Date, rawTimeSlot?: string): string {
+  if (!appointmentTime) {
+    return rawTimeSlot || '16:30 - 17:15 • Hôm nay';
+  }
+  try {
+    const d = new Date(appointmentTime);
+    if (isNaN(d.getTime())) {
+      return rawTimeSlot || '16:30 - 17:15 • Hôm nay';
+    }
+
+    const now = new Date();
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow =
+      d.getDate() === tomorrow.getDate() &&
+      d.getMonth() === tomorrow.getMonth() &&
+      d.getFullYear() === tomorrow.getFullYear();
+
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const timeOnly = `${hours}:${minutes}`;
+
+    let dateLabel = '';
+    if (isToday) {
+      dateLabel = `Hôm nay (${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()})`;
+    } else if (isTomorrow) {
+      dateLabel = `Ngày mai (${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()})`;
+    } else {
+      dateLabel = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+
+    const h = d.getHours();
+    let slotName = '';
+    if (h >= 7 && h < 9) slotName = '(Sáng ca 1)';
+    else if (h >= 9 && h < 12) slotName = '(Sáng ca 2)';
+    else if (h >= 12 && h < 14) slotName = '(Nghỉ trưa)';
+    else if (h >= 14 && h < 16) slotName = '(Chiều ca 3)';
+    else if (h >= 16 && h < 18) slotName = '(Chiều ca 4)';
+    else if (h >= 18) slotName = '(Tối ca 5)';
+
+    const slotPart = rawTimeSlot ? rawTimeSlot.split('•')[0].trim() : `${timeOnly} ${slotName}`.trim();
+    return `${slotPart} • ${dateLabel}`;
+  } catch {
+    return rawTimeSlot || '16:30 - 17:15 • Hôm nay';
+  }
+}
+
 export function adaptBackendOrderToMobile(item: any): OrderItem {
   const product = item.product || {};
   const totalAmount = Number(
@@ -50,11 +102,13 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     status = 'HANDOVER_CONFIRMED';
   } else if (backendStatus === 'CANCELLED') {
     status = 'CANCELLED';
+  } else {
+    status = 'PENDING_SAFEPOINT';
   }
 
   let statusColor = '#D97706';
   let statusBg = '#FFFBEB';
-  let statusLabel = '📦 Chờ giao nhận tại Safe-Point';
+  let statusLabel = '⏳ Chờ người bán xác nhận hẹn';
 
   if (status === 'COMPLETED') {
     statusColor = '#059669';
@@ -65,9 +119,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     statusBg = '#ECFDF5';
     statusLabel = '🛵 Đã phát tới sảnh KTX (48h bao test)';
   } else if (status === 'ESCROW_PAID') {
-    statusColor = '#EA580C';
-    statusBg = '#FFF7ED';
-    statusLabel = '🛡️ Đã cọc Escrow - Chờ bàn giao tại Safe-Point';
+    statusColor = '#059669';
+    statusBg = '#ECFDF5';
+    statusLabel = '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point';
   } else if (status === 'HANDOVER_CONFIRMED') {
     statusColor = '#2563EB';
     statusBg = '#EFF6FF';
@@ -102,6 +156,28 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   );
   const resolvedOrderType: 'MEETUP' | 'SHIP_COD' = isShip ? 'SHIP_COD' : 'MEETUP';
 
+  let rawLocation =
+    item.shipping?.shippingAddress ||
+    item.meetupLocation ||
+    product.meetupLocation ||
+    item.safePointLocation ||
+    item.safePoint ||
+    'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)';
+
+  let resolvedNote = item.deliveryNote || item.note || '';
+
+  if (rawLocation.includes('(Ghi chú:')) {
+    const noteMatch = rawLocation.match(/\(Ghi chú:\s*([^)]+)\)/);
+    if (noteMatch) {
+      if (!resolvedNote) {
+        resolvedNote = noteMatch[1].trim();
+      }
+      rawLocation = rawLocation.replace(/\s*\(Ghi chú:[^)]+\)/, '').trim();
+    }
+  }
+
+  const resolvedTimeSlot = formatAppointmentSlot(item.appointmentTime, item.timeSlot);
+
   return {
     id: item.id || item._id,
     orderNumber: item.orderCode || item.code || `ORD-${String(item.id || '').slice(-6)}`,
@@ -130,13 +206,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     statusLabel: item.statusLabel || statusLabel,
     statusColor: item.statusColor || statusColor,
     statusBg: item.statusBg || statusBg,
-    safePoint:
-      item.shipping?.shippingAddress ||
-      item.meetupLocation ||
-      product.meetupLocation ||
-      item.safePointLocation ||
-      'Trạm Safe-Point Sảnh Tòa Alpha (Camera 24/7)',
-    timeSlot: item.timeSlot || 'Hôm nay: 16:30 - 17:30',
+    safePoint: rawLocation,
+    timeSlot: resolvedTimeSlot,
+    deliveryNote: resolvedNote,
     orderType: resolvedOrderType,
     // Handshake OTP CHỈ dùng cho đơn MEETUP (cùng campus hẹn gặp), không gán cho đơn liên campus GHN!
     handshakeOtp: resolvedOrderType === 'SHIP_COD' ? undefined : validOtp,
@@ -246,6 +318,14 @@ export const orderMobileService = {
   },
 
   /**
+   * Người bán xác nhận đồng ý đơn hàng và chốt lịch hẹn gặp tại Safe-Point
+   */
+  async confirmOrder(orderId: string): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>(`/orders/${orderId}/confirm-order`);
+    return res.data?.data;
+  },
+
+  /**
    * Người bán xác nhận đã gửi đồ cho xe liên campus / Safe-Point
    */
   async sellerConfirmHandoff(orderId: string, note?: string): Promise<any> {
@@ -313,14 +393,24 @@ export const orderMobileService = {
    * Thống kê doanh thu & đơn hàng của Seller
    */
   async getSellerAnalytics(): Promise<any> {
-    try {
-      const res = await apiClient.get<ApiResponse<any>>('/orders/seller/analytics');
-      return res.data?.data;
-    } catch (e: any) {
-      console.log('⚠️ [getSellerAnalytics fallback]:', e?.message);
-      return null;
+    if (inFlightAnalyticsPromise) {
+      return inFlightAnalyticsPromise;
     }
+    inFlightAnalyticsPromise = (async () => {
+      try {
+        const res = await apiClient.get<ApiResponse<any>>('/orders/seller/analytics');
+        return res.data?.data;
+      } catch (e: any) {
+        console.log('⚠️ [getSellerAnalytics fallback]:', e?.message);
+        return null;
+      } finally {
+        inFlightAnalyticsPromise = null;
+      }
+    })();
+    return inFlightAnalyticsPromise;
   },
 };
+
+let inFlightAnalyticsPromise: Promise<any> | null = null;
 
 export default orderMobileService;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getSafeAvatar } from '../../../lib/imageResolver';
 
 interface ChatDetailTopBarProps {
   partner: {
@@ -32,9 +33,7 @@ export const ChatDetailTopBar: React.FC<ChatDetailTopBarProps> = ({
         <View style={styles.headerAvatarWrapper}>
           <Image
             source={{
-              uri:
-                partner.avatar ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+              uri: getSafeAvatar(partner.avatar, partner.name),
             }}
             style={styles.headerAvatar}
           />

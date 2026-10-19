@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import * as Crypto from 'expo-crypto';
 import * as AuthSession from 'expo-auth-session';
 import { authMobileService } from '../../../services/authMobileService';
 import { useUserStore } from '../../../stores/userStore';
@@ -49,7 +50,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
 
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=id_token%20token&scope=openid%20profile%20email&redirect_uri=${encodeURIComponent(
         redirectUri
-      )}&nonce=${Math.random().toString(36).substring(7)}&prompt=select_account`;
+      )}&nonce=${Crypto.randomUUID()}&prompt=select_account`;
 
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 

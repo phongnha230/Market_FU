@@ -1,6 +1,7 @@
 import { Platform, Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -135,8 +136,8 @@ export async function signInWithGoogle(campus: string = 'HÒA LẠC'): Promise<G
       path: 'auth/google',
     });
 
-    const state = Math.random().toString(36).substring(2, 15);
-    const nonce = Math.random().toString(36).substring(2, 15);
+    const state = Crypto.randomUUID();
+    const nonce = Crypto.randomUUID();
 
     // Mở trang đăng nhập CHÍNH THỨC của Google (accounts.google.com)
     const googleAuthUrl =

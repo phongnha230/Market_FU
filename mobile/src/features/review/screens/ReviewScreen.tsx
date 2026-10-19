@@ -106,7 +106,7 @@ export const ReviewScreen: React.FC = () => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
         quality: 0.8,
       });
@@ -181,7 +181,7 @@ export const ReviewScreen: React.FC = () => {
         proofVideoUrl: videoUri,
         isAnonymous,
         reviewedAt: 'Vừa xong',
-        isPublic: false,
+        isPublic: true,
         canEdit: true,
         bonusCoins,
       };
@@ -198,8 +198,8 @@ export const ReviewScreen: React.FC = () => {
       useWalletStore.getState().addCoins(bonusCoins);
 
       Alert.alert(
-        '🎉 Cảm ơn bạn!',
-        `Đánh giá đã được ghi nhận. Bạn được cộng +${bonusCoins} FPT Xu vào tài khoản.${bonusCoins === 200 ? ' (Thưởng video test đồ)' : ''}`,
+        '🎉 Đánh giá thành công!',
+        `Đánh giá của bạn đã được công khai trên hồ sơ Người Bán và cộng +${bonusCoins} FPT Xu vào ví của bạn.${bonusCoins === 200 ? ' (Thưởng video test đồ)' : ''}`,
         [
           {
             text: 'Đóng',

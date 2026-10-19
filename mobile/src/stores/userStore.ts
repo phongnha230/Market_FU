@@ -19,10 +19,6 @@ const syncUserToStores = (userId: string | null) => {
     useVoucherStore.getState().setActiveUser(userId);
     useKycStore.getState().setActiveUser(userId);
     useWalletStore.getState().setActiveUser(userId);
-
-    // Đồng bộ tức thời danh sách đơn hàng & sản phẩm từ Backend
-    useOrderStore.getState().fetchOrders().catch(() => {});
-    useProductStore.getState().fetchProducts().catch(() => {});
   } catch (e) {
     // Non-blocking sync error prevention
   }
@@ -104,7 +100,7 @@ export const useUserStore = create<UserState>()(
                 hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
-              await get().loadRegisteredAccounts();
+              get().loadRegisteredAccounts().catch(() => {});
               return {
                 success: true,
                 message: 'Đăng nhập thành công qua Backend API!',
@@ -255,7 +251,9 @@ export const useUserStore = create<UserState>()(
 
           // 1. Luôn cập nhật session Zustand hiện tại (được persist tự động bởi middleware vào AsyncStorage)
           set({ user: mergedUser });
-          syncUserToStores(mergedUser.id);
+          if (currentUser.id !== mergedUser.id) {
+            syncUserToStores(mergedUser.id);
+          }
 
           // 2. Cập nhật vào danh sách local accountStorage nếu tài khoản này có trong máy (không ném lỗi làm chặn session)
           try {
@@ -299,7 +297,9 @@ export const useUserStore = create<UserState>()(
         if (currentUser) {
           const updated = { ...currentUser, ...partial };
           set({ user: updated });
-          syncUserToStores(updated.id);
+          if (currentUser.id !== updated.id) {
+            syncUserToStores(updated.id);
+          }
           accountStorage.updateUserAccount(currentUser.id, partial).catch(() => {});
         }
       },

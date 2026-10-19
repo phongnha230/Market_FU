@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +65,8 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPriceAlert, setShowPriceAlert] = useState<boolean>(true);
   const [sortOrder, setSortOrder] = useState<'newest' | 'price'>('newest');
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Tự động kéo mới danh sách tin yêu thích từ Backend khi mở màn hình
   React.useEffect(() => {
@@ -228,6 +231,15 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
       return isProductInCategory(p, selectedCategory);
     });
 
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.locationTag && p.locationTag.toLowerCase().includes(q))
+      );
+    }
+
     if (sortOrder === 'price') {
       result = [...result].sort((a, b) => {
         const priceA = parseInt(a.price.replace(/\D/g, ''), 10) || 0;
@@ -237,7 +249,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
     }
 
     return result;
-  }, [products, selectedCategory, sortOrder]);
+  }, [products, selectedCategory, sortOrder, searchQuery]);
 
   return (
     <View style={styles.screen}>
@@ -276,11 +288,11 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
 
         <View style={styles.titleRight}>
           <TouchableOpacity
-            style={styles.searchIconBtn}
+            style={[styles.searchIconBtn, isSearchOpen && styles.searchIconBtnActive]}
             activeOpacity={0.7}
-            onPress={() => Alert.alert('Tìm kiếm', 'Tìm nhanh trong danh sách các món đồ đã lưu')}
+            onPress={() => setIsSearchOpen((prev) => !prev)}
           >
-            <Ionicons name="search-outline" size={18} color="#475569" />
+            <Ionicons name={isSearchOpen ? 'close' : 'search-outline'} size={18} color={isSearchOpen ? '#EA580C' : '#475569'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -293,6 +305,25 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           </TouchableOpacity>
         </View>
       </View>
+
+      {isSearchOpen && (
+        <View style={styles.searchBarBox}>
+          <Ionicons name="search-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm nhanh trong tin đã lưu..."
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -480,6 +511,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchIconBtnActive: {
+    backgroundColor: '#FFEDD5',
+  },
+  searchBarBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
   },
   sortBtn: {
     flexDirection: 'row',

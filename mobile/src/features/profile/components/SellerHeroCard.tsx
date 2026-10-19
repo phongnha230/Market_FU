@@ -9,6 +9,7 @@ interface SellerHeroCardProps {
   paramSellerName: string;
   productsCount: number;
   reviewsCount: number;
+  averageRating?: number | null;
 }
 
 export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
@@ -16,10 +17,17 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
   paramSellerName,
   productsCount,
   reviewsCount,
+  averageRating,
 }) => {
   const sellerName = profile?.fullName || paramSellerName || 'Sinh viên FPT';
-  const dealCount = typeof profile?.dealCount === 'number' ? profile.dealCount : 0;
-  const rating = typeof profile?.rating === 'number' ? profile.rating : null;
+  const dealCount = typeof profile?.dealCount === 'number' ? profile.dealCount : (reviewsCount > 0 ? reviewsCount : 0);
+  const rawRating =
+    typeof averageRating === 'number' && averageRating > 0
+      ? averageRating
+      : typeof profile?.rating === 'number'
+      ? profile.rating
+      : (reviewsCount > 0 ? 5.0 : null);
+  const rating = rawRating !== null ? Number(rawRating).toFixed(1) : null;
   const reputationScore = profile?.reputationScore ?? 100;
   const campus = profile?.campus || 'HÒA LẠC';
   const cohort = profile?.cohort || 'Sinh viên FPT';

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 export interface MessageItem {
   id: string;
   sender: 'me' | 'partner';
-  type: 'text' | 'offer' | 'safepoint' | 'image';
+  type: 'text' | 'offer' | 'safepoint' | 'image' | 'order';
   text?: string;
   imageUrl?: string;
   time: string;
@@ -18,11 +18,17 @@ export interface MessageItem {
     location: string;
     timeSlot: string;
   };
+  orderData?: {
+    orderCode: string;
+    totalAmount?: number | string;
+    orderType?: string;
+  };
 }
 
 interface ChatOfferBubbleProps {
   item: MessageItem;
   isMe: boolean;
+  isBuyer: boolean;
   onAcceptOffer: (msgId: string) => void;
   onRejectOffer?: (msgId: string) => void;
   onCheckoutOffer?: (offeredPrice: number) => void;
@@ -31,6 +37,7 @@ interface ChatOfferBubbleProps {
 const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
   item,
   isMe,
+  isBuyer,
   onAcceptOffer,
   onRejectOffer,
   onCheckoutOffer,
@@ -99,17 +106,26 @@ const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
                 <Ionicons name="checkmark-circle" size={12} color="#059669" />
                 <Text style={styles.acceptedText}>Đã chốt mức giá này (Ưu đãi 30p)</Text>
               </View>
-              {isMe && onCheckoutOffer && (
-                <TouchableOpacity
-                  style={styles.checkoutOfferBtn}
-                  activeOpacity={0.85}
-                  onPress={() => onCheckoutOffer(offerData.offeredPrice)}
-                >
-                  <Ionicons name="flash" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
-                  <Text style={styles.checkoutOfferBtnText}>
-                    Đặt mua ngay ({offerData.offeredPrice.toLocaleString('vi-VN')}đ)
+              {isBuyer ? (
+                onCheckoutOffer && (
+                  <TouchableOpacity
+                    style={styles.checkoutOfferBtn}
+                    activeOpacity={0.85}
+                    onPress={() => onCheckoutOffer(offerData.offeredPrice)}
+                  >
+                    <Ionicons name="flash" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
+                    <Text style={styles.checkoutOfferBtnText}>
+                      Đặt mua ngay ({offerData.offeredPrice.toLocaleString('vi-VN')}đ)
+                    </Text>
+                  </TouchableOpacity>
+                )
+              ) : (
+                <View style={styles.sellerWaitingBadge}>
+                  <Ionicons name="hourglass-outline" size={11} color="#B45309" style={{ marginRight: 4 }} />
+                  <Text style={styles.sellerWaitingText}>
+                    Đang chờ người mua đặt đơn & thanh toán Escrow...
                   </Text>
-                </TouchableOpacity>
+                </View>
               )}
             </View>
           ) : offerData.status === 'declined' ? (
@@ -119,9 +135,9 @@ const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
             </View>
           ) : isMe ? (
             <View style={styles.waitingBadge}>
-              <Text style={styles.offerWaitingText}>⏳ Đang chờ người bán phản hồi...</Text>
+              <Text style={styles.offerWaitingText}>⏳ Đang chờ đối tác phản hồi...</Text>
             </View>
-          ) : (
+          ) : !isBuyer ? (
             <View style={styles.offerActionsRow}>
               {onRejectOffer && (
                 <TouchableOpacity
@@ -140,6 +156,10 @@ const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
                 <Ionicons name="checkmark" size={12} color="#FFFFFF" style={{ marginRight: 2 }} />
                 <Text style={styles.acceptBtnText}>Đồng ý</Text>
               </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.waitingBadge}>
+              <Text style={styles.offerWaitingText}>⏳ Đang chờ người bán phản hồi...</Text>
             </View>
           )}
         </View>
@@ -235,28 +255,94 @@ const ChatImageBubble: React.FC<ChatImageBubbleProps> = ({ item, isMe }) => {
   );
 };
 
+interface ChatOrderTicketBubbleProps {
+  item: MessageItem;
+  isMe: boolean;
+  onViewOrder?: (orderCode?: string) => void;
+}
+
+const ChatOrderTicketBubble: React.FC<ChatOrderTicketBubbleProps> = ({ item, isMe, onViewOrder }) => {
+  const text = item.text || '';
+  const orderCodeMatch = text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+  const orderCode = item.orderData?.orderCode || (orderCodeMatch ? orderCodeMatch[1] : '');
+  const cleanText = text.replace(/^\[ORDER_CREATED\]\s*/i, '');
+
+  return (
+    <View style={[styles.msgWrapper, isMe ? styles.myMsgWrapper : styles.theirMsgWrapper]}>
+      <View style={styles.orderTicketCard}>
+        {/* Header Tag + Time */}
+        <View style={styles.orderHeaderRow}>
+          <View style={styles.orderTicketPill}>
+            <Ionicons name="shield-checkmark" size={11} color="#059669" />
+            <Text style={styles.orderTicketPillText}>Đơn Hàng Escrow</Text>
+          </View>
+          <Text style={styles.orderTimeText}>{item.time}</Text>
+        </View>
+
+        {/* Order Main Title */}
+        <View style={styles.orderTitleRow}>
+          <Ionicons name="bag-check" size={18} color="#EA580C" style={{ marginRight: 6 }} />
+          <Text style={styles.orderMainTitle}>Đã Đặt Mua Thành Công!</Text>
+        </View>
+
+        {/* Order Description / Details */}
+        <View style={styles.orderContentBox}>
+          <Text style={styles.orderBodyText}>{cleanText}</Text>
+          <View style={styles.escrowNoticeRow}>
+            <Ionicons name="lock-closed" size={10} color="#0284C7" style={{ marginRight: 4 }} />
+            <Text style={styles.escrowNoticeText}>
+              Tiền cọc được sàn FPT giữ bảo chứng, chỉ thanh toán khi hai bên quét mã bàn giao.
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Button: View Order Detail */}
+        {onViewOrder && (
+          <TouchableOpacity
+            style={styles.viewOrderBtn}
+            activeOpacity={0.85}
+            onPress={() => onViewOrder(orderCode)}
+          >
+            <Ionicons name="receipt-outline" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+            <Text style={styles.viewOrderBtnText}>Xem chi tiết đơn hàng</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
 interface ChatDetailMessageItemProps {
   item: MessageItem;
+  isBuyer: boolean;
   onAcceptOffer: (msgId: string) => void;
   onRejectOffer?: (msgId: string) => void;
   onBookSafePoint: (safePointLocation?: string) => void;
   onCheckoutOffer?: (offeredPrice: number) => void;
+  onViewOrder?: (orderCode?: string) => void;
 }
 
 export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
   item,
+  isBuyer,
   onAcceptOffer,
   onRejectOffer,
   onBookSafePoint,
   onCheckoutOffer,
+  onViewOrder,
 }) => {
   const isMe = item.sender === 'me';
+
+  if (item.type === 'order' || (item.text && item.text.startsWith('[ORDER_CREATED]'))) {
+    return <ChatOrderTicketBubble item={item} isMe={isMe} onViewOrder={onViewOrder} />;
+  }
 
   if (item.type === 'offer' && item.offerData) {
     return (
       <ChatOfferBubble
         item={item}
         isMe={isMe}
+        isBuyer={isBuyer}
         onAcceptOffer={onAcceptOffer}
         onRejectOffer={onRejectOffer}
         onCheckoutOffer={onCheckoutOffer}
@@ -495,6 +581,116 @@ const styles = StyleSheet.create({
   safepointBookBtnText: {
     color: '#FFFFFF',
     fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // Seller Waiting Badge
+  sellerWaitingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  sellerWaitingText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+
+  // Order Ticket Card - Polished Escrow design
+  orderTicketCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#6EE7B7',
+    borderRadius: 14,
+    padding: 10,
+    minWidth: 230,
+    maxWidth: 290,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  orderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  orderTicketPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  orderTicketPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  orderTimeText: {
+    fontSize: 9,
+    color: '#94A3B8',
+  },
+  orderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  orderMainTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  orderContentBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+  },
+  orderBodyText: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: '#334155',
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  escrowNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    padding: 5,
+    borderRadius: 5,
+    marginTop: 2,
+  },
+  escrowNoticeText: {
+    fontSize: 9.5,
+    color: '#0369A1',
+    lineHeight: 13,
+    flex: 1,
+  },
+  viewOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EA580C',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  viewOrderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
     fontWeight: '800',
   },
 });

@@ -173,6 +173,7 @@ export function useProductDetailActions(
       partner: {
         id: product.seller?.id || product.sellerId || 'partner',
         name: product.seller?.name || product.sellerName || 'Người bán FPT',
+        avatar: product.seller?.avatarUrl || product.seller?.avatar || product.sellerAvatar || '',
         cohort: product.seller?.major || product.sellerCohort || 'K16 - SE',
         isOnline: true,
       },

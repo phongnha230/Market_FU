@@ -45,7 +45,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ partner, onGoBack }) => 
 
       <TouchableOpacity
         style={styles.actionBtn}
-        onPress={() => Alert.alert('Gọi điện thoại sinh viên')}
+        onPress={() =>
+          Alert.alert(
+            'Bảo vệ quyền riêng tư sinh viên FPT',
+            'Để tránh làm phiền ngoài giờ học và bảo vệ thông tin cá nhân, bạn hãy trao đổi trực tiếp trên kênh Safe-Chat hoặc hẹn gặp tại trạm Safe-Handoff trong campus nhé!',
+            [{ text: 'Đã hiểu' }]
+          )
+        }
       >
         <Ionicons name="call-outline" size={20} color="#0F172A" />
       </TouchableOpacity>

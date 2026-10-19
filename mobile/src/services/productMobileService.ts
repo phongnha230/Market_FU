@@ -89,6 +89,7 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
     sellerRating,
     sellerIsVerified: item.seller?.profile?.kyc?.status === 'APPROVED' || item.seller?.role === 'SELLER',
     status: item.status || 'AVAILABLE',
+    rejectionReason: item.rejectionReason || undefined,
     safePoint: item.safePoint || item.meetupLocation || 'Trạm Safe-Point Sảnh Alpha',
     allowNegotiate: item.allowNegotiate ?? true,
     campusShipEnabled: item.campusShipEnabled ?? true,
@@ -179,13 +180,67 @@ export const productMobileService = {
         ? payload.description.trim()
         : `${payload.title} - Sản phẩm đồ dùng sinh viên FPT pass lại giá sinh viên. Hẹn xem tại Safe-point.`;
 
-    const extractedUrls = Array.isArray(payload.images)
-      ? payload.images.filter((img) => typeof img === 'string' && img.startsWith('http'))
-      : [];
+    const localImages: string[] = [];
+    const remoteUrls: string[] = [];
 
+    if (Array.isArray(payload.images)) {
+      payload.images.forEach((img) => {
+        const uri = typeof img === 'object' && img?.uri ? img.uri : typeof img === 'string' ? img : '';
+        if (!uri) return;
+        if (uri.startsWith('http://') || uri.startsWith('https://')) {
+          remoteUrls.push(uri);
+        } else {
+          localImages.push(uri);
+        }
+      });
+    }
+
+    // 1. Nếu có file ảnh được chụp hoặc chọn từ thiết bị -> Gửi bằng multipart/form-data
+    if (localImages.length > 0) {
+      const formData = new FormData();
+      formData.append('title', payload.title.trim());
+      formData.append('description', desc);
+      formData.append('price', String(Math.max(0, Number(payload.price))));
+      formData.append('condition', backendCondition);
+      formData.append('categoryType', backendCategory);
+      formData.append('campus', backendCampus);
+      formData.append('meetupLocation', payload.safePoint || 'Trạm Safe-Point Sảnh Tòa Alpha');
+      formData.append('location', payload.safePoint || 'Trạm Safe-Point Sảnh Tòa Alpha');
+      formData.append('allowShipping', String(payload.campusShipEnabled ?? true));
+
+      if (payload.hashtags && payload.hashtags.length > 0) {
+        formData.append('hashtags', payload.hashtags.join(','));
+      }
+
+      remoteUrls.forEach((url) => {
+        formData.append('imageUrls', url);
+      });
+
+      localImages.forEach((uri, idx) => {
+        const filename = uri.split('/').pop()?.split('?')[0] || `product_${Date.now()}_${idx}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const ext = match ? match[1].toLowerCase() : 'jpg';
+        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
+        formData.append('images', {
+          uri,
+          name: filename,
+          type: mimeType,
+        } as any);
+      });
+
+      const res = await apiClient.post<ApiResponse<any>>('/products', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return adaptBackendProductToMobile(res.data.data);
+    }
+
+    // 2. Trường hợp tất cả ảnh đều là link online có sẵn
     const finalImageUrls =
-      extractedUrls.length > 0
-        ? extractedUrls
+      remoteUrls.length > 0
+        ? remoteUrls
         : ['https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600'];
 
     const body: any = {

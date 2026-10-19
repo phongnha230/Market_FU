@@ -96,92 +96,163 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
         </View>
       </View>
 
+      {/* Moderation Status Notice: Pending */}
+      {item.status === 'pending' && (
+        <View style={styles.pendingBanner}>
+          <Ionicons name="time-outline" size={15} color="#D97706" style={{ marginRight: 6, marginTop: 1 }} />
+          <Text style={styles.pendingBannerText}>
+            <Text style={{ fontWeight: '800' }}>Chờ Ban Quản Trị duyệt:</Text> Tin đăng chưa được hiển thị ra ngoài Chợ Campus cho đến khi được duyệt an toàn.
+          </Text>
+        </View>
+      )}
+
+      {/* Moderation Status Notice: Rejected */}
+      {item.status === 'rejected' && (
+        <View style={styles.rejectedBanner}>
+          <View style={styles.rejectedHeaderRow}>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+            <Text style={styles.rejectedTitle}>Tin đăng bị từ chối duyệt</Text>
+          </View>
+          <Text style={styles.rejectedReasonText}>
+            Lý do: {item.rejectionReason || 'Nội dung hoặc hình ảnh vi phạm quy chế đăng tin FPT Market.'}
+          </Text>
+        </View>
+      )}
+
       {/* Bottom Action Buttons Row */}
       <View style={styles.cardActionsRow}>
-        {/* Sửa tin (chỉ cho bài chưa bán) */}
-        {item.status !== 'sold' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnBlue]}
-            activeOpacity={0.75}
-            onPress={() => onEdit(item)}
-          >
-            <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
-            <Text style={styles.actionBtnBlueText}>Sửa tin</Text>
-          </TouchableOpacity>
-        )}
+        {item.status === 'rejected' ? (
+          <>
+            {/* Sửa & gửi lại tin */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnOrange, { flex: 2 }]}
+              activeOpacity={0.75}
+              onPress={() => onEdit(item)}
+            >
+              <Ionicons name="create-outline" size={14} color="#C2410C" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnOrangeText}>Sửa & gửi lại tin</Text>
+            </TouchableOpacity>
 
-        {/* Đẩy tin (cho bài active) */}
-        {item.status === 'active' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnOrange]}
-            activeOpacity={0.75}
-            onPress={() => onBoost(item.id, item.title)}
-          >
-            <Ionicons name="rocket-outline" size={13} color="#C2410C" style={{ marginRight: 4 }} />
-            <Text style={styles.actionBtnOrangeText}>Đẩy tin</Text>
-          </TouchableOpacity>
-        )}
+            {/* Xóa tin */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnRed]}
+              activeOpacity={0.75}
+              onPress={() => onDelete(item.id, item.title)}
+            >
+              <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnRedText}>Xóa tin</Text>
+            </TouchableOpacity>
+          </>
+        ) : item.status === 'pending' ? (
+          <>
+            {/* Sửa tin đang chờ duyệt */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnBlue, { flex: 2 }]}
+              activeOpacity={0.75}
+              onPress={() => onEdit(item)}
+            >
+              <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnBlueText}>Chỉnh sửa tin</Text>
+            </TouchableOpacity>
 
-        {/* Gia hạn 30 ngày (cho bài active) */}
-        {item.status === 'active' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnGray]}
-            activeOpacity={0.75}
-            onPress={() => onRenew(item.id, item.title)}
-          >
-            <Ionicons name="refresh-outline" size={13} color="#475569" style={{ marginRight: 4 }} />
-            <Text style={styles.actionBtnGrayText}>Gia hạn</Text>
-          </TouchableOpacity>
-        )}
+            {/* Hủy đăng tin */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnRed]}
+              activeOpacity={0.75}
+              onPress={() => onDelete(item.id, item.title)}
+            >
+              <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnRedText}>Hủy tin</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {/* Sửa tin (chỉ cho bài chưa bán) */}
+            {item.status !== 'sold' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnBlue]}
+                activeOpacity={0.75}
+                onPress={() => onEdit(item)}
+              >
+                <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnBlueText}>Sửa tin</Text>
+              </TouchableOpacity>
+            )}
 
-        {/* Tạm ẩn / Mở bán lại (chỉ cho bài chưa bán) */}
-        {item.status !== 'sold' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnBlue]}
-            activeOpacity={0.75}
-            onPress={() => onToggleHide(item.id, item.title, isHidden)}
-          >
-            <Ionicons
-              name={isHidden ? 'eye-outline' : 'eye-off-outline'}
-              size={13}
-              color="#1E3A8A"
-              style={{ marginRight: 4 }}
-            />
-            <Text style={styles.actionBtnBlueText}>
-              {isHidden ? 'Hiện lại' : 'Tạm ẩn'}
-            </Text>
-          </TouchableOpacity>
-        )}
+            {/* Đẩy tin (cho bài active) */}
+            {item.status === 'active' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnOrange]}
+                activeOpacity={0.75}
+                onPress={() => onBoost(item.id, item.title)}
+              >
+                <Ionicons name="rocket-outline" size={13} color="#C2410C" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnOrangeText}>Đẩy tin</Text>
+              </TouchableOpacity>
+            )}
 
-        {/* Trạng thái Đã giao dịch cho bài sold */}
-        {item.status === 'sold' && (
-          <View style={[styles.actionBtn, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-            <Ionicons name="checkmark-done-circle" size={13} color="#059669" style={{ marginRight: 4 }} />
-            <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>Đã giao dịch</Text>
-          </View>
-        )}
+            {/* Gia hạn 30 ngày (cho bài active) */}
+            {item.status === 'active' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnGray]}
+                activeOpacity={0.75}
+                onPress={() => onRenew(item.id, item.title)}
+              >
+                <Ionicons name="refresh-outline" size={13} color="#475569" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnGrayText}>Gia hạn</Text>
+              </TouchableOpacity>
+            )}
 
-        {/* Đã bán (cho active / scheduled) */}
-        {item.status !== 'sold' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.actionBtnGreen]}
-            activeOpacity={0.75}
-            onPress={() => onMarkSold(item.id, item.title)}
-          >
-            <Ionicons name="checkmark-circle-outline" size={13} color="#065F46" style={{ marginRight: 4 }} />
-            <Text style={styles.actionBtnGreenText}>Đã bán</Text>
-          </TouchableOpacity>
-        )}
+            {/* Tạm ẩn / Mở bán lại (chỉ cho bài chưa bán) */}
+            {item.status !== 'sold' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnBlue]}
+                activeOpacity={0.75}
+                onPress={() => onToggleHide(item.id, item.title, isHidden)}
+              >
+                <Ionicons
+                  name={isHidden ? 'eye-outline' : 'eye-off-outline'}
+                  size={13}
+                  color="#1E3A8A"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.actionBtnBlueText}>
+                  {isHidden ? 'Hiện lại' : 'Tạm ẩn'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
-        {/* Xóa vĩnh viễn */}
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnRed]}
-          activeOpacity={0.75}
-          onPress={() => onDelete(item.id, item.title)}
-        >
-          <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
-          <Text style={styles.actionBtnRedText}>Xóa</Text>
-        </TouchableOpacity>
+            {/* Trạng thái Đã giao dịch cho bài sold */}
+            {item.status === 'sold' && (
+              <View style={[styles.actionBtn, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                <Ionicons name="checkmark-done-circle" size={13} color="#059669" style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>Đã giao dịch</Text>
+              </View>
+            )}
+
+            {/* Đã bán (cho active / scheduled) */}
+            {item.status !== 'sold' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnGreen]}
+                activeOpacity={0.75}
+                onPress={() => onMarkSold(item.id, item.title)}
+              >
+                <Ionicons name="checkmark-circle-outline" size={13} color="#065F46" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnGreenText}>Đã bán</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Xóa vĩnh viễn */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnRed]}
+              activeOpacity={0.75}
+              onPress={() => onDelete(item.id, item.title)}
+            >
+              <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnRedText}>Xóa</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -367,5 +438,44 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#DC2626',
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 10,
+    padding: 9,
+    marginBottom: 10,
+  },
+  pendingBannerText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#92400E',
+    lineHeight: 16,
+  },
+  rejectedBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  rejectedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  rejectedTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  rejectedReasonText: {
+    fontSize: 11.5,
+    color: '#B91C1C',
+    lineHeight: 16,
   },
 });

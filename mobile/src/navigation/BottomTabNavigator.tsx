@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,8 @@ import {
   SavedItemsScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
-import { useUserStore, useChatStore } from '../stores';
+import { useUserStore, useChatStore, useOrderStore, useNotificationStore } from '../stores';
+import { useKho } from '../context/KhoContext';
 import { RequireAuthModal } from '../components';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -66,7 +67,7 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
       return {
         iconFocused: 'file-tray-full',
         iconUnfocused: 'file-tray-full-outline',
-        label: 'Kênh bán',
+        label: 'Kho hàng',
       };
     case 'Profile':
     default:
@@ -80,6 +81,11 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const { isAuthenticated, user } = useUserStore();
+  const { inventoryStats } = useKho();
+  const { orders } = useOrderStore();
+  const unreadNotificationCount = useNotificationStore((s) =>
+    s.notifications.filter((n) => n.unread).length
+  );
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );
@@ -91,6 +97,28 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   const isSeller = user?.role === 'SELLER';
   const isVerified = (user?.isKycVerified || isSeller) && user?.kycStatus !== 'PENDING';
 
+  // 1. Badge Đơn mua: Đếm các đơn hàng đang hoạt động / cần chú ý (đang thanh toán, chờ gặp Safe-Point, khiếu nại)
+  const activeOrdersCount = useMemo(() => {
+    if (!isAuthenticated || !user?.id) return 0;
+    return orders.filter(
+      (o) =>
+        o.buyerId === user.id &&
+        ['PENDING_SAFEPOINT', 'ESCROW_PAID', 'HANDOVER_CONFIRMED', 'DISPUTED'].includes(o.status)
+    ).length;
+  }, [orders, isAuthenticated, user?.id]);
+
+  // 2. Badge Kho hàng: Chỉ hiện khi có tin cần người bán chú ý (tin bị từ chối cần sửa hoặc tin chờ duyệt)
+  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
+
+  // 3. Badge Tài khoản Profile: Hiện khi có thông báo mới chưa đọc
+  const profileAttentionCount = unreadNotificationCount;
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      useChatStore.getState().fetchConversations().catch(() => {});
+    }
+  }, [isAuthenticated]);
+
   const handleTabPress = useCallback(
     (route: any, isFocused: boolean) => {
       // 1. Kiểm tra Guest Mode (Chưa đăng nhập)
@@ -101,6 +129,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
           if (route.name === 'Saved') featureName = 'Danh sách sản phẩm đã lưu';
           if (route.name === 'Orders') featureName = 'Quản lý đơn hàng';
           if (route.name === 'PostItem') featureName = 'Đăng bán đồ thanh lý';
+          if (route.name === 'MyListings') featureName = 'Kho hàng & quản lý tin đăng';
 
           setModalMode('auth');
           setModalTitle('Yêu cầu đăng nhập tài khoản');
@@ -141,6 +170,15 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
     },
     [isAuthenticated, isVerified, navigation]
   );
+
+  // Ẩn thanh bottom tab bar khi đang ở màn hình Đăng tin (PostItem)
+  // để toàn bộ diện tích màn hình dành cho form đăng bán và nút submit không bị che
+  // (ĐẶT SAU TẤT CẢ CÁC HOOKS ĐỂ TUÂN THỦ 100% RULES OF HOOKS CỦA REACT)
+  const currentRoute = state.routes[state.index];
+  const focusedOptions = currentRoute ? descriptors[currentRoute.key]?.options : undefined;
+  if (currentRoute?.name === 'PostItem' || (focusedOptions?.tabBarStyle as any)?.display === 'none') {
+    return null;
+  }
 
   return (
     <>
@@ -188,6 +226,27 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
                     </Text>
                   </View>
                 )}
+                {route.name === 'Orders' && isAuthenticated && activeOrdersCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {activeOrdersCount > 99 ? '99+' : activeOrdersCount}
+                    </Text>
+                  </View>
+                )}
+                {route.name === 'MyListings' && isSeller && khoAttentionCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {khoAttentionCount > 99 ? '99+' : khoAttentionCount}
+                    </Text>
+                  </View>
+                )}
+                {route.name === 'Profile' && isAuthenticated && profileAttentionCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {profileAttentionCount > 99 ? '99+' : profileAttentionCount}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
                 {config.label}
@@ -215,20 +274,25 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
 };
 
 export const BottomTabNavigator = () => {
-  const { user } = useUserStore();
-  const isSeller = user?.role === 'SELLER';
+  const { user, isAuthenticated } = useUserStore();
+  const isSeller = isAuthenticated && user?.role === 'SELLER';
 
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
+      backBehavior="history"
     >
       <Tab.Screen name="Home" component={HomeScreen} />
 
       {isSeller ? (
         <>
-          <Tab.Screen name="Orders" component={OrderListScreen} />
-          <Tab.Screen name="PostItem" component={PostItemScreen} />
+          <Tab.Screen name="MyListings" component={ManageListingsScreen} />
+          <Tab.Screen
+            name="PostItem"
+            component={PostItemScreen}
+            options={{ tabBarStyle: { display: 'none' } }}
+          />
           <Tab.Screen name="Chat" component={ChatListScreen} />
         </>
       ) : (

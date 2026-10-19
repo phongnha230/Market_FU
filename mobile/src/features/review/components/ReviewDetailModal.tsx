@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  TextInput,
   Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -17,18 +18,23 @@ import { resolveProductImage } from '../../../lib/imageResolver';
 interface ReviewDetailModalProps {
   visible: boolean;
   order: OrderItem | null;
+  isSeller?: boolean;
   onClose: () => void;
-  onEditReview: (order: OrderItem) => void;
+  onEditReview?: (order: OrderItem) => void;
 }
 
 export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
   visible,
   order,
+  isSeller = false,
   onClose,
   onEditReview,
 }) => {
   const insets = useSafeAreaInsets();
   const [selectedFullImage, setSelectedFullImage] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+  const replyOrderReview = useOrderStore((s) => s.replyOrderReview);
 
   if (!order) return null;
 
@@ -37,15 +43,17 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
     comment: 'Sản phẩm bàn giao nguyên tem như mô tả, người bán thân thiện và đúng giờ tại Safe-Point!',
     tags: ['Đúng mô tả', 'Thân thiện', 'Hàng nguyên tem'],
     images: [],
-    isAnonymous: true,
+    isAnonymous: false,
     reviewedAt: order.createdAt || 'Gần đây',
-    isPublic: false,
+    isPublic: true,
     canEdit: true,
     bonusCoins: 100,
   };
 
   const review: OrderReviewData = order.reviewData || defaultReview;
-  const isPublic = !!review.isPublic;
+  const buyerDisplayName = review.isAnonymous
+    ? 'Sinh viên FPT (Ẩn danh)'
+    : (order.buyerName || 'Gia Huy');
 
   const ratingLabels: { [key: number]: string } = {
     1: 'Rất tệ 😡',
@@ -55,14 +63,15 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
     5: 'Rất hài lòng & Uy tín ⭐',
   };
 
-  const handleToggleBlindPublic = () => {
-    useOrderStore.getState().toggleReviewPublic(order.orderNumber || order.id);
-    Alert.alert(
-      isPublic ? '🔒 Đã chuyển sang Đánh giá kín' : '🌍 Đã công khai đánh giá',
-      isPublic
-        ? 'Đánh giá đã được đưa về chế độ bảo mật kín (Blind Review).'
-        : 'Đánh giá đã được mở khóa và sẽ xuất hiện ngay trên Profile Người Bán!'
-    );
+  const handleSendReply = () => {
+    if (!replyText.trim()) {
+      Alert.alert('Chưa nhập phản hồi', 'Vui lòng nhập lời cảm ơn hoặc phản hồi gửi đến người mua.');
+      return;
+    }
+    replyOrderReview(order.orderNumber || order.id, replyText.trim());
+    setIsReplying(false);
+    setReplyText('');
+    Alert.alert('🎉 Phản hồi thành công', 'Phản hồi của bạn đã được công khai cùng với đánh giá của người mua!');
   };
 
   return (
@@ -74,62 +83,54 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
             <Ionicons name="close" size={24} color="#0F172A" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Chi tiết Đánh giá của bạn</Text>
-            <Text style={styles.headerSub}>Đơn hàng #{order.orderNumber || order.id}</Text>
+            <Text style={styles.headerTitle}>
+              {isSeller ? 'Đánh giá từ Người Mua' : 'Chi tiết Đánh giá của bạn'}
+            </Text>
+            <Text style={styles.headerSub}>
+              Đơn hàng #{order.orderNumber || order.id} {isSeller ? `• ${buyerDisplayName}` : ''}
+            </Text>
           </View>
-          <TouchableOpacity
-            style={styles.editHeaderBtn}
-            onPress={() => {
-              onClose();
-              onEditReview(order);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="create-outline" size={20} color="#EA580C" />
-          </TouchableOpacity>
+          {!isSeller && onEditReview ? (
+            <TouchableOpacity
+              style={styles.editHeaderBtn}
+              onPress={() => {
+                onClose();
+                onEditReview(order);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="create-outline" size={20} color="#EA580C" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 32 }} />
+          )}
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-          {/* 1. Trạng thái Blind Review Banner */}
-          <View style={[styles.statusBanner, isPublic ? styles.statusBannerPublic : styles.statusBannerBlind]}>
+          {/* 1. Trạng thái Đánh giá công khai Banner */}
+          <View style={[styles.statusBanner, styles.statusBannerPublic]}>
             <View style={styles.statusHeaderRow}>
-              <View style={[styles.statusIconCircle, isPublic ? styles.iconCirclePublic : styles.iconCircleBlind]}>
+              <View style={[styles.statusIconCircle, styles.iconCirclePublic]}>
                 <Ionicons
-                  name={isPublic ? 'earth' : 'shield-checkmark'}
+                  name={isSeller ? 'star' : 'shield-checkmark'}
                   size={18}
-                  color={isPublic ? '#059669' : '#D97706'}
+                  color="#059669"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.statusTitle, isPublic ? styles.statusTitlePublic : styles.statusTitleBlind]}>
-                  {isPublic ? '🌍 Đã công khai trên Hồ sơ Người Bán' : '🔒 Đang bảo mật kín (Blind Review 2 chiều)'}
+                <Text style={[styles.statusTitle, styles.statusTitlePublic]}>
+                  {isSeller ? '🌟 Đã nhận đánh giá công khai từ Người Mua' : '🌍 Đã công khai trên Hồ sơ Người Bán'}
                 </Text>
                 <Text style={styles.statusDesc}>
-                  {isPublic
-                    ? 'Cả hai bên đã hoàn tất đánh giá (hoặc quá hạn 7 ngày). Đánh giá này hiện đang hiển thị trên trang cá nhân của người bán.'
-                    : 'Đánh giá của bạn đang được hệ thống bảo mật để người bán chưa thể biết điểm số, tránh việc trả đũa sao. Sẽ tự động công khai khi Người bán đánh giá lại bạn hoặc sau 7 ngày!'}
+                  {isSeller
+                    ? `Người mua (${buyerDisplayName}) đã hoàn tất đơn tại Safe-Point và đánh giá giao dịch. Điểm uy tín của bạn đã được cộng tức thì vào hồ sơ Người Bán.`
+                    : 'Đánh giá của bạn đã được ghi nhận trực tiếp và hiển thị công khai trên hồ sơ của người bán, cộng điểm uy tín tức thì để hỗ trợ cộng đồng sinh viên FPT tham khảo.'}
                 </Text>
               </View>
             </View>
-
-            {/* Nút mô phỏng mở khóa / ẩn lại */}
-            <TouchableOpacity
-              style={[styles.toggleBtn, isPublic ? styles.toggleBtnPublic : styles.toggleBtnBlind]}
-              onPress={handleToggleBlindPublic}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={isPublic ? 'lock-closed-outline' : 'sparkles'}
-                size={14}
-                color={isPublic ? '#475569' : '#D97706'}
-              />
-              <Text style={[styles.toggleBtnText, isPublic ? styles.toggleBtnTextPublic : styles.toggleBtnTextBlind]}>
-                {isPublic ? 'Chuyển về Đánh giá kín để kiểm tra' : 'Thử mở khóa công khai lên Profile'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {/* 2. Thẻ tóm tắt sản phẩm & Người bán */}
+          {/* 2. Thẻ tóm tắt sản phẩm & Đối tác */}
           <View style={styles.productCard}>
             <Image
               source={resolveProductImage(order.productImage)}
@@ -140,9 +141,15 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
               <Text style={styles.productTitle} numberOfLines={2}>
                 {order.productTitle}
               </Text>
-              <Text style={styles.sellerName}>
-                Người bán: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{order.sellerName}</Text> ({order.sellerCampus || 'Campus'})
-              </Text>
+              {isSeller ? (
+                <Text style={styles.sellerName}>
+                  Người mua: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{buyerDisplayName}</Text> ({order.buyerCampus || 'Hòa Lạc'})
+                </Text>
+              ) : (
+                <Text style={styles.sellerName}>
+                  Người bán: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{order.sellerName}</Text> ({order.sellerCampus || 'Campus'})
+                </Text>
+              )}
               <Text style={styles.safePoint}>
                 Safe-Point: {order.safePoint}
               </Text>
@@ -182,11 +189,13 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
             {/* Nội dung nhận xét */}
             <View style={styles.commentSection}>
-              <Text style={styles.sectionLabel}>Bình luận của bạn:</Text>
+              <Text style={styles.sectionLabel}>
+                {isSeller ? `Nhận xét từ Người Mua (${buyerDisplayName}):` : 'Bình luận của bạn:'}
+              </Text>
               <View style={styles.commentBubble}>
                 <Ionicons name="chatbubble-ellipses-outline" size={16} color="#64748B" style={{ marginTop: 2 }} />
                 <Text style={styles.commentText}>
-                  {review.comment ? review.comment : 'Bạn không để lại lời nhận xét bằng văn bản.'}
+                  {review.comment ? review.comment : (isSeller ? 'Người mua không để lại lời nhận xét bằng văn bản.' : 'Bạn không để lại lời nhận xét bằng văn bản.')}
                 </Text>
               </View>
             </View>
@@ -225,14 +234,23 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
             <View style={styles.divider} />
 
-            {/* Thông tin phụ: Xu & Ẩn danh & Ngày */}
+            {/* Thông tin phụ: Điểm uy tín / Xu & Ẩn danh & Ngày */}
             <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name="gift" size={16} color="#D97706" />
-                <Text style={styles.metaText}>
-                  Thưởng: <Text style={{ fontWeight: '800', color: '#D97706' }}>+{review.bonusCoins || 100} Xu</Text>
-                </Text>
-              </View>
+              {isSeller ? (
+                <View style={styles.metaItem}>
+                  <Ionicons name="shield-checkmark" size={16} color="#059669" />
+                  <Text style={styles.metaText}>
+                    Uy tín: <Text style={{ fontWeight: '800', color: '#059669' }}>+{review.rating === 5 ? 5 : 2} Điểm</Text>
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.metaItem}>
+                  <Ionicons name="gift" size={16} color="#D97706" />
+                  <Text style={styles.metaText}>
+                    Thưởng: <Text style={{ fontWeight: '800', color: '#D97706' }}>+{review.bonusCoins || 100} Xu</Text>
+                  </Text>
+                </View>
+              )}
               <View style={styles.metaItem}>
                 <Ionicons name={review.isAnonymous ? 'shield-outline' : 'person-outline'} size={15} color="#64748B" />
                 <Text style={styles.metaText}>
@@ -246,30 +264,106 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
             </View>
           </View>
 
-          {/* 4. Thao tác chỉnh sửa & chính sách */}
-          <View style={styles.actionSection}>
-            <TouchableOpacity
-              style={styles.editBtn}
-              activeOpacity={0.88}
-              onPress={() => {
-                onClose();
-                onEditReview(order);
-              }}
-            >
-              <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.editBtnText}>Chỉnh sửa đánh giá (Đổi sao / bình luận / ảnh)</Text>
-            </TouchableOpacity>
+          {/* Phản hồi từ Người Bán (nếu đã có) */}
+          {review.replyComment && (
+            <View style={styles.sellerRepliedCard}>
+              <View style={styles.sellerRepliedHeader}>
+                <Ionicons name="return-down-forward" size={16} color="#EA580C" />
+                <Text style={styles.sellerRepliedTitle}>Phản hồi từ Người Bán</Text>
+                {review.repliedAt && (
+                  <Text style={styles.sellerRepliedTime}>• {review.repliedAt}</Text>
+                )}
+              </View>
+              <Text style={styles.sellerRepliedContent}>{review.replyComment}</Text>
+            </View>
+          )}
 
-            <View style={styles.policyCard}>
-              <Ionicons name="information-circle-outline" size={18} color="#64748B" style={{ marginTop: 1 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.policyTitle}>Quy định bảo vệ Xu & Uy tín Campus</Text>
-                <Text style={styles.policyText}>
-                  Theo quy chế FPT Market, sinh viên <Text style={{ fontWeight: '700' }}>không được tự ý xóa đánh giá</Text> nhằm bảo toàn số FPT Xu đã nhận (+{review.bonusCoins || 100} Xu) và tính minh bạch của Điểm Uy Tín. Nếu phát hiện sai sót nghiêm trọng, vui lòng liên hệ Admin qua chức năng Báo cáo.
-                </Text>
+          {/* 4. Thao tác dành cho Người Bán hoặc Người Mua */}
+          {isSeller ? (
+            <View style={styles.actionSection}>
+              {!review.replyComment && (
+                <>
+                  {isReplying ? (
+                    <View style={styles.replyInputWrapper}>
+                      <Text style={styles.replyInputLabel}>Gửi phản hồi công khai tới người mua:</Text>
+                      <TextInput
+                        style={styles.replyTextInput}
+                        placeholder="Ví dụ: Cảm ơn bạn Gia Huy đã tin tưởng ủng hộ shop nhé! Chúc bạn học tốt..."
+                        placeholderTextColor="#94A3B8"
+                        multiline
+                        numberOfLines={3}
+                        value={replyText}
+                        onChangeText={setReplyText}
+                      />
+                      <View style={styles.replyBtnRow}>
+                        <TouchableOpacity
+                          style={styles.cancelReplyBtn}
+                          onPress={() => {
+                            setIsReplying(false);
+                            setReplyText('');
+                          }}
+                        >
+                          <Text style={styles.cancelReplyBtnText}>Hủy</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.submitReplyBtn}
+                          onPress={handleSendReply}
+                        >
+                          <Ionicons name="send" size={14} color="#FFFFFF" />
+                          <Text style={styles.submitReplyBtnText}>Gửi phản hồi</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.replyTriggerBtn}
+                      activeOpacity={0.88}
+                      onPress={() => setIsReplying(true)}
+                    >
+                      <Ionicons name="chatbox-ellipses-outline" size={18} color="#EA580C" />
+                      <Text style={styles.replyTriggerBtnText}>Phản hồi đánh giá của Người Mua</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+
+              <View style={styles.policyCard}>
+                <Ionicons name="shield-checkmark-outline" size={18} color="#059669" style={{ marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.policyTitle}>Cơ chế Đánh giá 1 chiều minh bạch</Text>
+                  <Text style={styles.policyText}>
+                    Điểm đánh giá từ người mua được ghi nhận trực tiếp vào hồ sơ và Điểm Uy Tín của bạn (+{review.rating === 5 ? 5 : 2} điểm). Người bán có thể gửi lời cảm ơn hoặc phản hồi văn minh để củng cố uy tín tại Campus.
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.actionSection}>
+              {onEditReview && (
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    onClose();
+                    onEditReview(order);
+                  }}
+                >
+                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.editBtnText}>Chỉnh sửa đánh giá (Đổi sao / bình luận / ảnh)</Text>
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.policyCard}>
+                <Ionicons name="information-circle-outline" size={18} color="#64748B" style={{ marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.policyTitle}>Quy định bảo vệ Xu & Uy tín Campus</Text>
+                  <Text style={styles.policyText}>
+                    Theo quy chế FPT Market, sinh viên <Text style={{ fontWeight: '700' }}>không được tự ý xóa đánh giá</Text> nhằm bảo toàn số FPT Xu đã nhận (+{review.bonusCoins || 100} Xu) và tính minh bạch của Điểm Uy Tín. Nếu phát hiện sai sót nghiêm trọng, vui lòng liên hệ Admin qua chức năng Báo cáo.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
         </ScrollView>
 
         {/* Modal xem ảnh full screen */}
@@ -655,6 +749,104 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  sellerRepliedCard: {
+    backgroundColor: '#FFF7ED',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F97316',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 2,
+    gap: 4,
+  },
+  sellerRepliedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sellerRepliedTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#C2410C',
+  },
+  sellerRepliedTime: {
+    fontSize: 11,
+    color: '#9A3412',
+  },
+  sellerRepliedContent: {
+    fontSize: 12.5,
+    color: '#7C2D12',
+    lineHeight: 18,
+  },
+  replyTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  replyTriggerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  replyInputWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  replyInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  replyTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  replyBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  cancelReplyBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  cancelReplyBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  submitReplyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#EA580C',
+  },
+  submitReplyBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

@@ -52,10 +52,7 @@ const OrderCardItem: React.FC<{
   const isBuyer = !isSaleForCurrent;
   const isCompleted = item.status === 'COMPLETED';
   const canBuyerDispute =
-    isBuyer &&
-    (item.status === 'COMPLETED' ||
-      item.status === 'ESCROW_PAID' ||
-      item.status === 'HANDOVER_CONFIRMED');
+    isBuyer && (item.status === 'COMPLETED' || item.status === 'DELIVERED');
   const canBuyerReview = isBuyer && isCompleted && !item.isReviewed;
 
   const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
@@ -117,6 +114,14 @@ const OrderCardItem: React.FC<{
               {item.safePoint}
             </Text>
           </View>
+          {!!item.timeSlot && (
+            <View style={styles.timeSlotRow}>
+              <Ionicons name="calendar-outline" size={12} color="#D97706" />
+              <Text style={styles.timeSlotText} numberOfLines={1}>
+                {item.timeSlot}
+              </Text>
+            </View>
+          )}
           <Text style={styles.priceText}>{formatPrice(item.totalAmount || item.price)}</Text>
         </View>
       </TouchableOpacity>
@@ -139,7 +144,9 @@ const OrderCardItem: React.FC<{
               activeOpacity={0.8}
               onPress={handleDispute}
             >
-              <Text style={styles.disputeBtnText}>Trả hàng</Text>
+              <Text style={styles.disputeBtnText}>
+                {item.status === 'DELIVERED' ? 'Trả hàng' : 'Khiếu nại'}
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -457,6 +464,7 @@ export const OrderListScreen: React.FC = () => {
       <ReviewDetailModal
         visible={!!selectedReviewOrder}
         order={selectedReviewOrder}
+        isSeller={selectedReviewOrder ? selectedReviewOrder.sellerId === currentUserId : false}
         onClose={() => setSelectedReviewOrder(null)}
         onEditReview={handleEditReviewFromModal}
       />
@@ -603,6 +611,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#059669',
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  timeSlotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  timeSlotText: {
+    fontSize: 11,
+    color: '#D97706',
+    fontWeight: '700',
     flexShrink: 1,
   },
   priceText: {

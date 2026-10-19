@@ -1,5 +1,12 @@
-export type PostCategory = 'it' | 'book' | 'dom' | 'vovinam';
-export type PostCondition = 'new' | 'good' | 'free';
+export type PostCategory =
+  | 'books'
+  | 'electronics'
+  | 'fashion'
+  | 'dorm'
+  | 'hobbies'
+  | 'services';
+
+export type PostCondition = 'seal' | 'likenew' | 'good' | 'used';
 
 export interface PostImageItem {
   id: string;

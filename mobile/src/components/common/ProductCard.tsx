@@ -35,10 +35,10 @@ export interface ProductCardProps {
   description?: string;
   hashtags?: string[];
   campus?: string;
-  onPress?: () => void;
+  onPress?: ((id: string) => void) | (() => void);
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({
+export const ProductCard: React.FC<ProductCardProps> = React.memo(({
   id,
   title,
   price,
@@ -69,6 +69,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [hasError, setHasError] = useState(false);
   const imageSource = hasError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(image);
 
+  const handleCardPress = () => {
+    if (onPress) {
+      (onPress as any)(id);
+    } else {
+      navigation.navigate('ProductDetail', { productId: id });
+    }
+  };
+
   const handleToggleLike = () => {
     if (isOwn) {
       Alert.alert('Thông báo', 'Bạn không thể tự lưu sản phẩm do chính bạn đăng bán!');
@@ -97,7 +105,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   return (
-    <TouchableOpacity style={[styles.card, cardStyle]} activeOpacity={0.88} onPress={onPress}>
+    <TouchableOpacity style={[styles.card, cardStyle]} activeOpacity={0.88} onPress={handleCardPress}>
       <View style={styles.imageBox}>
         <Image
           source={imageSource}
@@ -179,7 +187,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -189,7 +197,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.05)',
+    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
   imageBox: { width: '100%', height: 135, backgroundColor: '#F8FAFC', position: 'relative' },
   image: { width: '100%', height: '100%' },

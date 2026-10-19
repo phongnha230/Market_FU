@@ -10,9 +10,12 @@ export interface HomeHeaderProps {
   campusName?: string;
   avatarUrl?: string;
   isAuthenticated?: boolean;
+  isSeller?: boolean;
   unreadNotificationCount?: number;
+  khoCount?: number;
   onSearchPress?: () => void;
   onNotificationPress?: () => void;
+  onKhoPress?: () => void;
   onAvatarPress?: () => void;
   onCampusChangePress?: () => void;
 }
@@ -22,9 +25,12 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
   campusName = 'HÒA LẠC',
   avatarUrl,
   isAuthenticated = false,
+  isSeller = false,
   unreadNotificationCount = 0,
+  khoCount = 0,
   onSearchPress,
   onNotificationPress,
+  onKhoPress,
   onAvatarPress,
   onCampusChangePress,
 }) => {
@@ -57,6 +63,23 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         </View>
 
         <View style={styles.rightSection}>
+          {isAuthenticated && isSeller && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={onKhoPress}
+              accessibilityLabel="Kho hàng của tôi"
+            >
+              {khoCount > 0 && (
+                <View style={styles.khoBadge}>
+                  <Text style={styles.khoBadgeText}>
+                    {khoCount > 99 ? '99+' : khoCount}
+                  </Text>
+                </View>
+              )}
+              <Ionicons name="file-tray-full-outline" size={22} color="#1E293B" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.iconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -216,6 +239,27 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
+  },
+  khoBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EA580C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    zIndex: 2,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  khoBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',

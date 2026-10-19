@@ -26,7 +26,7 @@ export const useVoucher = () => {
   const fetchAvailableVouchers = useVoucherStore((state) => state.fetchAvailableVouchers);
   const fetchMyVouchers = useVoucherStore((state) => state.fetchMyVouchers);
   const redeemVoucherStore = useVoucherStore((state) => state.redeemVoucher);
-  const useVoucherCodeStore = useVoucherStore((state) => state.useVoucherCode);
+  const applyVoucherCodeStore = useVoucherStore((state) => state.applyVoucherCode);
 
   // UI States
   const [pageView, setPageView] = useState<VoucherPageView>('store');
@@ -231,7 +231,7 @@ export const useVoucher = () => {
   const handleConfirmUseVoucher = useCallback(
     async (voucher: UserVoucher) => {
       try {
-        const res = await useVoucherCodeStore(voucher.voucherCode);
+        const res = await applyVoucherCodeStore(voucher.voucherCode);
         if (res.success) {
           Alert.alert('✅ Thành công', res.message || 'Voucher đã được xác nhận sử dụng thành công!');
           setSelectedUserVoucher((prev) =>
@@ -245,7 +245,7 @@ export const useVoucher = () => {
         Alert.alert('Lỗi', err?.message || 'Lỗi khi kích hoạt voucher.');
       }
     },
-    [useVoucherCodeStore, fetchMyVouchers]
+    [applyVoucherCodeStore, fetchMyVouchers]
   );
 
   // 7. Áp dụng mã ưu đãi trực tiếp
@@ -256,7 +256,7 @@ export const useVoucher = () => {
         return;
       }
       try {
-        const res = await useVoucherCodeStore(code);
+        const res = await applyVoucherCodeStore(code);
         if (res.success) {
           Alert.alert('🎉 Áp dụng thành công', res.message || `Đã sử dụng mã ${code}!`);
           fetchMyVouchers().catch(() => {});
@@ -267,7 +267,7 @@ export const useVoucher = () => {
         Alert.alert('Lỗi', err?.message || 'Không thể áp dụng mã.');
       }
     },
-    [isAuthenticated, useVoucherCodeStore, fetchMyVouchers]
+    [isAuthenticated, applyVoucherCodeStore, fetchMyVouchers]
   );
 
   // 8. Nhận thưởng nhiệm vụ tuần
@@ -305,7 +305,7 @@ export const useVoucher = () => {
         Alert.alert('Nhiệm vụ tuần', msg);
       }
     },
-    [isAuthenticated, coins, handleCheckIn, addCoins, updateUser]
+    [isAuthenticated, addCoins, updateUser]
   );
 
   return {

@@ -336,8 +336,23 @@ export const CheckoutSuccessScreen: React.FC = () => {
           onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
           activeOpacity={0.8}
         >
-          <Ionicons name="home-outline" size={18} color="#475569" />
-          <Text style={styles.homeBtnText}>Về trang chủ</Text>
+          <Ionicons name="home-outline" size={18} color="#E2E8F0" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.chatBtn}
+          onPress={() =>
+            navigation.navigate('ChatDetail', {
+              product,
+              partner: {
+                name: product.sellerName,
+              },
+            })
+          }
+          activeOpacity={0.85}
+        >
+          <Ionicons name="chatbubbles-outline" size={16} color="#EA580C" style={{ marginRight: 4 }} />
+          <Text style={styles.chatBtnText}>Khung chat</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -353,7 +368,7 @@ export const CheckoutSuccessScreen: React.FC = () => {
           }
           activeOpacity={0.85}
         >
-          <Ionicons name="receipt-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Ionicons name="receipt-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
           <Text style={styles.detailBtnText}>Xem đơn hàng</Text>
         </TouchableOpacity>
       </View>
@@ -789,24 +804,33 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   homeBtn: {
-    flex: 1,
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     backgroundColor: '#0F172A',
     borderRadius: 12,
-    height: 48,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  homeBtnText: {
-    fontSize: 13.5,
+  chatBtn: {
+    flex: 1.1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    height: 48,
+  },
+  chatBtnText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: '#EA580C',
   },
   detailBtn: {
-    flex: 1.4,
+    flex: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -816,7 +840,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
   },
   detailBtnText: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
   },

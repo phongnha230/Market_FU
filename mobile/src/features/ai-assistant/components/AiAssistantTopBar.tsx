@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface AiAssistantTopBarProps {
   insetsTop: number;
   currentCampus?: string;
+  userAvatar?: string;
+  userName?: string;
   onBack: () => void;
   onHome: () => void;
   onNotification: () => void;
@@ -17,6 +21,8 @@ interface AiAssistantTopBarProps {
 export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
   insetsTop,
   currentCampus,
+  userAvatar,
+  userName,
   onBack,
   onHome,
   onNotification,
@@ -68,7 +74,18 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
             activeOpacity={0.8}
             onPress={onProfile}
           >
-            <Ionicons name="person" size={16} color="#FFFFFF" />
+            {userAvatar ? (
+              <Image
+                source={resolveAvatarImage(userAvatar)}
+                style={styles.userAvatarImg}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <Text style={styles.userAvatarInitial}>
+                {(userName || 'U').charAt(0).toUpperCase()}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -174,12 +191,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#EA580C',
   },
   userAvatarBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#9A3412',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EA580C',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  userAvatarImg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  userAvatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   aiHeaderBar: {
     flexDirection: 'row',

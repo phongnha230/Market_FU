@@ -8,7 +8,7 @@ interface CategoryGridProps {
   onCategoryPress?: (category: CategoryItem) => void;
 }
 
-export const CategoryGrid: React.FC<CategoryGridProps> = ({
+export const CategoryGrid: React.FC<CategoryGridProps> = React.memo(({
   categories,
   onCategoryPress,
 }) => {
@@ -18,7 +18,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
         <TouchableOpacity
           key={cat.id}
           style={styles.item}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
           onPress={() => onCategoryPress && onCategoryPress(cat)}
         >
           <View style={[styles.iconCircle, { backgroundColor: cat.color }]}>
@@ -27,14 +27,14 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 <Text style={styles.badgeText}>{cat.badge}</Text>
               </View>
             )}
-            <Ionicons name={cat.icon as any} size={24} color={cat.iconColor} />
+            <Ionicons name={cat.icon as any} size={22} color={cat.iconColor} />
           </View>
-          <Text style={styles.title}>{cat.name}</Text>
+          <Text style={styles.title} numberOfLines={1}>{cat.name}</Text>
         </TouchableOpacity>
       ))}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   grid: {

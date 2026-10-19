@@ -191,12 +191,12 @@ export const PublicSellerProfileScreen: React.FC = () => {
     );
   }, [orders, targetIdOrName, paramSellerName]);
 
-  // Nếu đánh giá đã được mở khóa isPublic = true -> merge vào reviews list hiển thị trên Profile
+  // Đánh giá từ người mua được hiển thị công khai ngay lập tức trên Profile người bán
   const displayedReviews = useMemo(() => {
     let list = [...reviews];
-    if (myReviewedOrderWithSeller?.reviewData?.isPublic) {
+    if (myReviewedOrderWithSeller?.reviewData) {
       const alreadyInList = list.some(
-        (r) => r.id === `my-rev-${myReviewedOrderWithSeller.id}` || r.orderId === myReviewedOrderWithSeller.id
+        (r) => r.id === `my-rev-${myReviewedOrderWithSeller.id}` || r.orderId === myReviewedOrderWithSeller.id || r.id === myReviewedOrderWithSeller.id
       );
       if (!alreadyInList) {
         list.unshift({
@@ -217,22 +217,29 @@ export const PublicSellerProfileScreen: React.FC = () => {
   }, [reviews, myReviewedOrderWithSeller, currentUser]);
 
   const displayedStats = useMemo(() => {
-    if (myReviewedOrderWithSeller?.reviewData?.isPublic && reviews.length === 0) {
-      const star = myReviewedOrderWithSeller.reviewData.rating || 5;
+    if (displayedReviews.length > 0) {
+      const total = displayedReviews.length;
+      const sum = displayedReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+      const avg = Number((sum / total).toFixed(1));
+      const dist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+      displayedReviews.forEach((r) => {
+        const star = Math.round(Number(r.rating) || 5);
+        if (dist[star] !== undefined) dist[star]++;
+      });
       return {
-        totalReceived: 1,
-        averageRating: star,
-        ratingDistribution: {
-          5: star === 5 ? 1 : 0,
-          4: star === 4 ? 1 : 0,
-          3: star === 3 ? 1 : 0,
-          2: star === 2 ? 1 : 0,
-          1: star === 1 ? 1 : 0,
-        },
+        totalReceived: total,
+        averageRating: avg,
+        ratingDistribution: dist,
       };
     }
-    return reviewStats;
-  }, [reviewStats, myReviewedOrderWithSeller, reviews.length]);
+    return (
+      reviewStats || {
+        totalReceived: 0,
+        averageRating: null,
+        ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      }
+    );
+  }, [displayedReviews, reviewStats]);
 
   const handleOpenMyReviewDetail = useCallback((order: OrderItem) => {
     setSelectedReviewOrder(order);
@@ -318,6 +325,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
               paramSellerName={paramSellerName}
               productsCount={products.length}
               reviewsCount={displayedStats.totalReceived}
+              averageRating={displayedStats.averageRating}
             />
 
             {/* 2. Tab Bar: Đang bán / Đánh giá / FPT Care */}
@@ -349,7 +357,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
                   onSelectRating={setSelectedRating}
                   onlyHasImages={onlyHasImages}
                   onToggleOnlyHasImages={() => setOnlyHasImages(!onlyHasImages)}
-                  myBlindReview={!myReviewedOrderWithSeller?.reviewData?.isPublic ? myReviewedOrderWithSeller : undefined}
+                  myBlindReview={undefined}
                   onOpenMyReviewDetail={handleOpenMyReviewDetail}
                   onToggleReviewPublic={handleToggleReviewPublic}
                 />
@@ -416,6 +424,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
       <ReviewDetailModal
         visible={!!selectedReviewOrder}
         order={selectedReviewOrder}
+        isSeller={false}
         onClose={() => setSelectedReviewOrder(null)}
         onEditReview={handleEditReviewFromModal}
       />

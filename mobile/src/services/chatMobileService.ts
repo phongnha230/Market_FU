@@ -27,6 +27,8 @@ export interface ConversationItem {
   productTitle?: string;
   productPrice?: number;
   productImage?: string;
+  buyerId?: string;
+  sellerId?: string;
 }
 
 export const chatMobileService = {
@@ -35,10 +37,17 @@ export const chatMobileService = {
    */
   async getConversations(): Promise<ConversationItem[]> {
     try {
-      const res = await apiClient.get<ApiResponse<any[]>>('/chats/conversations');
-      if (res.data?.data && Array.isArray(res.data.data)) {
-        return res.data.data.map((c) => {
-          const partner = c.otherUser || c.partner || c.seller || c.buyer || {};
+      const res = await apiClient.get<ApiResponse<any>>('/chats/conversations');
+      const rawData = res.data?.data;
+      const rawList = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData?.conversations)
+        ? rawData.conversations
+        : [];
+
+      if (rawList.length > 0 || Array.isArray(rawData?.conversations)) {
+        return rawList.map((c: any) => {
+          const partner = c.otherParty || c.otherUser || c.partner || c.seller || c.buyer || {};
           const product = c.product || {};
           return {
             id: c.id || c._id,
@@ -52,6 +61,8 @@ export const chatMobileService = {
             productTitle: product.title,
             productPrice: product.price,
             productImage: product.images?.[0]?.imageUrl || product.images?.[0],
+            buyerId: c.buyerId,
+            sellerId: c.sellerId,
           };
         });
       }
@@ -73,13 +84,36 @@ export const chatMobileService = {
   },
 
   /**
+   * Tạo hoặc mở cuộc trò chuyện kèm chi tiết đối tác
+   */
+  async createOrGetConversationDetails(productId: string): Promise<{ conversationId: string; partner?: any; conversation?: any }> {
+    const res = await apiClient.post<ApiResponse<any>>('/chats/conversations', {
+      productId,
+    });
+    const data = res.data?.data;
+    const conversationId = data?.id || data?._id;
+    return {
+      conversationId,
+      partner: data?.seller || data?.buyer || data?.otherParty,
+      conversation: data,
+    };
+  },
+
+  /**
    * Lấy tin nhắn trong cuộc trò chuyện
    */
   async getMessages(conversationId: string, currentUserId: string): Promise<ChatMessage[]> {
     try {
-      const res = await apiClient.get<ApiResponse<any[]>>(`/chats/conversations/${conversationId}/messages`);
-      if (res.data?.data && Array.isArray(res.data.data)) {
-        return res.data.data.map((m) => {
+      const res = await apiClient.get<ApiResponse<any>>(`/chats/conversations/${conversationId}/messages`);
+      const rawData = res.data?.data;
+      const rawMessages = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData?.messages)
+        ? rawData.messages
+        : [];
+
+      if (rawMessages.length > 0 || Array.isArray(rawData?.messages)) {
+        return rawMessages.map((m: any) => {
           const senderId = m.senderId || m.sender?.id || m.sender?._id;
           return {
             id: m.id || m._id,
@@ -122,18 +156,6 @@ export const chatMobileService = {
     const res = await apiClient.post<ApiResponse<any>>(`/chats/conversations/${conversationId}/messages`, body);
     const m = res.data?.data || {};
 
-    // Gửi realtime qua Socket.io
-    const socket = socketMobileService.getSocket();
-    if (socket && socket.connected) {
-      socket.emit('send_message', {
-        conversationId,
-        text: content,
-        messageType,
-        offerPrice,
-        meetupLocation,
-      });
-    }
-
     return {
       id: m.id || m._id || `msg_${Date.now()}`,
       senderId: m.senderId || 'me',
@@ -149,10 +171,10 @@ export const chatMobileService = {
   },
 
   /**
-   * Gửi đề xuất mặc cả giá trực tiếp
+   * Gửi đề xuất mặc cả giá trực tiếp kèm ghi chú tuỳ chọn của người mua
    */
-  async sendOfferPrice(conversationId: string, offerPrice: number): Promise<ChatMessage> {
-    const text = `Đề xuất giá mới: ${offerPrice.toLocaleString('vi-VN')}đ`;
+  async sendOfferPrice(conversationId: string, offerPrice: number, messageText?: string): Promise<ChatMessage> {
+    const text = messageText?.trim() || `Đề xuất giá mới: ${offerPrice.toLocaleString('vi-VN')}đ`;
     return this.sendMessage(conversationId, text, 'OFFER_PRICE', offerPrice);
   },
 

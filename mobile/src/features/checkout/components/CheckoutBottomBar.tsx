@@ -45,7 +45,7 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
             : selectedPayment === 'vietqr'
             ? 'Quét mã VietQR Escrow'
             : selectedPayment === 'fptpay'
-            ? 'Thanh toán Ví FPT Pay'
+            ? 'Thanh toán Cổng PayOS'
             : 'Đặt hẹn Safe-Point'}
         </Text>
       </TouchableOpacity>

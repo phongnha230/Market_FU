@@ -161,3 +161,35 @@ export function resolveAvatarImage(source: any, fallbackUrl: string = DEFAULT_AV
   return { uri: fallbackUrl };
 }
 
+/**
+ * Kiểm tra xem URL avatar có phải là ảnh mock dummy (Unsplash stock photos) hay không.
+ */
+export function isDummyAvatar(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return true;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('photo-1535713875002-d1d0cf377fde') ||
+    lower.includes('photo-1534528741775-53994a69daeb') ||
+    lower.includes('photo-1570295999919-56ceb5ecca61')
+  );
+}
+
+/**
+ * Phân giải avatar an toàn: nếu có ảnh thật từ CDN/R2/Google thì dùng,
+ * nếu rỗng hoặc là ảnh dummy placeholder thì sinh avatar chữ cái theo tên chuẩn FPT.
+ */
+export function getSafeAvatar(avatarUrl?: string | null, name?: string): string {
+  if (avatarUrl && !isDummyAvatar(avatarUrl)) {
+    // Nếu là đường dẫn tương đối /uploads
+    if (avatarUrl.startsWith('/uploads/') || avatarUrl.startsWith('uploads/')) {
+      const cleanUpload = avatarUrl.replace(/^\/+/, '');
+      const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+      return `${baseUrl}/${cleanUpload}`;
+    }
+    return avatarUrl;
+  }
+  const cleanName = (name || 'FPT').trim();
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=F97316&color=fff&bold=true`;
+}
+
+

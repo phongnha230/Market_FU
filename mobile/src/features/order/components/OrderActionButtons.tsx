@@ -62,6 +62,7 @@ interface PrimaryActionButtonProps {
   isReviewed: boolean;
   isSubmitting: boolean;
   isDisputed: boolean;
+  onConfirmOrder?: () => void;
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
   onOpenReview: () => void;
@@ -75,12 +76,37 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   isReviewed,
   isSubmitting,
   isDisputed,
+  onConfirmOrder,
   onConfirmReceived,
   onOpenScanner,
   onOpenReview,
   onOpenReviewDetail,
 }) => {
+  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
+
+  // 1. Seller flow
   if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
+    // When pending seller confirmation:
+    if (isPending) {
+      return (
+        <TouchableOpacity
+          style={[styles.confirmReceivedBtn, { backgroundColor: '#059669' }]}
+          activeOpacity={0.88}
+          onPress={onConfirmOrder}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
+              <Text style={styles.confirmReceivedText}>Đồng ý đơn & Chốt lịch hẹn</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
     if (isInterCampus) {
       return (
         <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
@@ -89,6 +115,8 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
         </View>
       );
     }
+
+    // Already confirmed (Escrow holding) -> Seller has QR scanner
     return (
       <TouchableOpacity
         style={[styles.confirmReceivedBtn, styles.sellerBtnBg]}
@@ -102,7 +130,50 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     );
   }
 
-  if (!isSeller && (orderStatus === 'escrow_holding' || orderStatus === 'delivered' || orderStatus === 'DELIVERED')) {
+  // 2. Buyer flow: when order is pending seller confirmation
+  if (!isSeller && isPending) {
+    return (
+      <View style={styles.waitingSellerBanner}>
+        <Ionicons name="hourglass-outline" size={22} color="#D97706" style={styles.mr6} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.waitingSellerTitle}>Đang chờ người bán xác nhận hẹn gặp</Text>
+          <Text style={styles.waitingSellerSub}>
+            Sau khi người bán đồng ý chốt giờ hẹn, mã QR nhận hàng sẽ kích hoạt tại Safe-Point.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // 3. Buyer flow: when waiting for handover or when delivery confirmed
+  if (!isSeller && (orderStatus === 'escrow_holding' || orderStatus === 'ESCROW_PAID')) {
+    // Với đơn hẹn gặp Safe-Point (cùng campus), việc bàn giao do Người bán quét QR / nhập OTP xác thực tại bàn Safe-Point.
+    // Người mua KHÔNG tự bấm "Đã nhận hàng" khi chưa gặp mặt đối tác!
+    if (!isInterCampus) {
+      return (
+        <View style={styles.buyerHandoffGuideCard}>
+          <Ionicons name="shield-checkmark" size={22} color="#059669" style={styles.mr6} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.buyerHandoffGuideTitle}>Đang bảo lãnh Escrow • Chờ bàn giao</Text>
+            <Text style={styles.buyerHandoffGuideSub}>
+              Hãy đến bàn Safe-Point đúng lịch hẹn để test máy. Sau khi ưng ý, hãy đưa mã QR hoặc đọc mã OTP 4 số cho người bán quét để hoàn tất bàn giao.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    // Với đơn liên campus đang vận chuyển, hiển thị trạng thái vận chuyển
+    return (
+      <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
+        <Ionicons name="cube-outline" size={20} color="#EA580C" style={styles.mr6} />
+        <Text style={[styles.confirmReceivedText, { color: '#334155' }]}>Đơn liên campus • Đang vận chuyển tuyến FPT Bus</Text>
+      </View>
+    );
+  }
+
+  // 4. Buyer flow: khi shipper/bưu tá đã phát tới sảnh KTX (DELIVERED), người mua kiểm tra xong mới bấm nhận hàng
+  if (!isSeller && (orderStatus === 'delivered' || orderStatus === 'DELIVERED')) {
     return (
       <TouchableOpacity
         style={styles.confirmReceivedBtn}
@@ -122,20 +193,50 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     );
   }
 
-  if (orderStatus === 'completed' && !isReviewed) {
-    return (
-      <TouchableOpacity
-        style={styles.reviewMainBtn}
-        activeOpacity={0.88}
-        onPress={onOpenReview}
-      >
-        <Ionicons name="star" size={18} color="#FFFFFF" style={styles.mr6} />
-        <Text style={styles.reviewMainText}>Đánh giá người bán ngay</Text>
-      </TouchableOpacity>
-    );
-  }
+  // 5. Completed order flow
+  const isCompleted = orderStatus === 'completed' || orderStatus === 'COMPLETED';
+  if (isCompleted) {
+    // 5a. Dành cho Người Bán: Không yêu cầu người bán tự đánh giá chính mình
+    if (isSeller) {
+      if (isReviewed) {
+        return (
+          <TouchableOpacity
+            style={styles.viewReviewMainBtn}
+            activeOpacity={0.88}
+            onPress={onOpenReviewDetail}
+          >
+            <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
+            <Text style={styles.viewReviewMainText}>Xem đánh giá từ người mua (★ Đã nhận đánh giá)</Text>
+          </TouchableOpacity>
+        );
+      }
+      return (
+        <View style={styles.sellerCompletedBanner}>
+          <Ionicons name="checkmark-circle" size={24} color="#059669" style={styles.mr6} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sellerCompletedTitle}>Giao dịch thành công & Đã giải ngân!</Text>
+            <Text style={styles.sellerCompletedSub}>
+              Đã bàn giao đồ tại Safe-Point và khớp mã Handshake. Tiền bán đã được cộng vào số dư ví của bạn (+5 Điểm Uy Tín).
+            </Text>
+          </View>
+        </View>
+      );
+    }
 
-  if (orderStatus === 'completed' && isReviewed && !isSeller) {
+    // 5b. Dành cho Người Mua:
+    if (!isReviewed) {
+      return (
+        <TouchableOpacity
+          style={styles.reviewMainBtn}
+          activeOpacity={0.88}
+          onPress={onOpenReview}
+        >
+          <Ionicons name="star" size={18} color="#FFFFFF" style={styles.mr6} />
+          <Text style={styles.reviewMainText}>Đánh giá người bán ngay</Text>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <TouchableOpacity
         style={styles.viewReviewMainBtn}
@@ -195,6 +296,7 @@ export interface OrderActionButtonsProps {
   isInterCampus?: boolean;
   isReviewed: boolean;
   isSubmitting: boolean;
+  onConfirmOrder?: () => void;
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
   onOpenReview: () => void;
@@ -211,6 +313,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   isInterCampus,
   isReviewed,
   isSubmitting,
+  onConfirmOrder,
   onConfirmReceived,
   onOpenScanner,
   onOpenReview,
@@ -222,8 +325,15 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
 }) => {
   const isDisputed = orderStatus === 'disputed' || orderStatus === 'DISPUTED';
   const isCancelled = orderStatus === 'cancelled';
+  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
   const canDispute = !isSeller && !isCancelled && !isDisputed && (orderStatus === 'delivered' || orderStatus === 'DELIVERED' || orderStatus === 'completed' || orderStatus === 'COMPLETED');
-  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT' || orderStatus === 'ESCROW_PAID');
+  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || isPending || orderStatus === 'ESCROW_PAID');
+
+  const cancelLabel = isSeller && isPending
+    ? 'Từ chối đơn hàng'
+    : isPending
+    ? 'Hủy yêu cầu đặt đơn'
+    : 'Hủy giao dịch';
 
   return (
     <View style={styles.actionContainer}>
@@ -240,6 +350,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
         isReviewed={isReviewed}
         isSubmitting={isSubmitting}
         isDisputed={isDisputed}
+        onConfirmOrder={onConfirmOrder}
         onConfirmReceived={onConfirmReceived}
         onOpenScanner={onOpenScanner}
         onOpenReview={onOpenReview}
@@ -265,7 +376,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
           ) : (
             <>
               <Ionicons name="close-circle-outline" size={18} color="#64748B" style={styles.mr4} />
-              <Text style={styles.cancelActionText}>Hủy giao dịch</Text>
+              <Text style={styles.cancelActionText}>{cancelLabel}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -302,6 +413,46 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  waitingSellerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  waitingSellerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  waitingSellerSub: {
+    fontSize: 11.5,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  buyerHandoffGuideCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  buyerHandoffGuideTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  buyerHandoffGuideSub: {
+    fontSize: 11.5,
+    color: '#15803D',
+    marginTop: 2,
+    lineHeight: 16,
   },
   reviewMainBtn: {
     backgroundColor: '#EA580C',
@@ -445,5 +596,26 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  sellerCompletedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 4,
+  },
+  sellerCompletedTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  sellerCompletedSub: {
+    fontSize: 11.5,
+    color: '#047857',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

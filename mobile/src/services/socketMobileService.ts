@@ -24,7 +24,7 @@ class SocketMobileService {
       this.isConnecting = true;
       this.socket = io(socketUrl, {
         auth: { token: token || undefined },
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
         timeout: 10000,
@@ -232,6 +232,21 @@ class SocketMobileService {
     socket.on('order_completed', handler);
     return () => {
       socket.off('order_completed', handler);
+    };
+  }
+
+  onOrderConfirmed(callback: (data: { orderId: string; orderCode: string; status: string }) => void) {
+    const socket = this.getSocket();
+    if (!socket) return () => {};
+
+    const handler = (data: any) => {
+      console.log('✔ [Mobile Socket]: Người bán đã chốt đơn & xác nhận lịch hẹn:', data);
+      callback(data);
+    };
+
+    socket.on('order_confirmed', handler);
+    return () => {
+      socket.off('order_confirmed', handler);
     };
   }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Animated,
   StyleSheet,
@@ -18,11 +18,21 @@ export const TopNotificationBanner: React.FC = () => {
   const pushPermissionGranted = useNotificationStore((state) => state.pushPermissionGranted);
   const hideBanner = useNotificationStore((state) => state.hideBanner);
 
-  const translateY = useRef(new Animated.Value(-160)).current;
+  const [translateY] = useState(() => new Animated.Value(-160));
   const timeoutRef = useRef<any>(null);
 
+  const dismissBanner = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: -160,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      hideBanner();
+    });
+  }, [hideBanner, translateY]);
+
   // PanResponder to allow user to swipe up to dismiss
-  const panResponder = useRef(
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return gestureState.dy < -5;
@@ -33,17 +43,7 @@ export const TopNotificationBanner: React.FC = () => {
         }
       },
     })
-  ).current;
-
-  const dismissBanner = () => {
-    Animated.timing(translateY, {
-      toValue: -160,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      hideBanner();
-    });
-  };
+  );
 
   useEffect(() => {
     if (activeBanner) {
@@ -68,7 +68,7 @@ export const TopNotificationBanner: React.FC = () => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [activeBanner]);
+  }, [activeBanner, dismissBanner, translateY]);
 
   if (!activeBanner || !pushPermissionGranted) return null;
 

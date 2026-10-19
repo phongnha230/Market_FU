@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeSearchBar from '../features/home/components/HomeSearchBar';
 import ProductCard from '../components/common/ProductCard';
+import ProductCardSkeleton from '../components/common/ProductCardSkeleton';
 import useHomeFeed from '../features/home/hooks/useHomeFeed';
+import { useProductStore } from '../stores/productStore';
 import { isProductInCategory } from '../lib/backendMappers';
 
 const PRICE_FILTERS = [
@@ -86,6 +88,24 @@ export const ProductListScreen: React.FC = () => {
 
     return true;
   });
+
+  const { isLoading } = useProductStore();
+
+  const handleProductPress = useCallback(
+    (productId: string) => {
+      navigation.navigate('ProductDetail', { productId });
+    },
+    [navigation]
+  );
+
+  const renderProductItem = useCallback(
+    ({ item }: { item: any }) => (
+      <ProductCard {...item} onPress={handleProductPress} />
+    ),
+    [handleProductPress]
+  );
+
+  const keyExtractor = useCallback((item: any) => item.id, []);
 
   const visibleProducts = filteredProducts.slice(0, displayedCount);
 
@@ -254,17 +274,12 @@ export const ProductListScreen: React.FC = () => {
       {/* Product List Grid */}
       <FlatList
         data={visibleProducts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <ProductCard
-            {...item}
-            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-          />
-        )}
+        renderItem={renderProductItem}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.4}
         ListFooterComponent={() => (
@@ -281,11 +296,20 @@ export const ProductListScreen: React.FC = () => {
           </View>
         )}
         ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Không tìm thấy sản phẩm phù hợp</Text>
-            <Text style={styles.emptySub}>Hãy thử tìm với từ khóa khác hoặc điều chỉnh lại mức giá lọc nhé!</Text>
-          </View>
+          isLoading ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+              <ProductCardSkeleton />
+              <ProductCardSkeleton />
+              <ProductCardSkeleton />
+              <ProductCardSkeleton />
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>Không tìm thấy sản phẩm phù hợp</Text>
+              <Text style={styles.emptySub}>Hãy thử tìm với từ khóa khác hoặc điều chỉnh lại mức giá lọc nhé!</Text>
+            </View>
+          )
         )}
       />
     </View>

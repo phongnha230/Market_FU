@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { PostCategory, PostCondition, PostImageItem } from '../types/post-item.types';
@@ -26,7 +26,7 @@ export const getCampusDefaultSafePoint = (campus: string): string => {
 
 export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void) => {
   const { user } = useUserStore();
-  const { addProduct } = useProductStore();
+  const { addProductFromRemote } = useProductStore();
 
   // QUY TẮC CỐT LÕI: Cơ sở đăng bán CỐ ĐỊNH gắn liền 100% với cơ sở đăng ký trong hồ sơ Seller (user.campus)
   // Tuyệt đối không lấy theo bộ lọc tìm kiếm tạm thời của app (useCampusStore) và không cho đổi tuỳ tiện.
@@ -35,8 +35,8 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
 
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<PostCategory>('it');
-  const [selectedCondition, setSelectedCondition] = useState<PostCondition>('new');
+  const [selectedCategory, setSelectedCategory] = useState<PostCategory>('books');
+  const [selectedCondition, setSelectedCondition] = useState<PostCondition>('likenew');
   const [description, setDescription] = useState('');
   const [allowNegotiate, setAllowNegotiate] = useState(true);
   const [freeForK20, setFreeForK20] = useState(false);
@@ -46,6 +46,8 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   const [hashtagInput, setHashtagInput] = useState('');
 
   const [images, setImages] = useState<PostImageItem[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleAddImage = async () => {
     Alert.alert('Thêm ảnh sản phẩm', 'Chọn nguồn ảnh thực tế của món đồ', [
@@ -82,7 +84,7 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
         onPress: async () => {
           try {
             const res = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: ['images'],
               allowsMultipleSelection: true,
               quality: 0.8,
             });
@@ -134,6 +136,8 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   };
 
   const handleSubmit = async () => {
+    if (submittingRef.current || isSubmitting) return;
+
     if (!user) {
       Alert.alert('Chưa đăng nhập', 'Vui lòng đăng nhập tài khoản Người bán để đăng tin.');
       return;
@@ -165,17 +169,23 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
         : `${title.trim()} - Cần pass lại giá sinh viên FPT tại cơ sở ${sellerCampus}. Tình trạng tốt, có thể test đồ trực tiếp tại Safe-point.`;
 
     const mappedCategory =
-      selectedCategory === 'book'
+      selectedCategory === 'books'
         ? 'BOOKS'
-        : selectedCategory === 'dom'
-        ? 'DORM_ITEM'
-        : selectedCategory === 'vovinam'
+        : selectedCategory === 'fashion'
         ? 'CLOTHING'
-        : 'ELECTRONICS';
+        : selectedCategory === 'dorm'
+        ? 'DORM_ITEM'
+        : selectedCategory === 'electronics'
+        ? 'ELECTRONICS'
+        : selectedCategory === 'hobbies'
+        ? 'ELECTRONICS'
+        : 'OTHER';
 
     const mappedCondition =
-      selectedCondition === 'new'
+      selectedCondition === 'seal'
         ? 'NEW_100'
+        : selectedCondition === 'likenew'
+        ? 'LIKE_NEW_99'
         : selectedCondition === 'good'
         ? 'USED_GOOD'
         : 'USED_FAIR';
@@ -183,6 +193,9 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
     const finalImageUrls = images.map((i) =>
       typeof i.source === 'object' && i.source.uri ? i.source.uri : i.source
     );
+
+    submittingRef.current = true;
+    setIsSubmitting(true);
 
     try {
       const created = await productMobileService.createProduct({
@@ -199,33 +212,37 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
         description: finalDescription,
       });
 
-        if (created) {
-          addProduct(created);
-        }
-
-        Alert.alert(
-          '🎉 Đăng tin thành công!',
-          `Món đồ "${title}" của bạn đã được gửi lên hệ thống và đang chờ duyệt tại cơ sở ${sellerCampus}.`,
-          [
-            {
-              text: 'Xem tin đăng của tôi',
-              onPress: () => {
-                if (onSubmitSuccess) onSubmitSuccess();
-                else if (onGoBack) onGoBack();
-              },
-            },
-          ]
-        );
-      } catch (err: any) {
-        console.log('⚠️ [createProduct backend error]:', err?.message);
-        const errorMsg =
-          err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          err?.message ||
-          'Không thể đăng bài bán. Vui lòng kiểm tra lại thông tin và kết nối mạng.';
-        Alert.alert('Không thể đăng tin', errorMsg);
+      if (created) {
+        // Chỉ lưu cục bộ vào store, TUYỆT ĐỐI KHÔNG gọi backend tạo tin lần 2
+        addProductFromRemote(created);
       }
-    };
+
+      Alert.alert(
+        '🎉 Đăng tin thành công!',
+        `Món đồ "${title}" của bạn đã được gửi lên hệ thống và đang chờ duyệt tại cơ sở ${sellerCampus}.`,
+        [
+          {
+            text: 'Xem tin đăng của tôi',
+            onPress: () => {
+              if (onSubmitSuccess) onSubmitSuccess();
+              else if (onGoBack) onGoBack();
+            },
+          },
+        ]
+      );
+    } catch (err: any) {
+      console.log('⚠️ [createProduct backend error]:', err?.message);
+      const errorMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể đăng bài bán. Vui lòng kiểm tra lại thông tin và kết nối mạng.';
+      Alert.alert('Không thể đăng tin', errorMsg);
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
 
   return {
     title,
@@ -256,6 +273,7 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
     handleRemoveImage,
     handleApplySuggestion,
     handleSubmit,
+    isSubmitting,
     sellerCampus,
     currentCampus: sellerCampus, // Alias để tương thích ngược
   };

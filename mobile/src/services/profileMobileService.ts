@@ -23,13 +23,27 @@ export interface MobileQuest {
   canClaim: boolean;
 }
 
+let inFlightProfilePromise: Promise<UserProfile> | null = null;
+
 export const profileMobileService = {
   /**
    * Lấy hồ sơ người dùng hiện tại
    */
   async getMyProfile(): Promise<UserProfile> {
-    const res = await apiClient.get<ApiResponse<any>>('/profile/me');
-    return adaptBackendUserToMobile(res.data.data);
+    if (inFlightProfilePromise) {
+      return inFlightProfilePromise;
+    }
+
+    inFlightProfilePromise = (async () => {
+      try {
+        const res = await apiClient.get<ApiResponse<any>>('/profile/me');
+        return adaptBackendUserToMobile(res.data.data);
+      } finally {
+        inFlightProfilePromise = null;
+      }
+    })();
+
+    return inFlightProfilePromise;
   },
 
   /**

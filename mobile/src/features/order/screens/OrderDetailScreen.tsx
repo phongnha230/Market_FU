@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { useUserStore } from '../../../stores/userStore';
-import { useOrderStore } from '../../../stores/orderStore';
+import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { orderMobileService } from '../../../services/orderMobileService';
 import paymentMobileService from '../../../services/paymentMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
@@ -77,6 +77,7 @@ export const OrderDetailScreen: React.FC = () => {
 
   const [orderStatus, setOrderStatus] = useState<string>(initialStatus);
   const [isReviewed, setIsReviewed] = useState<boolean>(matchedOrder?.isReviewed ?? (route.params?.isReviewed || false));
+  const [fetchedOrder, setFetchedOrder] = useState<OrderItem | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -85,6 +86,7 @@ export const OrderDetailScreen: React.FC = () => {
         .getOrderDetail(orderId)
         .then((order) => {
           if (!isMounted || !order) return;
+          setFetchedOrder(order);
           if (order.status === 'COMPLETED') setOrderStatus('completed');
           else if (order.status === 'DELIVERED') setOrderStatus('delivered');
           else if (order.status === 'CANCELLED') setOrderStatus('cancelled');
@@ -105,6 +107,13 @@ export const OrderDetailScreen: React.FC = () => {
       }
     });
 
+    const unsubConfirmed = socketMobileService.onOrderConfirmed((d) => {
+      if (d.orderId === orderId || d.orderCode === orderId) {
+        setOrderStatus('escrow_holding');
+        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point', '#059669', '#ECFDF5');
+      }
+    });
+
     const unsubComp = socketMobileService.onOrderCompleted((d) => {
       if (d.orderId === orderId || d.orderCode === orderId) {
         setOrderStatus('completed');
@@ -122,13 +131,17 @@ export const OrderDetailScreen: React.FC = () => {
     return () => {
       isMounted = false;
       unsubPaid();
+      unsubConfirmed();
       unsubComp();
       unsubCancel();
     };
   }, [orderId, updateOrderStatus]);
 
-  const safePoint = matchedOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
-  const isSeller = Boolean(user?.id && sellerId === user.id);
+  const activeOrder = fetchedOrder || matchedOrder;
+  const safePoint = activeOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
+  const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
+  const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
+  const isSeller = Boolean(user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id));
 
   const handleResumePayOs = async () => {
     if (!payosCheckoutUrl) return;
@@ -183,9 +196,7 @@ export const OrderDetailScreen: React.FC = () => {
                 ]
               );
             } catch (err: any) {
-              Alert.alert('Thông báo', err?.response?.data?.message || err?.message || 'Đã ghi nhận nhận hàng.');
-              updateOrderStatus(orderId, 'COMPLETED', '✅ Giao dịch hoàn tất & Giải ngân Escrow', '#059669', '#DCFCE7');
-              setOrderStatus('completed');
+              Alert.alert('Không thể xác nhận', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi xác nhận nhận hàng.');
             } finally {
               setIsSubmitting(false);
             }
@@ -194,6 +205,26 @@ export const OrderDetailScreen: React.FC = () => {
       ]
     );
   }, [orderId, updateOrderStatus, navigation, product]);
+
+  const handleConfirmOrder = useCallback(async () => {
+    try {
+      setIsSubmitting(true);
+      await orderMobileService.confirmOrder(orderId);
+      setOrderStatus('escrow_holding');
+      updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point', '#059669', '#ECFDF5');
+      Alert.alert(
+        '🎉 Đã chốt lịch hẹn!',
+        'Bạn đã đồng ý đơn hàng và xác nhận lịch hẹn gặp người mua tại bàn Safe-Point. Vui lòng có mặt đúng giờ để hoàn tất bàn giao.'
+      );
+    } catch (err: any) {
+      Alert.alert(
+        'Lỗi xác nhận',
+        err?.response?.data?.message || err?.message || 'Không thể xác nhận đơn hàng lúc này. Vui lòng thử lại.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [orderId, updateOrderStatus]);
 
   const handleCancelSuccess = useCallback((reason: string) => {
     updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã hủy', '#64748B', '#F1F5F9');
@@ -282,6 +313,23 @@ export const OrderDetailScreen: React.FC = () => {
     [navigation, orderId, product]
   );
 
+  const currentOrderForReviewModal = useMemo(() => {
+    if (matchedOrder) return matchedOrder;
+    return {
+      id: orderId,
+      orderNumber: orderId,
+      productTitle: product.title,
+      sellerName: product.sellerName,
+      sellerCampus: product.sellerCampus,
+      buyerName: isSeller ? 'Gia Huy' : (user?.name || 'Người mua'),
+      buyerCampus: 'Hòa Lạc',
+      productImage: product.image,
+      safePoint: safePoint,
+      isReviewed: true,
+      status: 'COMPLETED',
+    } as unknown as OrderItem;
+  }, [matchedOrder, orderId, product, isSeller, user, safePoint]);
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <View style={styles.header}>
@@ -326,7 +374,14 @@ export const OrderDetailScreen: React.FC = () => {
         {orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isInterCampus && (
           <>
             <Text style={styles.sectionHeader}>ĐIỂM HẸN & MÃ QR ĐỒNG KIỂM</Text>
-            <OrderSafePointQrCard safePoint={safePoint} orderId={orderId} />
+            <OrderSafePointQrCard
+              safePoint={safePoint}
+              orderId={orderId}
+              timeSlot={timeSlot}
+              note={deliveryNote}
+              isConfirmed={orderStatus !== 'pending' && orderStatus !== 'PENDING_SAFEPOINT'}
+              isSeller={Boolean(isSeller)}
+            />
           </>
         )}
 
@@ -336,6 +391,7 @@ export const OrderDetailScreen: React.FC = () => {
           isInterCampus={isInterCampus}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}
+          onConfirmOrder={handleConfirmOrder}
           onConfirmReceived={handleConfirmReceived}
           onOpenScanner={() => setShowScannerModal(true)}
           onOpenReview={handleOpenReview}
@@ -369,17 +425,8 @@ export const OrderDetailScreen: React.FC = () => {
 
       <ReviewDetailModal
         visible={showReviewDetailModal}
-        order={matchedOrder || ({
-          id: orderId,
-          orderNumber: orderId,
-          productTitle: product.title,
-          sellerName: product.sellerName,
-          sellerCampus: product.sellerCampus,
-          productImage: product.image,
-          safePoint: safePoint,
-          isReviewed: true,
-          status: 'COMPLETED',
-        } as any)}
+        order={currentOrderForReviewModal}
+        isSeller={Boolean(isSeller)}
         onClose={() => setShowReviewDetailModal(false)}
         onEditReview={handleEditReviewFromModal}
       />

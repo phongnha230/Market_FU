@@ -12,6 +12,7 @@ import { WithdrawalModal } from '../components/WithdrawalModal';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { DepositCoinModal } from '../components/DepositCoinModal';
 import { MyReportsModal } from '../../report/components/MyReportsModal';
+import { useKho } from '../../../context/KhoContext';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
 
@@ -30,6 +31,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     onRefresh,
     handleLogout,
   } = useProfile();
+  const { inventoryStats, refreshKhoHang } = useKho();
+
+  const handleRefreshAll = async () => {
+    await Promise.all([
+      onRefresh(),
+      refreshKhoHang().catch(() => {}),
+    ]);
+  };
 
   const [showKycModal, setShowKycModal] = useState(false);
   const [kycRole, setKycRole] = useState<'STUDENT' | 'SELLER'>('STUDENT');
@@ -112,7 +121,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefreshAll}
             colors={['#EA580C']}
             tintColor="#EA580C"
           />
@@ -136,6 +145,62 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onManageListings={() => navigation.navigate('ManageListings')}
               onSellerDashboard={() => navigation.navigate('SellerDashboard')}
             />
+
+            {/* Kho hàng & Tin đăng của tôi - CHỈ DÀNH CHO SELLER */}
+            {isSeller && (
+              <TouchableOpacity
+                style={styles.khoCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('ManageListings')}
+              >
+                <View style={styles.khoCardHeader}>
+                  <View style={styles.khoCardLeft}>
+                    <View style={styles.khoIconBox}>
+                      <Ionicons name="file-tray-full" size={22} color="#EA580C" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.khoCardTitle}>Kho hàng & Tin đăng của tôi</Text>
+                        {inventoryStats.rejected > 0 && (
+                          <View style={styles.khoAlertBadge}>
+                            <Text style={styles.khoAlertBadgeText}>{inventoryStats.rejected} cần sửa</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.khoCardSub} numberOfLines={1}>
+                        {inventoryStats.total > 0
+                          ? `Tổng ${inventoryStats.total} món đồ • ${inventoryStats.active} đang hiển thị`
+                          : 'Quản lý tin đăng bán, đơn chờ duyệt & kho đồ'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.khoCardRight}>
+                    <Text style={styles.khoCardActionText}>Vào kho</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#EA580C" />
+                  </View>
+                </View>
+
+                {/* Status Chips Row */}
+                <View style={styles.khoStatusRow}>
+                  <View style={[styles.khoStatusChip, { backgroundColor: '#F0FDF4' }]}>
+                    <Text style={[styles.khoStatusChipNum, { color: '#16A34A' }]}>{inventoryStats.active}</Text>
+                    <Text style={styles.khoStatusChipLabel}>Đang bán</Text>
+                  </View>
+                  <View style={[styles.khoStatusChip, { backgroundColor: '#FFFBEB' }]}>
+                    <Text style={[styles.khoStatusChipNum, { color: '#D97706' }]}>{inventoryStats.pending}</Text>
+                    <Text style={styles.khoStatusChipLabel}>Chờ duyệt</Text>
+                  </View>
+                  <View style={[styles.khoStatusChip, { backgroundColor: inventoryStats.rejected > 0 ? '#FEF2F2' : '#F8FAFC' }]}>
+                    <Text style={[styles.khoStatusChipNum, { color: inventoryStats.rejected > 0 ? '#DC2626' : '#64748B' }]}>{inventoryStats.rejected}</Text>
+                    <Text style={[styles.khoStatusChipLabel, inventoryStats.rejected > 0 && { color: '#DC2626', fontWeight: '700' }]}>Bị từ chối</Text>
+                  </View>
+                  <View style={[styles.khoStatusChip, { backgroundColor: '#F8FAFC' }]}>
+                    <Text style={[styles.khoStatusChipNum, { color: '#475569' }]}>{inventoryStats.sold}</Text>
+                    <Text style={styles.khoStatusChipLabel}>Đã bán</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
 
             <CampusWalletCard
               onWithdrawPress={() => setShowWithdrawModal(true)}
@@ -301,6 +366,98 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#7C2D12',
     textAlign: 'center',
+  },
+  khoCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  khoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  khoCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  khoIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  khoCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  khoCardSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  khoAlertBadge: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  khoAlertBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  khoCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  khoCardActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  khoStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  khoStatusChip: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  khoStatusChipNum: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  khoStatusChipLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
   },
   settingsBarCard: {
     flexDirection: 'row',

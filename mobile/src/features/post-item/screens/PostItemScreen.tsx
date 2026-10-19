@@ -22,6 +22,28 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
   const navigation = useNavigation<any>();
   const { user, isAuthenticated } = useUserStore();
 
+  const handleBack = () => {
+    if (onGoBack) {
+      onGoBack();
+    } else if (navigation && typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs', { screen: 'Home' });
+    }
+  };
+
+  const handleSuccess = () => {
+    if (onSubmitSuccess) {
+      onSubmitSuccess();
+    } else {
+      try {
+        navigation.navigate('ManageListings');
+      } catch {
+        handleBack();
+      }
+    }
+  };
+
   const {
     title,
     setTitle,
@@ -50,16 +72,11 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
     handleRemoveImage,
     handleApplySuggestion,
     handleSubmit,
+    isSubmitting,
     currentCampus,
-  } = usePostItem(onSubmitSuccess, onGoBack);
+  } = usePostItem(handleSuccess, handleBack);
 
   const hashtagSet = React.useMemo(() => new Set(hashtags), [hashtags]);
-
-  const handleBack = () => {
-    if (onGoBack) onGoBack();
-    else if (navigation && navigation.canGoBack && navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('MainTabs', { screen: 'Home' });
-  };
 
   const handleAiAutoFill = (data: any) => {
     if (data.title) setTitle(data.title);
@@ -147,6 +164,7 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
           {/* AI Vision Photo Auto-fill Banner */}
           <AiPhotoAutoFillBanner
             hasImages={images.length > 0}
+            imageUri={images[0]?.source?.uri}
             onAutoFill={handleAiAutoFill}
           />
 
@@ -287,7 +305,11 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
           />
         </ScrollView>
 
-        <PostSubmitBar onSubmit={handleSubmit} campusName={currentCampus} />
+        <PostSubmitBar
+          onSubmit={handleSubmit}
+          campusName={currentCampus}
+          isSubmitting={isSubmitting}
+        />
       </KeyboardAvoidingView>
     </View>
   );

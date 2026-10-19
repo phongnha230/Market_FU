@@ -31,9 +31,30 @@ export const useManageListings = () => {
       if (Array.isArray(items)) {
         const mapped: ListingItemData[] = items.map((p) => {
           let st: ListingStatus = 'active';
-          if (p.status === 'SOLD') st = 'sold';
-          else if (p.status === 'RESERVED') st = 'scheduled';
-          else if (p.status === 'HIDDEN') st = 'sold';
+          let tag = 'Đang hiển thị';
+          let tagColor = '#059669';
+
+          if (p.status === 'PENDING_APPROVAL') {
+            st = 'pending';
+            tag = 'Chờ BQT duyệt';
+            tagColor = '#D97706';
+          } else if (p.status === 'REJECTED') {
+            st = 'rejected';
+            tag = 'Bị từ chối';
+            tagColor = '#DC2626';
+          } else if (p.status === 'RESERVED') {
+            st = 'scheduled';
+            tag = 'Đang hẹn giao';
+            tagColor = '#2563EB';
+          } else if (p.status === 'SOLD') {
+            st = 'sold';
+            tag = 'Đã thanh toán';
+            tagColor = '#64748B';
+          } else if (p.status === 'HIDDEN') {
+            st = 'sold';
+            tag = 'Tạm ẩn';
+            tagColor = '#64748B';
+          }
 
           return {
             id: p.id,
@@ -43,12 +64,13 @@ export const useManageListings = () => {
             location: p.safePoint || 'Sảnh Alpha Hòa Lạc',
             locationIcon: 'location-outline',
             image: resolveProductImage(p.images?.[0]),
-            tag: p.status === 'AVAILABLE' ? 'Active' : p.status,
-            tagColor: p.status === 'AVAILABLE' ? '#059669' : '#64748B',
+            tag,
+            tagColor,
             tagTextColor: '#FFFFFF',
             views: p.viewsCount || 1,
             status: st,
             rawStatus: p.status,
+            rejectionReason: p.rejectionReason,
           };
         });
         setServerListings(mapped);
@@ -78,9 +100,30 @@ export const useManageListings = () => {
 
     khoMyListings.forEach((p) => {
       let st: ListingStatus = 'active';
-      if (p.status === 'SOLD') st = 'sold';
-      else if (p.status === 'RESERVED') st = 'scheduled';
-      else if (p.status === 'HIDDEN') st = 'sold';
+      let tag = 'Đang hiển thị';
+      let tagColor = '#059669';
+
+      if (p.status === 'PENDING_APPROVAL') {
+        st = 'pending';
+        tag = 'Chờ BQT duyệt';
+        tagColor = '#D97706';
+      } else if (p.status === 'REJECTED') {
+        st = 'rejected';
+        tag = 'Bị từ chối';
+        tagColor = '#DC2626';
+      } else if (p.status === 'RESERVED') {
+        st = 'scheduled';
+        tag = 'Đang hẹn giao';
+        tagColor = '#2563EB';
+      } else if (p.status === 'SOLD') {
+        st = 'sold';
+        tag = 'Đã thanh toán';
+        tagColor = '#64748B';
+      } else if (p.status === 'HIDDEN') {
+        st = 'sold';
+        tag = 'Tạm ẩn';
+        tagColor = '#64748B';
+      }
 
       list.push({
         id: p.id,
@@ -90,12 +133,13 @@ export const useManageListings = () => {
         location: p.safePoint || 'Sảnh Alpha Hòa Lạc',
         locationIcon: 'location-outline',
         image: resolveProductImage(p.images?.[0]),
-        tag: p.status === 'AVAILABLE' ? 'Active' : p.status,
-        tagColor: p.status === 'AVAILABLE' ? '#059669' : '#64748B',
+        tag,
+        tagColor,
         tagTextColor: '#FFFFFF',
         views: p.viewsCount || 0,
         status: st,
         rawStatus: p.status,
+        rejectionReason: p.rejectionReason,
       });
     });
 
@@ -238,21 +282,19 @@ export const useManageListings = () => {
         title: item.title,
         price: rawPrice,
         safePoint: item.location,
-        status: item.status === 'active' ? 'AVAILABLE' : (item.status === 'sold' ? 'SOLD' : 'RESERVED'),
+        status: item.rawStatus || (item.status === 'pending' ? 'PENDING_APPROVAL' : item.status === 'rejected' ? 'REJECTED' : item.status === 'active' ? 'AVAILABLE' : (item.status === 'sold' ? 'SOLD' : 'RESERVED')),
+        rejectionReason: item.rejectionReason,
       },
     });
   }, [navigation]);
 
   const filteredListings = useMemo(() => {
-    return listings.filter((item) => {
-      if (activeTab === 'active') return item.status === 'active';
-      if (activeTab === 'scheduled') return item.status === 'scheduled';
-      if (activeTab === 'sold') return item.status === 'sold';
-      return true;
-    });
+    return listings.filter((item) => item.status === activeTab);
   }, [listings, activeTab]);
 
   const activeCount = useMemo(() => listings.filter((l) => l.status === 'active').length, [listings]);
+  const pendingCount = useMemo(() => listings.filter((l) => l.status === 'pending').length, [listings]);
+  const rejectedCount = useMemo(() => listings.filter((l) => l.status === 'rejected').length, [listings]);
   const scheduledCount = useMemo(() => listings.filter((l) => l.status === 'scheduled').length, [listings]);
   const soldCount = useMemo(() => listings.filter((l) => l.status === 'sold').length, [listings]);
 
@@ -266,6 +308,8 @@ export const useManageListings = () => {
     onRefresh,
     filteredListings,
     activeCount,
+    pendingCount,
+    rejectedCount,
     scheduledCount,
     soldCount,
     handleBoost,

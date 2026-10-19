@@ -20,6 +20,7 @@ export interface ProductItem {
   sellerRating?: number;
   sellerIsVerified?: boolean;
   status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
+  rejectionReason?: string;
   safePoint?: string;
   allowNegotiate?: boolean;
   campusShipEnabled?: boolean;
@@ -52,6 +53,9 @@ interface ProductState {
   getUserProducts: (sellerId: string) => ProductItem[];
 }
 
+let inFlightProductsPromise: Promise<ProductItem[]> | null = null;
+let lastFilterHash = '';
+
 export const useProductStore = create<ProductState>()(
   persist(
     (set, get) => ({
@@ -59,34 +63,46 @@ export const useProductStore = create<ProductState>()(
       isLoading: false,
 
       fetchProducts: async (filter?: string | FetchProductsFilter) => {
-        try {
-          set({ isLoading: true });
-          let params: FetchProductsFilter = {};
-          if (typeof filter === 'string') {
-            const cleanFilter = filter.trim().toUpperCase();
-            if (cleanFilter && cleanFilter !== 'TẤT CẢ' && cleanFilter !== 'ALL') {
-              params = { campus: filter };
-            }
-          } else if (filter && typeof filter === 'object') {
-            params = { ...filter };
-            if (params.campus && (params.campus.toUpperCase() === 'TẤT CẢ' || params.campus.toUpperCase() === 'ALL')) {
-              delete params.campus;
-            }
-            if (params.category && (params.category.toUpperCase() === 'TẤT CẢ' || params.category.toUpperCase() === 'ALL')) {
-              delete params.category;
-            }
+        let params: FetchProductsFilter = {};
+        if (typeof filter === 'string') {
+          const cleanFilter = filter.trim().toUpperCase();
+          if (cleanFilter && cleanFilter !== 'TẤT CẢ' && cleanFilter !== 'ALL') {
+            params = { campus: filter };
           }
-          const liveProducts = await productMobileService.getProducts(params);
-          if (Array.isArray(liveProducts)) {
-            set({ products: liveProducts });
-            return liveProducts;
+        } else if (filter && typeof filter === 'object') {
+          params = { ...filter };
+          if (params.campus && (params.campus.toUpperCase() === 'TẤT CẢ' || params.campus.toUpperCase() === 'ALL')) {
+            delete params.campus;
           }
-        } catch (e: any) {
-          console.log('⚠️ [Backend products offline, using local store]:', e?.message);
-        } finally {
-          set({ isLoading: false });
+          if (params.category && (params.category.toUpperCase() === 'TẤT CẢ' || params.category.toUpperCase() === 'ALL')) {
+            delete params.category;
+          }
         }
-        return get().products;
+
+        const filterHash = JSON.stringify(params);
+        if (inFlightProductsPromise && filterHash === lastFilterHash) {
+          return inFlightProductsPromise;
+        }
+
+        lastFilterHash = filterHash;
+        inFlightProductsPromise = (async () => {
+          try {
+            set({ isLoading: true });
+            const liveProducts = await productMobileService.getProducts(params);
+            if (Array.isArray(liveProducts)) {
+              set({ products: liveProducts });
+              return liveProducts;
+            }
+          } catch (e: any) {
+            console.log('⚠️ [Backend products offline, using local store]:', e?.message);
+          } finally {
+            set({ isLoading: false });
+            inFlightProductsPromise = null;
+          }
+          return get().products;
+        })();
+
+        return inFlightProductsPromise;
       },
 
       addProduct: (newProdData) => {

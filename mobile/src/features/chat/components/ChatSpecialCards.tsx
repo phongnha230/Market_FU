@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface SafeSuggestionCardProps {
@@ -32,37 +32,46 @@ interface AppointmentCardProps {
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   location = 'Sảnh Tòa Alpha (Trạm test có Camera)',
   timeSlot = '16:30 Hôm nay (Sau ca 4)',
-}) => (
-  <View style={styles.apptCard}>
-    <View style={styles.apptHeader}>
-      <View style={styles.apptCheck}>
-        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+}) => {
+  const handleOpenMap = () => {
+    const query = encodeURIComponent(`Đại học FPT ${location}`);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`).catch(() => {
+      Alert.alert('Bản đồ', `Vị trí điểm hẹn Safe-Point: ${location}`);
+    });
+  };
+
+  return (
+    <View style={styles.apptCard}>
+      <View style={styles.apptHeader}>
+        <View style={styles.apptCheck}>
+          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+        </View>
+        <Text style={styles.apptTitle}>Cuộc hẹn đã xác nhận</Text>
+        <View style={styles.stationBadge}>
+          <Text style={styles.stationText}>SAFE-HANDOFF</Text>
+        </View>
       </View>
-      <Text style={styles.apptTitle}>Cuộc hẹn đã xác nhận</Text>
-      <View style={styles.stationBadge}>
-        <Text style={styles.stationText}>SAFE-HANDOFF</Text>
+
+      <View style={styles.infoRow}>
+        <Ionicons name="location-sharp" size={14} color="#EA580C" style={{ marginRight: 6 }} />
+        <Text style={styles.infoText}>{location}</Text>
       </View>
-    </View>
 
-    <View style={styles.infoRow}>
-      <Ionicons name="location-sharp" size={14} color="#EA580C" style={{ marginRight: 6 }} />
-      <Text style={styles.infoText}>{location}</Text>
-    </View>
+      <View style={styles.infoRow}>
+        <Ionicons name="time" size={14} color="#1D4ED8" style={{ marginRight: 6 }} />
+        <Text style={styles.infoText}>{timeSlot}</Text>
+      </View>
 
-    <View style={styles.infoRow}>
-      <Ionicons name="time" size={14} color="#1D4ED8" style={{ marginRight: 6 }} />
-      <Text style={styles.infoText}>{timeSlot}</Text>
+      <TouchableOpacity
+        style={styles.directBtn}
+        onPress={handleOpenMap}
+      >
+        <Ionicons name="navigate" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+        <Text style={styles.directText}>Chỉ đường đến trạm Safe-Point</Text>
+      </TouchableOpacity>
     </View>
-
-    <TouchableOpacity
-      style={styles.directBtn}
-      onPress={() => Alert.alert('Chỉ đường', `Mở bản đồ vị trí: ${location}`)}
-    >
-      <Ionicons name="navigate" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-      <Text style={styles.directText}>Chỉ đường đến trạm Safe-Point</Text>
-    </TouchableOpacity>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   safeCard: { backgroundColor: '#FFF7ED', borderRadius: 12, padding: 12, marginHorizontal: 16, marginVertical: 8, borderWidth: 1, borderColor: '#FED7AA' },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface PostItemHeaderProps {
@@ -20,14 +20,6 @@ export const PostItemHeader: React.FC<PostItemHeaderProps> = ({ onGoBack }) => {
       <Text style={styles.title}>Đăng bán món đồ</Text>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={() => Alert.alert('Hộp thư tin nhắn')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="mail-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.btn}
           onPress={onGoBack}

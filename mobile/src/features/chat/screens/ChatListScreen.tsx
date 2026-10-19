@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useChatStore } from '../../../stores/chatStore';
 import { socketMobileService } from '../../../services/socketMobileService';
-import { resolveProductImage } from '../../../lib/imageResolver';
+import { resolveProductImage, getSafeAvatar } from '../../../lib/imageResolver';
 
 interface ConversationItem {
   id: string;
@@ -36,18 +36,21 @@ interface ConversationItem {
 export const ChatListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { isAuthenticated } = useUserStore();
-  const { conversations, fetchConversations, isLoading } = useChatStore();
+  const { user, isAuthenticated } = useUserStore();
+  const { conversations, fetchConversations, isLoading, markConversationAsRead } = useChatStore();
 
   const [activeTab, setActiveTab] = useState<'all' | 'buy' | 'sell' | 'unread'>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchConversations().catch(() => {});
-    }
-  }, [isAuthenticated, fetchConversations]);
+  // Tự động tải lại danh sách hội thoại và làm mới badge mỗi khi vào màn hình
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        fetchConversations().catch(() => {});
+      }
+    }, [isAuthenticated, fetchConversations])
+  );
 
   // Lắng nghe socket khi có tin nhắn mới thì tải lại danh sách
   useEffect(() => {
@@ -97,22 +100,31 @@ export const ChatListScreen: React.FC = () => {
     );
   }
 
+  const currentUserId = user?.id || '';
+
   // Chuyển đổi dữ liệu từ ChatStore
-  const mappedList: ConversationItem[] = (conversations || []).map((c) => ({
-    id: c.id,
-    name: c.partnerName || 'Sinh viên FPT',
-    avatar: c.partnerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    cohort: c.partnerCohort || 'FPT Campus',
-    isOnline: !!c.isOnline,
-    productTitle: c.productTitle || 'Món đồ Campus',
-    productPrice: typeof c.productPrice === 'number' ? `${c.productPrice.toLocaleString('vi-VN')}đ` : 'Thỏa thuận',
-    productImage: resolveProductImage(c.productImage),
-    lastMessage: c.lastMessage || 'Bắt đầu cuộc trò chuyện',
-    lastTime: c.lastTime ? (c.lastTime.includes(':') ? c.lastTime : new Date(c.lastTime).toLocaleDateString('vi-VN')) : 'Gần đây',
-    unreadCount: c.unreadCount || 0,
-    type: 'buy',
-    isSafePointVerified: true,
-  }));
+  const mappedList: ConversationItem[] = (conversations || []).map((c) => {
+    const isBuyerRole = c.buyerId ? c.buyerId === currentUserId : true;
+    return {
+      id: c.id,
+      name: c.partnerName || 'Sinh viên FPT',
+      avatar: getSafeAvatar(c.partnerAvatar, c.partnerName),
+      cohort: c.partnerCohort || 'FPT Campus',
+      isOnline: !!c.isOnline,
+      productTitle: c.productTitle || 'Món đồ Campus',
+      productPrice: typeof c.productPrice === 'number' ? `${c.productPrice.toLocaleString('vi-VN')}đ` : 'Thỏa thuận',
+      productImage: resolveProductImage(c.productImage),
+      lastMessage: c.lastMessage || 'Bắt đầu cuộc trò chuyện',
+      lastTime: c.lastTime ? (c.lastTime.includes(':') ? c.lastTime : new Date(c.lastTime).toLocaleDateString('vi-VN')) : 'Gần đây',
+      unreadCount: c.unreadCount || 0,
+      type: isBuyerRole ? 'buy' : 'sell',
+      isSafePointVerified: true,
+      partnerId: c.partnerId,
+      productId: c.productId,
+      sellerId: c.sellerId,
+      buyerId: c.buyerId,
+    } as any;
+  });
 
   const filteredList = mappedList.filter((item) => {
     const matchSearch =
@@ -129,20 +141,28 @@ export const ChatListScreen: React.FC = () => {
   });
 
   const handleOpenConversation = (item: ConversationItem) => {
+    // Ngay lập tức xóa unread badge của hội thoại này trong store và thông báo backend
+    if (item.id) {
+      markConversationAsRead(item.id);
+    }
+
+    const isBuyerRole = (item as any).buyerId ? (item as any).buyerId === currentUserId : item.type === 'buy';
     navigation.navigate('ChatDetail', {
       conversationId: item.id,
+      isBuyer: isBuyerRole,
       partner: {
-        id: item.id,
+        id: (item as any).partnerId || item.id,
         name: item.name,
         avatar: item.avatar,
         cohort: item.cohort,
         isOnline: item.isOnline,
       },
       product: {
-        id: item.id,
+        id: (item as any).productId || item.id,
         title: item.productTitle,
         price: item.productPrice,
         image: item.productImage,
+        sellerId: (item as any).sellerId,
       },
     });
   };

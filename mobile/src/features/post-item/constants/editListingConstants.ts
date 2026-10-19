@@ -9,11 +9,12 @@ export interface ConditionOption {
 }
 
 export const LISTING_CATEGORIES: CategoryOption[] = [
-  { id: 'electronics', label: 'Đồ điện tử, IT' },
-  { id: 'books', label: 'Sách, Giáo trình' },
-  { id: 'dorm', label: 'Đồ phòng KTX' },
-  { id: 'fashion', label: 'Thời trang, Võ phục' },
-  { id: 'vehicle', label: 'Xe cộ, Xe đạp' },
+  { id: 'books', label: 'Giáo trình & Sách học thuật FPT' },
+  { id: 'electronics', label: 'Thiết bị điện tử & Phụ kiện IT' },
+  { id: 'fashion', label: 'Thời trang & Võ phục Vovinam' },
+  { id: 'dorm', label: 'Đồ dùng phòng KTX & Gia dụng' },
+  { id: 'hobbies', label: 'Giải trí & Gaming console' },
+  { id: 'services', label: 'Tiện ích khác (Vé bus, Thẻ gym)' },
 ];
 
 export const LISTING_CONDITIONS: ConditionOption[] = [

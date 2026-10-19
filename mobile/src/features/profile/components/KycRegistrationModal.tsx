@@ -55,7 +55,7 @@ const showImagePickerAlert = (
         text: 'Chọn từ Thư viện',
         onPress: async () => {
           const res = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [16, 10],
             quality: 0.8,

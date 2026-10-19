@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 import { AiAssistantProductCard, SuggestedProductItem } from './AiAssistantProductCard';
 
 export interface ChatMessage {
@@ -21,6 +23,7 @@ export interface ChatMessage {
 interface AiAssistantMessageItemProps {
   message: ChatMessage;
   userName?: string;
+  userAvatar?: string;
   onProductDetail: (product: SuggestedProductItem) => void;
   onContactSeller: (product: SuggestedProductItem) => void;
   onActionChip: (chipId: string) => void;
@@ -29,6 +32,7 @@ interface AiAssistantMessageItemProps {
 export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
   message,
   userName = 'Quân',
+  userAvatar,
   onProductDetail,
   onContactSeller,
   onActionChip,
@@ -37,13 +41,31 @@ export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
 
   if (!isAi) {
     return (
-      <View style={styles.userMsgWrapper}>
-        <View style={styles.userBubble}>
-          <Text style={styles.userBubbleText}>{message.text}</Text>
+      <View style={styles.userMsgRow}>
+        <View style={styles.userMsgWrapper}>
+          <View style={styles.userBubble}>
+            <Text style={styles.userBubbleText}>{message.text}</Text>
+          </View>
+          <View style={styles.userTimeRow}>
+            <Text style={styles.timeText}>{message.time}</Text>
+            <Ionicons name="checkmark-done" size={14} color="#10B981" style={{ marginLeft: 3 }} />
+          </View>
         </View>
-        <View style={styles.userTimeRow}>
-          <Text style={styles.timeText}>{message.time}</Text>
-          <Ionicons name="checkmark-done" size={14} color="#10B981" style={{ marginLeft: 3 }} />
+        <View style={styles.userSenderAvatar}>
+          {userAvatar ? (
+            <Image
+              source={resolveAvatarImage(userAvatar)}
+              style={styles.userAvatarImg}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={styles.userAvatarFallback}>
+              <Text style={styles.userAvatarFallbackText}>
+                {(userName || 'U').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -125,12 +147,44 @@ export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
 };
 
 const styles = StyleSheet.create({
+  userMsgRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 8,
+  },
   userMsgWrapper: {
     alignItems: 'flex-end',
-    marginBottom: 16,
+    flex: 1,
+  },
+  userSenderAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  userAvatarImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  userAvatarFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EA580C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userAvatarFallbackText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   userBubble: {
-    maxWidth: '82%',
+    maxWidth: '85%',
     backgroundColor: '#EA580C',
     borderRadius: 18,
     borderBottomRightRadius: 4,

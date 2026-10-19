@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -70,6 +70,13 @@ export const ProductRelatedSection: React.FC<ProductRelatedSectionProps> = memo(
     return [...sameCategory, ...differentCategory].slice(0, 8);
   }, [allAvailableProducts, currentProductId, sellerId, category]);
 
+  const handleProductPress = useCallback(
+    (productId: string) => {
+      navigation.push('ProductDetail', { productId });
+    },
+    [navigation]
+  );
+
   if (sellerProducts.length === 0 && similarProducts.length === 0) {
     return null;
   }
@@ -109,7 +116,7 @@ export const ProductRelatedSection: React.FC<ProductRelatedSectionProps> = memo(
                     seller={item.sellerName}
                     image={item.images?.[0]}
                     cardStyle={{ width: '100%', marginBottom: 0 }}
-                    onPress={() => navigation.push('ProductDetail', { productId: item.id })}
+                    onPress={handleProductPress}
                   />
                 </View>
               );
@@ -160,7 +167,7 @@ export const ProductRelatedSection: React.FC<ProductRelatedSectionProps> = memo(
                     seller={item.sellerName}
                     image={item.images?.[0]}
                     cardStyle={{ width: '100%', marginBottom: 0 }}
-                    onPress={() => navigation.push('ProductDetail', { productId: item.id })}
+                    onPress={handleProductPress}
                   />
                 </View>
               );

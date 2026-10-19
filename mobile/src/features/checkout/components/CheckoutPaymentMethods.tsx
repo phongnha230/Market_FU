@@ -42,23 +42,23 @@ export const CheckoutPaymentMethods: React.FC<CheckoutPaymentMethodsProps> = ({
 
         <View style={styles.divider} />
 
-        {/* FPTPay */}
+        {/* PayOS Gateway */}
         <TouchableOpacity
           style={[styles.payRow, selectedPayment === 'fptpay' && styles.selectedPayRow]}
           activeOpacity={0.7}
           onPress={() => onSelectPayment('fptpay')}
         >
           <View style={[styles.payIconBox, { backgroundColor: '#FFEDD5' }]}>
-            <Ionicons name="wallet-outline" size={20} color="#EA580C" />
+            <Ionicons name="card-outline" size={20} color="#EA580C" />
           </View>
           <View style={styles.payDetails}>
             <View style={styles.titleRow}>
-              <Text style={styles.payTitle}>Ví FPT Pay Sinh viên</Text>
+              <Text style={styles.payTitle}>Cổng thanh toán PayOS</Text>
               <View style={[styles.recBadge, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.recBadgeText, { color: '#B45309' }]}>Tức thì</Text>
+                <Text style={[styles.recBadgeText, { color: '#B45309' }]}>Trực tuyến</Text>
               </View>
             </View>
-            <Text style={styles.paySub}>Số dư khả dụng: 2.850.000đ • Trừ ví tức thì 0đ phí</Text>
+            <Text style={styles.paySub}>Hỗ trợ Thẻ ATM Napas, Internet Banking & Thẻ quốc tế</Text>
           </View>
           <Ionicons
             name={selectedPayment === 'fptpay' ? 'checkmark-circle' : 'ellipse-outline'}

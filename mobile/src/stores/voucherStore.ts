@@ -109,6 +109,7 @@ interface VoucherState {
   fetchMyVouchers: () => Promise<void>;
   fetchVouchers: () => Promise<void>;
   redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
+  applyVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
   useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
   getUserVouchersByStatus: (status?: UserVoucherStatus) => UserVoucher[];
   getAvailableByPartner: (partner?: VoucherPartner) => Voucher[];
@@ -243,7 +244,7 @@ export const useVoucherStore = create<VoucherState>()(
         }
       },
 
-      useVoucherCode: async (userVoucherIdOrCode: string) => {
+      applyVoucherCode: async (userVoucherIdOrCode: string) => {
         const { myVouchersByUser, activeUserId } = get();
         const currentId = activeUserId || 'anonymous';
         const list = myVouchersByUser[currentId] || [];
@@ -297,6 +298,10 @@ export const useVoucherStore = create<VoucherState>()(
           success: true,
           message: 'Xác nhận sử dụng voucher tại quầy thành công!',
         };
+      },
+
+      useVoucherCode: async (userVoucherIdOrCode: string) => {
+        return get().applyVoucherCode(userVoucherIdOrCode);
       },
 
       getUserVouchersByStatus: (status?: UserVoucherStatus) => {

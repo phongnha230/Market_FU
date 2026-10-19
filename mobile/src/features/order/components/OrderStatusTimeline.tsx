@@ -9,6 +9,19 @@ interface OrderStatusTimelineProps {
 export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.memo(({
   orderStatus,
 }) => {
+  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
+  const isHolding = orderStatus === 'escrow_holding' || orderStatus === 'ESCROW_PAID' || orderStatus === 'delivered' || orderStatus === 'DELIVERED';
+  const isCompleted = orderStatus === 'completed' || orderStatus === 'COMPLETED';
+  const isCancelled = orderStatus === 'cancelled' || orderStatus === 'CANCELLED';
+
+  const getStatusText = () => {
+    if (isCancelled) return 'Đã hủy đơn hàng';
+    if (isCompleted) return 'Đã hoàn tất & Giải ngân';
+    if (isPending) return '⏳ Chờ người bán chốt lịch hẹn';
+    if (isHolding) return '🛡️ Đã chốt hẹn - Chờ bàn giao';
+    return 'Đang giải quyết khiếu nại';
+  };
+
   return (
     <View style={styles.timelineCard}>
       <View style={styles.timelineHeader}>
@@ -19,67 +32,83 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
         <Text
           style={[
             styles.statusName,
-            orderStatus === 'cancelled' && { color: '#64748B' },
-            orderStatus === 'completed' && { color: '#059669' },
+            isCancelled && { color: '#64748B' },
+            isCompleted && { color: '#059669' },
+            isPending && { color: '#D97706' },
+            isHolding && { color: '#059669' },
           ]}
         >
-          {orderStatus === 'escrow_holding'
-            ? 'Đang giữ tiền Escrow'
-            : orderStatus === 'completed'
-            ? 'Đã hoàn tất & Giải ngân'
-            : orderStatus === 'cancelled'
-            ? 'Đã hủy đơn hàng'
-            : 'Đang giải quyết khiếu nại'}
+          {getStatusText()}
         </Text>
       </View>
 
       {/* 4 Step visual */}
       <View style={styles.stepsRow}>
+        {/* Step 1: Đặt cọc */}
         <View style={styles.stepCol}>
           <View style={[styles.stepDot, styles.stepDotDone]}>
             <Ionicons name="checkmark" size={12} color="#FFFFFF" />
           </View>
           <Text style={styles.stepLabel}>Đặt cọc</Text>
         </View>
-        <View style={[styles.stepLine, styles.stepLineDone]} />
+        <View style={[styles.stepLine, (isPending || isHolding || isCompleted) && styles.stepLineDone]} />
 
-        <View style={styles.stepCol}>
-          <View style={[styles.stepDot, styles.stepDotDone]}>
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          </View>
-          <Text style={styles.stepLabel}>Chuẩn bị</Text>
-        </View>
-        <View style={[styles.stepLine, orderStatus === 'completed' && styles.stepLineDone]} />
-
+        {/* Step 2: Chốt hẹn */}
         <View style={styles.stepCol}>
           <View
             style={[
               styles.stepDot,
-              orderStatus === 'escrow_holding' && styles.stepDotActive,
-              orderStatus === 'completed' && styles.stepDotDone,
+              isPending && styles.stepDotActive,
+              (isHolding || isCompleted) && styles.stepDotDone,
+              !isPending && !isHolding && !isCompleted && styles.stepDotPending,
             ]}
           >
-            {orderStatus === 'completed' ? (
+            {isHolding || isCompleted ? (
               <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-            ) : (
+            ) : isPending ? (
               <Ionicons name="time" size={12} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="checkmark" size={12} color="#94A3B8" />
+            )}
+          </View>
+          <Text style={styles.stepLabel}>Chốt hẹn</Text>
+        </View>
+        <View style={[styles.stepLine, (isHolding || isCompleted) && styles.stepLineDone]} />
+
+        {/* Step 3: Safe-Point */}
+        <View style={styles.stepCol}>
+          <View
+            style={[
+              styles.stepDot,
+              isHolding && styles.stepDotActive,
+              isCompleted && styles.stepDotDone,
+              !isHolding && !isCompleted && styles.stepDotPending,
+            ]}
+          >
+            {isCompleted ? (
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+            ) : isHolding ? (
+              <Ionicons name="time" size={12} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="location" size={12} color="#94A3B8" />
             )}
           </View>
           <Text style={styles.stepLabel}>Safe-Point</Text>
         </View>
-        <View style={[styles.stepLine, orderStatus === 'completed' && styles.stepLineDone]} />
+        <View style={[styles.stepLine, isCompleted && styles.stepLineDone]} />
 
+        {/* Step 4: Giải ngân */}
         <View style={styles.stepCol}>
           <View
             style={[
               styles.stepDot,
-              orderStatus === 'completed' ? styles.stepDotDone : styles.stepDotPending,
+              isCompleted ? styles.stepDotDone : styles.stepDotPending,
             ]}
           >
             <Ionicons
               name="shield"
               size={12}
-              color={orderStatus === 'completed' ? '#FFFFFF' : '#94A3B8'}
+              color={isCompleted ? '#FFFFFF' : '#94A3B8'}
             />
           </View>
           <Text style={styles.stepLabel}>Giải ngân</Text>

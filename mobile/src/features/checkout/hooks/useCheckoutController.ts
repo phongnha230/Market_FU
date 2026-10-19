@@ -12,7 +12,7 @@ export function useCheckoutController() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
-  const { myVouchers, isLoading: loadingVouchers, fetchVouchers, useVoucherCode } = useVoucherStore();
+  const { myVouchers, isLoading: loadingVouchers, fetchVouchers, applyVoucherCode } = useVoucherStore();
   const addOrder = useOrderStore((s) => s.addOrder);
 
   const buyerCampus = useMemo(() => fromBackendCampus(user?.campus) || 'Hòa Lạc', [user?.campus]);
@@ -265,7 +265,7 @@ export function useCheckoutController() {
       }
 
       if (appliedVoucher?.code) {
-        useVoucherCode(appliedVoucher.code).catch(() => {});
+        applyVoucherCode(appliedVoucher.code).catch(() => {});
       }
 
       const formattedSlot = `${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`;
@@ -328,7 +328,7 @@ export function useCheckoutController() {
     appliedVoucher,
     isDifferentCampus,
     addOrder,
-    useVoucherCode,
+    applyVoucherCode,
     navigation,
     totalAmount,
   ]);

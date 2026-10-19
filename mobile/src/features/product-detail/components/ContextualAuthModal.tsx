@@ -29,6 +29,9 @@ export interface ContextualAuthModalProps {
   onClose: () => void;
   onLoginSuccess?: (method: 'google' | 'fap') => void;
   product?: ContextualProductInfo;
+  mode?: 'order' | 'chat';
+  sellerName?: string;
+  sellerCohort?: string;
 }
 
 const DEFAULT_PRODUCT: ContextualProductInfo = {
@@ -43,6 +46,9 @@ export const ContextualAuthModal: React.FC<ContextualAuthModalProps> = ({
   onClose,
   onLoginSuccess,
   product = DEFAULT_PRODUCT,
+  mode = 'order',
+  sellerName,
+  sellerCohort,
 }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -99,18 +105,74 @@ export const ContextualAuthModal: React.FC<ContextualAuthModalProps> = ({
             { paddingBottom: Math.max(insets.bottom, 20) + 12 },
           ]}
         >
-          {/* Top Handle Bar */}
-          <View style={styles.handleBar} />
+          {mode === 'chat' ? (
+            <>
+              {/* Top Tag Row & Close Button */}
+              <View style={styles.topStatusRow}>
+                <View style={styles.securityTagRow}>
+                  <View style={styles.greenPulseDot} />
+                  <Text style={styles.securityTagText}>
+                    TRÒ CHUYỆN BẢO MẬT 5CAMPUS
+                  </Text>
+                </View>
 
-          {/* Heading Title */}
-          <Text style={styles.sheetTitle}>
-            Tiếp tục đặt hàng với Bảo hộ{'\n'}Escrow
-          </Text>
+                <TouchableOpacity
+                  style={styles.closeBtn}
+                  activeOpacity={0.7}
+                  onPress={onClose}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-down" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
 
-          {/* Context Subtitle */}
-          <Text style={styles.sheetSubtitle}>
-            Để bảo vệ tiền cọc 100% trong quỹ tạm giữ và xác thực nhận đồ an toàn tại campus, bạn vui lòng đăng nhập bằng tài khoản sinh viên FPT.
-          </Text>
+              {/* Seller & Icon Header */}
+              <View style={styles.sellerHeaderRow}>
+                <View style={styles.chatIconBox}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={26} color="#0F172A" />
+                  <View style={styles.verifiedCheckBadge}>
+                    <Ionicons name="shield-checkmark" size={12} color="#059669" />
+                  </View>
+                </View>
+
+                <View style={styles.sellerTextCol}>
+                  <Text style={styles.chatHeadingTitle}>
+                    Đăng nhập để chat với Người bán{'\n'}
+                    <Text style={styles.sellerHighlightName}>({sellerName || product.sellerName || 'Người bán FPT'} - {sellerCohort || 'Sinh viên FPT'})</Text>
+                  </Text>
+                  <View style={styles.fptVerifiedBadge}>
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={12}
+                      color="#059669"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.fptVerifiedText}>FPT STUDENT VERIFIED</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Subtitle Description */}
+              <Text style={styles.sheetDescription}>
+                Hệ thống tin nhắn 5Campus kết nối trực tiếp sinh viên nội bộ và hỗ trợ gửi vị trí trạm <Text style={styles.boldText}>Safe-Handoff</Text> an toàn. Vui lòng đăng nhập để trao đổi đồ.
+              </Text>
+            </>
+          ) : (
+            <>
+              {/* Top Handle Bar */}
+              <View style={styles.handleBar} />
+
+              {/* Heading Title */}
+              <Text style={styles.sheetTitle}>
+                Tiếp tục đặt hàng với Bảo hộ{'\n'}Escrow
+              </Text>
+
+              {/* Context Subtitle */}
+              <Text style={styles.sheetSubtitle}>
+                Để bảo vệ tiền cọc 100% trong quỹ tạm giữ và xác thực nhận đồ an toàn tại campus, bạn vui lòng đăng nhập bằng tài khoản sinh viên FPT.
+              </Text>
+            </>
+          )}
 
           {/* Product Summary Card */}
           <View style={styles.productCard}>
@@ -413,6 +475,105 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#334155',
     lineHeight: 16,
+  },
+
+  // Chat Mode Styles
+  topStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  securityTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  greenPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  securityTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  chatIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginRight: 12,
+  },
+  verifiedCheckBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 1,
+  },
+  sellerTextCol: {
+    flex: 1,
+  },
+  chatHeadingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 20,
+    marginBottom: 3,
+  },
+  sellerHighlightName: {
+    color: '#EA580C',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  fptVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fptVerifiedText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  sheetDescription: {
+    fontSize: 12.5,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: '#0F172A',
   },
 
   // Guest Link

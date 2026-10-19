@@ -1,22 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
 import ProductCard from '../../../components/common/ProductCard';
-import HomeSearchBar from '../components/HomeSearchBar';
-import SearchSuggestionsDropdown from '../components/SearchSuggestionsDropdown';
+import ProductCardSkeleton from '../../../components/common/ProductCardSkeleton';
 import CampusSelector from '../components/CampusSelector';
 import CategoryGrid from '../components/CategoryGrid';
 import { HeroBannerCarousel } from '../components/HeroBannerCarousel';
-import FeedHeader from '../components/FeedHeader';
-import FeedFilterChips from '../components/FeedFilterChips';
 import SafePointWidget from '../components/SafePointWidget';
-import { TrendingSearchesBanner } from '../components/TrendingSearchesBanner';
 import useHomeFeed from '../hooks/useHomeFeed';
 import { QuickShortcutsBar, QuickShortcutItem } from '../components/QuickShortcutsBar';
 import { useUserStore } from '../../../stores/userStore';
+import { useProductStore } from '../../../stores/productStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
+import { useOrderStore } from '../../../stores/orderStore';
+import { useChatStore } from '../../../stores/chatStore';
+import { useKho } from '../../../context/KhoContext';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
 import { HomeScreenProps } from '../types/home.types';
 
@@ -28,6 +28,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
+  const { isLoading } = useProductStore();
+  const { inventoryStats } = useKho();
   const unreadNotificationCount = useNotificationStore((state) =>
     state.notifications.filter((n) => n.unread).length
   );
@@ -50,6 +52,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   } = useHomeFeed();
 
   const currentCampusName = campuses[selectedCampus] || 'HÒA LẠC';
+
+  const handleProductPress = useCallback(
+    (productId: string) => {
+      if (onProductPress) {
+        onProductPress(productId);
+      } else {
+        navigation.navigate('ProductDetail', { productId });
+      }
+    },
+    [onProductPress, navigation]
+  );
+
+  const handleCategoryPress = useCallback(
+    (category: any) => {
+      navigation.navigate('ProductList', {
+        category: category.name,
+        categoryType: category.id,
+        title: category.name,
+      });
+    },
+    [navigation]
+  );
 
   // Điều hướng sang Search Screen trắng riêng biệt khi bấm kính lúp
   const handleOpenSearch = () => {
@@ -83,84 +107,135 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setSelectedCampus(nextIdx);
   };
 
+  // Mở Kho hàng & Tin đăng của tôi
+  const handleOpenKho = () => {
+    if (!isAuthenticated) {
+      setAuthModalTitle('Yêu cầu đăng nhập');
+      setAuthModalMessage('Vui lòng đăng nhập để xem kho hàng và các tin đã đăng của bạn.');
+      setAuthModalVisible(true);
+      return;
+    }
+    navigation.navigate('ManageListings');
+  };
+
+  const isSeller = isAuthenticated && user?.role === 'SELLER';
+  const { orders } = useOrderStore();
+  const unreadChatCount = useChatStore((s) =>
+    s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+  );
+
+  // Badge đơn hàng đang hoạt động cần chú ý
+  const activeOrdersCount = useMemo(() => {
+    if (!isAuthenticated || !user?.id) return 0;
+    return orders.filter(
+      (o) =>
+        (isSeller ? o.sellerId === user.id || o.buyerId === user.id : o.buyerId === user.id) &&
+        ['PENDING_SAFEPOINT', 'ESCROW_PAID', 'HANDOVER_CONFIRMED', 'DISPUTED'].includes(o.status)
+    ).length;
+  }, [orders, isAuthenticated, user?.id, isSeller]);
+
+  // Badge kho hàng chỉ đếm các tin cần chú ý (bị từ chối cần sửa hoặc chờ duyệt)
+  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
+
   // Danh sách Tiện ích nhanh chuẩn TikTok Style
-  const quickShortcuts: QuickShortcutItem[] = [
-    {
-      id: 'orders',
-      title: 'Đơn hàng',
-      icon: 'cube-outline',
-      color: '#0284C7',
-      bgColor: '#E0F2FE',
-      onPress: () => {
-        if (!isAuthenticated) {
-          setAuthModalTitle('Yêu cầu đăng nhập');
-          setAuthModalMessage('Vui lòng đăng nhập để xem danh sách đơn hàng của bạn.');
-          setAuthModalVisible(true);
-          return;
-        }
-        navigation.navigate('OrderList');
+  const quickShortcuts = useMemo<QuickShortcutItem[]>(() => {
+    const list: QuickShortcutItem[] = [];
+
+    // CHỈ SELLER mới có nút "Kho đồ"
+    if (isSeller) {
+      list.push({
+        id: 'kho_hang',
+        title: 'Kho đồ',
+        icon: 'file-tray-full-outline',
+        color: '#EA580C',
+        bgColor: '#FFF7ED',
+        badge: khoAttentionCount > 0 ? `${khoAttentionCount}` : undefined,
+        onPress: handleOpenKho,
+      });
+    }
+
+    list.push(
+      {
+        id: 'orders',
+        title: 'Đơn hàng',
+        icon: 'cube-outline',
+        color: '#0284C7',
+        bgColor: '#E0F2FE',
+        badge: activeOrdersCount > 0 ? `${activeOrdersCount}` : undefined,
+        onPress: () => {
+          if (!isAuthenticated) {
+            setAuthModalTitle('Yêu cầu đăng nhập');
+            setAuthModalMessage('Vui lòng đăng nhập để xem danh sách đơn hàng của bạn.');
+            setAuthModalVisible(true);
+            return;
+          }
+          navigation.navigate('OrderList');
+        },
       },
-    },
-    {
-      id: 'chat',
-      title: 'Tin nhắn',
-      icon: 'chatbubbles-outline',
-      color: '#16A34A',
-      bgColor: '#DCFCE7',
-      onPress: () => {
-        if (!isAuthenticated) {
-          setAuthModalTitle('Yêu cầu đăng nhập');
-          setAuthModalMessage('Vui lòng đăng nhập để kiểm tra hòm thư trao đổi.');
-          setAuthModalVisible(true);
-          return;
-        }
-        navigation.navigate('MainTabs', { screen: 'Chat' });
+      {
+        id: 'chat',
+        title: 'Tin nhắn',
+        icon: 'chatbubbles-outline',
+        color: '#16A34A',
+        bgColor: '#DCFCE7',
+        badge: unreadChatCount > 0 ? `${unreadChatCount}` : undefined,
+        onPress: () => {
+          if (!isAuthenticated) {
+            setAuthModalTitle('Yêu cầu đăng nhập');
+            setAuthModalMessage('Vui lòng đăng nhập để kiểm tra hòm thư trao đổi.');
+            setAuthModalVisible(true);
+            return;
+          }
+          navigation.navigate('MainTabs', { screen: 'Chat' });
+        },
       },
-    },
-    {
-      id: 'vouchers',
-      title: 'Voucher',
-      icon: 'ticket-outline',
-      color: '#EA580C',
-      bgColor: '#FFEDD5',
-      badge: 'HOT',
-      onPress: () => {
-        navigation.navigate('Voucher');
+      {
+        id: 'vouchers',
+        title: 'Voucher',
+        icon: 'ticket-outline',
+        color: '#EA580C',
+        bgColor: '#FFEDD5',
+        badge: 'HOT',
+        onPress: () => {
+          navigation.navigate('Voucher');
+        },
       },
-    },
-    {
-      id: 'wallet',
-      title: 'Ví Coins',
-      icon: 'wallet-outline',
-      color: '#D97706',
-      bgColor: '#FEF3C7',
-      onPress: () => {
-        if (!isAuthenticated) {
-          setAuthModalTitle('Yêu cầu đăng nhập');
-          setAuthModalMessage('Vui lòng đăng nhập để quản lý ví và số dư tích lũy.');
-          setAuthModalVisible(true);
-          return;
-        }
-        navigation.navigate('CoinHistory');
+      {
+        id: 'wallet',
+        title: 'Ví Coins',
+        icon: 'wallet-outline',
+        color: '#D97706',
+        bgColor: '#FEF3C7',
+        onPress: () => {
+          if (!isAuthenticated) {
+            setAuthModalTitle('Yêu cầu đăng nhập');
+            setAuthModalMessage('Vui lòng đăng nhập để quản lý ví và số dư tích lũy.');
+            setAuthModalVisible(true);
+            return;
+          }
+          navigation.navigate('CoinHistory');
+        },
       },
-    },
-    {
-      id: 'saved',
-      title: 'Đã lưu',
-      icon: 'heart-outline',
-      color: '#E11D48',
-      bgColor: '#FFE4E6',
-      onPress: () => {
-        if (!isAuthenticated) {
-          setAuthModalTitle('Yêu cầu đăng nhập');
-          setAuthModalMessage('Vui lòng đăng nhập để xem các món đồ bạn đã lưu.');
-          setAuthModalVisible(true);
-          return;
-        }
-        navigation.navigate('SavedItems');
-      },
-    },
-  ];
+      {
+        id: 'saved',
+        title: 'Đã lưu',
+        icon: 'heart-outline',
+        color: '#E11D48',
+        bgColor: '#FFE4E6',
+        onPress: () => {
+          if (!isAuthenticated) {
+            setAuthModalTitle('Yêu cầu đăng nhập');
+            setAuthModalMessage('Vui lòng đăng nhập để xem các món đồ bạn đã lưu.');
+            setAuthModalVisible(true);
+            return;
+          }
+          navigation.navigate('SavedItems');
+        },
+      }
+    );
+
+    return list;
+  }, [isSeller, inventoryStats.total, isAuthenticated, navigation]);
 
   // Thuật toán xác định TIN XU HƯỚNG / NỔI BẬT:
   // Dựa vào độ tương tác (viewsCount + likesCount * 3) hoặc sản phẩm có lượt xem cao
@@ -191,9 +266,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         campusName={currentCampusName}
         avatarUrl={isAuthenticated ? user?.avatar || user?.avatarUrl : undefined}
         isAuthenticated={isAuthenticated}
+        isSeller={isSeller}
         unreadNotificationCount={unreadNotificationCount}
+        khoCount={isSeller ? khoAttentionCount : 0}
         onSearchPress={handleOpenSearch}
         onNotificationPress={handleOpenNotification}
+        onKhoPress={handleOpenKho}
         onAvatarPress={handleAvatarPress}
         onCampusChangePress={handleNextCampus}
       />
@@ -224,6 +302,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             }
           }}
         />
+
+        {/* Cụm Danh mục ngành hàng 1 chạm */}
+        <CategoryGrid categories={categories} onCategoryPress={handleCategoryPress} />
 
         {/* SECTION 1: TIN XU HƯỚNG / NỔI BẬT (Vuốt ngang preview + Xem tất cả) */}
         <View style={styles.sectionHeaderRow}>
@@ -256,10 +337,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <ProductCard
                 {...item}
                 cardStyle={{ width: '100%', marginBottom: 0 }}
-                onPress={() => {
-                  if (onProductPress) onProductPress(item.id);
-                  else navigation.navigate('ProductDetail', { productId: item.id });
-                }}
+                onPress={handleProductPress}
               />
             </View>
           ))}
@@ -287,13 +365,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {campusProducts.length === 0 ? (
+        {isLoading && campusProducts.length === 0 ? (
+          <View style={styles.productGrid}>
+            <ProductCardSkeleton />
+            <ProductCardSkeleton />
+            <ProductCardSkeleton />
+            <ProductCardSkeleton />
+          </View>
+        ) : campusProducts.length === 0 ? (
           <View style={styles.emptyFeedContainer}>
-            <Ionicons name="cube-outline" size={44} color="#CBD5E1" />
+            <Ionicons name="cube-outline" size={48} color="#CBD5E1" />
             <Text style={styles.emptyFeedTitle}>Chưa có món đồ nào ở cơ sở này</Text>
             <Text style={styles.emptyFeedSub}>
               Hãy chọn cơ sở "TẤT CẢ" hoặc chuyển sang cơ sở khác để khám phá thêm đồ sinh viên pass lại nhé!
             </Text>
+            <TouchableOpacity
+              style={styles.emptyFeedButton}
+              activeOpacity={0.8}
+              onPress={() => setSelectedCampus(0)}
+            >
+              <Ionicons name="compass-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyFeedButtonText}>Khám phá toàn quốc (TẤT CẢ)</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.productGrid}>
@@ -301,10 +394,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <ProductCard
                 key={`campus-${item.id}`}
                 {...item}
-                onPress={() => {
-                  if (onProductPress) onProductPress(item.id);
-                  else navigation.navigate('ProductDetail', { productId: item.id });
-                }}
+                onPress={handleProductPress}
               />
             ))}
           </View>
@@ -391,6 +481,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  emptyFeedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 16,
+    elevation: 2,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  emptyFeedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   bottomSpacer: { height: 30 },
 });

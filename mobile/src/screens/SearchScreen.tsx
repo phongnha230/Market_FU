@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -65,17 +65,22 @@ export const SearchScreen: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  const saveSearchKeyword = async (term: string) => {
+  const saveSearchKeyword = useCallback(async (term: string) => {
     const clean = term.trim();
     if (!clean) return;
     try {
-      const updated = [clean, ...recentSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
-      setRecentSearches(updated);
-      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+      let updatedList: string[] = [];
+      setRecentSearches((prev) => {
+        updatedList = [clean, ...prev.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
+        return updatedList;
+      });
+      if (updatedList.length > 0) {
+        await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updatedList));
+      }
     } catch {
       // Ignored
     }
-  };
+  }, []);
 
   const handleClearHistory = async () => {
     try {
@@ -90,6 +95,14 @@ export const SearchScreen: React.FC = () => {
     setKeyword(term);
     saveSearchKeyword(term);
   };
+
+  const handleProductPress = useCallback(
+    (productId: string) => {
+      saveSearchKeyword(keyword);
+      navigation.navigate('ProductDetail', { productId });
+    },
+    [keyword, navigation, saveSearchKeyword]
+  );
 
   const searchResults = keyword.trim()
     ? products.filter((p) => {
@@ -145,9 +158,9 @@ export const SearchScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.tagWrap}>
-                  {recentSearches.map((item, index) => (
+                  {recentSearches.map((item) => (
                     <TouchableOpacity
-                      key={index}
+                      key={`recent-${item}`}
                       style={styles.historyTag}
                       activeOpacity={0.7}
                       onPress={() => handleSelectKeyword(item)}
@@ -169,9 +182,9 @@ export const SearchScreen: React.FC = () => {
                 </View>
               </View>
               <View style={styles.tagWrap}>
-                {hotKeywords.map((item, index) => (
+                {hotKeywords.map((item) => (
                   <TouchableOpacity
-                    key={index}
+                    key={`hot-${item}`}
                     style={styles.hotTag}
                     activeOpacity={0.7}
                     onPress={() => handleSelectKeyword(item)}
@@ -214,10 +227,7 @@ export const SearchScreen: React.FC = () => {
                   <ProductCard
                     key={item.id}
                     {...item}
-                    onPress={() => {
-                      saveSearchKeyword(keyword);
-                      navigation.navigate('ProductDetail', { productId: item.id });
-                    }}
+                    onPress={handleProductPress}
                   />
                 ))}
               </View>

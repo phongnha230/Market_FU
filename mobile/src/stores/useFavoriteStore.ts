@@ -22,6 +22,8 @@ interface FavoriteState {
 
 const INITIAL_FAVORITES: Record<string, string[]> = {};
 
+let inFlightFavoritesPromise: Promise<string[]> | null = null;
+
 export const useFavoriteStore = create<FavoriteState>()(
   persist(
     (set, get) => ({
@@ -45,18 +47,23 @@ export const useFavoriteStore = create<FavoriteState>()(
       },
 
       fetchFavorites: async () => {
-        try {
-          const serverFavs = await productMobileService.getMyFavorites();
-          if (Array.isArray(serverFavs)) {
-            const serverIds = serverFavs.map((p) => p.id);
-            const { favoritesByUser, activeUserId, savedProductsMap } = get();
-            const currentId = activeUserId || 'anonymous';
-            const localIds = favoritesByUser[currentId] || [];
+        if (inFlightFavoritesPromise) {
+          return inFlightFavoritesPromise;
+        }
 
-            const updatedMap = { ...(savedProductsMap || {}) };
-            serverFavs.forEach((favProd) => {
-              updatedMap[favProd.id] = favProd;
-            });
+        inFlightFavoritesPromise = (async () => {
+          try {
+            const serverFavs = await productMobileService.getMyFavorites();
+            if (Array.isArray(serverFavs)) {
+              const serverIds = serverFavs.map((p) => p.id);
+              const { favoritesByUser, activeUserId, savedProductsMap } = get();
+              const currentId = activeUserId || 'anonymous';
+              const localIds = favoritesByUser[currentId] || [];
+
+              const updatedMap = { ...(savedProductsMap || {}) };
+              serverFavs.forEach((favProd) => {
+                updatedMap[favProd.id] = favProd;
+              });
 
             // Đồng bộ dữ liệu chi tiết của các sản phẩm yêu thích này vào productStore
             if (serverFavs.length > 0) {
@@ -90,9 +97,14 @@ export const useFavoriteStore = create<FavoriteState>()(
           }
         } catch (e: any) {
           console.log('⚠️ [fetchFavorites offline]:', e?.message);
+        } finally {
+          inFlightFavoritesPromise = null;
         }
         return get().favoriteIds;
-      },
+      })();
+
+      return inFlightFavoritesPromise;
+    },
 
       toggleFavorite: (id: string, productData?: any) => {
         const { favoritesByUser, activeUserId, savedProductsMap } = get();

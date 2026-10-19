@@ -123,9 +123,9 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
 
       {/* Pagination Dots */}
       <View style={styles.dotsRow}>
-        {HERO_SLIDES.map((_, i) => (
+        {HERO_SLIDES.map((slide, i) => (
           <View
-            key={`dot-${i}`}
+            key={`dot-${slide.id}`}
             style={[styles.dot, activeIndex === i ? styles.activeDot : styles.inactiveDot]}
           />
         ))}
