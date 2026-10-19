@@ -42,45 +42,72 @@ export interface ConversationItem {
 const INITIAL_CONVERSATIONS: ConversationItem[] = [];
 
 interface ChatState {
+  conversationsByUser: Record<string, ConversationItem[]>;
+  activeUserId: string | null;
   conversations: ConversationItem[];
   isLoading: boolean;
+  setActiveUser: (userId: string | null) => void;
   fetchConversations: () => Promise<void>;
   addMessage: (convId: string, message: ChatMessage) => void;
   getConversationById: (convId: string) => ConversationItem | undefined;
   markConversationAsRead: (convId: string) => void;
+  resetChat: () => void;
 }
 
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
+      conversationsByUser: {},
+      activeUserId: null,
       conversations: [],
       isLoading: false,
+
+      setActiveUser: (userId) => {
+        const uId = userId ? String(userId).trim() : null;
+        const state = get();
+        const userConvs = uId && state.conversationsByUser[uId] ? state.conversationsByUser[uId] : [];
+        set({
+          activeUserId: uId,
+          conversations: userConvs,
+        });
+        if (uId) {
+          get().fetchConversations().catch(() => {});
+        }
+      },
 
       fetchConversations: async () => {
         try {
           set({ isLoading: true });
           const liveList = await chatMobileService.getConversations();
           if (Array.isArray(liveList)) {
+            const uId = get().activeUserId;
+            const mapped = liveList.map((item) => {
+              const existing = get().conversations.find((c) => c.id === item.id);
+              return {
+                id: item.id,
+                partnerId: item.participantId,
+                partnerName: item.participantName,
+                partnerAvatar: item.participantAvatar,
+                lastMessage: item.lastMessage,
+                lastTime: item.lastMessageTime,
+                unreadCount: item.unreadCount || 0,
+                productId: item.productId || 'prod_dell_24',
+                productTitle: item.productTitle || 'Món đồ Campus',
+                productPrice: item.productPrice || 0,
+                productImage: item.productImage || require('../../assets/products/monitor-dell-24.jpg'),
+                messages: existing?.messages || [],
+                buyerId: item.buyerId,
+                sellerId: item.sellerId,
+              };
+            });
             set((state) => ({
-              conversations: liveList.map((item) => {
-                const existing = state.conversations.find((c) => c.id === item.id);
-                return {
-                  id: item.id,
-                  partnerId: item.participantId,
-                  partnerName: item.participantName,
-                  partnerAvatar: item.participantAvatar,
-                  lastMessage: item.lastMessage,
-                  lastTime: item.lastMessageTime,
-                  unreadCount: item.unreadCount || 0,
-                  productId: item.productId || 'prod_dell_24',
-                  productTitle: item.productTitle || 'Món đồ Campus',
-                  productPrice: item.productPrice || 0,
-                  productImage: item.productImage || require('../../assets/products/monitor-dell-24.jpg'),
-                  messages: existing?.messages || [],
-                  buyerId: item.buyerId,
-                  sellerId: item.sellerId,
-                };
-              }),
+              conversations: mapped,
+              conversationsByUser: uId
+                ? {
+                    ...state.conversationsByUser,
+                    [uId]: mapped,
+                  }
+                : state.conversationsByUser,
             }));
           }
         } catch (e: any) {
@@ -91,8 +118,9 @@ export const useChatStore = create<ChatState>()(
       },
 
       addMessage: (convId, message) => {
-        set((state) => ({
-          conversations: state.conversations.map((c) =>
+        const uId = get().activeUserId;
+        set((state) => {
+          const updatedConversations = state.conversations.map((c) =>
             c.id === convId
               ? {
                   ...c,
@@ -101,8 +129,17 @@ export const useChatStore = create<ChatState>()(
                   messages: [...c.messages, message],
                 }
               : c
-          ),
-        }));
+          );
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updatedConversations,
+                }
+              : state.conversationsByUser,
+          };
+        });
 
         if (message.sender === 'me' && message.text) {
           chatMobileService.sendMessage(convId, message.text!).catch(() => {});
@@ -114,18 +151,47 @@ export const useChatStore = create<ChatState>()(
       },
 
       markConversationAsRead: (convId) => {
-        set((state) => ({
-          conversations: state.conversations.map((c) =>
+        const uId = get().activeUserId;
+        set((state) => {
+          const updatedConversations = state.conversations.map((c) =>
             c.id === convId ? { ...c, unreadCount: 0 } : c
-          ),
-        }));
+          );
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updatedConversations,
+                }
+              : state.conversationsByUser,
+          };
+        });
 
         chatMobileService.markAsRead(convId).catch(() => {});
+      },
+
+      resetChat: () => {
+        set({
+          conversations: [],
+          activeUserId: null,
+        });
       },
     }),
     {
       name: 'fu_chats_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (!state.conversationsByUser || typeof state.conversationsByUser !== 'object') {
+            state.conversationsByUser = {};
+          }
+          if (!state.activeUserId) {
+            state.conversations = [];
+          } else {
+            state.conversations = state.conversationsByUser[state.activeUserId] || [];
+          }
+        }
+      },
     }
   )
 );

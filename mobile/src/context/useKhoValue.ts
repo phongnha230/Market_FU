@@ -83,7 +83,10 @@ export const useKhoValue = (): KhoContextType => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setSellerProducts([]);
+      return;
+    }
 
     fetchMySellerProducts().catch(() => {});
     fetchOrders().catch(() => {});

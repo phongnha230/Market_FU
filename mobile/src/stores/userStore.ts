@@ -9,6 +9,7 @@ import { useVoucherStore } from './voucherStore';
 import { useKycStore } from './kycStore';
 import { useWalletStore } from './walletStore';
 import { useProductStore } from './productStore';
+import { useChatStore } from './chatStore';
 
 export type { UserProfile, AccountRecord };
 
@@ -19,6 +20,7 @@ const syncUserToStores = (userId: string | null) => {
     useVoucherStore.getState().setActiveUser(userId);
     useKycStore.getState().setActiveUser(userId);
     useWalletStore.getState().setActiveUser(userId);
+    useChatStore.getState().setActiveUser(userId);
   } catch (e) {
     // Non-blocking sync error prevention
   }

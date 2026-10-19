@@ -101,7 +101,14 @@ export const useOrderStore = create<OrderState>()(
       isLoading: false,
 
       setActiveUser: (userId) => {
-        set({ activeUserId: userId });
+        const uId = userId ? String(userId).trim() : null;
+        const currentActive = get().activeUserId;
+        if (uId !== currentActive) {
+          set({ activeUserId: uId, orders: [] });
+          if (uId) {
+            get().fetchOrders().catch(() => {});
+          }
+        }
       },
 
       fetchOrders: async () => {
