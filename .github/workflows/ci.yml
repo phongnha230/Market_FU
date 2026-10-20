@@ -1,4 +1,4 @@
-name: Backend CI Pipeline
+name: Backend CI/CD Pipeline
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 
 jobs:
   test-and-build:
-    name: Test & Build Backend
+    name: 🧪 Test & Build Backend (CI)
     runs-on: ubuntu-latest
 
     defaults:
@@ -70,7 +70,7 @@ jobs:
           scan-ref: './backend'
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0' # Ghi log chi tiết lỗ hổng package để dev theo dõi và vá
+          exit-code: '0'
 
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -95,3 +95,29 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
+
+  deploy-to-vps:
+    name: 🚀 Auto Deploy to VPS (CD)
+    needs: [test-and-build, docker-build-and-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+
+    steps:
+      - name: 🚀 SSH vào VPS & Tự động Pull Code + Rebuild Docker
+        if: env.VPS_HOST != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          password: ${{ env.VPS_PASSWORD }}
+          port: 22
+          script: |
+            cd ~/app/backend
+            git pull https://phongnha230:${{ env.GH_PAT }}@github.com/phongnha230/Market_FU.git main
+            docker compose -f docker-compose.deploy.yml up -d --build
+            docker image prune -f
