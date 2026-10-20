@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface AuthHeaderProps {
   authMode: 'login' | 'register';
@@ -25,7 +25,11 @@ const AuthBrandHeader: React.FC<{ authMode: 'login' | 'register' }> = React.memo
         <Text style={styles.logoBadge5Text}>5 Cơ sở</Text>
       </View>
       <View style={styles.logoBox}>
-        <MaterialCommunityIcons name="storefront" size={32} color="#FFFFFF" />
+        <Image
+          source={require('../../../../assets/icon.png')}
+          style={{ width: '100%', height: '100%', borderRadius: 16 }}
+          resizeMode="cover"
+        />
       </View>
     </View>
 

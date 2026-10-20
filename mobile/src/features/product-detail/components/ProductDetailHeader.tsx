@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ProductDetailHeaderProps {
@@ -40,9 +40,10 @@ export const ProductDetailHeader: React.FC<ProductDetailHeaderProps> = memo(({
       </TouchableOpacity>
 
       <View style={styles.center}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoText}>FPT</Text>
-        </View>
+        <Image
+          source={require('../../../../assets/icon.png')}
+          style={{ width: 24, height: 24, borderRadius: 6 }}
+        />
         <Text style={styles.title}>Chi Tiết Sản Phẩm</Text>
       </View>
 

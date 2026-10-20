@@ -42,7 +42,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         <View style={styles.leftSection}>
           <View style={styles.logoWrapper}>
             <View style={styles.logoBox}>
-              <MaterialCommunityIcons name="storefront" size={22} color="#FFFFFF" />
+              <Image
+                source={require('../../../assets/icon.png')}
+                style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                contentFit="cover"
+              />
             </View>
             <View style={styles.logoBadge5}>
               <Text style={styles.logoBadge5Text}>5 Cơ sở</Text>

@@ -15,7 +15,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F27024"
       },
       "package": "com.fu.secondhandmarket",
       "googleServicesFile": "./google-services.json"

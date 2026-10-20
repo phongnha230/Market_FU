@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -104,9 +104,10 @@ export const AboutScreen: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
         {/* App Logo & Version */}
         <View style={styles.appBanner}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>FPT</Text>
-          </View>
+          <Image
+            source={require('../../../../assets/icon.png')}
+            style={{ width: 72, height: 72, borderRadius: 18, marginBottom: 10 }}
+          />
           <Text style={styles.appName}>Market FU - 5Campus</Text>
           <Text style={styles.appVersion}>Phiên bản 2.4.0 (Build 2026.09-Production)</Text>
           <View style={styles.shieldTag}>
