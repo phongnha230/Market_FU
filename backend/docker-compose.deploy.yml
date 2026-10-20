@@ -30,6 +30,7 @@ services:
     volumes:
       - deploy_uploads_data:/app/uploads
       - deploy_logs_data:/app/logs
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
       redis:
         condition: service_healthy
