@@ -50,8 +50,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-# Tạo thư mục uploads và phân quyền cho non-root user
-RUN mkdir -p /app/uploads && chown -R nodeuser:nodejs /app/uploads
+# Tạo thư mục uploads + logs và phân quyền cho non-root user
+RUN mkdir -p /app/uploads /app/logs && chown -R nodeuser:nodejs /app/uploads /app/logs
 
 # Phân quyền cho non-root user
 USER nodeuser
