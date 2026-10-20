@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "286340231733",
+    "project_id": "marketfu-1cdf7",
+    "storage_bucket": "marketfu-1cdf7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:286340231733:android:52467864565f4a3e0c377c",
+        "android_client_info": {
+          "package_name": "com.fu.secondhandmarket"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "286340231733-qgivinnpgkh481i8ghvsp021cbo53eir.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fu.secondhandmarket",
+            "certificate_hash": "8ccd27a3654fd85be30647b22e5163bf3273b255"
+          }
+        },
+        {
+          "client_id": "286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1ClsWLLf62cZ9GWukiwPs_Q-M5PV8R2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "286340231733-3lepvvout4k48h5ojarnsfmountphjqn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fu.secondhandmarket"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

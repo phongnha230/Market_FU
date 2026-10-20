@@ -13,10 +13,6 @@ node_modules/
 *firebase-adminsdk*.json
 *firebase-service-account*.json
 firebase-service-account.json
-*google-services*.json
-*GoogleService-Info*.plist
-**/google-services*.json
-**/GoogleService-Info*.plist
 
 
 # Build outputs
@@ -55,4 +51,3 @@ bin/
 # Internal API Test Collections (Bruno)
 bruno-collection/
 backend/bruno-collection/
-

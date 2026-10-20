@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fu.secondhandmarket",
@@ -36,6 +35,12 @@
           "defaultChannel": "system_channel"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3ceb7672-6ffd-48c5-9636-3e2d4f8bc092"
+      }
+    },
+    "owner": "nha1905"
   }
 }

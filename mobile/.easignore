@@ -1,0 +1,15 @@
+node_modules/
+android/
+ios/
+.expo/
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.zip
+
+# NOTE: Do NOT ignore .env or google-services.json here!
+# EAS Build needs them uploaded to bundle EXPO_PUBLIC_* vars and Firebase config.

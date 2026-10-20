@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Ignore Backend, Frontend & Reports when building Mobile on EAS Cloud
+backend/
+frontend/
+report/
+reports/
+schema/
+.codegraph/
+
+# Ignore prebuilt native folders & caches so EAS runs a clean prebuild from app.json
+mobile/android/
+mobile/ios/
+android/
+ios/
+.expo/
+mobile/.expo/
+dist/
+build/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.zip
+
+# NOTE: Do NOT ignore mobile/.env or mobile/google-services.json here!
+# EAS Build needs them uploaded to bundle EXPO_PUBLIC_* vars and Firebase config.

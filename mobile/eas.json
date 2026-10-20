@@ -1,0 +1,51 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:5001/api",
+        "EXPO_PUBLIC_SOCKET_URL": "http://localhost:5001",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAco0MBg0sppTmSSOOjreeOaWiTvlRrmvY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "marketfu-1cdf7.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "marketfu-1cdf7",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "marketfu-1cdf7.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "286340231733",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:286340231733:web:1632e15aa97b2b030c377c",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "286340231733-qgivinnpgkh481i8ghvsp021cbo53eir.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:5001/api",
+        "EXPO_PUBLIC_SOCKET_URL": "http://localhost:5001",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAco0MBg0sppTmSSOOjreeOaWiTvlRrmvY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "marketfu-1cdf7.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "marketfu-1cdf7",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "marketfu-1cdf7.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "286340231733",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:286340231733:web:1632e15aa97b2b030c377c",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "286340231733-qgivinnpgkh481i8ghvsp021cbo53eir.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "286340231733-gh3a161bch9t883cu5nm5c80e22lpplt.apps.googleusercontent.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
