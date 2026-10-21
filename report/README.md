@@ -45,7 +45,8 @@ report/
     ├── 12_HOME_HEADER_AVATAR_AUTH_SYNC.md             <-- Đồng bộ Avatar và phiên đăng nhập
     ├── 13_ORDER_REALTIME_SHIPPING_AND_PROOF_PHOTO.md  <-- Theo dõi vận chuyển & ảnh bằng chứng
     ├── 14_WEB_PARITY_SYNC_REPORT.md                   <-- So khớp độ tương đồng Web - Mobile
-    └── 15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md <-- [MỚI] Xóa fallback ảo, nạp/rút tiền thật, nối AI Vision quét ảnh
+    ├── 15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md <-- Xóa fallback ảo, nạp/rút tiền thật, nối AI Vision quét ảnh
+    └── 16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md <-- [MỚI] Sửa lỗi văng app (Circular Dependency useAuthStore) khi vào Trang chủ trên APK
 ```
 
 ---
