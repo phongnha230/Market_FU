@@ -1,5 +1,2 @@
-import { useUserStore } from './userStore';
-
+export { useUserStore, useAuthStore, default } from './userStore';
 export * from './userStore';
-export const useAuthStore = useUserStore;
-export default useUserStore;

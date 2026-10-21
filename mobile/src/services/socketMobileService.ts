@@ -1,8 +1,16 @@
 import { io, Socket } from 'socket.io-client';
-import { useAuthStore } from '../stores/useAuthStore';
 import { ENV } from '../config/env';
 
 const getSocketUrl = () => ENV.SOCKET_URL;
+
+const getAuthToken = (): string | null => {
+  try {
+    const { useUserStore } = require('../stores/userStore');
+    return useUserStore?.getState?.()?.token || null;
+  } catch {
+    return null;
+  }
+};
 
 class SocketMobileService {
   private socket: Socket | null = null;
@@ -17,7 +25,7 @@ class SocketMobileService {
       return this.socket;
     }
 
-    const token = useAuthStore.getState().token;
+    const token = getAuthToken();
     const socketUrl = getSocketUrl();
 
     try {
