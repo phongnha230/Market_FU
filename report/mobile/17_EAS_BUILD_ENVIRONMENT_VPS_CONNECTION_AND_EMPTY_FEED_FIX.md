@@ -74,21 +74,10 @@ Nguyên nhân sự cố nằm ở 3 điểm kết nối giữa bản build APK v
 }
 ```
 
-### 3.2. Bật Quyền Truy Cập Mạng Linh Hoạt (`usesCleartextTraffic`)
+### 3.2. Cấu Hình Giao Thức Mạng Chuẩn Hóa & Tuân Thủ Expo Schema
 - **Tệp chỉnh sửa:** [`mobile/app.json`](../../mobile/app.json)
-- **Giải pháp:** Thêm `"usesCleartextTraffic": true` vào cấu hình Android. Giúp ứng dụng kết nối mượt mà tới cả IP VPS dạng `http://` lẫn tên miền có SSL `https://`.
-
-```json
-"android": {
-  "adaptiveIcon": {
-    "foregroundImage": "./assets/adaptive-icon.png",
-    "backgroundColor": "#F27024"
-  },
-  "package": "com.fu.secondhandmarket",
-  "googleServicesFile": "./google-services.json",
-  "usesCleartextTraffic": true
-}
-```
+- **Giải pháp:** Vì server VPS triển khai bằng kết nối bảo mật **HTTPS** (`https://api.jintdp.dpdns.org/api`), hệ điều hành Android tự động cho phép mọi kết nối qua giao thức mã hóa này mà không cần cấu hình thêm.
+- Loại bỏ thuộc tính `usesCleartextTraffic` trực tiếp khỏi thẻ `android` để tuân thủ 100% Expo JSON Schema (vượt qua kiểm tra `expo doctor` 21/21 checks đạt chuẩn tuyệt đối).
 
 ### 3.3. Tự Động Chuẩn Hóa Đường Dẫn API (URL Normalization)
 - **Tệp chỉnh sửa:** 
@@ -108,6 +97,7 @@ Nguyên nhân sự cố nằm ở 3 điểm kết nối giữa bản build APK v
    - Phản hồi: `HTTP 200 OK`, `meta.total = 11`, danh mục sản phẩm đầy đủ hình ảnh và thông tin người bán.
 2. **Kiểm tra Biên Dịch & Cấu Trúc:**
    - `npx tsc --noEmit`: **0 lỗi (Exit code: 0)**.
+   - `npx expo-doctor`: **21/21 checks passed. No issues detected! (Exit code: 0)**.
    - `git diff mobile/eas.json`: Cả 2 profile `preview` và `production` đã được commit và push lên nhánh `main` (`commit 7e572f2`).
 3. **Quy Trình Phát Triển Song Song:**
    - *Trên máy tính (Local):* Đọc file `.env` local (`http://localhost:5001/api`), phục vụ debug offline độc lập.
