@@ -14,6 +14,8 @@
         "buildType": "apk"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.jintdp.dpdns.org/api",
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.jintdp.dpdns.org",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAco0MBg0sppTmSSOOjreeOaWiTvlRrmvY",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "marketfu-1cdf7.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "marketfu-1cdf7",
@@ -30,6 +32,8 @@
         "buildType": "apk"
       },
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.jintdp.dpdns.org/api",
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.jintdp.dpdns.org",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAco0MBg0sppTmSSOOjreeOaWiTvlRrmvY",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "marketfu-1cdf7.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "marketfu-1cdf7",
