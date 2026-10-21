@@ -46,7 +46,8 @@ report/
     ├── 13_ORDER_REALTIME_SHIPPING_AND_PROOF_PHOTO.md  <-- Theo dõi vận chuyển & ảnh bằng chứng
     ├── 14_WEB_PARITY_SYNC_REPORT.md                   <-- So khớp độ tương đồng Web - Mobile
     ├── 15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md <-- Xóa fallback ảo, nạp/rút tiền thật, nối AI Vision quét ảnh
-    └── 16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md <-- [MỚI] Sửa lỗi văng app (Circular Dependency useAuthStore) khi vào Trang chủ trên APK
+    ├── 16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md <-- Sửa lỗi văng app (Circular Dependency useAuthStore) khi vào Trang chủ trên APK
+    └── 17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md <-- [MỚI] Sửa lỗi Trang chủ rỗng (không tải được sản phẩm) do lệch môi trường EAS & kết nối VPS
 ```
 
 ---
@@ -80,6 +81,8 @@ report/
   - Loại bỏ hoàn toàn `AI_PRESETS` và `setTimeout` giả lập.
   - Nối trực tiếp luồng chụp ảnh sản phẩm với `POST /api/ai/vision-post` để Gemini AI phân tích hình ảnh, định giá và điền tự động 100% dữ liệu thực tế.
 - **Chi tiết tại:** [`report/mobile/15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md`](./mobile/15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md)
+- **Sửa crash APK khi vào Home**: Khử vòng lặp phụ thuộc `useAuthStore` <-> `apiClient` trên máy ảo JS Hermes của Android. Chi tiết: [`report/mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md`](./mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md)
+- **Khắc phục lỗi không tải được sản phẩm trên APK Build**: Đồng bộ biến môi trường EAS VPS `https://api.jintdp.dpdns.org/api` và bật `usesCleartextTraffic`. Chi tiết: [`report/mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md`](./mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md)
 
 ---
 
