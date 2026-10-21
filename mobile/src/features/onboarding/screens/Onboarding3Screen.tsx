@@ -35,8 +35,6 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     useUserStore.getState().completeOnboarding();
     if (onFinish) {
       onFinish();
-    } else if (navigation?.replace) {
-      navigation.replace('MainTabs');
     } else if (navigation?.navigate) {
       navigation.navigate('MainTabs');
     }
@@ -54,8 +52,6 @@ export const Onboarding3Screen: React.FC<Onboarding3ScreenProps> = ({
     useUserStore.getState().completeOnboarding();
     if (onSkip) {
       onSkip();
-    } else if (navigation?.replace) {
-      navigation.replace('MainTabs');
     } else if (navigation?.navigate) {
       navigation.navigate('MainTabs');
     }

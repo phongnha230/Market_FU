@@ -93,7 +93,11 @@ export const RootNavigator = () => {
         <Stack.Screen name="ManageListings" component={ManageListingsScreen as any} />
         <Stack.Screen name="SavedItems" component={SavedItemsScreen as any} />
         <Stack.Screen name="AiAssistant" component={AiAssistantScreen as any} />
-        <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+        <Stack.Screen
+          name="MainTabs"
+          component={BottomTabNavigator}
+          options={{ gestureEnabled: false, headerBackVisible: false }}
+        />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen as any} />
         <Stack.Screen
           name="ContextualAuth"

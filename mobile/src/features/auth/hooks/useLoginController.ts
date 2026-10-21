@@ -71,8 +71,6 @@ export function useLoginController(
   const navigateAfterAuth = useCallback(() => {
     if (onLoginSuccess) {
       onLoginSuccess();
-    } else if (navigation && navigation.replace) {
-      navigation.replace('MainTabs');
     } else if (navigation && navigation.navigate) {
       navigation.navigate('MainTabs', { screen: 'Home' });
     }

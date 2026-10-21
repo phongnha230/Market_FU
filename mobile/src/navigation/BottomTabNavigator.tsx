@@ -282,6 +282,7 @@ export const BottomTabNavigator = () => {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
       backBehavior="history"
+      detachInactiveScreens={false}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
 

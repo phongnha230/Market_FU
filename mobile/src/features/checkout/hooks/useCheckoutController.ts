@@ -271,7 +271,7 @@ export function useCheckoutController() {
       const formattedSlot = `${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`;
 
       // Navigate to CheckoutSuccess
-      navigation.replace('CheckoutSuccess', {
+      navigation.navigate('CheckoutSuccess', {
         orderCode: createdOrder.orderNumber,
         orderId: createdOrder.id,
         totalAmount,

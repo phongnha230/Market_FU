@@ -84,33 +84,35 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
 
   // Kết hợp sản phẩm từ store (bao gồm backend & tin mới đăng)
   const combinedProducts: (ProductCardProps & { hashtags?: string[] })[] = useMemo(() => {
-    if (storeProducts && storeProducts.length > 0) {
-      return storeProducts.map((p) => {
-        const hasDiscount = Boolean(p.originalPrice && p.originalPrice > p.price);
+    if (storeProducts && Array.isArray(storeProducts) && storeProducts.length > 0) {
+      return storeProducts.filter(Boolean).map((p, idx) => {
+        const numPrice = Number(p?.price) || 0;
+        const numOrigPrice = Number(p?.originalPrice) || 0;
+        const hasDiscount = Boolean(numOrigPrice && numOrigPrice > numPrice);
         const discountPercent = hasDiscount
-          ? Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100)
+          ? Math.round(((numOrigPrice - numPrice) / numOrigPrice) * 100)
           : undefined;
 
         return {
-          id: p.id,
-          title: p.title,
-          price: p.price.toLocaleString('vi-VN'),
-          originalPrice: hasDiscount ? p.originalPrice!.toLocaleString('vi-VN') : undefined,
+          id: String(p?.id || `item_${idx}`),
+          title: String(p?.title || 'Sản phẩm FPT'),
+          price: numPrice.toLocaleString('vi-VN'),
+          originalPrice: hasDiscount ? numOrigPrice.toLocaleString('vi-VN') : undefined,
           discountBadge: hasDiscount ? `-${discountPercent}%` : undefined,
-          location: `📍 ${p.campus || currentCampus} • ${p.safePoint || 'Safe-Point'}`,
-          seller: p.sellerName || 'Sinh viên FPT',
-          sellerYear: p.sellerCohort || 'K17',
-          isVerified: p.sellerIsVerified ?? true,
-          image: resolveProductImage(p.images?.[0]),
-          badge: p.condition || 'Like New',
+          location: `📍 ${p?.campus || currentCampus || 'FPT'} • ${p?.safePoint || 'Safe-Point'}`,
+          seller: String(p?.sellerName || 'Sinh viên FPT'),
+          sellerYear: p?.sellerCohort || 'K17',
+          isVerified: p?.sellerIsVerified ?? true,
+          image: resolveProductImage(p?.images?.[0]),
+          badge: p?.condition || 'Like New',
           badgeVariant: 'white' as const,
-          viewsCount: p.viewsCount || 0,
-          likesCount: p.likesCount || 0,
-          hashtags: p.hashtags,
-          category: p.category,
-          categoryType: p.categoryType,
-          description: p.description,
-          campus: p.campus,
+          viewsCount: Number(p?.viewsCount) || 0,
+          likesCount: Number(p?.likesCount) || 0,
+          hashtags: Array.isArray(p?.hashtags) ? p.hashtags : [],
+          category: p?.category,
+          categoryType: p?.categoryType,
+          description: p?.description,
+          campus: p?.campus,
         };
       });
     }

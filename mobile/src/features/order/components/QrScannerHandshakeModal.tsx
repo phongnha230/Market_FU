@@ -63,6 +63,8 @@ export const QrScannerHandshakeModal: React.FC<QrScannerHandshakeModalProps> = (
     handleVerify(expectedOtp);
   };
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>

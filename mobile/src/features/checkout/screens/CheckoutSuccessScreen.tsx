@@ -88,7 +88,7 @@ export const CheckoutSuccessScreen: React.FC = () => {
             setIsCancellingOrder(true);
             await orderMobileService.cancelOrder(orderId, 'Người mua hủy thanh toán PayOS');
             await fetchOrders();
-            navigation.replace('OrderList');
+            navigation.navigate('OrderList');
           } catch (error: any) {
             Alert.alert('Chưa hủy được đơn', error?.response?.data?.error?.message || error?.message || 'Vui lòng thử lại sau.');
           } finally {

@@ -150,7 +150,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12)',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
   },
   iconCircle: {
     width: 44,

@@ -101,6 +101,8 @@ export const RequireAuthModal: React.FC<RequireAuthModalProps> = React.memo(({
     }
   };
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
