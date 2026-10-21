@@ -18,7 +18,8 @@
         "backgroundColor": "#F27024"
       },
       "package": "com.fu.secondhandmarket",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"

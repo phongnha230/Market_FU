@@ -12,8 +12,12 @@ const getDetectedHostIp = (): string | null => {
 export const ENV = {
   // Backend API URL
   get API_URL(): string {
-    const envUrl = process.env.EXPO_PUBLIC_API_URL;
+    let envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
     if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      envUrl = envUrl.replace(/\/+$/, '');
+      if (!envUrl.endsWith('/api') && !envUrl.includes('/api/')) {
+        envUrl = `${envUrl}/api`;
+      }
       return envUrl;
     }
     if (Platform.OS === 'web') {
