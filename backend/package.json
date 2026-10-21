@@ -22,7 +22,8 @@
     "test:lock": "tsx scripts/test-redis-distributed-lock.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "mock:shipping": "node scripts/mock-shipping-webhook.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
