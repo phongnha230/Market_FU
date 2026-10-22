@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import reportMobileService, { ReportItem } from '../../../services/reportMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 interface MyReportsModalProps {
   visible: boolean;
@@ -47,10 +48,9 @@ export const MyReportsModal: React.FC<MyReportsModalProps> = ({
   }, [visible, loadReports]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadReports();
-    setRefreshing(false);
-  }, [loadReports]);
+    if (refreshing) return;
+    await withRefreshTimeout(loadReports, setRefreshing, 2000);
+  }, [refreshing, loadReports]);
 
   const renderStatusBadge = (status: ReportItem['status']) => {
     switch (status) {

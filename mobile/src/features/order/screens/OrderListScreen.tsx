@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { socketMobileService } from '../../../services/socketMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../../lib/imageResolver';
 
@@ -279,9 +280,9 @@ export const OrderListScreen: React.FC = () => {
   }, [fetchOrders]);
 
   const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await fetchOrders().catch(() => {});
-    setRefreshing(false);
+    await withRefreshTimeout(fetchOrders, setRefreshing, 2000);
+
+
   }, [fetchOrders]);
 
   const isSeller = user?.role === 'SELLER';

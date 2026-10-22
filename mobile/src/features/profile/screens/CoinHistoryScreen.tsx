@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { profileMobileService } from '../../../services/profileMobileService';
 import { authMobileService } from '../../../services/authMobileService';
 import { useUserStore } from '../../../stores/userStore';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 function getTimeUntilWeeklyReset(): string {
   const now = new Date();
@@ -159,12 +160,14 @@ export const CoinHistoryScreen: React.FC = () => {
   }, [loadHistory]);
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const me = await authMobileService.getMe();
-      if (me) updateUser(me);
-    } catch {}
-    await loadHistory();
+    if (refreshing) return;
+    await withRefreshTimeout(async () => {
+      try {
+        const me = await authMobileService.getMe();
+        if (me) updateUser(me);
+      } catch {}
+      await loadHistory();
+    }, setRefreshing, 2000);
   };
 
   const handleCheckIn = async () => {

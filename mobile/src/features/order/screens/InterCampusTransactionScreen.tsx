@@ -17,6 +17,7 @@ import { InterCampusTimelineCard, InterCampusStep } from '../components/InterCam
 import { InterCampusNoticeCard } from '../components/InterCampusNoticeCard';
 import { PackageHandoverProofModal } from '../components/PackageHandoverProofModal';
 import orderMobileService from '../../../services/orderMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 const createInterCampusSteps = (
   currentStep: number,
@@ -129,10 +130,9 @@ export const InterCampusTransactionScreen: React.FC = () => {
   }, [fetchTracking]);
 
   const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await fetchTracking();
-    setIsRefreshing(false);
-  }, [fetchTracking]);
+    if (isRefreshing) return;
+    await withRefreshTimeout(fetchTracking, setIsRefreshing, 2000);
+  }, [isRefreshing, fetchTracking]);
 
   const steps = useMemo(() => {
     if (

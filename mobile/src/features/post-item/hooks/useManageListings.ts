@@ -6,6 +6,7 @@ import { productMobileService } from '../../../services/productMobileService';
 import { ListingItemData } from '../screens/ManageListingsScreen';
 import { ListingStatus } from '../components/ManageListingsTabs';
 import { resolveProductImage } from '../../../lib/imageResolver';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 const INITIAL_LISTINGS: ListingItemData[] = [];
 
@@ -87,9 +88,9 @@ export const useManageListings = () => {
   }, [isAuthenticated, fetchMyProducts]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchMyProducts();
-    setRefreshing(false);
+    await withRefreshTimeout(fetchMyProducts, setRefreshing, 2000);
+
+
   }, [fetchMyProducts]);
 
   const listings: ListingItemData[] = useMemo(() => {

@@ -23,6 +23,7 @@ import { SellerTabBar } from '../components/SellerTabBar';
 import { SellerProductsGrid } from '../components/SellerProductsGrid';
 import { SellerReviewsList } from '../components/SellerReviewsList';
 import { SellerBottomBar } from '../components/SellerBottomBar';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 import { ReportModal } from '../../report/components/ReportModal';
 import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
@@ -131,10 +132,12 @@ export const PublicSellerProfileScreen: React.FC = () => {
     };
   }, [fetchProfileData]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchProfileData(() => true);
-  }, [fetchProfileData]);
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    await withRefreshTimeout(async () => {
+      await fetchProfileData(() => true);
+    }, setRefreshing, 2000);
+  }, [refreshing, fetchProfileData]);
 
   const handleShare = useCallback(async () => {
     try {

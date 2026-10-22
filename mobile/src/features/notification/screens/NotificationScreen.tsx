@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NotificationItem, NotificationFilterType } from '../types/notification.types';
 import { INITIAL_NOTIFICATIONS } from '../constants/notification.constants';
 import { NotificationCardItem } from '../components/NotificationCardItem';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 interface FilterChipOption {
   key: NotificationFilterType;
@@ -74,9 +75,9 @@ export const NotificationScreen: React.FC = () => {
   }, [fetchNotifications]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchNotifications().catch(() => {});
-    setRefreshing(false);
+    await withRefreshTimeout(fetchNotifications, setRefreshing, 2000);
+
+
   }, [fetchNotifications]);
 
   const unreadCount = useMemo(
@@ -248,7 +249,7 @@ export const NotificationScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing || isLoading} onRefresh={onRefresh} colors={['#EA580C']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
           }
           renderItem={renderItem}
         />

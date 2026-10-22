@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
@@ -18,6 +18,7 @@ import { useOrderStore } from '../../../stores/orderStore';
 import { useChatStore } from '../../../stores/chatStore';
 import { useKho } from '../../../context/KhoContext';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
+import { useSafeRefresh } from '../../../utils/safeRefresh';
 import { HomeScreenProps } from '../types/home.types';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -29,7 +30,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const route = useRoute<any>();
   const { user, isAuthenticated } = useUserStore();
   const { isLoading } = useProductStore();
-  const { inventoryStats } = useKho();
+  const { inventoryStats, refreshKhoHang } = useKho();
+  const { fetchProducts } = useProductStore();
+  const { refreshing: homeRefreshing, onRefresh: onHomeRefresh } = useSafeRefresh(async () => {
+    await Promise.allSettled([
+      fetchProducts(campuses[selectedCampus] || 'ALL'),
+      refreshKhoHang(),
+    ]);
+  }, 2000);
   const unreadNotificationCount = useNotificationStore((state) =>
     state.notifications.filter((n) => n.unread).length
   );
@@ -287,7 +295,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onCampusSelect={(idx) => setSelectedCampus(idx)}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={homeRefreshing}
+            onRefresh={onHomeRefresh}
+            colors={['#EA580C']}
+            tintColor="#EA580C"
+          />
+        }
+      >
         {/* Thanh chọn nhanh Campus */}
         <CampusSelector campuses={campuses} selectedIndex={selectedCampus} onSelect={setSelectedCampus} />
 

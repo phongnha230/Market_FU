@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { profileMobileService } from '../../../services/profileMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 import { WithdrawalModal } from '../components/WithdrawalModal';
 import { useUserStore } from '../../../stores/userStore';
 
@@ -73,9 +74,11 @@ export const WithdrawalHistoryScreen: React.FC = () => {
     loadWithdrawals();
   }, [loadWithdrawals]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadWithdrawals();
+  const onRefresh = async () => {
+    if (refreshing) return;
+    await withRefreshTimeout(async () => {
+      await loadWithdrawals();
+    }, setRefreshing, 2000);
   };
 
   const filteredRequests = requests.filter((r) => {

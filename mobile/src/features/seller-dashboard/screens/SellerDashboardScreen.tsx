@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 import { useChatStore } from '../../../stores/chatStore';
 import { useOrderStore } from '../../../stores/orderStore';
 import { useKho } from '../../../context/KhoContext';
@@ -81,10 +82,9 @@ export const SellerDashboardScreen: React.FC = () => {
   }, [fetchAnalytics]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchAnalytics();
-    setRefreshing(false);
-  }, [fetchAnalytics]);
+    if (refreshing) return;
+    await withRefreshTimeout(fetchAnalytics, setRefreshing, 2000);
+  }, [refreshing, fetchAnalytics]);
 
   const activeCount = useMemo(() => myListings.filter((l) => l.status === 'AVAILABLE').length, [myListings]);
   const reservedCount = useMemo(() => {

@@ -15,6 +15,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useChatStore } from '../../../stores/chatStore';
 import { socketMobileService } from '../../../services/socketMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 import { resolveProductImage, getSafeAvatar } from '../../../lib/imageResolver';
 
 interface ConversationItem {
@@ -63,9 +64,9 @@ export const ChatListScreen: React.FC = () => {
   }, [fetchConversations]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchConversations().catch(() => {});
-    setRefreshing(false);
+    await withRefreshTimeout(fetchConversations, setRefreshing, 2000);
+
+
   }, [fetchConversations]);
 
   const handleBack = () => {
@@ -292,7 +293,7 @@ export const ChatListScreen: React.FC = () => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing || isLoading} onRefresh={onRefresh} colors={['#EA580C']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
         }
         ItemSeparatorComponent={() => <View style={styles.divider} />}
         ListEmptyComponent={

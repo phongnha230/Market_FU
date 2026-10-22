@@ -13,6 +13,7 @@ import { useVoucherStore } from '../../../stores/voucherStore';
 import { useWalletStore } from '../../../stores/walletStore';
 import { useUserStore } from '../../../stores/userStore';
 import { profileMobileService } from '../../../services/profileMobileService';
+import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 export const useVoucher = () => {
   const { isAuthenticated, user, updateUser } = useUserStore();
@@ -99,10 +100,9 @@ export const useVoucher = () => {
   }, [loadData]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
+    if (refreshing) return;
+    await withRefreshTimeout(loadData, setRefreshing, 2000);
+  }, [refreshing, loadData]);
 
   // 2. Lọc danh sách Voucher trong Kho
   const filteredAvailableVouchers = useMemo(() => {
