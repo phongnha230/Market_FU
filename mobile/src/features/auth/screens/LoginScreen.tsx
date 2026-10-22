@@ -9,11 +9,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLoginController, CAMPUS_LIST } from '../hooks/useLoginController';
+import { useLoginController } from '../hooks/useLoginController';
 import { AuthTopBar } from '../components/AuthTopBar';
 import { AuthHeader } from '../components/AuthHeader';
 import { AuthWaveBackground } from '../components/AuthWaveBackground';
-import { LoginCampusSelector } from '../components/LoginCampusSelector';
 import { LoginForm } from '../components/LoginForm';
 import { RegisterForm } from '../components/RegisterForm';
 import { AuthFptGuaranteeCard } from '../components/AuthFptGuaranteeCard';
@@ -72,13 +71,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <AuthHeader
           authMode={ctrl.authMode}
           onSelectMode={ctrl.setAuthMode}
-        />
-
-        <LoginCampusSelector
-          selectedCampusId={ctrl.selectedCampusId}
-          onSelectCampus={ctrl.handleSelectCampus}
-          campusList={CAMPUS_LIST}
-          currentCampus={ctrl.currentCampus}
         />
 
         {ctrl.authMode === 'login' ? (
