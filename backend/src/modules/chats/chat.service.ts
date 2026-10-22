@@ -471,10 +471,12 @@ export class ChatService {
     // Bắn thông báo trực tiếp tới đối tác
     const recipientId = conversation.buyerId === userId ? conversation.sellerId : conversation.buyerId;
     const senderName = savedMessage.sender?.profile?.fullName || 'Người dùng FU';
+    const senderAvatar = savedMessage.sender?.profile?.avatarUrl || '';
     emitToUser(recipientId, 'new_message_notification', {
       conversationId,
       productId: conversation.productId,
       senderName,
+      senderAvatar,
       text: summaryText,
       createdAt: savedMessage.createdAt,
     });
@@ -506,6 +508,7 @@ export class ChatService {
                 conversationId,
                 productId: conversation.productId,
                 type: 'CHAT',
+                senderAvatar,
               })
               .catch(() => {});
           }
@@ -516,6 +519,7 @@ export class ChatService {
               conversationId,
               productId: conversation.productId,
               type: 'CHAT',
+              senderAvatar,
             })
             .catch(() => {});
         });

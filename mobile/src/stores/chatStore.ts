@@ -44,9 +44,11 @@ const INITIAL_CONVERSATIONS: ConversationItem[] = [];
 interface ChatState {
   conversationsByUser: Record<string, ConversationItem[]>;
   activeUserId: string | null;
+  activeConversationId: string | null;
   conversations: ConversationItem[];
   isLoading: boolean;
   setActiveUser: (userId: string | null) => void;
+  setActiveConversationId: (id: string | null) => void;
   fetchConversations: () => Promise<void>;
   addMessage: (convId: string, message: ChatMessage) => void;
   getConversationById: (convId: string) => ConversationItem | undefined;
@@ -59,8 +61,13 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       conversationsByUser: {},
       activeUserId: null,
+      activeConversationId: null,
       conversations: [],
       isLoading: false,
+
+      setActiveConversationId: (id) => {
+        set({ activeConversationId: id });
+      },
 
       setActiveUser: (userId) => {
         const uId = userId ? String(userId).trim() : null;

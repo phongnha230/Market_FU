@@ -234,22 +234,36 @@ export const useKhoValue = (): KhoContextType => {
 
     const unsubNewMsg = socketMobileService.onNewMessageNotification((d: any) => {
       useChatStore.getState().fetchConversations().catch(() => {});
-      const title = '💬 Tin nhắn mới trên Chợ Sinh Viên';
+      const activeConvId = useChatStore.getState().activeConversationId;
+      // Nếu người dùng đang mở đúng phòng chat này -> Không hiện banner đè lên màn hình
+      if (d?.conversationId && activeConvId && activeConvId === d.conversationId) {
+        return;
+      }
+      const title = d?.senderName || 'Tin nhắn mới';
       const body = d?.text || 'Bạn có tin nhắn mới từ người mua/bán.';
+      const avatarUrl = d?.senderAvatar || d?.avatarUrl || undefined;
       useNotificationStore.getState().addNotification({
         title,
         body,
         category: 'chat',
         icon: 'chatbubbles',
-        iconColor: '#3B82F6',
-        iconBg: '#EFF6FF',
+        iconColor: '#EA580C',
+        iconBg: '#FFF7ED',
+        avatarUrl,
         targetScreen: 'ChatDetail',
-        targetParams: { partner: { id: d?.conversationId } },
+        targetParams: {
+          conversationId: d?.conversationId,
+          partner: {
+            id: d?.conversationId,
+            name: d?.senderName,
+            avatar: avatarUrl,
+          },
+        },
       });
       notificationMobileService.displayLocalPushNotification({
         title,
         body,
-        data: { conversationId: d?.conversationId, type: 'CHAT' },
+        data: { conversationId: d?.conversationId, type: 'CHAT', senderAvatar: avatarUrl },
       });
     });
 

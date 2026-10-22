@@ -15,6 +15,21 @@ const getAuthToken = (): string | null => {
 class SocketMobileService {
   private socket: Socket | null = null;
   private isConnecting: boolean = false;
+  private currentRoomId: string | null = null;
+
+  updateAuthToken(token: string | null) {
+    if (this.socket) {
+      (this.socket as any).auth = { token: token || undefined };
+      if (this.socket.connected) {
+        console.log('🔄 [Mobile Socket]: Tái kết nối với token xác thực mới...');
+        this.socket.disconnect().connect();
+      } else {
+        this.socket.connect();
+      }
+    } else {
+      this.getSocket();
+    }
+  }
 
   getSocket(): Socket | null {
     if (this.socket && this.socket.connected) {
@@ -41,6 +56,10 @@ class SocketMobileService {
       this.socket.on('connect', () => {
         console.log('⚡ [Mobile Socket]: Đã kết nối thành công tới máy chủ', socketUrl);
         this.isConnecting = false;
+        if (this.currentRoomId && this.socket) {
+          console.log('🔄 [Mobile Socket]: Tự động gia nhập lại phòng chat:', this.currentRoomId);
+          this.socket.emit('join_conversation', { conversationId: this.currentRoomId });
+        }
       });
 
       this.socket.on('connect_error', (error) => {
@@ -66,13 +85,25 @@ class SocketMobileService {
   // -------------------------------------------------------------
 
   joinConversation(conversationId: string) {
+    this.currentRoomId = conversationId;
     const socket = this.getSocket();
-    if (socket && socket.connected) {
-      socket.emit('join_conversation', { conversationId });
+    if (socket) {
+      if (socket.connected) {
+        socket.emit('join_conversation', { conversationId });
+      } else {
+        socket.once('connect', () => {
+          if (this.currentRoomId === conversationId) {
+            socket.emit('join_conversation', { conversationId });
+          }
+        });
+      }
     }
   }
 
   leaveConversation(conversationId: string) {
+    if (this.currentRoomId === conversationId) {
+      this.currentRoomId = null;
+    }
     const socket = this.getSocket();
     if (socket && socket.connected) {
       socket.emit('leave_conversation', { conversationId });

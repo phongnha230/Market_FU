@@ -17,16 +17,16 @@ function getNotificationsModule(): any | null {
 
 const Notifications = getNotificationsModule();
 
-// Cấu hình hiển thị notification banner (Heads-up) ngay cả khi app đang mở (Foreground)
+// Cấu hình thông báo Foreground: Tắt Heads-up mặc định của OS (tránh màu đen thùi lùi) để hiển thị In-App Banner trắng cao cấp
 if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
+        shouldShowAlert: false, // Tắt banner native đen thui của hệ điều hành Android
+        shouldPlaySound: true,  // Vẫn phát chuông âm thanh êm dịu
+        shouldSetBadge: true,   // Cập nhật số badge trên icon
+        shouldShowBanner: false,
+        shouldShowList: true,   // Vẫn lưu trữ vào danh sách kéo xuống của Android
       }),
     });
   } catch {}
@@ -244,7 +244,28 @@ export function setupNotificationListeners() {
   try {
     if (typeof Notifications.addNotificationReceivedListener === 'function') {
       notificationListener = Notifications.addNotificationReceivedListener((notification: any) => {
-        console.log('🔔 [Heads-up Notification Received]:', notification?.request?.content?.title);
+        const content = notification?.request?.content;
+        const data = content?.data || {};
+        try {
+          const { useChatStore } = require('../stores/chatStore');
+          const activeConvId = useChatStore.getState?.()?.activeConversationId;
+          // Nếu đang ở trực tiếp trong cuộc hội thoại này -> Không bật banner che màn hình
+          if (data?.conversationId && activeConvId && activeConvId === data.conversationId) {
+            return;
+          }
+          const { useNotificationStore } = require('../stores/notificationStore');
+          useNotificationStore.getState?.().addNotification({
+            title: content?.title || 'Thông báo mới',
+            body: content?.body || '',
+            category: data?.type === 'CHAT' ? 'chat' : data?.type === 'ORDER' ? 'order' : 'system',
+            icon: data?.type === 'CHAT' ? 'chatbubbles' : data?.type === 'ORDER' ? 'shield-checkmark' : 'notifications',
+            iconColor: data?.type === 'CHAT' ? '#EA580C' : '#059669',
+            iconBg: data?.type === 'CHAT' ? '#FFF7ED' : '#ECFDF5',
+            avatarUrl: data?.senderAvatar || data?.avatarUrl || undefined,
+            targetScreen: data?.type === 'CHAT' ? 'ChatDetail' : data?.type === 'ORDER' ? 'OrderDetail' : undefined,
+            targetParams: data?.conversationId ? { conversationId: data.conversationId } : undefined,
+          });
+        } catch {}
       });
     }
 

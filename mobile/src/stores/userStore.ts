@@ -292,6 +292,10 @@ export const useUserStore = create<UserState>()(
         if (user && user.id) {
           syncUserToStores(user.id);
         }
+        try {
+          const { socketMobileService } = require('../services/socketMobileService');
+          socketMobileService?.updateAuthToken(token);
+        } catch {}
       },
 
       updateUser: (partial: Partial<UserProfile>) => {
@@ -316,6 +320,14 @@ export const useUserStore = create<UserState>()(
             // Ignored
           }
         }
+        try {
+          const { signOutGoogle } = require('../services/googleSignIn');
+          signOutGoogle().catch(() => {});
+        } catch {}
+        try {
+          const { socketMobileService } = require('../services/socketMobileService');
+          socketMobileService?.updateAuthToken(null);
+        } catch {}
         syncUserToStores(null);
         set({
           user: null,
@@ -345,6 +357,12 @@ export const useUserStore = create<UserState>()(
         }
         if (state?.user?.id) {
           syncUserToStores(state.user.id);
+        }
+        if (state?.token) {
+          try {
+            const { socketMobileService } = require('../services/socketMobileService');
+            socketMobileService?.updateAuthToken(state.token);
+          } catch {}
         }
       },
     }

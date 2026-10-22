@@ -269,6 +269,7 @@ export const ChatDetailScreen: React.FC = () => {
   useEffect(() => {
     if (!conversationId) return;
 
+    useChatStore.getState().setActiveConversationId(conversationId);
     socketMobileService.joinConversation(conversationId);
     socketMobileService.markMessageRead(conversationId);
     useChatStore.getState().markConversationAsRead(conversationId);
@@ -392,10 +393,74 @@ export const ChatDetailScreen: React.FC = () => {
       }
     });
 
+    // Lắng nghe thêm new_message_notification như một lớp bảo hiểm kép (Double Safety Net)
+    const unsubNotification = socketMobileService.onNewMessageNotification((data: any) => {
+      if (data?.conversationId === conversationId) {
+        socketMobileService.markMessageRead(conversationId);
+        useChatStore.getState().markConversationAsRead(conversationId);
+        chatMobileService
+          .getMessages(conversationId, currentUserId)
+          .then((remoteMsgs) => {
+            if (remoteMsgs && remoteMsgs.length > 0) {
+              setMessages((prev) => {
+                const existingIds = new Set(prev.map((m) => m.id));
+                const newItems: MessageItem[] = [];
+                remoteMsgs.forEach((rm: any) => {
+                  if (!existingIds.has(rm.id)) {
+                    const isMe = rm.isMe || rm.senderId === currentUserId;
+                    const text = rm.message || rm.text || '';
+                    const isImg = rm.messageType === 'IMAGE' || Boolean(rm.imageUrl);
+                    const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));
+                    newItems.push({
+                      id: rm.id,
+                      sender: isMe ? 'me' : 'partner',
+                      type: isOrder
+                        ? 'order'
+                        : isImg
+                        ? 'image'
+                        : rm.messageType === 'OFFER_PRICE'
+                        ? 'offer'
+                        : rm.messageType === 'MEETUP_LOCATION'
+                        ? 'safepoint'
+                        : 'text',
+                      text,
+                      imageUrl: rm.imageUrl,
+                      time: rm.createdAt
+                        ? new Date(rm.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : 'Vừa xong',
+                      offerData: rm.offerPrice
+                        ? {
+                            originalPrice: typeof product.price === 'number' ? product.price : 500000,
+                            offeredPrice: rm.offerPrice,
+                            status: 'pending',
+                          }
+                        : undefined,
+                      safePointData: rm.meetupLocation
+                        ? {
+                            location: rm.meetupLocation,
+                            timeSlot: 'Hẹn gặp giao dịch',
+                          }
+                        : undefined,
+                    });
+                  }
+                });
+                if (newItems.length > 0) {
+                  return [...prev, ...newItems];
+                }
+                return prev;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    });
+
     return () => {
+      useChatStore.getState().setActiveConversationId(null);
       socketMobileService.leaveConversation(conversationId);
       useChatStore.getState().markConversationAsRead(conversationId);
       unsubMsg();
+      unsubNotification();
       unsubTyping();
       unsubStopTyping();
     };

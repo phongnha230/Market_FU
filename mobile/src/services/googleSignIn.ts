@@ -67,6 +67,12 @@ export async function signInWithGoogle(campus: string = 'HÒA LẠC'): Promise<G
     configureGoogleSignIn();
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Bắt buộc signOut session cũ để Google Play Services luôn hiển thị Account Chooser Bottom Sheet
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // Bỏ qua nếu chưa có session đăng nhập trước đó
+      }
       const response = await GoogleSignin.signIn();
 
       // Hỗ trợ cả 2 định dạng response của thư viện (v13+ và v16+)
@@ -146,6 +152,7 @@ export async function signInWithGoogle(campus: string = 'HÒA LẠC'): Promise<G
       `&redirect_uri=${encodeURIComponent(redirectUrl)}` +
       `&response_type=id_token` +
       `&scope=${encodeURIComponent('openid email profile')}` +
+      `&prompt=select_account` +
       `&state=${state}` +
       `&nonce=${nonce}`;
 

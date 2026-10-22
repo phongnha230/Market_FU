@@ -13,6 +13,8 @@ export interface NotificationItem {
   icon: any;
   iconColor: string;
   iconBg: string;
+  avatarUrl?: string;
+  senderName?: string;
   targetScreen?: string;
   targetParams?: any;
 }
@@ -133,10 +135,9 @@ export const useNotificationStore = create<NotificationState>()(
           time: 'Vừa xong',
           unread: true,
         };
-        const canShowBanner = get().pushPermissionGranted;
         set((state) => ({
           notifications: [newNotif, ...state.notifications],
-          activeBanner: canShowBanner ? newNotif : null,
+          activeBanner: newNotif,
         }));
       },
     }),

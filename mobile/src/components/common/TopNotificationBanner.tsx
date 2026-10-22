@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View,
   PanResponder,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,16 +16,15 @@ import { navigate } from '../../navigation/navigationRef';
 export const TopNotificationBanner: React.FC = () => {
   const insets = useSafeAreaInsets();
   const activeBanner = useNotificationStore((state) => state.activeBanner);
-  const pushPermissionGranted = useNotificationStore((state) => state.pushPermissionGranted);
   const hideBanner = useNotificationStore((state) => state.hideBanner);
 
-  const [translateY] = useState(() => new Animated.Value(-160));
+  const [translateY] = useState(() => new Animated.Value(-180));
   const timeoutRef = useRef<any>(null);
 
   const dismissBanner = useCallback(() => {
     Animated.timing(translateY, {
-      toValue: -160,
-      duration: 250,
+      toValue: -180,
+      duration: 220,
       useNativeDriver: true,
     }).start(() => {
       hideBanner();
@@ -38,7 +38,7 @@ export const TopNotificationBanner: React.FC = () => {
         return gestureState.dy < -5;
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy < -20) {
+        if (gestureState.dy < -15) {
           dismissBanner();
         }
       },
@@ -53,7 +53,7 @@ export const TopNotificationBanner: React.FC = () => {
       Animated.spring(translateY, {
         toValue: 0,
         friction: 8,
-        tension: 50,
+        tension: 55,
         useNativeDriver: true,
       }).start();
 
@@ -62,7 +62,7 @@ export const TopNotificationBanner: React.FC = () => {
         dismissBanner();
       }, 4500);
     } else {
-      translateY.setValue(-160);
+      translateY.setValue(-180);
     }
 
     return () => {
@@ -70,7 +70,7 @@ export const TopNotificationBanner: React.FC = () => {
     };
   }, [activeBanner, dismissBanner, translateY]);
 
-  if (!activeBanner || !pushPermissionGranted) return null;
+  if (!activeBanner) return null;
 
   const handlePress = () => {
     dismissBanner();
@@ -80,6 +80,9 @@ export const TopNotificationBanner: React.FC = () => {
       navigate('Notification' as any);
     }
   };
+
+  const isChat = activeBanner.category === 'chat';
+  const tagLabel = isChat ? 'TIN NHẮN MỚI' : activeBanner.category === 'order' ? 'ĐƠN HÀNG' : 'HỆ THỐNG';
 
   return (
     <Animated.View
@@ -100,34 +103,52 @@ export const TopNotificationBanner: React.FC = () => {
       >
         <View style={styles.cardHeader}>
           <View style={styles.appBadge}>
-            <View style={styles.orangeDot} />
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.appIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.appTitle}>FU SECOND-HAND</Text>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>{tagLabel}</Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.timeText}>{activeBanner.time || 'Vừa xong'}</Text>
             <TouchableOpacity
               onPress={dismissBanner}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={14} color="#94A3B8" />
+              <Ionicons name="close" size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.cardBody}>
-          <View
-            style={[
-              styles.iconCircle,
-              { backgroundColor: activeBanner.iconBg || '#FFF7ED' },
-            ]}
-          >
-            <Ionicons
-              name={(activeBanner.icon as any) || 'notifications'}
-              size={18}
-              color={activeBanner.iconColor || '#F27024'}
-            />
-          </View>
+          {activeBanner.avatarUrl ? (
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={{ uri: activeBanner.avatarUrl }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+              <View style={styles.avatarOnlineDot} />
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: activeBanner.iconBg || '#FFF7ED' },
+              ]}
+            >
+              <Ionicons
+                name={(activeBanner.icon as any) || (isChat ? 'chatbubbles' : 'notifications')}
+                size={22}
+                color={activeBanner.iconColor || '#EA580C'}
+              />
+            </View>
+          )}
           <View style={styles.textContainer}>
             <Text style={styles.titleText} numberOfLines={1}>
               {activeBanner.title}
@@ -136,6 +157,7 @@ export const TopNotificationBanner: React.FC = () => {
               {activeBanner.body}
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -149,43 +171,59 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 99999,
-    paddingHorizontal: 14,
-    elevation: 20,
+    paddingHorizontal: 12,
+    elevation: 25,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: '#F8FAFC',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
   },
   appBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
-  orangeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F27024',
+  appIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
   },
   appTitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+  categoryBadge: {
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#FFEDD5',
+  },
+  categoryBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#EA580C',
   },
   headerRight: {
     flexDirection: 'row',
@@ -203,12 +241,34 @@ const styles = StyleSheet.create({
   cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+  },
+  avatarOnlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -216,15 +276,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
   bodyText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#475569',
-    lineHeight: 16,
+    lineHeight: 18,
   },
 });
 
