@@ -16,6 +16,7 @@ import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
+import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../../lib/imageResolver';
 
 const formatPrice = (val: number) => val.toLocaleString('vi-VN') + 'đ';
 
@@ -48,6 +49,13 @@ const OrderCardItem: React.FC<{
   onReview: (item: OrderItem) => void;
   onViewReview: (item: OrderItem) => void;
 }> = React.memo(({ item, currentUserId, onPress, onDispute, onReview, onViewReview }) => {
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [item.id, item.productImage]);
+
+  const imageSource = imgError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(item.productImage);
   const isSaleForCurrent = item.sellerId === currentUserId;
   const isBuyer = !isSaleForCurrent;
   const isCompleted = item.status === 'COMPLETED';
@@ -91,13 +99,11 @@ const OrderCardItem: React.FC<{
         onPress={handlePress}
       >
         <Image
-          source={
-            typeof item.productImage === 'string'
-              ? { uri: item.productImage }
-              : item.productImage
-          }
+          source={imageSource}
           style={styles.productThumb}
           contentFit="cover"
+          transition={150}
+          onError={() => setImgError(true)}
         />
         <View style={styles.productInfo}>
           <Text style={styles.productTitle} numberOfLines={2}>

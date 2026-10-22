@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../../lib/imageResolver';
 
 interface OrderProductSummaryCardProps {
   product: {
@@ -13,14 +14,24 @@ interface OrderProductSummaryCardProps {
 }
 
 export const OrderProductSummaryCard: React.FC<OrderProductSummaryCardProps> = ({ product }) => {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [product?.image]);
+
+  const imageSource = imgError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(product?.image);
+
   return (
     <>
       <Text style={styles.sectionHeader}>THÔNG TIN SẢN PHẨM</Text>
       <View style={styles.productCard}>
         <Image
-          source={typeof product.image === 'string' ? { uri: product.image } : product.image}
+          source={imageSource}
           style={styles.productThumb}
           contentFit="cover"
+          transition={150}
+          onError={() => setImgError(true)}
         />
         <View style={styles.productInfo}>
           <Text style={styles.productTitle} numberOfLines={2}>

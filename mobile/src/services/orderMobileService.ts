@@ -81,6 +81,42 @@ export function formatAppointmentSlot(appointmentTime?: string | Date, rawTimeSl
   }
 }
 
+function extractProductImage(product: any, item: any): any {
+  // 1. Kiểm tra nếu item đã có ảnh hợp lệ
+  if (item?.productImage) {
+    if (typeof item.productImage === 'string' && item.productImage.trim()) {
+      return item.productImage;
+    }
+    if (typeof item.productImage === 'object' && item.productImage !== null) {
+      return (
+        item.productImage.imageUrl ||
+        item.productImage.url ||
+        item.productImage.secure_url ||
+        item.productImage.uri ||
+        item.productImage
+      );
+    }
+  }
+
+  // 2. Trích xuất từ product.images
+  if (product) {
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      const first = product.images[0];
+      if (typeof first === 'string' && first.trim()) return first;
+      if (typeof first === 'object' && first !== null) {
+        return first.imageUrl || first.url || first.secure_url || first.uri || first;
+      }
+    }
+
+    if (typeof product.images === 'string' && product.images.trim()) return product.images;
+    if (product.imageUrl) return product.imageUrl;
+    if (product.image) return product.image;
+    if (product.thumbnail) return product.thumbnail;
+  }
+
+  return require('../../assets/products/monitor-dell-24.jpg');
+}
+
 export function adaptBackendOrderToMobile(item: any): OrderItem {
   const product = item.product || {};
   const totalAmount = Number(
@@ -186,12 +222,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     price: Number(item.payment?.price ?? totalAmount),
     totalAmount,
     paymentCheckoutUrl: item.payment?.payosCheckoutUrl || undefined,
-    productImage:
-      (Array.isArray(product.images) && product.images[0]?.imageUrl) ||
-      (Array.isArray(product.images) && typeof product.images[0] === 'string' && product.images[0]) ||
-      product.images?.[0] ||
-      product.imageUrl ||
-      require('../../assets/products/monitor-dell-24.jpg'),
+    productImage: extractProductImage(product, item),
     sellerId: item.sellerId || item.seller?.id || '',
     sellerName:
       item.seller?.profile?.fullName || item.seller?.fullName || item.sellerName || 'Người bán FPT',

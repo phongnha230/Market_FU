@@ -38,19 +38,33 @@ export function resolveProductImage(source: any): any {
     return DEFAULT_PRODUCT_FALLBACK;
   }
 
+  // 0. Xử lý nếu source là mảng ảnh (product.images)
+  if (Array.isArray(source)) {
+    return source.length > 0 ? resolveProductImage(source[0]) : DEFAULT_PRODUCT_FALLBACK;
+  }
+
   // 1. Đã là asset bundled từ require(...)
   if (typeof source === 'number') {
     return source;
   }
 
-  // 2. Object dạng { uri: '...' }
+  // 2. Object dạng { uri: '...' }, { imageUrl: '...' }, { url: '...' }, { secure_url: '...' }
   if (typeof source === 'object') {
     if (typeof source.uri === 'string') {
       const uri = source.uri.trim();
       if (!uri) return DEFAULT_PRODUCT_FALLBACK;
       return resolveProductImage(uri);
     }
-    return source;
+    if (typeof source.imageUrl === 'string') {
+      return resolveProductImage(source.imageUrl);
+    }
+    if (typeof source.url === 'string') {
+      return resolveProductImage(source.url);
+    }
+    if (typeof source.secure_url === 'string') {
+      return resolveProductImage(source.secure_url);
+    }
+    return DEFAULT_PRODUCT_FALLBACK;
   }
 
   // 3. Chuỗi string URL hoặc đường dẫn file
@@ -86,12 +100,21 @@ export function resolveProductImage(source: any): any {
       return { uri: `${baseUrl}/${uploadPath}` };
     }
 
-    // 3e. URL remote thực tế (Cloudflare R2, Unsplash, CDN...)
+    // 3e. URL chứa localhost / 127.0.0.1 (chuyển sang IP LAN máy tính để điện thoại thật tải được)
+    if (trimmed.includes('localhost:') || trimmed.includes('127.0.0.1:')) {
+      const uploadMatch = trimmed.match(/\/uploads\/.+/);
+      if (uploadMatch) {
+        const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+        return { uri: `${baseUrl}${uploadMatch[0]}` };
+      }
+    }
+
+    // 3f. URL remote thực tế (Cloudflare R2, Unsplash, CDN...)
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return { uri: trimmed };
     }
 
-    // 3f. Data URI hoặc File URI cục bộ từ camera/picker
+    // 3g. Data URI hoặc File URI cục bộ từ camera/picker
     if (trimmed.startsWith('data:') || trimmed.startsWith('file://')) {
       return { uri: trimmed };
     }
