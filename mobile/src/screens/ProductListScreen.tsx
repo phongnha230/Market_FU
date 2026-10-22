@@ -308,7 +308,23 @@ export const ProductListScreen: React.FC = () => {
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={48} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>Không tìm thấy sản phẩm phù hợp</Text>
-              <Text style={styles.emptySub}>Hãy thử tìm với từ khóa khác hoặc điều chỉnh lại mức giá lọc nhé!</Text>
+              <Text style={styles.emptySub}>
+                Hãy thử chọn danh mục khác, đặt lại mức giá hoặc tìm kiếm với từ khóa khác nhé!
+              </Text>
+              {(selectedCategory !== 'ALL' || selectedPriceFilter !== 'ALL' || searchText.trim().length > 0) && (
+                <TouchableOpacity
+                  style={styles.resetFilterBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedCategory('ALL');
+                    setSelectedPriceFilter('ALL');
+                    setSearchText('');
+                  }}
+                >
+                  <Ionicons name="refresh-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.resetFilterBtnText}>Đặt lại bộ lọc tìm kiếm</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )
         )}
@@ -474,6 +490,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  resetFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 16,
+    boxShadow: '0 3px 5px rgba(234, 88, 12, 0.2)',
+  },
+  resetFilterBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

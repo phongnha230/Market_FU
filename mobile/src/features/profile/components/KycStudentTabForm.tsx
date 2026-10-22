@@ -20,6 +20,7 @@ interface KycStudentTabFormProps {
   setStudentBackCard: (val: string) => void;
   onPickImage: (setter: (uri: string) => void, title: string) => void;
   isStudentVerified: boolean;
+  isSellerApproved?: boolean;
   onUpgradeToSeller: () => void;
 }
 
@@ -39,6 +40,7 @@ export const KycStudentTabForm: React.FC<KycStudentTabFormProps> = React.memo(({
   setStudentBackCard,
   onPickImage,
   isStudentVerified,
+  isSellerApproved,
   onUpgradeToSeller,
 }) => {
   // NẾU ĐÃ XÁC THỰC THẺ SINH VIÊN: Hiển thị thẻ đã duyệt, khóa form hoàn toàn (Đồng bộ 100% với Web)
@@ -82,16 +84,25 @@ export const KycStudentTabForm: React.FC<KycStudentTabFormProps> = React.memo(({
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.upgradeSellerBtn}
-          onPress={onUpgradeToSeller}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="storefront" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.upgradeSellerBtnText}>
-            Nâng cấp lên Người Bán (Seller) để đăng bài
-          </Text>
-        </TouchableOpacity>
+        {isSellerApproved ? (
+          <View style={styles.sellerActivePill}>
+            <Ionicons name="checkmark-done-circle" size={18} color="#059669" style={{ marginRight: 6 }} />
+            <Text style={styles.sellerActivePillText}>
+              Đã mở quyền Người Bán Campus (Seller) ⭐
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.upgradeSellerBtn}
+            onPress={onUpgradeToSeller}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="storefront" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.upgradeSellerBtnText}>
+              Nâng cấp lên Người Bán (Seller) để đăng bài
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -287,6 +298,23 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  sellerActivePill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#059669',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  sellerActivePillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#065F46',
   },
 
   // Form Styles (Khi chưa xác thực)

@@ -24,7 +24,7 @@ const ProductSellerRow: React.FC<{ sellerName?: string; sellerCohort?: string }>
   ({ sellerName, sellerCohort }) => (
     <View style={styles.sellerRow}>
       <Ionicons name="person-circle-outline" size={14} color="#64748B" />
-      <Text style={styles.sellerText}>
+      <Text style={styles.sellerText} numberOfLines={1}>
         Người bán: {sellerName || 'Sinh viên FPT'}{sellerCohort ? ` • ${sellerCohort}` : ''}
       </Text>
     </View>
@@ -145,10 +145,12 @@ const styles = StyleSheet.create({
   sellerText: {
     fontSize: 11,
     color: '#64748B',
+    flex: 1,
   },
   campusBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginTop: 4,
   },

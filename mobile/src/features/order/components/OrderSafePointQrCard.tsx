@@ -163,17 +163,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginBottom: 6,
   },
   appointmentIconTitle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
   appointmentTitle: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
   statusPill: {
     flexDirection: 'row',
@@ -182,6 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 10,
     gap: 4,
+    flexShrink: 0,
   },
   statusPillPending: {
     backgroundColor: '#FEF3C7',

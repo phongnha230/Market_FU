@@ -258,6 +258,7 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 6,
   },
@@ -345,6 +346,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
@@ -355,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     flex: 1,
-    marginRight: 8,
+    minWidth: 160,
   },
   emailText: {
     fontSize: 11.5,
@@ -367,6 +370,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 4,
     backgroundColor: '#F1F5F9',
+    flexShrink: 0,
   },
   emailTypeEdu: {
     backgroundColor: '#ECFDF5',
@@ -382,6 +386,7 @@ const styles = StyleSheet.create({
   ratingBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   ratingText: {
     fontSize: 11,

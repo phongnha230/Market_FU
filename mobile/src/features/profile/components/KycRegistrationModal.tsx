@@ -335,6 +335,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 setStudentBackCard={setStudentBackCard}
                 onPickImage={pickImage}
                 isStudentVerified={isStudentVerified}
+                isSellerApproved={isSellerApproved}
                 onUpgradeToSeller={() => handleSelectTab('SELLER')}
               />
             ) : isSellerApproved && !isEditingSellerInfo ? (
@@ -354,31 +355,31 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 <View style={styles.verifiedSellerInfoGrid}>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>Chủ gian hàng:</Text>
-                    <Text style={styles.gridValBold}>{user?.name || fullName}</Text>
+                    <Text style={styles.gridValBold} numberOfLines={1}>{user?.name || fullName}</Text>
                   </View>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>MSSV & Cơ sở:</Text>
-                    <Text style={styles.gridVal}>{user?.studentId || studentId} • {user?.campus || campus}</Text>
+                    <Text style={styles.gridVal} numberOfLines={1}>{user?.studentId || studentId} • {user?.campus || campus}</Text>
                   </View>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>Tài khoản Escrow:</Text>
-                    <Text style={styles.gridValHighlight}>
+                    <Text style={styles.gridValHighlight} numberOfLines={1}>
                       {bankName} • {bankAccount ? `${bankAccount.slice(0, 4)}***${bankAccount.slice(-3)}` : '0397***607'}
                     </Text>
                   </View>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>Tên chủ tài khoản:</Text>
-                    <Text style={styles.gridValBold}>{bankAccountName || fullName.toUpperCase()}</Text>
+                    <Text style={styles.gridValBold} numberOfLines={1}>{bankAccountName || fullName.toUpperCase()}</Text>
                   </View>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>Điểm hẹn Handoff:</Text>
-                    <Text style={styles.gridVal}>{handoffSpot}</Text>
+                    <Text style={styles.gridVal} numberOfLines={1}>{handoffSpot}</Text>
                   </View>
                   <View style={styles.verifiedGridRow}>
                     <Text style={styles.gridLabel}>Giấy tờ lưu trữ:</Text>
                     <View style={styles.secureDocRow}>
                       <Ionicons name="lock-closed" size={12} color="#059669" />
-                      <Text style={styles.secureDocText}>Thẻ SV & CCCD đã mã hóa lưu trữ</Text>
+                      <Text style={styles.secureDocText}>Đã mã hóa & bảo vệ</Text>
                     </View>
                   </View>
                 </View>
@@ -400,6 +401,8 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
                 major={major}
                 cohort={cohort}
                 isStudentVerified={isStudentVerified}
+                isSellerApproved={isSellerApproved}
+                isEditingSeller={isEditingSellerInfo}
                 storeName={storeName}
                 setStoreName={setStoreName}
                 category={category}
@@ -436,6 +439,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
             isSellerApproved={isSellerApproved}
             isEditingSeller={isEditingSellerInfo}
             onToggleEditSeller={() => setIsEditingSellerInfo(true)}
+            onCancelEditSeller={() => setIsEditingSellerInfo(false)}
           />
         </View>
       </KeyboardAvoidingView>
@@ -511,26 +515,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   gridLabel: {
     fontSize: 11.5,
     color: '#64748B',
     fontWeight: '600',
+    flexShrink: 0,
   },
   gridVal: {
     fontSize: 12,
     color: '#0F172A',
     fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
   },
   gridValBold: {
     fontSize: 12,
     color: '#0F172A',
     fontWeight: '800',
+    flex: 1,
+    textAlign: 'right',
   },
   gridValHighlight: {
     fontSize: 12,
     color: '#EA580C',
     fontWeight: '800',
+    flex: 1,
+    textAlign: 'right',
   },
   secureDocRow: {
     flexDirection: 'row',
@@ -540,6 +552,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
   },
   secureDocText: {
     fontSize: 10.5,

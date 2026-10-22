@@ -98,11 +98,11 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
             <Text style={styles.summaryLabel} numberOfLines={1}>
               Bảo lãnh ký quỹ Escrow
             </Text>
+            <View style={styles.carePill}>
+              <Text style={styles.carePillText}>Care 100%</Text>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.summaryVal, styles.freeEscrow]}>Miễn phí</Text>
-            <Text style={styles.escrowCareSub}>FPT Care 100%</Text>
-          </View>
+          <Text style={[styles.summaryVal, styles.freeEscrow]}>Miễn phí (0đ)</Text>
         </View>
 
         {/* Giảm giá Voucher */}
@@ -204,11 +204,19 @@ const styles = StyleSheet.create({
     color: '#059669',
     fontWeight: '700',
   },
-  escrowCareSub: {
-    fontSize: 10,
+  carePill: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#A7F3D0',
+    marginLeft: 4,
+  },
+  carePillText: {
+    fontSize: 9.5,
+    fontWeight: '700',
     color: '#059669',
-    fontWeight: '600',
-    marginTop: 1,
   },
   discountVal: {
     color: '#EA580C',

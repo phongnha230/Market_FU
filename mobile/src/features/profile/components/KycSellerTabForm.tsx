@@ -42,6 +42,8 @@ interface KycSellerTabFormProps {
   showBankPicker: boolean;
   setShowBankPicker: (val: boolean) => void;
   onPickImage: (setter: (uri: string) => void, title: string) => void;
+  isSellerApproved?: boolean;
+  isEditingSeller?: boolean;
 }
 
 interface KycPhotoUploadSlotProps {
@@ -112,17 +114,19 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
   showBankPicker,
   setShowBankPicker,
   onPickImage,
+  isSellerApproved,
+  isEditingSeller,
 }) => {
   return (
     <View style={{ gap: 16 }}>
       {/* BƯỚC 2: HỒ SƠ SINH VIÊN FPT EDU (Đã xác thực qua FAP SSO - Được bảo vệ) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderBetween}>
-          <Text style={styles.stepTitle}>BƯỚC 2: HỒ SƠ SINH VIÊN FPT EDU *</Text>
+          <Text style={styles.stepTitle}>BƯỚC 2: HỒ SƠ SINH VIÊN FPT</Text>
           {isStudentVerified ? (
             <View style={styles.fapBadge}>
-              <Ionicons name="lock-closed" size={11} color="#059669" />
-              <Text style={styles.fapBadgeText}>Đã xác thực FAP SSO</Text>
+              <Ionicons name="checkmark-circle" size={11} color="#059669" />
+              <Text style={styles.fapBadgeText}>Đã xác thực</Text>
             </View>
           ) : (
             <Text style={styles.fapUnverifiedHint}>Sinh viên chính quy FPT</Text>
@@ -212,7 +216,7 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
           <Text style={styles.stepTitle}>BƯỚC 4: TÀI KHOẢN NGÂN HÀNG (ESCROW)</Text>
           <View style={styles.autoPayoutBadge}>
             <Ionicons name="flash" size={10} color="#C2410C" style={{ marginRight: 2 }} />
-            <Text style={styles.autoPayoutBadgeText}>Tự động chuyển sau 48h</Text>
+            <Text style={styles.autoPayoutBadgeText}>Tự động 48h</Text>
           </View>
         </View>
 
@@ -295,51 +299,53 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
         </Text>
       </View>
 
-      {/* BƯỚC 5: XÁC THỰC CĂN CƯỚC CÔNG DÂN (CCCD) */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeaderBetween}>
-          <Text style={styles.stepTitle}>BƯỚC 5: XÁC THỰC CĂN CƯỚC (CCCD) *</Text>
-          <View style={styles.secureBadge}>
-            <Ionicons name="shield-checkmark" size={10} color="#065F46" style={{ marginRight: 2 }} />
-            <Text style={styles.secureStandardHint}>Chuẩn pháp lý bảo mật</Text>
+      {/* BƯỚC 5: XÁC THỰC CĂN CƯỚC CÔNG DÂN (CCCD) - Chỉ hiển thị khi đăng ký mới */}
+      {!isSellerApproved && (
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderBetween}>
+            <Text style={styles.stepTitle}>BƯỚC 5: XÁC MINH CĂN CƯỚC (CCCD) *</Text>
+            <View style={styles.secureBadge}>
+              <Ionicons name="shield-checkmark" size={10} color="#065F46" style={{ marginRight: 2 }} />
+              <Text style={styles.secureStandardHint}>Bảo mật</Text>
+            </View>
+          </View>
+
+          <Text style={styles.inputLabel}>Số Căn cước công dân (12 chữ số) *</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="id-card-outline" size={18} color="#64748B" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              value={citizenId}
+              onChangeText={setCitizenId}
+              keyboardType="numeric"
+              maxLength={12}
+              placeholder="Ví dụ: 001201018923"
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          <View style={styles.twoPhotosRow}>
+            <KycPhotoUploadSlot
+              style={{ marginRight: 6 }}
+              label="1. Mặt trước CCCD *"
+              photoUri={citizenFrontCard}
+              onPick={() => onPickImage(setCitizenFrontCard, 'Mặt trước CCCD')}
+              iconName="camera-outline"
+              iconColor="#EA580C"
+              uploadText="Chụp mặt trước"
+            />
+            <KycPhotoUploadSlot
+              style={{ marginLeft: 6 }}
+              label="2. Mặt sau CCCD (Chip & Vân tay) *"
+              photoUri={citizenBackCard}
+              onPick={() => onPickImage(setCitizenBackCard, 'Mặt sau CCCD')}
+              iconName="image-outline"
+              iconColor="#64748B"
+              uploadText="Chụp mặt sau"
+            />
           </View>
         </View>
-
-        <Text style={styles.inputLabel}>Số Căn cước công dân (12 chữ số) *</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="id-card-outline" size={18} color="#64748B" style={styles.inputIcon} />
-          <TextInput
-            style={styles.textInput}
-            value={citizenId}
-            onChangeText={setCitizenId}
-            keyboardType="numeric"
-            maxLength={12}
-            placeholder="Ví dụ: 001201018923"
-            placeholderTextColor="#94A3B8"
-          />
-        </View>
-
-        <View style={styles.twoPhotosRow}>
-          <KycPhotoUploadSlot
-            style={{ marginRight: 6 }}
-            label="1. Mặt trước CCCD *"
-            photoUri={citizenFrontCard}
-            onPick={() => onPickImage(setCitizenFrontCard, 'Mặt trước CCCD')}
-            iconName="camera-outline"
-            iconColor="#EA580C"
-            uploadText="Chụp mặt trước"
-          />
-          <KycPhotoUploadSlot
-            style={{ marginLeft: 6 }}
-            label="2. Mặt sau CCCD (Chip & Vân tay) *"
-            photoUri={citizenBackCard}
-            onPick={() => onPickImage(setCitizenBackCard, 'Mặt sau CCCD')}
-            iconName="image-outline"
-            iconColor="#64748B"
-            uploadText="Chụp mặt sau"
-          />
-        </View>
-      </View>
+      )}
 
       {/* Cam kết tuân thủ quy chế an toàn Escrow */}
       <TouchableOpacity

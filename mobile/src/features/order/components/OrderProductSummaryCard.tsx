@@ -26,7 +26,7 @@ export const OrderProductSummaryCard: React.FC<OrderProductSummaryCardProps> = (
           <Text style={styles.productTitle} numberOfLines={2}>
             {product.title}
           </Text>
-          <Text style={styles.sellerText}>
+          <Text style={styles.sellerText} numberOfLines={1}>
             Người bán: {product.sellerName || 'Trần Quân'} ({product.sellerCampus || 'Hòa Lạc'})
           </Text>
           <Text style={styles.productPrice}>{product.priceStr || '1.450.000đ'}</Text>

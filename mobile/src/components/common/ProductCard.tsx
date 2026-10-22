@@ -168,7 +168,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
         </View>
         <Text style={styles.title} numberOfLines={2}>{title}</Text>
         <View style={styles.metaRow}>
-          <Text style={styles.metaText}>{location}</Text>
+          <Text style={styles.metaText} numberOfLines={1}>{location}</Text>
         </View>
         <TouchableOpacity
           style={styles.sellerRow}
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 7,
     left: 7,
-    maxWidth: 90,
+    maxWidth: 120,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
@@ -246,6 +246,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 4,
     flex: 1,
+    minWidth: 0,
   },
   price: { fontSize: 16, fontWeight: '900', color: '#DC2626' },
   originalPrice: {
@@ -275,10 +276,10 @@ const styles = StyleSheet.create({
   viewsCountText: { fontSize: 10, color: '#64748B', fontWeight: '600' },
   title: { fontSize: 13, fontWeight: '700', color: '#0F172A', lineHeight: 18, marginBottom: 6, minHeight: 36 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  metaText: { fontSize: 11, color: '#64748B', fontWeight: '500' },
-  sellerRow: { flexDirection: 'row', alignItems: 'center' },
-  sellerName: { fontSize: 11, color: '#0F172A', fontWeight: '600' },
-  sellerYear: { fontSize: 10, color: '#64748B', fontWeight: '500' },
+  metaText: { fontSize: 11, color: '#64748B', fontWeight: '500', flex: 1 },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  sellerName: { fontSize: 11, color: '#0F172A', fontWeight: '600', flexShrink: 1 },
+  sellerYear: { fontSize: 10, color: '#64748B', fontWeight: '500', flexShrink: 0 },
 });
 
 export default ProductCard;

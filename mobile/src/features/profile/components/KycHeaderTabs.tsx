@@ -43,12 +43,12 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
             />
           </View>
           <View style={styles.titleCol}>
-            <Text style={styles.sheetTitle}>
+            <Text style={styles.sheetTitle} numberOfLines={1}>
               {activeTab === 'SELLER'
                 ? (isSellerVerified ? 'Hồ Sơ Gian Hàng Người Bán' : 'Đăng Ký Mở Người Bán (Seller)')
                 : 'Xác Thực Thẻ Sinh Viên FPT'}
             </Text>
-            <Text style={styles.sheetSubtitle}>
+            <Text style={styles.sheetSubtitle} numberOfLines={1}>
               {activeTab === 'SELLER'
                 ? (isSellerVerified ? 'Tài khoản bán hàng & ví nhận tiền Escrow đã kích hoạt' : 'Mở quyền đăng bài pass đồ & nhận thanh toán Escrow')
                 : 'Định danh sinh viên chính quy & huy hiệu TrustScore 100%'}
@@ -64,24 +64,36 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
         </View>
       </View>
 
-      {/* 2 Tabs Navigator */}
+      {/* 2 Tabs Step Navigator */}
       <View style={styles.tabsRow}>
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'STUDENT' && styles.tabBtnActive]}
           onPress={() => onSelectTab('STUDENT')}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name="school"
-            size={16}
-            color={activeTab === 'STUDENT' ? '#EA580C' : '#64748B'}
-          />
-          <Text style={[styles.tabBtnText, activeTab === 'STUDENT' && styles.tabBtnTextActive]}>
-            1. Sinh viên FPT
-          </Text>
-          {isStudentVerified && (
-            <Ionicons name="checkmark-circle" size={15} color="#15803D" style={{ marginLeft: 2 }} />
-          )}
+          <View style={styles.tabIconWrap}>
+            <Ionicons
+              name="school"
+              size={18}
+              color={activeTab === 'STUDENT' ? '#EA580C' : '#64748B'}
+            />
+          </View>
+          <View style={styles.tabTextCol}>
+            <View style={styles.tabTopTitleRow}>
+              <Text style={[styles.tabBtnText, activeTab === 'STUDENT' && styles.tabBtnTextActive]} numberOfLines={1}>
+                1. Sinh viên FPT
+              </Text>
+              {isStudentVerified ? (
+                <View style={styles.verifiedTabBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#15803D" />
+                  <Text style={styles.verifiedTabBadgeText}>Đã duyệt</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.tabSubText} numberOfLines={1}>
+              {isStudentVerified ? 'Định danh FAP SSO ✓' : 'Xác thực thẻ SV'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -93,33 +105,46 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
           onPress={handlePressSellerTab}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name={!isStudentVerified ? 'lock-closed' : 'storefront'}
-            size={16}
-            color={
-              activeTab === 'SELLER'
-                ? '#EA580C'
-                : !isStudentVerified
-                ? '#94A3B8'
-                : '#64748B'
-            }
-          />
-          <Text
-            style={[
-              styles.tabBtnText,
-              activeTab === 'SELLER' && styles.tabBtnTextActive,
-              !isStudentVerified && styles.tabBtnTextLocked,
-            ]}
-          >
-            2. Người bán
-          </Text>
-          {isSellerVerified ? (
-            <Ionicons name="checkmark-circle" size={15} color="#15803D" style={{ marginLeft: 2 }} />
-          ) : !isStudentVerified ? (
-            <View style={styles.lockedBadge}>
-              <Text style={styles.lockedBadgeText}>🔒 Khóa</Text>
+          <View style={styles.tabIconWrap}>
+            <Ionicons
+              name={!isStudentVerified ? 'lock-closed' : 'storefront'}
+              size={18}
+              color={
+                activeTab === 'SELLER'
+                  ? '#EA580C'
+                  : !isStudentVerified
+                  ? '#94A3B8'
+                  : '#64748B'
+              }
+            />
+          </View>
+          <View style={styles.tabTextCol}>
+            <View style={styles.tabTopTitleRow}>
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'SELLER' && styles.tabBtnTextActive,
+                  !isStudentVerified && styles.tabBtnTextLocked,
+                ]}
+                numberOfLines={1}
+              >
+                2. Người bán
+              </Text>
+              {isSellerVerified ? (
+                <View style={styles.verifiedTabBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#15803D" />
+                  <Text style={styles.verifiedTabBadgeText}>Đã mở</Text>
+                </View>
+              ) : !isStudentVerified ? (
+                <View style={styles.lockedBadge}>
+                  <Text style={styles.lockedBadgeText}>Khóa</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
+            <Text style={styles.tabSubText} numberOfLines={1}>
+              {isSellerVerified ? 'Gian hàng hoạt động' : isStudentVerified ? 'Mở gian hàng' : 'Cần bước 1'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
     </>
@@ -160,12 +185,12 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   sheetTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
   },
   sheetSubtitle: {
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 1,
   },
@@ -179,44 +204,71 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    gap: 12,
+    gap: 10,
   },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    minHeight: 44,
+    minHeight: 52,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   tabBtnActive: {
     backgroundColor: '#FFF7ED',
     borderColor: '#EA580C',
   },
+  tabIconWrap: {
+    marginRight: 8,
+  },
+  tabTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tabTopTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
   tabBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+    flexShrink: 1,
   },
   tabBtnTextActive: {
     color: '#EA580C',
     fontWeight: '800',
   },
+  tabSubText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
   verifiedTabBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     backgroundColor: '#DCFCE7',
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 6,
-    marginLeft: 2,
+    flexShrink: 0,
   },
   verifiedTabBadgeText: {
     fontSize: 9,
@@ -226,8 +278,7 @@ const styles = StyleSheet.create({
   tabBtnLocked: {
     backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-    opacity: 0.8,
+    opacity: 0.75,
   },
   tabBtnTextLocked: {
     color: '#94A3B8',
@@ -237,7 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 6,
-    marginLeft: 2,
+    flexShrink: 0,
   },
   lockedBadgeText: {
     fontSize: 9,
@@ -245,3 +296,5 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
 });
+
+export default KycHeaderTabs;

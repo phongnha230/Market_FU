@@ -129,6 +129,8 @@ const styles = StyleSheet.create({
   },
   payDetails: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   titleRow: {
     flexDirection: 'row',
@@ -138,6 +140,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
+    flexShrink: 1,
   },
   paySub: {
     fontSize: 11,
@@ -150,6 +153,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 4,
     marginLeft: 6,
+    flexShrink: 0,
   },
   recBadgeText: {
     fontSize: 9.5,

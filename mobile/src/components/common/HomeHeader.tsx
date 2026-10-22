@@ -124,9 +124,9 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
       </View>
 
       <View style={styles.greetingRow}>
-        <View>
-          <Text style={styles.welcomeTitle}>Welcome to FPT Market 👋</Text>
-          <Text style={styles.welcomeSubtitle}>
+        <View style={styles.greetingTextCol}>
+          <Text style={styles.welcomeTitle} numberOfLines={1}>Welcome to FPT Market 👋</Text>
+          <Text style={styles.welcomeSubtitle} numberOfLines={1}>
             Trao đổi đồ dùng sinh viên {campusName ? `• FU ${campusName}` : ''}
           </Text>
         </View>
@@ -286,7 +286,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#EA580C',
   },
-  greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
+  greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, gap: 8 },
+  greetingTextCol: { flex: 1, minWidth: 0, marginRight: 6 },
   welcomeTitle: { fontSize: 20, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
   welcomeSubtitle: { fontSize: 12, fontWeight: '500', color: '#64748B', marginTop: 2 },
   liveBadge: {
@@ -298,6 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#D1FAE5',
+    flexShrink: 0,
   },
   greenPulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
   liveBadgeText: { fontSize: 11, color: '#047857', fontWeight: '600' },

@@ -189,7 +189,7 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
 
                   <View style={styles.reviewerInfo}>
                     <View style={styles.nameVerifiedRow}>
-                      <Text style={styles.reviewerName}>{reviewerName}</Text>
+                      <Text style={styles.reviewerName} numberOfLines={1}>{reviewerName}</Text>
                       <Ionicons name="checkmark-circle" size={13} color="#10B981" style={{ marginLeft: 3 }} />
                     </View>
                     <Text style={styles.reviewMetaText}>
@@ -451,6 +451,8 @@ const styles = StyleSheet.create({
   },
   reviewerInfo: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   nameVerifiedRow: {
     flexDirection: 'row',
@@ -460,6 +462,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
+    flexShrink: 1,
   },
   reviewMetaText: {
     fontSize: 10.5,
@@ -493,6 +496,7 @@ const styles = StyleSheet.create({
   productTagText: {
     fontSize: 11,
     color: '#475569',
+    flex: 1,
   },
   reviewComment: {
     fontSize: 12.5,

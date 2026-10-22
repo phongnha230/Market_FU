@@ -319,7 +319,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="flame" size={20} color="#EA580C" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionMainTitle}>TIN XU HƯỚNG / NỔI BẬT</Text>
+            <Text style={styles.sectionMainTitle} numberOfLines={1}>TIN XU HƯỚNG / NỔI BẬT</Text>
           </View>
           <TouchableOpacity
             style={styles.viewAllBtn}
@@ -356,7 +356,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="location" size={18} color="#F27024" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionMainTitle}>TIN MỚI TẠI FU {currentCampusName.toUpperCase()}</Text>
+            <Text style={styles.sectionMainTitle} numberOfLines={1}>TIN MỚI TẠI FU {currentCampusName.toUpperCase()}</Text>
           </View>
           <TouchableOpacity
             style={styles.viewAllBtn}
@@ -436,21 +436,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    gap: 8,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   sectionMainTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   viewAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 4,
+    flexShrink: 0,
   },
   viewAllText: {
     fontSize: 12,

@@ -35,7 +35,7 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
       <View style={styles.card}>
         <View style={styles.walletRow}>
           <View style={styles.walletBox}>
-            <Text style={styles.label}>Ví Người Bán (Khả dụng rút ATM)</Text>
+            <Text style={styles.label} numberOfLines={1}>Ví Người Bán (Rút ATM)</Text>
             <Text style={styles.amount}>
               {availableBalance.toLocaleString('vi-VN')}
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>đ</Text>
@@ -174,10 +174,12 @@ const styles = StyleSheet.create({
   walletRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
     marginBottom: 12,
   },
-  walletBox: { flex: 1 },
-  coinBox: { alignItems: 'flex-end' },
+  walletBox: { flex: 1, minWidth: 0 },
+  coinBox: { alignItems: 'flex-end', flexShrink: 0 },
   label: { fontSize: 11, fontWeight: '700', color: '#64748B' },
   amount: { fontSize: 20, fontWeight: '900', color: '#0F172A', marginTop: 2 },
   subEscrow: { fontSize: 10.5, fontWeight: '600', color: '#EA580C', marginTop: 2 },
