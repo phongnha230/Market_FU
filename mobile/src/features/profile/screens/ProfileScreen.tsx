@@ -29,18 +29,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     currentCampus,
     settingItems,
     orderStats,
-    isRefreshing,
-    onRefresh,
+    syncProfileFromBackend,
     handleLogout,
   } = useProfile();
   const { inventoryStats, refreshKhoHang } = useKho();
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleRefreshAll = async () => {
-    await Promise.all([
-      onRefresh(),
-      refreshKhoHang().catch(() => {}),
-      useWalletStore.getState().fetchWalletBalances().catch(() => {}),
-    ]);
+    if (refreshing) return;
+    setRefreshing(true);
+    // Timeout an toàn tối đa 2 giây: đảm bảo vòng quay luôn tự tắt, không bao giờ bị kẹt
+    const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
+    try {
+      await Promise.race([
+        Promise.allSettled([
+          syncProfileFromBackend(),
+          refreshKhoHang(),
+          useWalletStore.getState().fetchWalletBalances(),
+        ]),
+        timeoutPromise,
+      ]);
+    } catch (e) {
+      console.warn('⚠️ [ProfileScreen] Refresh error:', e);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -49,9 +62,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   useFocusEffect(
     React.useCallback(() => {
-      onRefresh().catch(() => {});
+      // Đồng bộ ngầm trong nền khi vào tab, KHÔNG kích hoạt vòng xoay RefreshControl
+      syncProfileFromBackend().catch(() => {});
       useWalletStore.getState().fetchWalletBalances().catch(() => {});
-    }, [onRefresh])
+    }, [syncProfileFromBackend])
   );
 
   const [showKycModal, setShowKycModal] = useState(false);
@@ -130,7 +144,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing}
+            refreshing={refreshing}
             onRefresh={handleRefreshAll}
             colors={['#EA580C']}
             tintColor="#EA580C"

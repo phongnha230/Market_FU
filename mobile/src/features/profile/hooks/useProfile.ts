@@ -13,9 +13,12 @@ import { useNavigation } from '@react-navigation/native';
 
 export const useProfile = () => {
   const navigation = useNavigation<any>();
-  const { user, logout, updateUserProfile } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
   const { currentCampus } = useCampusStore();
-  const { orders, fetchOrders } = useOrderStore();
+  const orders = useOrderStore((s) => s.orders);
+  const fetchOrders = useOrderStore((s) => s.fetchOrders);
   const unreadNotifsCount = useNotificationStore(
     (s) => s.notifications.filter((n) => n.unread).length
   );
@@ -42,16 +45,26 @@ export const useProfile = () => {
   }, [updateUserProfile]);
 
   /**
-   * Kéo xuống để làm mới (Pull-to-refresh)
+   * Kéo xuống để làm mới (Pull-to-refresh) với cơ chế timeout an toàn
    */
   const onRefresh = useCallback(async () => {
+    if (isRefreshing) return;
     setIsRefreshing(true);
-    await Promise.all([
-      syncProfileFromBackend(),
-      fetchOrders().catch(() => {}),
-    ]);
-    setIsRefreshing(false);
-  }, [syncProfileFromBackend, fetchOrders]);
+    const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2500));
+    try {
+      await Promise.race([
+        Promise.allSettled([
+          syncProfileFromBackend(),
+          fetchOrders(),
+        ]),
+        timeoutPromise,
+      ]);
+    } catch (err) {
+      console.warn('⚠️ [useProfile onRefresh error]:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, syncProfileFromBackend, fetchOrders]);
 
   /**
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
