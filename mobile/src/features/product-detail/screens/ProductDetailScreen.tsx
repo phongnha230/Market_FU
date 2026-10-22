@@ -94,6 +94,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         isOwnProduct={actions.isOwnProduct}
         isSoldOrReserved={product.isSoldOrReserved}
         status={product.status}
+        price={product.price}
         onManageOwnProduct={() =>
           navigation.navigate('EditListing', {
             productId: product.id,
@@ -130,5 +131,5 @@ export default ProductDetailScreen;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollContent: { paddingBottom: 140 },
+  scrollContent: { paddingBottom: 85 },
 });

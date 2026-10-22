@@ -11,6 +11,8 @@ interface ProductBottomBarProps {
   onManageOwnProduct?: () => void;
   isSoldOrReserved?: boolean;
   status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
+  price?: number | string;
+  unreadCount?: number;
 }
 
 export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
@@ -22,7 +24,16 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
   onManageOwnProduct,
   isSoldOrReserved,
   status,
+  price,
+  unreadCount = 0,
 }) => {
+  const formattedPrice = React.useMemo(() => {
+    if (!price) return '';
+    const num = typeof price === 'number' ? price : parseInt(String(price).replace(/\D/g, ''), 10);
+    if (isNaN(num) || num <= 0) return '';
+    return `${num.toLocaleString('vi-VN')}đ`;
+  }, [price]);
+
   return (
     <View style={styles.container}>
       {isSoldOrReserved ? (
@@ -71,91 +82,61 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
             <Text style={styles.manageOwnBtnText}>Quản lý & Chỉnh sửa bài đăng</Text>
           </TouchableOpacity>
         </View>
-      ) : isSameCampus ? (
-        // CÙNG CAMPUS: Safe-Handoff Nút To + Nhắn tin & Trả giá
-        <View style={styles.actionColumn}>
-          {/* Banner thông tin Safe-Handoff */}
-          <View style={styles.sameCampusNotice}>
-            <Ionicons name="shield-checkmark" size={13} color="#059669" />
-            <Text style={styles.sameCampusNoticeText}>
-              Giao dịch Safe-Handoff • Test tại trạm có Camera & QR Handshake
-            </Text>
-          </View>
-
-          {/* Nút chính: Đặt hẹn Safe-Handoff */}
-          <TouchableOpacity
-            style={styles.safeHandoffMainBtn}
-            activeOpacity={0.88}
-            onPress={() => onBuyNow('meetup')}
-          >
-            <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.safeHandoffMainBtnText}>Đặt hẹn Safe-Handoff (Cùng Campus)</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-
-          {/* Hàng nút phụ: Nhắn tin + Trả giá */}
-          <View style={styles.secondaryButtonRow}>
-            <TouchableOpacity
-              style={styles.chatSecondaryBtn}
-              activeOpacity={0.85}
-              onPress={onChat}
-            >
-              <Ionicons name="chatbubbles-outline" size={16} color="#EA580C" style={{ marginRight: 6 }} />
-              <Text style={styles.chatSecondaryBtnText}>Nhắn tin người bán</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.offerSecondaryBtn}
-              activeOpacity={0.85}
-              onPress={onMakeOffer}
-            >
-              <Ionicons name="pricetag-outline" size={15} color="#475569" style={{ marginRight: 5 }} />
-              <Text style={styles.offerSecondaryBtnText}>Trả giá</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       ) : (
-        // KHÁC CAMPUS: FPT CampusShip Nút To + Nhắn tin & Trả giá
-        <View style={styles.actionColumn}>
-          {/* Banner thông tin Liên Campus */}
-          <View style={styles.diffCampusNotice}>
-            <Ionicons name="cube-outline" size={13} color="#EA580C" />
-            <Text style={styles.diffCampusNoticeText}>
-              FPT CampusShip • Vận chuyển liên cơ sở & Bảo chứng Escrow 48h
-            </Text>
-          </View>
-
-          {/* Nút chính: Đặt hàng Liên Campus */}
+        // KHUÔN 3 NÚT GỌN GÀNG 1 HÀNG CHUẨN TIKTOK / SHOPEE
+        // (Áp dụng đồng bộ cho cả Safe-Handoff Cùng Campus & CampusShip Liên Campus, giữ nguyên 100% chức năng)
+        <View style={styles.buttonRow}>
+          {/* Nút 1: Chat với người bán */}
           <TouchableOpacity
-            style={styles.interCampusMainBtn}
-            activeOpacity={0.88}
-            onPress={() => onBuyNow('shipping')}
+            style={styles.iconActionBtn}
+            activeOpacity={0.75}
+            onPress={onChat}
           >
-            <Ionicons name="cube-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.interCampusMainBtnText}>Đặt hàng Liên Campus (FPT CampusShip)</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            <View style={styles.iconBoxWrapper}>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="#0F172A" />
+              {unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.iconActionLabel}>Chat</Text>
           </TouchableOpacity>
 
-          {/* Hàng nút phụ: Nhắn tin + Trả giá */}
-          <View style={styles.secondaryButtonRow}>
-            <TouchableOpacity
-              style={styles.chatSecondaryBtn}
-              activeOpacity={0.85}
-              onPress={onChat}
-            >
-              <Ionicons name="chatbubbles-outline" size={16} color="#EA580C" style={{ marginRight: 6 }} />
-              <Text style={styles.chatSecondaryBtnText}>Nhắn tin người bán</Text>
-            </TouchableOpacity>
+          {/* Nút 2: Trả giá */}
+          <TouchableOpacity
+            style={styles.iconActionBtn}
+            activeOpacity={0.75}
+            onPress={onMakeOffer}
+          >
+            <View style={styles.iconBoxWrapper}>
+              <Ionicons name="pricetag-outline" size={21} color="#0F172A" />
+            </View>
+            <Text style={styles.iconActionLabel}>Trả giá</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.offerSecondaryBtn}
-              activeOpacity={0.85}
-              onPress={onMakeOffer}
-            >
-              <Ionicons name="pricetag-outline" size={15} color="#475569" style={{ marginRight: 5 }} />
-              <Text style={styles.offerSecondaryBtnText}>Trả giá</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Nút 3: MUA NGAY / ĐẶT HÀNG (Dạng Pill bo tròn to nổi bật) */}
+          <TouchableOpacity
+            style={[
+              styles.mainBuyBtn,
+              isSameCampus ? styles.mainBuyBtnSameCampus : styles.mainBuyBtnDiffCampus,
+            ]}
+            activeOpacity={0.88}
+            onPress={() => onBuyNow(isSameCampus ? 'meetup' : 'shipping')}
+          >
+            <Text style={styles.mainBuyBtnTitle}>
+              {isSameCampus ? 'Hẹn Safe-Point' : 'Mua ngay'}
+            </Text>
+            <Text style={styles.mainBuyBtnSubtitle} numberOfLines={1}>
+              {formattedPrice
+                ? `${formattedPrice} • ${isSameCampus ? 'Safe-Handoff' : 'CampusShip'}`
+                : isSameCampus
+                ? 'Giao dịch Safe-Point'
+                : 'FPT CampusShip'}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -170,110 +151,83 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    boxShadow: '0 -3px 8px rgba(15, 23, 42, 0.06)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  actionColumn: {
-    width: '100%',
-    gap: 8,
-  },
-  sameCampusNotice: {
+  buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    gap: 12,
   },
-  sameCampusNoticeText: {
-    fontSize: 11,
-    color: '#065F46',
-    fontWeight: '700',
-    flex: 1,
-  },
-  diffCampusNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  diffCampusNoticeText: {
-    fontSize: 11,
-    color: '#9A3412',
-    fontWeight: '700',
-    flex: 1,
-  },
-  safeHandoffMainBtn: {
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#059669',
-    flexDirection: 'row',
+  iconActionBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 4px 8px rgba(5, 150, 105, 0.25)',
+    minWidth: 46,
+    paddingVertical: 2,
   },
-  safeHandoffMainBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  interCampusMainBtn: {
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#EA580C',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 4px 8px rgba(234, 88, 12, 0.25)',
-  },
-  interCampusMainBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  secondaryButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  chatSecondaryBtn: {
-    flex: 1.4,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
+  iconBoxWrapper: {
+    position: 'relative',
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatSecondaryBtnText: {
-    color: '#EA580C',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  offerSecondaryBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  offerSecondaryBtnText: {
+  iconActionLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
     color: '#475569',
-    fontSize: 12.5,
-    fontWeight: '700',
+    marginTop: 2,
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -7,
+    backgroundColor: '#EF4444',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  unreadBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  mainBuyBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  mainBuyBtnSameCampus: {
+    backgroundColor: '#EA580C',
+  },
+  mainBuyBtnDiffCampus: {
+    backgroundColor: '#EA580C',
+  },
+  mainBuyBtnTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  mainBuyBtnSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#FFEDD5',
+    marginTop: 1,
   },
   ownProductBox: {
     backgroundColor: '#EFF6FF',

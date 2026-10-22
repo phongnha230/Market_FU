@@ -144,19 +144,15 @@ export const ProductRelatedSection: React.FC<ProductRelatedSectionProps> = memo(
               <Text style={styles.seeAllText}>Xem thêm &gt;</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalScroll}
-          >
-            {similarProducts.slice(0, 6).map((item) => {
+          <View style={styles.gridContainer}>
+            {similarProducts.slice(0, 8).map((item) => {
               const hasDiscount = Boolean(item.originalPrice && item.originalPrice > item.price);
               const discountPercent = hasDiscount
                 ? Math.round(((item.originalPrice! - item.price) / item.originalPrice!) * 100)
                 : undefined;
 
               return (
-                <View key={`similar-p-${item.id}`} style={styles.cardItem}>
+                <View key={`similar-p-${item.id}`} style={styles.gridItem}>
                   <ProductCard
                     id={item.id}
                     title={item.title}
@@ -172,7 +168,7 @@ export const ProductRelatedSection: React.FC<ProductRelatedSectionProps> = memo(
                 </View>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
       )}
     </View>
@@ -228,6 +224,16 @@ const styles = StyleSheet.create({
   cardItem: {
     width: 175,
     marginRight: 12,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    rowGap: 12,
+  },
+  gridItem: {
+    width: '48.5%',
   },
 });
 
