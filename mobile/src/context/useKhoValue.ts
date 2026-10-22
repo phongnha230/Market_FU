@@ -321,6 +321,7 @@ export const useKhoValue = (): KhoContextType => {
     const unsubCoins = socketMobileService.onCoinsUpdated((d) => {
       if (typeof d.coins === 'number') {
         useUserStore.getState().updateUser({ coins: d.coins });
+        useWalletStore.getState().addCoins(0);
       }
     });
 
@@ -609,7 +610,7 @@ export const useKhoValue = (): KhoContextType => {
       wallet,
       availableBalance: wallet.availableBalance,
       escrowBalance: wallet.escrowBalance,
-      coins: wallet.coins,
+      coins: Math.max(wallet.coins, user?.coins ?? 0),
       walletTransactions: wallet.transactions,
       depositToWallet,
       withdrawFromWallet,

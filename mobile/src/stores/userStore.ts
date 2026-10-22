@@ -306,6 +306,12 @@ export const useUserStore = create<UserState>()(
           if (currentUser.id !== updated.id) {
             syncUserToStores(updated.id);
           }
+          if (typeof partial.coins === 'number') {
+            try {
+              const { useWalletStore } = require('./walletStore');
+              useWalletStore.getState().addCoins(0);
+            } catch {}
+          }
           accountStorage.updateUserAccount(currentUser.id, partial).catch(() => {});
         }
       },

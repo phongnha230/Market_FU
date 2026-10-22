@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useKho } from '../../../context/KhoContext';
+import { useUserStore } from '../../../stores/userStore';
+import { useWalletStore } from '../../../stores/walletStore';
 
 interface CampusWalletCardProps {
   onWithdrawPress?: () => void;
@@ -17,6 +19,9 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
 }) => {
   const navigation = useNavigation<any>();
   const { user, isSeller, availableBalance, escrowBalance, coins, depositToWallet } = useKho();
+  const userStoreCoins = useUserStore((s) => s.user?.coins) ?? 0;
+  const walletCoins = useWalletStore((s) => s.getWallet().coins) ?? 0;
+  const displayCoins = Math.max(userStoreCoins, user?.coins ?? 0, coins ?? 0, walletCoins, 0);
 
   const handleDeposit = () => {
     if (onDepositPress) {
@@ -58,7 +63,7 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
             </View>
             <View style={styles.coinRow}>
               <Ionicons name="sparkles" size={13} color="#F59E0B" style={{ marginRight: 3 }} />
-              <Text style={styles.coinText}>{user?.coins ?? coins} Xu</Text>
+              <Text style={styles.coinText}>{displayCoins} Xu</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -129,7 +134,7 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
           </View>
           <View style={styles.coinRow}>
             <Ionicons name="sparkles" size={14} color="#F59E0B" style={{ marginRight: 3 }} />
-            <Text style={[styles.coinText, { fontSize: 17 }]}>{user?.coins ?? coins} Xu</Text>
+            <Text style={[styles.coinText, { fontSize: 17 }]}>{displayCoins} Xu</Text>
           </View>
           <Text style={styles.coinSubHint}>Giảm giá đơn mua</Text>
         </TouchableOpacity>
@@ -137,23 +142,14 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
 
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[styles.actionBtn, { justifyContent: 'center' }]}
           onPress={() => navigation.navigate('Voucher')}
           activeOpacity={0.7}
         >
-          <Ionicons name="ticket-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
-          <Text style={[styles.actionText, { color: '#EA580C' }]}>Đổi Voucher</Text>
-        </TouchableOpacity>
-
-        <View style={styles.btnDivider} />
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('CoinHistory')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="receipt-outline" size={15} color="#0284C7" style={{ marginRight: 4 }} />
-          <Text style={[styles.actionText, { color: '#0284C7' }]}>Lịch sử tích Xu</Text>
+          <Ionicons name="ticket-outline" size={16} color="#EA580C" style={{ marginRight: 6 }} />
+          <Text style={[styles.actionText, { color: '#EA580C', fontWeight: '800', fontSize: 13 }]}>
+            🎟️ Đổi Voucher Campus FPT
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

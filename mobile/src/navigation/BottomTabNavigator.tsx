@@ -13,7 +13,7 @@ import {
   SavedItemsScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
-import { useUserStore, useChatStore, useOrderStore, useNotificationStore } from '../stores';
+import { useUserStore, useChatStore, useOrderStore } from '../stores';
 import { useKho } from '../context/KhoContext';
 import { RequireAuthModal } from '../components';
 
@@ -83,9 +83,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   const { isAuthenticated, user } = useUserStore();
   const { inventoryStats } = useKho();
   const { orders } = useOrderStore();
-  const unreadNotificationCount = useNotificationStore((s) =>
-    s.notifications.filter((n) => n.unread).length
-  );
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );

@@ -29,7 +29,11 @@ export const useProfile = () => {
       const latestProfile = await profileMobileService.getMyProfile();
       if (latestProfile) {
         await updateUserProfile(latestProfile);
-        console.log('🔄 [Mobile Profile]: Đã đồng bộ trạng thái mới nhất từ Backend:', latestProfile.kycStatus, latestProfile.role);
+        if (typeof latestProfile.coins === 'number') {
+          const { useWalletStore } = require('../../../stores/walletStore');
+          useWalletStore.getState().addCoins(0);
+        }
+        console.log('🔄 [Mobile Profile]: Đã đồng bộ trạng thái mới nhất từ Backend:', latestProfile.kycStatus, latestProfile.role, 'Coins:', latestProfile.coins);
       }
     } catch (err: any) {
       // Offline fallback: giữ nguyên trạng thái local store hiện có

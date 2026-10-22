@@ -44,26 +44,18 @@ export const CoinBanner: React.FC<CoinBannerProps> = ({
       </View>
 
       <TouchableOpacity
-        style={[styles.checkinBtn, checkedInToday && styles.checkinBtnDone]}
+        style={styles.viewWalletBtn}
         activeOpacity={0.8}
-        disabled={checkedInToday || isLoadingCheckIn}
-        onPress={onCheckIn}
+        onPress={onOpenHistory}
       >
-        {isLoadingCheckIn ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <Ionicons
-              name={checkedInToday ? 'checkmark-circle' : 'gift-outline'}
-              size={15}
-              color="#FFFFFF"
-              style={{ marginRight: 5 }}
-            />
-            <Text style={styles.checkinText}>
-              {checkedInToday ? 'Đã nhận +20 Xu' : 'Điểm danh +20 Xu'}
-            </Text>
-          </>
-        )}
+        <Ionicons
+          name="wallet-outline"
+          size={15}
+          color="#EA580C"
+          style={{ marginRight: 4 }}
+        />
+        <Text style={styles.viewWalletText}>Ví Xu Campus</Text>
+        <Ionicons name="chevron-forward" size={13} color="#EA580C" style={{ marginLeft: 2 }} />
       </TouchableOpacity>
     </View>
   );
@@ -102,24 +94,22 @@ const styles = StyleSheet.create({
   streakText: { fontSize: 10, fontWeight: '800', color: '#C2410C' },
   coinRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   coins: { fontSize: 20, fontWeight: '900', color: '#EA580C' },
-  checkinBtn: {
+  viewWalletBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EA580C',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: 12,
     shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  checkinBtnDone: {
-    backgroundColor: '#10B981',
-    shadowOpacity: 0.1,
-  },
-  checkinText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  viewWalletText: { color: '#EA580C', fontSize: 11.5, fontWeight: '800' },
 });
 
 export default CoinBanner;

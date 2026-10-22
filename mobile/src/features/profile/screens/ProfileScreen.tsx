@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import ProfileHeaderCard from '../components/ProfileHeaderCard';
 import CampusWalletCard from '../components/CampusWalletCard';
 import OrdersOverviewSection from '../components/OrdersOverviewSection';
@@ -46,6 +46,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   useEffect(() => {
     useWalletStore.getState().fetchWalletBalances().catch(() => {});
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      onRefresh().catch(() => {});
+      useWalletStore.getState().fetchWalletBalances().catch(() => {});
+    }, [onRefresh])
+  );
 
   const [showKycModal, setShowKycModal] = useState(false);
   const [kycRole, setKycRole] = useState<'STUDENT' | 'SELLER'>('STUDENT');
