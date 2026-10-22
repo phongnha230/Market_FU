@@ -273,6 +273,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <HomeHeader
         userName={isAuthenticated && user?.name ? user.name : 'Bạn'}
         campusName={currentCampusName}
+        selectedCampusIndex={selectedCampus}
         avatarUrl={isAuthenticated ? user?.avatar || user?.avatarUrl : undefined}
         isAuthenticated={isAuthenticated}
         isSeller={isSeller}
@@ -283,6 +284,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onKhoPress={handleOpenKho}
         onAvatarPress={handleAvatarPress}
         onCampusChangePress={handleNextCampus}
+        onCampusSelect={(idx) => setSelectedCampus(idx)}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
