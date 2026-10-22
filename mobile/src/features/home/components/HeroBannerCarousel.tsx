@@ -19,42 +19,56 @@ const BANNER_HEIGHT = 120;
 export interface HeroSlide {
   id: string;
   tag: string;
+  tagIcon: keyof typeof Ionicons.glyphMap;
+  tagColor: string;
+  badgeIcon: keyof typeof Ionicons.glyphMap;
+  badgeText: string;
   title: string;
   desc: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  bgGradient: string;
-  accentColor: string;
-  isGraphicBanner?: boolean;
+  ctaText: string;
+  imageSource: any;
+  overlayColor: string;
 }
 
 const HERO_SLIDES: HeroSlide[] = [
   {
     id: 'slide-safepoint',
-    tag: '⚡ SAFE-POINT & GIAO TẬN TAY',
+    tag: 'SAFE-POINT & GIAO TẬN TAY',
+    tagIcon: 'flash',
+    tagColor: '#EA580C',
+    badgeIcon: 'videocam',
+    badgeText: 'Camera 24/7',
     title: 'Giao dịch An Toàn 100%',
     desc: 'Bàn giao có camera 24/7, bàn cắm sạc test máy & bảo vệ hỗ trợ tại Sảnh Alpha.',
-    icon: 'location',
-    bgGradient: '#0D9488',
-    accentColor: '#FFFFFF',
-    isGraphicBanner: true,
+    ctaText: 'Khám phá 5 Trạm Campus',
+    imageSource: require('../../../../assets/images/banner_delivery.jpg'),
+    overlayColor: 'rgba(15, 23, 42, 0.54)',
   },
   {
     id: 'slide-kyc',
     tag: 'FPT KYC PASS',
-    title: 'Bảo trợ sinh viên',
-    desc: 'Xác thực sinh viên để nhận huy hiệu tin cậy & giao dịch Safe-Handoff an toàn tại Sảnh Alpha & KTX.',
-    icon: 'shield-checkmark',
-    bgGradient: '#F27024',
-    accentColor: '#FFFFFF',
+    tagIcon: 'shield-checkmark',
+    tagColor: '#059669',
+    badgeIcon: 'checkmark-circle',
+    badgeText: 'Uy tín 100%',
+    title: 'Bảo trợ Sinh viên FPT',
+    desc: 'Xác thực sinh viên nhận huy hiệu tin cậy & giao dịch Safe-Handoff tại Sảnh Alpha.',
+    ctaText: 'Xác thực KYC ngay',
+    imageSource: require('../../../../assets/images/banner_kyc.jpg'),
+    overlayColor: 'rgba(15, 23, 42, 0.36)',
   },
   {
     id: 'slide-voucher',
     tag: 'FPT REWARDS',
+    tagIcon: 'gift',
+    tagColor: '#7C3AED',
+    badgeIcon: 'sparkles',
+    badgeText: 'Đổi quà Hot',
     title: 'Đổi xu Canteen & Passio',
-    desc: 'Tích xu qua mỗi đơn bán thành công để đổi voucher Cơm trưa Căn Tin và Cà phê Passio tại Campus.',
-    icon: 'gift',
-    bgGradient: '#7C3AED',
-    accentColor: '#FFFFFF',
+    desc: 'Tích xu qua mỗi đơn thành công để đổi voucher Cơm trưa Căn Tin & Cà phê Passio.',
+    ctaText: 'Săn Voucher ngay',
+    imageSource: require('../../../../assets/images/banner_voucher.jpg'),
+    overlayColor: 'rgba(25, 10, 55, 0.36)',
   },
 ];
 
@@ -102,73 +116,57 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
         style={styles.carouselScroll}
         contentContainerStyle={styles.scrollContent}
       >
-        {HERO_SLIDES.map((slide) => {
-          if (slide.isGraphicBanner) {
-            return (
-              <TouchableOpacity
-                key={slide.id}
-                activeOpacity={0.9}
-                style={[styles.bannerCard, styles.safepointCard]}
-                onPress={() => onSlidePress && onSlidePress(slide.id)}
-              >
-                <ImageBackground
-                  source={require('../../../../assets/images/banner_delivery.jpg')}
-                  style={styles.imageBackground}
-                  imageStyle={styles.imageStyle}
-                  resizeMode="cover"
-                >
-                  <View style={styles.safepointOverlay} />
-                  <View style={styles.safepointContent}>
-                    <View style={styles.safepointTopRow}>
-                      <View style={styles.safepointTag}>
-                        <Ionicons name="flash" size={11} color="#EA580C" style={{ marginRight: 3 }} />
-                        <Text style={styles.safepointTagText}>{slide.tag}</Text>
-                      </View>
-                      <View style={styles.safepointCameraBadge}>
-                        <Ionicons name="videocam" size={11} color="#FFFFFF" style={{ marginRight: 3 }} />
-                        <Text style={styles.safepointCameraText}>Camera 24/7</Text>
-                      </View>
-                    </View>
-                    <View style={styles.safepointCenterBlock}>
-                      <Text style={styles.safepointTitle}>{slide.title}</Text>
-                      <Text style={styles.safepointDesc} numberOfLines={2}>
-                        {slide.desc}
-                      </Text>
-                    </View>
-                    <View style={styles.safepointCta}>
-                      <Text style={styles.safepointCtaText}>Khám phá 5 Trạm Campus</Text>
-                      <Ionicons name="arrow-forward" size={11} color="#0F172A" />
-                    </View>
-                  </View>
-                </ImageBackground>
-              </TouchableOpacity>
-            );
-          }
-
-          return (
-            <TouchableOpacity
-              key={slide.id}
-              style={[styles.bannerCard, { backgroundColor: slide.bgGradient }]}
-              activeOpacity={0.9}
-              onPress={() => onSlidePress && onSlidePress(slide.id)}
+        {HERO_SLIDES.map((slide) => (
+          <TouchableOpacity
+            key={slide.id}
+            activeOpacity={0.9}
+            style={[styles.bannerCard, styles.safepointCard]}
+            onPress={() => onSlidePress && onSlidePress(slide.id)}
+          >
+            <ImageBackground
+              source={slide.imageSource}
+              style={styles.imageBackground}
+              imageStyle={styles.imageStyle}
+              resizeMode="cover"
             >
-              <View style={styles.iconCircle}>
-                <Ionicons name={slide.icon} size={24} color="#FFFFFF" />
-              </View>
-              <View style={styles.textContent}>
-                <View style={styles.headerRow}>
-                  <View style={styles.tagPill}>
-                    <Text style={styles.tagPillText}>{slide.tag}</Text>
+              <View style={[styles.safepointOverlay, { backgroundColor: slide.overlayColor }]} />
+              <View style={styles.safepointContent}>
+                <View style={styles.safepointTopRow}>
+                  <View style={styles.safepointTag}>
+                    <Ionicons
+                      name={slide.tagIcon}
+                      size={11}
+                      color={slide.tagColor}
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text style={[styles.safepointTagText, { color: slide.tagColor }]}>
+                      {slide.tag}
+                    </Text>
                   </View>
-                  <Text style={styles.headerTitle}>{slide.title}</Text>
+                  <View style={styles.safepointCameraBadge}>
+                    <Ionicons
+                      name={slide.badgeIcon}
+                      size={11}
+                      color="#FFFFFF"
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text style={styles.safepointCameraText}>{slide.badgeText}</Text>
+                  </View>
                 </View>
-                <Text style={styles.descText} numberOfLines={2}>
-                  {slide.desc}
-                </Text>
+                <View style={styles.safepointCenterBlock}>
+                  <Text style={styles.safepointTitle}>{slide.title}</Text>
+                  <Text style={styles.safepointDesc} numberOfLines={2}>
+                    {slide.desc}
+                  </Text>
+                </View>
+                <View style={styles.safepointCta}>
+                  <Text style={styles.safepointCtaText}>{slide.ctaText}</Text>
+                  <Ionicons name="arrow-forward" size={11} color="#0F172A" />
+                </View>
               </View>
-            </TouchableOpacity>
-          );
-        })}
+            </ImageBackground>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
       {/* Pagination Dots */}
