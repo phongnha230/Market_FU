@@ -9,6 +9,9 @@ interface KycFooterActionsProps {
   activeTab: KycType;
   onSubmit: () => void;
   isStudentVerified?: boolean;
+  isSellerApproved?: boolean;
+  isEditingSeller?: boolean;
+  onToggleEditSeller?: () => void;
 }
 
 export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
@@ -17,10 +20,29 @@ export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
   activeTab,
   onSubmit,
   isStudentVerified,
+  isSellerApproved,
+  isEditingSeller,
+  onToggleEditSeller,
 }) => {
   // Nếu đã xác thực sinh viên chính quy và đang ở tab Sinh viên -> không hiển thị nút nộp lại
   if (activeTab === 'STUDENT' && isStudentVerified) {
     return null;
+  }
+
+  // Nếu người bán đã được duyệt và đang ở chế độ xem
+  if (activeTab === 'SELLER' && isSellerApproved && !isEditingSeller) {
+    return (
+      <View style={styles.sheetFooter}>
+        <TouchableOpacity
+          style={[styles.submitBtn, { backgroundColor: '#059669' }]}
+          onPress={onToggleEditSeller}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="create-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.submitBtnText}>Cập nhật tài khoản thanh toán</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -37,7 +59,9 @@ export const KycFooterActions: React.FC<KycFooterActionsProps> = ({
           <>
             <Ionicons name="checkmark-done" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text style={styles.submitBtnText}>
-              {activeTab === 'SELLER' ? 'Gửi Hồ Sơ Mở Bán' : 'Gửi Hồ Sơ Xác Thực Sinh Viên'}
+              {activeTab === 'SELLER'
+                ? (isSellerApproved ? 'Lưu thay đổi tài khoản nhận tiền' : 'Gửi Hồ Sơ Mở Bán')
+                : 'Gửi Hồ Sơ Xác Thực Sinh Viên'}
             </Text>
           </>
         )}

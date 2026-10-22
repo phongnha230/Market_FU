@@ -12,6 +12,7 @@ interface ProfileHeaderCardProps {
   onEditPress?: () => void;
   onManageListings?: () => void;
   onSellerDashboard?: () => void;
+  onTrustScorePress?: () => void;
 }
 
 interface RoleBadgeConfig {
@@ -95,8 +96,14 @@ const ProfileIdentityInfo: React.FC<{
   </View>
 ));
 
-const ProfileBottomMeta: React.FC<{ isEduEmail: boolean; email?: string }> = React.memo(
-  ({ isEduEmail, email }) => (
+const ProfileBottomMeta: React.FC<{
+  isEduEmail: boolean;
+  email?: string;
+  trustScore?: number;
+  rating?: number;
+  onTrustScorePress?: () => void;
+}> = React.memo(
+  ({ isEduEmail, email, trustScore = 100, rating = 5.0, onTrustScorePress }) => (
     <View style={styles.bottomMetaRow}>
       <View style={styles.emailPill}>
         <Ionicons
@@ -114,10 +121,16 @@ const ProfileBottomMeta: React.FC<{ isEduEmail: boolean; email?: string }> = Rea
         </View>
       </View>
 
-      <View style={styles.ratingBox}>
+      <TouchableOpacity
+        style={styles.ratingBox}
+        onPress={onTrustScorePress}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Ionicons name="shield-checkmark" size={13} color="#059669" style={{ marginRight: 3 }} />
-        <Text style={styles.ratingText}>TrustScore 100% (5.0 ★)</Text>
-      </View>
+        <Text style={styles.ratingText}>TrustScore {trustScore}% ({rating.toFixed(1)} ★)</Text>
+        <Ionicons name="chevron-forward" size={11} color="#059669" style={{ marginLeft: 2 }} />
+      </TouchableOpacity>
     </View>
   )
 );
@@ -129,6 +142,7 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = React.memo(({
   onEditPress,
   onManageListings,
   onSellerDashboard,
+  onTrustScorePress,
 }) => {
   const isSeller = user?.role === 'SELLER';
   const isPending = user?.kycStatus === 'PENDING';
@@ -188,20 +202,15 @@ export const ProfileHeaderCard: React.FC<ProfileHeaderCardProps> = React.memo(({
           onSellerPress={handleSellerHubPress}
           onKycPress={onKycPress}
         />
-
-        {onEditPress && (
-          <TouchableOpacity
-            style={styles.editProfileBtn}
-            onPress={onEditPress}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name="account-edit-outline" size={17} color="#475569" />
-            <Text style={styles.editProfileBtnText}>Chỉnh sửa</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
-      <ProfileBottomMeta isEduEmail={isEduEmail} email={user?.email} />
+      <ProfileBottomMeta
+        isEduEmail={isEduEmail}
+        email={user?.email}
+        trustScore={user?.reputationScore ?? 100}
+        rating={user?.rating ?? 5.0}
+        onTrustScorePress={onTrustScorePress}
+      />
     </View>
   );
 });

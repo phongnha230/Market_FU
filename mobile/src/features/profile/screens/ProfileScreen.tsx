@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,9 @@ import { WithdrawalModal } from '../components/WithdrawalModal';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { DepositCoinModal } from '../components/DepositCoinModal';
 import { MyReportsModal } from '../../report/components/MyReportsModal';
+import { TrustScoreModal } from '../components/TrustScoreModal';
 import { useKho } from '../../../context/KhoContext';
+import { useWalletStore } from '../../../stores/walletStore';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
 
@@ -37,8 +39,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     await Promise.all([
       onRefresh(),
       refreshKhoHang().catch(() => {}),
+      useWalletStore.getState().fetchWalletBalances().catch(() => {}),
     ]);
   };
+
+  useEffect(() => {
+    useWalletStore.getState().fetchWalletBalances().catch(() => {});
+  }, []);
 
   const [showKycModal, setShowKycModal] = useState(false);
   const [kycRole, setKycRole] = useState<'STUDENT' | 'SELLER'>('STUDENT');
@@ -46,6 +53,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMyReportsModal, setShowMyReportsModal] = useState(false);
+  const [showTrustScoreModal, setShowTrustScoreModal] = useState(false);
 
   const handleSettingPress = (id: string) => {
     if (id === 's0') {
@@ -61,11 +69,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     } else if (id === 's2') {
       if (onNavigateToVoucher) onNavigateToVoucher();
       else navigation.navigate('Voucher');
-    } else if (id === 's3') {
-      navigation.navigate('SafePointHubs');
-    } else if (id === 's4') {
-      if (onNavigateToDispute) onNavigateToDispute();
-      else navigation.navigate('Dispute');
     } else if (id === 's5') {
       navigation.navigate('NotificationSettings');
     } else if (id === 's6') {
@@ -144,6 +147,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onEditPress={() => setShowEditModal(true)}
               onManageListings={() => navigation.navigate('ManageListings')}
               onSellerDashboard={() => navigation.navigate('SellerDashboard')}
+              onTrustScorePress={() => setShowTrustScoreModal(true)}
             />
 
             {/* Kho hàng & Tin đăng của tôi - CHỈ DÀNH CHO SELLER */}
@@ -275,7 +279,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <View style={styles.settingsSection}>
               <Text style={styles.sectionTitle}>Thông tin & Quy chế Campus</Text>
               {settingItems
-                .filter((item) => ['s3', 's7'].includes(item.id))
+                .filter((item) => item.id === 's7')
                 .map((item) => (
                   <SettingRow key={item.id} item={item} onPress={() => handleSettingPress(item.id)} />
                 ))}
@@ -283,6 +287,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {/* TrustScore Reputation Detail Modal */}
+      <TrustScoreModal
+        visible={showTrustScoreModal}
+        onClose={() => setShowTrustScoreModal(false)}
+        user={user}
+      />
 
       {/* Quick Edit Profile Modal */}
       <EditProfileModal

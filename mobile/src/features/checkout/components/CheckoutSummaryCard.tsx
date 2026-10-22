@@ -93,11 +93,16 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
 
         {/* Bảo hiểm Escrow */}
         <View style={styles.summaryRow}>
-          <View style={styles.labelWithIcon}>
-            <Ionicons name="shield-checkmark" size={13} color="#059669" />
-            <Text style={styles.summaryLabel}>Phí bảo lãnh ký quỹ Escrow</Text>
+          <View style={[styles.labelWithIcon, { flex: 1, marginRight: 8 }]}>
+            <Ionicons name="shield-checkmark" size={14} color="#059669" />
+            <Text style={styles.summaryLabel} numberOfLines={1}>
+              Bảo lãnh ký quỹ Escrow
+            </Text>
           </View>
-          <Text style={[styles.summaryVal, styles.freeEscrow]}>Miễn phí (FPT Care 100%)</Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.summaryVal, styles.freeEscrow]}>Miễn phí</Text>
+            <Text style={styles.escrowCareSub}>FPT Care 100%</Text>
+          </View>
         </View>
 
         {/* Giảm giá Voucher */}
@@ -198,6 +203,12 @@ const styles = StyleSheet.create({
   freeEscrow: {
     color: '#059669',
     fontWeight: '700',
+  },
+  escrowCareSub: {
+    fontSize: 10,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 1,
   },
   discountVal: {
     color: '#EA580C',

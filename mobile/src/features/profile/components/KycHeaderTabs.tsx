@@ -8,6 +8,7 @@ interface KycHeaderTabsProps {
   onSelectTab: (tab: KycType) => void;
   onClose: () => void;
   isStudentVerified?: boolean;
+  isSellerVerified?: boolean;
 }
 
 export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
@@ -15,6 +16,7 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
   onSelectTab,
   onClose,
   isStudentVerified,
+  isSellerVerified,
 }) => {
   const handlePressSellerTab = () => {
     if (!isStudentVerified) {
@@ -42,11 +44,13 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
           </View>
           <View style={styles.titleCol}>
             <Text style={styles.sheetTitle}>
-              {activeTab === 'SELLER' ? 'Đăng Ký Mở Người Bán (Seller)' : 'Xác Thực Thẻ Sinh Viên FPT'}
+              {activeTab === 'SELLER'
+                ? (isSellerVerified ? 'Hồ Sơ Gian Hàng Người Bán' : 'Đăng Ký Mở Người Bán (Seller)')
+                : 'Xác Thực Thẻ Sinh Viên FPT'}
             </Text>
             <Text style={styles.sheetSubtitle}>
               {activeTab === 'SELLER'
-                ? 'Mở quyền đăng bài pass đồ & nhận thanh toán Escrow'
+                ? (isSellerVerified ? 'Tài khoản bán hàng & ví nhận tiền Escrow đã kích hoạt' : 'Mở quyền đăng bài pass đồ & nhận thanh toán Escrow')
                 : 'Định danh sinh viên chính quy & huy hiệu TrustScore 100%'}
             </Text>
           </View>
@@ -76,9 +80,7 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
             1. Sinh viên FPT
           </Text>
           {isStudentVerified && (
-            <View style={styles.verifiedTabBadge}>
-              <Text style={styles.verifiedTabBadgeText}>✓ Đã xác thực</Text>
-            </View>
+            <Ionicons name="checkmark-circle" size={15} color="#15803D" style={{ marginLeft: 2 }} />
           )}
         </TouchableOpacity>
 
@@ -111,11 +113,13 @@ export const KycHeaderTabs: React.FC<KycHeaderTabsProps> = ({
           >
             2. Người bán
           </Text>
-          {!isStudentVerified && (
+          {isSellerVerified ? (
+            <Ionicons name="checkmark-circle" size={15} color="#15803D" style={{ marginLeft: 2 }} />
+          ) : !isStudentVerified ? (
             <View style={styles.lockedBadge}>
               <Text style={styles.lockedBadgeText}>🔒 Khóa</Text>
             </View>
-          )}
+          ) : null}
         </TouchableOpacity>
       </View>
     </>
@@ -175,11 +179,11 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    gap: 8,
+    gap: 12,
   },
   tabBtn: {
     flex: 1,

@@ -211,7 +211,8 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
         <View style={styles.sectionHeaderBetween}>
           <Text style={styles.stepTitle}>BƯỚC 4: TÀI KHOẢN NGÂN HÀNG (ESCROW)</Text>
           <View style={styles.autoPayoutBadge}>
-            <Text style={styles.autoPayoutBadgeText}>Chuyển khoản tự động sau 48h</Text>
+            <Ionicons name="flash" size={10} color="#C2410C" style={{ marginRight: 2 }} />
+            <Text style={styles.autoPayoutBadgeText}>Tự động chuyển sau 48h</Text>
           </View>
         </View>
 
@@ -297,8 +298,11 @@ export const KycSellerTabForm: React.FC<KycSellerTabFormProps> = React.memo(({
       {/* BƯỚC 5: XÁC THỰC CĂN CƯỚC CÔNG DÂN (CCCD) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderBetween}>
-          <Text style={styles.stepTitle}>BƯỚC 5: XÁC THỰC CĂN CƯỚC CÔNG DÂN (CCCD) *</Text>
-          <Text style={styles.secureStandardHint}>Chuẩn pháp lý bảo mật</Text>
+          <Text style={styles.stepTitle}>BƯỚC 5: XÁC THỰC CĂN CƯỚC (CCCD) *</Text>
+          <View style={styles.secureBadge}>
+            <Ionicons name="shield-checkmark" size={10} color="#065F46" style={{ marginRight: 2 }} />
+            <Text style={styles.secureStandardHint}>Chuẩn pháp lý bảo mật</Text>
+          </View>
         </View>
 
         <Text style={styles.inputLabel}>Số Căn cước công dân (12 chữ số) *</Text>
@@ -369,12 +373,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   stepTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: '#334155',
     letterSpacing: 0.3,
+    flexShrink: 1,
   },
   fapBadge: {
     flexDirection: 'row',
@@ -482,6 +489,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   autoPayoutBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFF7ED',
     borderWidth: 1,
     borderColor: '#FED7AA',
@@ -543,9 +552,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
+  secureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
   secureStandardHint: {
-    fontSize: 10,
-    color: '#94A3B8',
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#065F46',
   },
   twoPhotosRow: {
     flexDirection: 'row',

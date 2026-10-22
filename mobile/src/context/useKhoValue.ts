@@ -43,10 +43,36 @@ export const useKhoValue = (): KhoContextType => {
   const getSellerOrders = useOrderStore((s) => s.getSellerOrders);
 
   // 5. Wallet Store
-  const getWallet = useWalletStore((s) => s.getWallet);
+  const walletsByUser = useWalletStore((s) => s.walletsByUser);
+  const activeUserId = useWalletStore((s) => s.activeUserId);
   const depositAction = useWalletStore((s) => s.deposit);
   const withdrawAction = useWalletStore((s) => s.withdraw);
-  const wallet = getWallet();
+  const fetchWalletBalancesAction = useWalletStore((s) => s.fetchWalletBalances);
+
+  const currentWalletId = user?.id || activeUserId || 'anonymous';
+  const rawWallet = walletsByUser[currentWalletId] || {
+    availableBalance: 0,
+    escrowBalance: 0,
+    coins: 0,
+    transactions: [],
+  };
+
+  // ID hiện hành
+  const currentSellerId = user?.id || '';
+  const currentBuyerId = user?.id || '';
+
+  // Doanh thu từ các đơn hàng bán đã COMPLETED (đồng bộ tức thì khi bán thành công)
+  const completedSellRevenue = useMemo(() => {
+    return orders
+      .filter((o) => (o.sellerId === currentSellerId || (user?.id && o.sellerId === user.id)) && o.status === 'COMPLETED')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  }, [orders, currentSellerId, user?.id]);
+
+  const effectiveAvailableBalance = Math.max(rawWallet.availableBalance, completedSellRevenue);
+  const wallet = useMemo(() => ({
+    ...rawWallet,
+    availableBalance: effectiveAvailableBalance,
+  }), [rawWallet, effectiveAvailableBalance]);
 
   // 6. Favorites Store
   const favoriteIds = useFavoriteStore((s) => s.favoriteIds);
@@ -62,10 +88,6 @@ export const useKhoValue = (): KhoContextType => {
   const isSeller = Boolean(user && user.role === 'SELLER');
   const isBuyer = Boolean(user && user.role !== 'SELLER');
   const isKycVerified = Boolean(user?.isKycVerified || user?.kycStatus === 'APPROVED');
-
-  // ID hiện hành
-  const currentSellerId = user?.id || '';
-  const currentBuyerId = user?.id || '';
 
   // === Kho Hàng Của Tôi (Seller Listings từ Backend API /products/me) ===
   const [sellerProducts, setSellerProducts] = useState<ProductItem[]>([]);
@@ -90,6 +112,7 @@ export const useKhoValue = (): KhoContextType => {
 
     fetchMySellerProducts().catch(() => {});
     fetchOrders().catch(() => {});
+    useWalletStore.getState().fetchWalletBalances().catch(() => {});
     useNotificationStore.getState().fetchNotifications().catch(() => {});
     useChatStore.getState().fetchConversations().catch(() => {});
 
@@ -494,8 +517,8 @@ export const useKhoValue = (): KhoContextType => {
   );
 
   const refreshWallet = useCallback(async () => {
-    // Wallet triggers reactivity via Zustand state
-  }, []);
+    await fetchWalletBalancesAction();
+  }, [fetchWalletBalancesAction]);
 
   // === Kho Mục Yêu Thích ===
   const favoriteProducts = useMemo(() => {
@@ -539,11 +562,12 @@ export const useKhoValue = (): KhoContextType => {
         fetchProducts(currentCampus),
         fetchMySellerProducts(),
         fetchOrders(),
+        fetchWalletBalancesAction(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchProducts, fetchMySellerProducts, fetchOrders, currentCampus]);
+  }, [fetchProducts, fetchMySellerProducts, fetchOrders, fetchWalletBalancesAction, currentCampus]);
 
   return useMemo(
     () => ({

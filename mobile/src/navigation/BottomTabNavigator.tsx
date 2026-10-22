@@ -110,9 +110,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   // 2. Badge Kho hàng: Chỉ hiện khi có tin cần người bán chú ý (tin bị từ chối cần sửa hoặc tin chờ duyệt)
   const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
-  // 3. Badge Tài khoản Profile: Hiện khi có thông báo mới chưa đọc
-  const profileAttentionCount = unreadNotificationCount;
-
   useEffect(() => {
     if (isAuthenticated) {
       useChatStore.getState().fetchConversations().catch(() => {});
@@ -237,13 +234,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
                   <View style={styles.chatBadge}>
                     <Text style={styles.chatBadgeText}>
                       {khoAttentionCount > 99 ? '99+' : khoAttentionCount}
-                    </Text>
-                  </View>
-                )}
-                {route.name === 'Profile' && isAuthenticated && profileAttentionCount > 0 && (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>
-                      {profileAttentionCount > 99 ? '99+' : profileAttentionCount}
                     </Text>
                   </View>
                 )}

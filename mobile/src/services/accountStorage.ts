@@ -20,6 +20,7 @@ export interface UserProfile {
   bio?: string;
   rating: number;
   reputationPoints: number;
+  reputationScore?: number;
   coins: number;
   bankAccount?: {
     bankName: string;
