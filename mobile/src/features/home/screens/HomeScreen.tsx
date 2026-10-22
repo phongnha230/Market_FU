@@ -67,9 +67,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const handleCategoryPress = useCallback(
     (category: any) => {
       navigation.navigate('ProductList', {
-        category: category.name,
+        category: category.id,
         categoryType: category.id,
-        title: category.name,
+        title: (category.name || '').replace('\n', ' '),
       });
     },
     [navigation]

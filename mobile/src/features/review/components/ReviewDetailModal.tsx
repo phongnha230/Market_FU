@@ -38,22 +38,11 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
   if (!order) return null;
 
-  const defaultReview: OrderReviewData = {
-    rating: 5,
-    comment: 'Sản phẩm bàn giao nguyên tem như mô tả, người bán thân thiện và đúng giờ tại Safe-Point!',
-    tags: ['Đúng mô tả', 'Thân thiện', 'Hàng nguyên tem'],
-    images: [],
-    isAnonymous: false,
-    reviewedAt: order.createdAt || 'Gần đây',
-    isPublic: true,
-    canEdit: true,
-    bonusCoins: 100,
-  };
-
-  const review: OrderReviewData = order.reviewData || defaultReview;
-  const buyerDisplayName = review.isAnonymous
+  const review: OrderReviewData | undefined = order.reviewData;
+  const hasReview = Boolean(review && (review.rating || review.comment));
+  const buyerDisplayName = review?.isAnonymous
     ? 'Sinh viên FPT (Ẩn danh)'
-    : (order.buyerName || 'Gia Huy');
+    : (order.buyerName || 'Người mua FPT');
 
   const ratingLabels: { [key: number]: string } = {
     1: 'Rất tệ 😡',
@@ -87,10 +76,10 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
               {isSeller ? 'Đánh giá từ Người Mua' : 'Chi tiết Đánh giá của bạn'}
             </Text>
             <Text style={styles.headerSub}>
-              Đơn hàng #{order.orderNumber || order.id} {isSeller ? `• ${buyerDisplayName}` : ''}
+              Đơn hàng #{order.orderNumber || order.id} {isSeller && hasReview ? `• ${buyerDisplayName}` : ''}
             </Text>
           </View>
-          {!isSeller && onEditReview ? (
+          {!isSeller && onEditReview && hasReview ? (
             <TouchableOpacity
               style={styles.editHeaderBtn}
               onPress={() => {
@@ -106,6 +95,66 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
           )}
         </View>
 
+        {!hasReview || !review ? (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+            {/* Thẻ tóm tắt sản phẩm & Đối tác */}
+            <View style={styles.productCard}>
+              <Image
+                source={resolveProductImage(order.productImage)}
+                style={styles.productThumb}
+                contentFit="cover"
+              />
+              <View style={styles.productInfo}>
+                <Text style={styles.productTitle} numberOfLines={2}>
+                  {order.productTitle}
+                </Text>
+                {isSeller ? (
+                  <Text style={styles.sellerName}>
+                    Người mua: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{order.buyerName || 'Người mua FPT'}</Text> ({order.buyerCampus || 'Hòa Lạc'})
+                  </Text>
+                ) : (
+                  <Text style={styles.sellerName}>
+                    Người bán: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{order.sellerName || 'Người bán FPT'}</Text> ({order.sellerCampus || 'Campus'})
+                  </Text>
+                )}
+                <Text style={styles.safePoint}>
+                  Safe-Point: {order.safePoint || 'Trạm Safe-Point'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Trạng thái chưa có đánh giá trung thực */}
+            <View style={styles.emptyReviewCard}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="chatbubble-ellipses-outline" size={38} color="#94A3B8" />
+              </View>
+              <Text style={styles.emptyReviewTitle}>Chưa có đánh giá</Text>
+              <Text style={styles.emptyReviewDesc}>
+                {isSeller
+                  ? 'Người mua chưa gửi đánh giá cho đơn hàng này sau khi nhận hàng tại Safe-Point. Khi có đánh giá thực tế từ người mua, nhận xét và điểm uy tín sẽ được hiển thị tại đây.'
+                  : 'Bạn chưa đánh giá đơn hàng này. Đánh giá ngay để nhận +100 Xu Campus Coin và giúp người bán tích lũy điểm uy tín trong cộng đồng sinh viên FPT nhé!'}
+              </Text>
+
+              {!isSeller && onEditReview && (
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    onClose();
+                    onEditReview(order);
+                  }}
+                >
+                  <Ionicons name="star" size={18} color="#FFFFFF" />
+                  <Text style={styles.editBtnText}>Viết đánh giá ngay (+100 Xu)</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={styles.closeEmptyBtn} activeOpacity={0.8} onPress={onClose}>
+                <Text style={styles.closeEmptyBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
           {/* 1. Trạng thái Đánh giá công khai Banner */}
           <View style={[styles.statusBanner, styles.statusBannerPublic]}>
@@ -288,7 +337,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                       <Text style={styles.replyInputLabel}>Gửi phản hồi công khai tới người mua:</Text>
                       <TextInput
                         style={styles.replyTextInput}
-                        placeholder="Ví dụ: Cảm ơn bạn Gia Huy đã tin tưởng ủng hộ shop nhé! Chúc bạn học tốt..."
+                        placeholder="Ví dụ: Cảm ơn bạn đã tin tưởng ủng hộ shop nhé! Chúc bạn học tốt..."
                         placeholderTextColor="#94A3B8"
                         multiline
                         numberOfLines={3}
@@ -365,6 +414,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
             </View>
           )}
         </ScrollView>
+        )}
 
         {/* Modal xem ảnh full screen */}
         {selectedFullImage && (
@@ -847,6 +897,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  emptyReviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 8,
+  },
+  emptyIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyReviewTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyReviewDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  closeEmptyBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  closeEmptyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
 });
 

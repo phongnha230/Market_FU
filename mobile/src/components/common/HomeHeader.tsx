@@ -67,23 +67,6 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         </View>
 
         <View style={styles.rightSection}>
-          {isAuthenticated && isSeller && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={onKhoPress}
-              accessibilityLabel="Kho hàng của tôi"
-            >
-              {khoCount > 0 && (
-                <View style={styles.khoBadge}>
-                  <Text style={styles.khoBadgeText}>
-                    {khoCount > 99 ? '99+' : khoCount}
-                  </Text>
-                </View>
-              )}
-              <Ionicons name="file-tray-full-outline" size={22} color="#1E293B" />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={styles.iconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

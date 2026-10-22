@@ -5,6 +5,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useVoucherStore } from '../../../stores/voucherStore';
 import { orderMobileService } from '../../../services/orderMobileService';
+import { paymentMobileService } from '../../../services/paymentMobileService';
 import { fromBackendCampus } from '../../../lib/backendMappers';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -249,20 +250,55 @@ export function useCheckoutController() {
           : undefined,
       });
 
-      addOrder(createdOrder);
+      let finalizedOrder = createdOrder;
 
       if (selectedPayment === 'fptpay') {
         if (!createdOrder.paymentCheckoutUrl) {
-          Alert.alert('PayOS chưa sẵn sàng', 'Backend không trả về liên kết thanh toán PayOS. Đơn chưa được xác nhận đã thanh toán.');
-        } else {
-          try {
-            await WebBrowser.openBrowserAsync(createdOrder.paymentCheckoutUrl);
-          } catch (browserError) {
-            console.error('Could not open PayOS checkout URL', browserError);
-            Alert.alert('Không mở được PayOS', 'Đơn đang chờ thanh toán. Mở lại đơn hàng để tiếp tục thanh toán.');
+          Alert.alert('PayOS chưa sẵn sàng', 'Backend không trả về liên kết thanh toán PayOS. Đơn chưa được tạo.');
+          return;
+        }
+
+        try {
+          // Mở cổng thanh toán PayOS trên trình duyệt an toàn
+          await WebBrowser.openBrowserAsync(createdOrder.paymentCheckoutUrl);
+
+          // Sau khi người dùng chuyển tiền hoặc đóng browser, kiểm tra trạng thái thực tế từ backend
+          const payStatus = await paymentMobileService.checkPaymentStatus(createdOrder.orderNumber || createdOrder.id);
+
+          if (!payStatus.isPaid && payStatus.status !== 'PAID') {
+            // Người dùng chưa thanh toán hoặc bấm Hủy: tự động hủy đơn nháp để không sinh đơn rác và tin nhắn ảo
+            try {
+              await orderMobileService.cancelOrder(
+                createdOrder.id,
+                'Người mua đóng trình duyệt PayOS khi chưa hoàn tất thanh toán'
+              );
+            } catch (cancelErr) {
+              console.log('Cancel pending draft error:', cancelErr);
+            }
+
+            Alert.alert(
+              'Giao dịch chưa thanh toán',
+              'Bạn vừa đóng cổng PayOS mà chưa hoàn tất chuyển khoản. Đơn hàng chưa được tạo để bảo vệ tài khoản của bạn. Bạn có thể chọn lại phương thức thanh toán hoặc thử lại.',
+              [{ text: 'Đã hiểu' }]
+            );
+            return;
           }
+
+          // Đã thanh toán thành công qua PayOS: Cập nhật đơn sang ESCROW_PAID
+          finalizedOrder = {
+            ...createdOrder,
+            status: 'ESCROW_PAID',
+            statusLabel: '🛡️ Quỹ Escrow FPT đang bảo lãnh',
+          };
+        } catch (browserError) {
+          console.error('Could not open PayOS checkout URL', browserError);
+          Alert.alert('Lỗi cổng thanh toán', 'Không thể mở cổng thanh toán PayOS. Vui lòng thử lại sau.');
+          return;
         }
       }
+
+      // Lưu đơn vào local store sau khi đã thanh toán (hoặc khi chọn tiền mặt)
+      addOrder(finalizedOrder);
 
       if (appliedVoucher?.code) {
         applyVoucherCode(appliedVoucher.code).catch(() => {});
@@ -270,25 +306,25 @@ export function useCheckoutController() {
 
       const formattedSlot = `${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`;
 
-      // Navigate to CheckoutSuccess
+      // Điều hướng tới CheckoutSuccess
       navigation.navigate('CheckoutSuccess', {
-        orderCode: createdOrder.orderNumber,
-        orderId: createdOrder.id,
+        orderCode: finalizedOrder.orderNumber,
+        orderId: finalizedOrder.id,
         totalAmount,
         product: {
           title: product.title,
-          sellerName: product.sellerName || createdOrder.sellerName,
-          sellerCohort: product.sellerCohort || createdOrder.sellerCohort,
-          image: product.image || createdOrder.productImage,
+          sellerName: product.sellerName || finalizedOrder.sellerName,
+          sellerCohort: product.sellerCohort || finalizedOrder.sellerCohort,
+          image: product.image || finalizedOrder.productImage,
         },
         safePoint: selectedSafePoint,
-        handshakeOtp: createdOrder.handshakeOtp,
-        timeSlot: createdOrder.timeSlot || formattedSlot,
+        handshakeOtp: finalizedOrder.handshakeOtp,
+        timeSlot: finalizedOrder.timeSlot || formattedSlot,
         isDifferentCampus,
         fromCampus: product.sellerCampus || 'Hòa Lạc',
         toCampus: buyerCampus,
-        paymentPending: selectedPayment === 'fptpay',
-        paymentCheckoutUrl: createdOrder.paymentCheckoutUrl,
+        paymentPending: false,
+        paymentCheckoutUrl: finalizedOrder.paymentCheckoutUrl,
       });
     } catch (err: any) {
       console.log('⚠️ [createOrder error]:', err?.message);

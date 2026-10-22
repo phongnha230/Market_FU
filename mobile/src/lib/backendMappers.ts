@@ -196,6 +196,19 @@ export const isProductInCategory = (
     return true;
   }
 
+  let catKey = String(selectedCategoryId).toLowerCase().trim();
+  if (catKey.includes('sách') || catKey.includes('sach') || catKey.includes('giáo trình') || catKey.includes('giao trinh')) {
+    catKey = '1';
+  } else if (catKey.includes('laptop') || catKey.includes('phụ kiện') || catKey.includes('phu kien') || catKey.includes('điện tử') || catKey.includes('máy tính')) {
+    catKey = '2';
+  } else if (catKey.includes('đồ dùng') || catKey.includes('do dung') || catKey.includes('ktx') || catKey.includes('phòng trọ') || catKey.includes('gia dụng')) {
+    catKey = '3';
+  } else if (catKey.includes('võ phục') || catKey.includes('vo phuc') || catKey.includes('vovinam') || catKey.includes('đồng phục')) {
+    catKey = '4';
+  } else if (catKey.includes('gấp') || catKey.includes('gap') || catKey.includes('urgent') || catKey.includes('thanh lý')) {
+    catKey = '5';
+  }
+
   const rawCat = (product.category || '').toLowerCase();
   const rawType = (product.categoryType || '').toUpperCase();
   const title = (product.title || '').toLowerCase();
@@ -204,7 +217,7 @@ export const isProductInCategory = (
   const text = `${title} ${desc} ${tags}`;
 
   // 1. Sách & Giáo trình (id: '1' hoặc 'books')
-  if (selectedCategoryId === '1' || selectedCategoryId === 'books' || selectedCategoryId === 'BOOKS') {
+  if (catKey === '1' || catKey === 'books' || catKey === 'BOOKS') {
     if (rawCat === 'books' || rawType === 'BOOKS') return true;
     if (
       text.includes('sách') ||
@@ -223,10 +236,10 @@ export const isProductInCategory = (
 
   // 2. Laptop & Phụ kiện / Đồ điện tử (id: '2' hoặc 'it' hoặc 'electronics')
   if (
-    selectedCategoryId === '2' ||
-    selectedCategoryId === 'it' ||
-    selectedCategoryId === 'electronics' ||
-    selectedCategoryId === 'ELECTRONICS'
+    catKey === '2' ||
+    catKey === 'it' ||
+    catKey === 'electronics' ||
+    catKey === 'ELECTRONICS'
   ) {
     const isFurniture =
       (text.includes('bàn học') ||
@@ -292,10 +305,10 @@ export const isProductInCategory = (
 
   // 3. Đồ dùng KTX & Gia dụng (id: '3' hoặc 'dom' hoặc 'dorm' hoặc 'DORM_ITEM')
   if (
-    selectedCategoryId === '3' ||
-    selectedCategoryId === 'dom' ||
-    selectedCategoryId === 'dorm' ||
-    selectedCategoryId === 'DORM_ITEM'
+    catKey === '3' ||
+    catKey === 'dom' ||
+    catKey === 'dorm' ||
+    catKey === 'DORM_ITEM'
   ) {
     if (rawCat === 'dom' || rawCat === 'dorm' || rawType === 'DORM_ITEM') return true;
     if (
@@ -340,10 +353,10 @@ export const isProductInCategory = (
 
   // 4. Võ phục Vovinam / Thời trang (id: '4' hoặc 'vovinam' hoặc 'clothing' hoặc 'CLOTHING')
   if (
-    selectedCategoryId === '4' ||
-    selectedCategoryId === 'vovinam' ||
-    selectedCategoryId === 'clothing' ||
-    selectedCategoryId === 'CLOTHING'
+    catKey === '4' ||
+    catKey === 'vovinam' ||
+    catKey === 'clothing' ||
+    catKey === 'CLOTHING'
   ) {
     if (rawCat === 'vovinam' || rawCat === 'clothing' || rawType === 'CLOTHING') return true;
     if (
@@ -370,9 +383,9 @@ export const isProductInCategory = (
 
   // 5. Pass đồ gấp (id: '5' hoặc 'urgent' hoặc 'gap')
   if (
-    selectedCategoryId === '5' ||
-    selectedCategoryId === 'urgent' ||
-    selectedCategoryId === 'gap'
+    catKey === '5' ||
+    catKey === 'urgent' ||
+    catKey === 'gap'
   ) {
     const badge = (product.badge || '').toLowerCase();
     if (badge.includes('gấp') || badge.includes('gap')) return true;

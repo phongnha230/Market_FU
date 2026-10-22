@@ -29,7 +29,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = React.memo(({
             )}
             <Ionicons name={cat.icon as any} size={22} color={cat.iconColor} />
           </View>
-          <Text style={styles.title} numberOfLines={1}>{cat.name}</Text>
+          <Text style={styles.title} numberOfLines={2}>{cat.name}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -71,11 +71,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   title: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
-    lineHeight: 13,
+    lineHeight: 14,
+    minHeight: 28,
   },
 });
 

@@ -31,7 +31,7 @@ export const ProductListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const { mode = 'CAMPUS_ALL', campusName = 'Hòa Lạc', category: initialCategory, title } =
+  const { mode = 'CAMPUS_ALL', campusName = 'Hòa Lạc', category: initialCategory, categoryType, title } =
     route.params || {};
 
   const {
@@ -43,7 +43,8 @@ export const ProductListScreen: React.FC = () => {
     setSearchText,
   } = useHomeFeed();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'ALL');
+  const resolvedInitialCategory = categoryType || initialCategory || 'ALL';
+  const [selectedCategory, setSelectedCategory] = useState<string>(resolvedInitialCategory);
   const [selectedPriceFilter, setSelectedPriceFilter] = useState<string>('ALL');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
@@ -119,7 +120,7 @@ export const ProductListScreen: React.FC = () => {
   };
 
   const screenTitle =
-    title ||
+    (title ? String(title).replace('\n', ' ') : null) ||
     (mode === 'TRENDING'
       ? 'Tin xu hướng & Nổi bật'
       : `Toàn bộ tin tại FU ${campusName}`);

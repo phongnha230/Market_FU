@@ -8,6 +8,7 @@ import { ProductCardProps } from '../../../components/common/ProductCard';
 import { resolveProductImage } from '../../../lib/imageResolver';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { adaptBackendProductToMobile } from '../../../services/productMobileService';
+import { toBackendCampus } from '../../../lib/backendMappers';
 
 export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   const { currentCampus, campuses, setCampusByIndex } = useCampusStore();
@@ -24,10 +25,10 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     setSearchText(initialSearch || '');
   }
 
-  // Tự động tải toàn bộ sản phẩm từ Backend để đồng bộ như trên Frontend
+  // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở
   useEffect(() => {
     fetchProducts().catch(() => {});
-  }, [fetchProducts]);
+  }, [fetchProducts, currentCampus]);
 
   // Lắng nghe Realtime Socket: Khi Web (hoặc thiết bị khác) đăng/cập nhật sản phẩm
   useEffect(() => {
@@ -99,7 +100,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
           price: numPrice.toLocaleString('vi-VN'),
           originalPrice: hasDiscount ? numOrigPrice.toLocaleString('vi-VN') : undefined,
           discountBadge: hasDiscount ? `-${discountPercent}%` : undefined,
-          location: `📍 ${p?.campus || currentCampus || 'FPT'} • ${p?.safePoint || 'Safe-Point'}`,
+          location: `📍 ${p?.campus || 'FPT'} • ${p?.safePoint || 'Safe-Point'}`,
           seller: String(p?.sellerName || 'Sinh viên FPT'),
           sellerYear: p?.sellerCohort || 'K17',
           isVerified: p?.sellerIsVerified ?? true,
@@ -117,66 +118,64 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       });
     }
     return [];
-  }, [storeProducts, currentCampus]);
+  }, [storeProducts]);
 
   const filteredProducts = useMemo(() => {
     let list = [...combinedProducts];
 
-    // Tab "TẤT CẢ" (selectedFilter === 0):
-    // Hiển thị toàn bộ sản phẩm trên toàn quốc (giống Frontend), ưu tiên đưa sản phẩm của cơ sở hiện tại lên đầu
-    if (selectedFilter === 0) {
-      if (currentCampus && currentCampus !== 'TẤT CẢ') {
-        const campLower = currentCampus.toLowerCase();
-        const isMatchCampus = (p: typeof list[0]) => {
-          const combined = `${p.location} ${p.title}`.toLowerCase();
-          if (campLower.includes('hòa lạc') || campLower.includes('hol')) {
-            return combined.includes('hòa lạc') || combined.includes('hol') || combined.includes('dom') || combined.includes('alpha') || combined.includes('beta');
-          }
-          if (campLower.includes('quy nhơn') || campLower.includes('qn')) {
-            return combined.includes('quy nhơn') || combined.includes('qn') || combined.includes('ai hub');
-          }
-          if (campLower.includes('cần thơ') || campLower.includes('ct')) {
-            return combined.includes('cần thơ') || combined.includes('ct') || combined.includes('gamma');
-          }
-          if (campLower.includes('hồ chí minh') || campLower.includes('hcm')) {
-            return combined.includes('hồ chí minh') || combined.includes('hcm') || combined.includes('sài gòn') || combined.includes('quận 9');
-          }
-          if (campLower.includes('đà nẵng') || campLower.includes('dad')) {
-            return combined.includes('đà nẵng') || combined.includes('dad');
-          }
-          return combined.includes(campLower);
-        };
+    // Helper kiểm tra sản phẩm có thuộc Campus hiện tại hay không
+    const isMatchCampus = (p: typeof list[0]) => {
+      if (!currentCampus || currentCampus === 'TẤT CẢ') {
+        return true;
+      }
+      const targetCode = toBackendCampus(currentCampus);
+      const prodCode = toBackendCampus(p.campus);
+      if (targetCode && prodCode) {
+        return targetCode === prodCode;
+      }
 
-        const currentCampusItems = list.filter(isMatchCampus);
-        const otherCampusItems = list.filter((p) => !isMatchCampus(p));
-        list = [...currentCampusItems, ...otherCampusItems];
+      const campLower = currentCampus.toLowerCase();
+      const combined = `${p.campus || ''} ${p.location || ''} ${p.title || ''}`.toLowerCase();
+
+      if (targetCode === 'HOL' || campLower.includes('hòa lạc') || campLower.includes('hol')) {
+        return (
+          combined.includes('hòa lạc') ||
+          combined.includes('hoa lac') ||
+          combined.includes('hol') ||
+          combined.includes('dom') ||
+          combined.includes('alpha') ||
+          combined.includes('beta')
+        );
       }
-    } else if (selectedFilter === 1) {
-      // Gần bạn / Safe-point: lọc theo cơ sở cụ thể hoặc trạm Safe-point
-      if (currentCampus && currentCampus !== 'TẤT CẢ') {
-        const campLower = currentCampus.toLowerCase();
-        list = list.filter((p) => {
-          const combined = `${p.location} ${p.title}`.toLowerCase();
-          if (campLower.includes('hòa lạc') || campLower.includes('hol')) {
-            return combined.includes('hòa lạc') || combined.includes('hol') || combined.includes('dom') || combined.includes('alpha') || combined.includes('beta');
-          }
-          if (campLower.includes('quy nhơn') || campLower.includes('qn')) {
-            return combined.includes('quy nhơn') || combined.includes('qn') || combined.includes('ai hub');
-          }
-          if (campLower.includes('cần thơ') || campLower.includes('ct')) {
-            return combined.includes('cần thơ') || combined.includes('ct') || combined.includes('gamma');
-          }
-          if (campLower.includes('hồ chí minh') || campLower.includes('hcm')) {
-            return combined.includes('hồ chí minh') || combined.includes('hcm') || combined.includes('sài gòn') || combined.includes('quận 9');
-          }
-          if (campLower.includes('đà nẵng') || campLower.includes('dad')) {
-            return combined.includes('đà nẵng') || combined.includes('dad');
-          }
-          return combined.includes(campLower);
-        });
-      } else {
-        list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom') || p.location.includes('Hub'));
+      if (targetCode === 'QN' || campLower.includes('quy nhơn') || campLower.includes('qn')) {
+        return combined.includes('quy nhơn') || combined.includes('quy nhon') || combined.includes('qn') || combined.includes('ai hub');
       }
+      if (targetCode === 'CT' || campLower.includes('cần thơ') || campLower.includes('ct')) {
+        return combined.includes('cần thơ') || combined.includes('can tho') || combined.includes('ct') || combined.includes('gamma');
+      }
+      if (targetCode === 'HCM' || campLower.includes('hồ chí minh') || campLower.includes('hcm') || campLower.includes('tp.hcm')) {
+        return (
+          combined.includes('hồ chí minh') ||
+          combined.includes('hcm') ||
+          combined.includes('sài gòn') ||
+          combined.includes('quận 9')
+        );
+      }
+      if (targetCode === 'DAD' || campLower.includes('đà nẵng') || campLower.includes('dad')) {
+        return combined.includes('đà nẵng') || combined.includes('da nang') || combined.includes('dad');
+      }
+      return combined.includes(campLower);
+    };
+
+    // Khi người dùng chọn Campus cụ thể (HÒA LẠC, ĐÀ NẴNG, TP.HCM,...), lọc chính xác sản phẩm thuộc campus đó
+    if (currentCampus && currentCampus !== 'TẤT CẢ') {
+      list = list.filter(isMatchCampus);
+    }
+
+    // Lọc theo Feed Filter phụ (TẤT CẢ / GẦN BẠN / ĐỒ KTX / PASS RẺ)
+    if (selectedFilter === 1) {
+      // Gần bạn / Safe-point: trạm Safe-point sảnh
+      list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom') || p.location.includes('Hub'));
     } else if (selectedFilter === 2) {
       // Đồ KTX
       list = list.filter((p: any) =>
