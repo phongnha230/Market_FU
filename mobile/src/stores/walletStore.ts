@@ -52,6 +52,30 @@ export const useWalletStore = create<WalletState>()(
         set({ activeUserId: userId });
         if (userId) {
           get().fetchWalletBalances().catch(() => {});
+          try {
+            const { useUserStore } = require('./userStore');
+            const currentUser = useUserStore.getState().user;
+            if (currentUser && typeof currentUser.coins === 'number') {
+              const { walletsByUser } = get();
+              const wallet = walletsByUser[userId] || {
+                availableBalance: 0,
+                escrowBalance: 0,
+                coins: 0,
+                transactions: [],
+              };
+              if (currentUser.coins > wallet.coins) {
+                set({
+                  walletsByUser: {
+                    ...walletsByUser,
+                    [userId]: {
+                      ...wallet,
+                      coins: currentUser.coins,
+                    },
+                  },
+                });
+              }
+            }
+          } catch {}
         }
       },
 
@@ -87,14 +111,21 @@ export const useWalletStore = create<WalletState>()(
       getWallet: () => {
         const { walletsByUser, activeUserId } = get();
         const currentId = activeUserId || 'anonymous';
-        return (
+        const wallet =
           walletsByUser[currentId] || {
             availableBalance: 0,
             escrowBalance: 0,
             coins: 0,
             transactions: [],
+          };
+        try {
+          const { useUserStore } = require('./userStore');
+          const currentUser = useUserStore.getState().user;
+          if (currentUser && typeof currentUser.coins === 'number' && currentUser.coins > wallet.coins) {
+            wallet.coins = currentUser.coins;
           }
-        );
+        } catch {}
+        return wallet;
       },
 
       withdraw: async (amount, bankInfo) => {
@@ -240,15 +271,11 @@ export const useWalletStore = create<WalletState>()(
       addCoins: (amount) => {
         const { walletsByUser, activeUserId } = get();
         const currentId = activeUserId || 'anonymous';
-        const wallet = walletsByUser[currentId] || {
-          availableBalance: 0,
-          escrowBalance: 0,
-          coins: 0,
-          transactions: [],
-        };
+        const wallet = get().getWallet();
+        const newCoins = Math.max(0, wallet.coins + amount);
         const updated = {
           ...wallet,
-          coins: Math.max(0, wallet.coins + amount),
+          coins: newCoins,
         };
         set((state) => ({
           walletsByUser: {
@@ -256,21 +283,21 @@ export const useWalletStore = create<WalletState>()(
             [currentId]: updated,
           },
         }));
+        try {
+          const { useUserStore } = require('./userStore');
+          useUserStore.getState().updateUser({ coins: newCoins });
+        } catch {}
       },
 
       deductCoins: (amount) => {
         const { walletsByUser, activeUserId } = get();
         const currentId = activeUserId || 'anonymous';
-        const wallet = walletsByUser[currentId] || {
-          availableBalance: 0,
-          escrowBalance: 0,
-          coins: 0,
-          transactions: [],
-        };
+        const wallet = get().getWallet();
         if (wallet.coins < amount) return false;
+        const newCoins = wallet.coins - amount;
         const updated = {
           ...wallet,
-          coins: wallet.coins - amount,
+          coins: newCoins,
         };
         set((state) => ({
           walletsByUser: {
@@ -278,6 +305,10 @@ export const useWalletStore = create<WalletState>()(
             [currentId]: updated,
           },
         }));
+        try {
+          const { useUserStore } = require('./userStore');
+          useUserStore.getState().updateUser({ coins: newCoins });
+        } catch {}
         return true;
       },
     }),

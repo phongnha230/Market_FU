@@ -7,6 +7,11 @@ import { KhoProvider } from './src/context/KhoContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { TopNotificationBanner } from './src/components/common/TopNotificationBanner';
 import { NotificationConsentModal } from './src/components/common/NotificationConsentModal';
+import { GlobalAlertModal } from './src/components/common/GlobalAlertModal';
+import { installCustomAlert } from './src/services/customAlertService';
+
+// Cài đặt custom alert giao diện đẹp thay thế toàn bộ Alert.alert native
+installCustomAlert();
 
 LogBox.ignoreLogs([
   'Cannot connect to Expo CLI',
@@ -60,6 +65,7 @@ export default function App() {
           <RootNavigator />
           <TopNotificationBanner />
           <NotificationConsentModal />
+          <GlobalAlertModal />
         </KhoProvider>
       </SafeAreaProvider>
     </AppErrorBoundary>
