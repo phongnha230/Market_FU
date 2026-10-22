@@ -8,6 +8,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { TopNotificationBanner } from './src/components/common/TopNotificationBanner';
 import { NotificationConsentModal } from './src/components/common/NotificationConsentModal';
 import { GlobalAlertModal } from './src/components/common/GlobalAlertModal';
+import { BiometricLockGuard } from './src/components/common/BiometricLockGuard';
 import { installCustomAlert } from './src/services/customAlertService';
 
 // Cài đặt custom alert giao diện đẹp thay thế toàn bộ Alert.alert native
@@ -63,6 +64,7 @@ export default function App() {
         <KhoProvider>
           <StatusBar style="dark" />
           <RootNavigator />
+          <BiometricLockGuard />
           <TopNotificationBanner />
           <NotificationConsentModal />
           <GlobalAlertModal />

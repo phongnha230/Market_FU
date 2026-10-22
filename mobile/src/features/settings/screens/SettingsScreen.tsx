@@ -5,13 +5,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { useBiometricStore } from '../../../stores/useBiometricStore';
 import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user, logout } = useAuthStore();
-  const [biometricsEnabled, setBiometricsEnabled] = React.useState(true);
+  const {
+    isBiometricsEnabled,
+    biometricLabel,
+    hasHardware,
+    toggleBiometrics,
+  } = useBiometricStore();
+
+  const handleToggleBiometrics = async (targetValue: boolean) => {
+    const result = await toggleBiometrics(targetValue);
+    if (!result.success) {
+      Alert.alert('Không thể thiết lập', result.message);
+    }
+  };
   const [darkMode, setDarkMode] = React.useState(false);
 
   const handleLogout = () => {
@@ -128,16 +141,16 @@ export const SettingsScreen: React.FC = () => {
           )}
           <View style={styles.divider} />
           {renderRow(
-            'finger-print-outline',
+            biometricLabel.toLowerCase().includes('face') ? 'scan-outline' : 'finger-print-outline',
             '#059669',
             '#D1FAE5',
-            'Khóa vân tay / FaceID',
-            'Xác thực nhanh khi mở app',
-            () => setBiometricsEnabled(!biometricsEnabled),
+            `Khóa ${biometricLabel}`,
+            isBiometricsEnabled ? 'Đang bật bảo vệ ứng dụng' : 'Xác thực nhanh khi mở app',
+            () => handleToggleBiometrics(!isBiometricsEnabled),
             <Switch
-              value={biometricsEnabled}
-              onValueChange={setBiometricsEnabled}
-              thumbColor={biometricsEnabled ? '#F27024' : '#F1F5F9'}
+              value={isBiometricsEnabled}
+              onValueChange={handleToggleBiometrics}
+              thumbColor={isBiometricsEnabled ? '#F27024' : '#F1F5F9'}
               trackColor={{ false: '#E2E8F0', true: '#FED7AA' }}
             />
           )}

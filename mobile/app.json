@@ -28,6 +28,12 @@
       "expo-font",
       "@react-native-google-signin/google-signin",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Cho phép ứng dụng sử dụng FaceID để mở khóa và bảo vệ tài khoản FU SecondHand của bạn."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
