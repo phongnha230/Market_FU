@@ -487,6 +487,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     marginTop: 12,
+    marginHorizontal: 16,
   },
   settingsBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   settingsBarIconBox: {
