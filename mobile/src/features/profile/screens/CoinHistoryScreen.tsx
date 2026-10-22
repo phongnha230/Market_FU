@@ -66,6 +66,7 @@ export const CoinHistoryScreen: React.FC = () => {
   const [filter, setFilter] = useState<CoinFilterType>('all');
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isCheckedInToday, setIsCheckedInToday] = useState(false);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [quests, setQuests] = useState<QuestItem[]>([]);
 
@@ -79,6 +80,50 @@ export const CoinHistoryScreen: React.FC = () => {
         setTransactions([]);
       }
       const serverQuests = await profileMobileService.getQuests();
+      // Check-in status detection
+      let checkedIn = false;
+      try {
+        const checkInStatus = await profileMobileService.getCheckInStatus();
+        if (checkInStatus?.checkedInToday || checkInStatus?.dailyCheckedIn) {
+          checkedIn = true;
+        }
+      } catch {}
+
+      if (!checkedIn && data && Array.isArray(data.transactions)) {
+        const todayVN = new Intl.DateTimeFormat("vi-VN", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(new Date());
+
+        const hasCheckInToday = data.transactions.some((t: any) => {
+          const isCheckInTx =
+            t.type === "DAILY_CHECKIN" ||
+            t.type === "CHECKIN" ||
+            (t.description && t.description.toLowerCase().includes("điểm danh")) ||
+            (t.title && t.title.toLowerCase().includes("điểm danh"));
+          if (!isCheckInTx) return false;
+          if (!t.createdAt) return false;
+          const txDate = new Intl.DateTimeFormat("vi-VN", {
+            timeZone: "Asia/Ho_Chi_Minh",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }).format(new Date(t.createdAt));
+          return txDate === todayVN;
+        });
+
+        if (hasCheckInToday) {
+          checkedIn = true;
+        }
+      }
+
+      if (!checkedIn && serverQuests.some((q) => q.id === "quest-checkin" && q.isClaimed)) {
+        checkedIn = true;
+      }
+
+      setIsCheckedInToday(checkedIn);
       setQuests(serverQuests.map((quest) => {
         const metadata: Record<string, Pick<QuestItem, 'icon' | 'iconBg' | 'iconColor' | 'targetScreen'>> = {
           'quest-kyc': { icon: 'shield-checkmark', iconBg: '#ECFDF5', iconColor: '#059669', targetScreen: 'AccountSettings' },
@@ -123,9 +168,17 @@ export const CoinHistoryScreen: React.FC = () => {
   };
 
   const handleCheckIn = async () => {
+    if (isCheckedInToday) {
+      Alert.alert(
+        "✅ Đã điểm danh hôm nay",
+        "Hôm nay bạn đã nhận thưởng +20 Xu điểm danh rồi! Hãy quay lại vào ngày mai để tiếp tục duy trì chuỗi nhé!"
+      );
+      return;
+    }
     setIsCheckingIn(true);
     try {
       const res = await profileMobileService.checkInDaily();
+      setIsCheckedInToday(true);
       Alert.alert(
         '🎉 Điểm danh thành công!',
         `Bạn nhận được +${res?.coinsEarned || 20} Xu. Chuỗi điểm danh: ${res?.streak || 1} ngày liên tiếp!`
@@ -134,6 +187,7 @@ export const CoinHistoryScreen: React.FC = () => {
       if (me) updateUser(me);
       await loadHistory();
     } catch (err: any) {
+      setIsCheckedInToday(true);
       const msg = err?.response?.data?.message || err?.response?.data?.error?.message;
       Alert.alert('Thông báo', msg || 'Hôm nay bạn đã điểm danh rồi, hãy quay lại vào ngày mai nhé!');
     } finally {
@@ -261,7 +315,7 @@ export const CoinHistoryScreen: React.FC = () => {
             </View>
 
             <TouchableOpacity
-              style={styles.checkInBtn}
+              style={[styles.checkInBtn, isCheckedInToday && styles.checkInBtnDone]}
               activeOpacity={0.85}
               onPress={handleCheckIn}
               disabled={isCheckingIn}
@@ -269,10 +323,17 @@ export const CoinHistoryScreen: React.FC = () => {
               {isCheckingIn ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <>
-                  <Ionicons name="calendar" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.checkInBtnText}>Điểm danh</Text>
-                </>
+                isCheckedInToday ? (
+                  <>
+                    <Ionicons name="checkmark-circle" size={15} color="#34D399" style={{ marginRight: 4 }} />
+                    <Text style={[styles.checkInBtnText, styles.checkInBtnTextDone]}>Đã điểm danh</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="calendar" size={15} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.checkInBtnText}>Điểm danh</Text>
+                  </>
+                )
               )}
             </TouchableOpacity>
           </View>
@@ -554,6 +615,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
+  },
+  checkInBtnDone: {
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    borderWidth: 1.2,
+    borderColor: "rgba(52, 211, 153, 0.5)",
+  },
+  checkInBtnTextDone: {
+    color: "#34D399",
+    fontWeight: "800",
   },
   checkInBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   coinFooterBar: {

@@ -242,12 +242,15 @@ export const profileMobileService = {
   /**
    * Kiểm tra trạng thái điểm danh hôm nay
    */
-  async getCheckInStatus(): Promise<{ checkedInToday: boolean; streak: number }> {
+  async getCheckInStatus(): Promise<{ checkedInToday: boolean; dailyCheckedIn: boolean; streak: number }> {
     try {
       const res = await apiClient.get<ApiResponse<any>>('/profile/check-in-status');
-      return res.data?.data || { checkedInToday: false, streak: 0 };
+      const data = res.data?.data;
+      const isCheckedIn = Boolean(data?.dailyCheckedIn || data?.checkedInToday);
+      const streak = Number(data?.streakDays ?? data?.streak ?? 0);
+      return { checkedInToday: isCheckedIn, dailyCheckedIn: isCheckedIn, streak };
     } catch {
-      return { checkedInToday: false, streak: 0 };
+      return { checkedInToday: false, dailyCheckedIn: false, streak: 0 };
     }
   },
 
