@@ -209,7 +209,7 @@ export const ContextualAuthModal: React.FC<ContextualAuthModalProps> = ({
             onPress={handleGoogleLogin}
           >
             <View style={styles.googleIconCircle}>
-              <Text style={styles.googleGLetter}>G</Text>
+              <Image source={require('../../../../assets/images/google_logo.png')} style={{ width: 16, height: 16 }} contentFit="contain" />
             </View>
             <Text style={styles.googleBtnText}>
               Đăng nhập nhanh qua Google (@fpt.edu.vn)

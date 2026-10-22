@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { GoogleIcon } from './GoogleIcon';
 import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';
 import * as AuthSession from 'expo-auth-session';
@@ -113,7 +114,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.googleIconBadge}>
-              <Ionicons name="logo-google" size={24} color="#EA4335" />
+              <GoogleIcon size={24} style={{ marginRight: 0 }} />
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onCancel}>
               <Ionicons name="close" size={22} color="#64748B" />
@@ -136,7 +137,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
               <ActivityIndicator color="#EA580C" size="small" />
             ) : (
               <>
-                <Ionicons name="logo-google" size={18} color="#EA4335" style={{ marginRight: 8 }} />
+                <GoogleIcon size={18} />
                 <Text style={styles.googleOAuthBtnText}>Mở cửa sổ chọn tài khoản Google</Text>
               </>
             )}

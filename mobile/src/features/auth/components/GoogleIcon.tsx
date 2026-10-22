@@ -1,22 +1,22 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Image, StyleSheet, ImageStyle } from 'react-native';
 
-export const GoogleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => {
+export const GoogleIcon: React.FC<{ size?: number; style?: ImageStyle }> = ({
+  size = 20,
+  style,
+}) => {
   return (
-    <View style={[styles.badge, { width: size + 10, height: size + 10, borderRadius: (size + 10) / 2 }]}>
-      <Ionicons name="logo-google" size={size} color="#EA4335" />
-    </View>
+    <Image
+      source={require('../../../../assets/images/google_logo.png')}
+      style={[styles.icon, { width: size, height: size }, style]}
+      resizeMode="contain"
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  badge: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
+  icon: {
     marginRight: 8,
   },
 });
+

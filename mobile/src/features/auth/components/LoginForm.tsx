@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { GoogleIcon } from './GoogleIcon';
 
 interface AuthInputFieldProps {
   label: string;
@@ -188,9 +189,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <ActivityIndicator size="small" color="#EA580C" />
         ) : (
           <>
-            <View style={styles.googleIconBadge}>
-              <Ionicons name="logo-google" size={18} color="#EA4335" />
-            </View>
+            <GoogleIcon size={18} />
             <Text style={styles.googleBtnText}>Đăng nhập bằng Google</Text>
           </>
         )}
