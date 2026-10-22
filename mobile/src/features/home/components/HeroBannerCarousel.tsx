@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BANNER_WIDTH = Math.floor(SCREEN_WIDTH - 32);
+const BANNER_HEIGHT = 120;
 
 export interface HeroSlide {
   id: string;
@@ -98,6 +99,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
         snapToInterval={BANNER_WIDTH}
         snapToAlignment="start"
         bounces={false}
+        style={styles.carouselScroll}
         contentContainerStyle={styles.scrollContent}
       >
         {HERO_SLIDES.map((slide) => {
@@ -112,7 +114,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
                 <ImageBackground
                   source={require('../../../../assets/images/banner_delivery.jpg')}
                   style={styles.imageBackground}
-                  imageStyle={{ borderRadius: 18 }}
+                  imageStyle={styles.imageStyle}
                   resizeMode="cover"
                 >
                   <View style={styles.safepointOverlay} />
@@ -127,10 +129,12 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
                         <Text style={styles.safepointCameraText}>Camera 24/7</Text>
                       </View>
                     </View>
-                    <Text style={styles.safepointTitle}>{slide.title}</Text>
-                    <Text style={styles.safepointDesc} numberOfLines={2}>
-                      {slide.desc}
-                    </Text>
+                    <View style={styles.safepointCenterBlock}>
+                      <Text style={styles.safepointTitle}>{slide.title}</Text>
+                      <Text style={styles.safepointDesc} numberOfLines={2}>
+                        {slide.desc}
+                      </Text>
+                    </View>
                     <View style={styles.safepointCta}>
                       <Text style={styles.safepointCtaText}>Khám phá 5 Trạm Campus</Text>
                       <Ionicons name="arrow-forward" size={11} color="#0F172A" />
@@ -149,7 +153,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
               onPress={() => onSlidePress && onSlidePress(slide.id)}
             >
               <View style={styles.iconCircle}>
-                <Ionicons name={slide.icon} size={22} color="#FFFFFF" />
+                <Ionicons name={slide.icon} size={24} color="#FFFFFF" />
               </View>
               <View style={styles.textContent}>
                 <View style={styles.headerRow}>
@@ -183,38 +187,47 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ onSlideP
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     width: BANNER_WIDTH,
     alignSelf: 'center',
-    borderRadius: 18,
+  },
+  carouselScroll: {
+    width: BANNER_WIDTH,
+    height: BANNER_HEIGHT,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   scrollContent: {
+    height: BANNER_HEIGHT,
     alignItems: 'center',
   },
   bannerCard: {
     width: BANNER_WIDTH,
-    minHeight: 96,
-    padding: 14,
-    borderRadius: 18,
+    height: BANNER_HEIGHT,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
     elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
   safepointCard: {
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     backgroundColor: '#0F172A',
   },
   imageBackground: {
-    width: '100%',
-    height: '100%',
-    minHeight: 110,
+    width: BANNER_WIDTH,
+    height: BANNER_HEIGHT,
     justifyContent: 'center',
+  },
+  imageStyle: {
+    borderRadius: 16,
   },
   safepointOverlay: {
     position: 'absolute',
@@ -222,19 +235,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.52)',
-    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.58)',
+    borderRadius: 16,
   },
   safepointContent: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     width: '100%',
+    height: '100%',
+    justifyContent: 'space-between',
     zIndex: 1,
   },
   safepointTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
   },
   safepointTag: {
     flexDirection: 'row',
@@ -264,8 +279,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  safepointCenterBlock: {
+    marginVertical: 2,
+  },
   safepointTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#FFFFFF',
     marginBottom: 2,
@@ -274,9 +292,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   safepointDesc: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: 'rgba(255, 255, 255, 0.95)',
-    lineHeight: 15,
+    lineHeight: 14.5,
     fontWeight: '500',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
@@ -287,14 +305,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 6,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   safepointCtaText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#0F172A',
   },

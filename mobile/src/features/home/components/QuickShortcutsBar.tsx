@@ -52,19 +52,19 @@ export const QuickShortcutsBar: React.FC<QuickShortcutsBarProps> = memo(({ items
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   scrollContent: {
     paddingHorizontal: 16,
+    paddingVertical: 6,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    minWidth: '100%',
+    alignItems: 'center',
   },
   itemWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 18,
-    minWidth: 56,
+    marginRight: 16,
+    minWidth: 54,
   },
   iconCircle: {
     width: 48,
@@ -75,9 +75,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   title: {
     fontSize: 11,
@@ -96,6 +96,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    zIndex: 10,
   },
   badgeText: {
     color: '#FFFFFF',
