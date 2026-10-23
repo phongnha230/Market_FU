@@ -14,7 +14,7 @@ import {
   SavedItemsScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
-import { useUserStore, useChatStore, useOrderStore } from '../stores';
+import { useUserStore, useChatStore, useOrderStore, useFavoriteStore } from '../stores';
 import { useKho } from '../context/KhoContext';
 import { RequireAuthModal } from '../components';
 
@@ -88,6 +88,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );
+  const savedCount = useFavoriteStore((s) => s.favoriteIds.length);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'auth' | 'seller' | 'kyc'>('auth');
   const [modalTitle, setModalTitle] = useState<string | undefined>(undefined);
@@ -112,6 +113,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   useEffect(() => {
     if (isAuthenticated) {
       useChatStore.getState().fetchConversations().catch(() => {});
+      useFavoriteStore.getState().fetchFavorites().catch(() => {});
     }
   }, [isAuthenticated]);
 
@@ -234,6 +236,13 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
                     <View style={styles.chatBadge}>
                       <Text style={styles.chatBadgeText}>
                         {activeOrdersCount > 99 ? '99+' : activeOrdersCount}
+                      </Text>
+                    </View>
+                  )}
+                  {route.name === 'Saved' && savedCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>
+                        {savedCount > 99 ? '99+' : savedCount}
                       </Text>
                     </View>
                   )}
