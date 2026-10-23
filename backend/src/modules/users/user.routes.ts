@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { userController } from './user.controller';
+import { profileController } from '../profile/profile.controller';
 import { authenticate, authorize } from '../../middlewares/auth.middleware';
 import { upload } from '../../middlewares/upload.middleware';
 
@@ -9,13 +10,13 @@ const router = Router();
 // 1. CÁC ROUTE PROFILE DÀNH CHO USER HIỆN TẠI (Hỗ trợ tương thích ngược)
 // Khuyến nghị: Các client mới nên gọi trực tiếp qua `/api/profile`
 // ============================================================================
-router.get('/me', authenticate, userController.getMyProfile);
+router.get('/me', authenticate, profileController.getMyProfile);
 router.get('/me/favorites', authenticate, userController.getMyFavorites);
-router.get('/profile', authenticate, userController.getMyProfile);
-router.patch('/me', authenticate, userController.updateMyProfile);
-router.patch('/me/bank-account', authenticate, userController.updateBankAccount);
-router.post('/me/kyc', authenticate, upload.single('cardImage'), userController.submitKyc);
-router.post('/kyc/student-card', authenticate, upload.single('cardImage'), userController.submitKyc);
+router.get('/profile', authenticate, profileController.getMyProfile);
+router.patch('/me', authenticate, profileController.updateMyProfile);
+router.patch('/me/bank-account', authenticate, profileController.updateBankAccount);
+router.post('/me/kyc', authenticate, upload.single('cardImage'), profileController.submitKyc);
+router.post('/kyc/student-card', authenticate, upload.single('cardImage'), profileController.submitKyc);
 
 // ============================================================================
 // 2. CÁC ROUTE QUẢN TRỊ USER & PUBLIC USER DETAIL

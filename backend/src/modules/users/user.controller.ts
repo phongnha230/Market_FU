@@ -2,31 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { userService } from './user.service';
 import { queryUserSchema, updateUserStatusSchema } from './user.dto';
-import { profileController } from '../profile/profile.controller';
 import { productService } from '../products/product.service';
 import { trendingService } from '../analytics/trending.service';
 import { sendSuccess } from '../../utils/response';
 
 export class UserController {
-  // --------------------------------------------------------------------------
-  // Delegation methods sang ProfileController (Tương thích ngược)
-  // --------------------------------------------------------------------------
-  getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
-    return profileController.getMyProfile(req, res, next);
-  };
-
-  updateMyProfile = async (req: Request, res: Response, next: NextFunction) => {
-    return profileController.updateMyProfile(req, res, next);
-  };
-
-  updateBankAccount = async (req: Request, res: Response, next: NextFunction) => {
-    return profileController.updateBankAccount(req, res, next);
-  };
-
-  submitKyc = async (req: Request, res: Response, next: NextFunction) => {
-    return profileController.submitKyc(req, res, next);
-  };
-
   /**
    * [GET /api/users/me/favorites] Lấy danh sách sản phẩm yêu thích (Chuẩn RESTful resource)
    */

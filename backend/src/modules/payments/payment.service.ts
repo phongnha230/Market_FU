@@ -95,8 +95,7 @@ export class PaymentService {
     const order = await prisma.order.findFirst({
       where: {
         OR: [
-          { orderCode: extractedCode },
-          { orderCode: { contains: extractedCode, mode: 'insensitive' } },
+          { orderCode: { equals: extractedCode, mode: 'insensitive' } },
           ...(isNumeric ? [{ payment: { is: { payosOrderCode: numericCode } } }] : []),
         ],
       },

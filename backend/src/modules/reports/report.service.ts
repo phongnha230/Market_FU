@@ -1,10 +1,14 @@
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../../config/prisma';
+import { ENV } from '../../config/env';
 import { AppError } from '../../middlewares/error.middleware';
 import { notificationService } from '../notifications/notification.service';
 import { emitToUser } from '../../utils/socket';
 import { sendKycResultEmail } from '../../config/mail';
 import { TokenPayload } from '../../utils/token';
 import { auditLogger } from '../../utils/auditLogger';
+import { sanitizeOrderHandshake } from '../orders/order.service';
 import {
   CreateReportInput,
   ResolveReportInput,
@@ -569,7 +573,10 @@ export class ReportService {
       throw new AppError('Bạn không có quyền truy cập vào thông tin khiếu nại này', 403, 'FORBIDDEN');
     }
 
-    return dispute;
+    return {
+      ...dispute,
+      order: sanitizeOrderHandshake(dispute.order, user.userId, user.role === 'ADMIN'),
+    };
   }
 
   /**
@@ -744,26 +751,6 @@ export class ReportService {
       message: `Phân xử thành công: ${isRefund ? 'Hoàn tiền cho Người mua' : 'Chuyển tiền cho Người bán'}`,
       decision,
     };
-  }
-
-  /**
-   * Admin chấp thuận khiếu nại (Hoàn tiền cho Người mua)
-   */
-  async approveDispute(id: string, adminNote?: string) {
-    return this.resolveDispute(id, {
-      decision: 'REFUND_BUYER',
-      adminNote,
-    });
-  }
-
-  /**
-   * Admin bác bỏ khiếu nại (Chuyển tiền cho Người bán)
-   */
-  async rejectDispute(id: string, adminNote?: string) {
-    return this.resolveDispute(id, {
-      decision: 'PAY_SELLER',
-      adminNote,
-    });
   }
 
   /**
@@ -1215,9 +1202,61 @@ export class ReportService {
       const match = targetImageUrl.match(/data:(.*?);base64/);
       if (match) mimeType = match[1];
       imageBuffer = Buffer.from(parts[1], 'base64');
-    } else if (targetImageUrl.startsWith('http')) {
+    } else if (targetImageUrl.includes('/api/profile/kyc/card/')) {
+      const rawFilename = targetImageUrl.split('/api/profile/kyc/card/').pop() || '';
+      const safeFilename = path.basename(rawFilename.split('?')[0]);
+      const privatePath = path.resolve(process.cwd(), 'private_uploads', 'kyc_cards', safeFilename);
+      const legacyPath = path.resolve(process.cwd(), 'uploads', 'kyc_cards', safeFilename);
+      const localFilePath = fs.existsSync(privatePath)
+        ? privatePath
+        : fs.existsSync(legacyPath)
+        ? legacyPath
+        : null;
+      if (localFilePath) {
+        imageBuffer = await fs.promises.readFile(localFilePath);
+        mimeType = 'image/webp';
+      }
+    } else if (targetImageUrl.startsWith('http://') || targetImageUrl.startsWith('https://')) {
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(targetImageUrl);
+      } catch {
+        throw new AppError('Đường dẫn ảnh KYC không hợp lệ', 400, 'INVALID_KYC_IMAGE_URL');
+      }
+
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isPrivateOrLoopback =
+        hostname === 'localhost' ||
+        hostname === '[::1]' ||
+        /^(127\.|0\.|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+
+      const allowedHosts = [ENV.R2_PUBLIC_DOMAIN, ENV.R2_PUBLIC_URL, ENV.MEDIA_DOMAIN]
+        .filter(Boolean)
+        .map((domain) => {
+          try {
+            const normalized = domain!.startsWith('http') ? domain! : `https://${domain}`;
+            return new URL(normalized).hostname.toLowerCase();
+          } catch {
+            return '';
+          }
+        })
+        .filter(Boolean);
+
+      if (isPrivateOrLoopback || !allowedHosts.includes(hostname)) {
+        throw new AppError(
+          'Từ chối tải ảnh KYC từ máy chủ không thuộc hệ thống lưu trữ được phép (Chống SSRF)',
+          400,
+          'UNTRUSTED_KYC_IMAGE_HOST'
+        );
+      }
+
       const axios = (await import('axios')).default;
-      const res = await axios.get(targetImageUrl, { responseType: 'arraybuffer' });
+      const res = await axios.get(targetImageUrl, {
+        responseType: 'arraybuffer',
+        timeout: 5000,
+        maxContentLength: 5 * 1024 * 1024,
+        maxRedirects: 0,
+      });
       imageBuffer = Buffer.from(res.data);
       mimeType = String(res.headers['content-type'] || 'image/jpeg');
     }

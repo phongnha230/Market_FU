@@ -72,6 +72,14 @@ const getCleanDomain = (): string => {
  * Chuẩn hóa URL trả về (Ưu tiên R2 Public Domain nếu cấu hình R2, fallback về Local Domain)
  * Tự động thêm https:// nếu người dùng chỉ dán pub-xxx.r2.dev
  */
+const getBackendApiDomain = (): string => {
+  let baseDomain = ENV.MEDIA_DOMAIN.trim();
+  if (!baseDomain.startsWith('http://') && !baseDomain.startsWith('https://')) {
+    baseDomain = `https://${baseDomain}`;
+  }
+  return baseDomain.replace(/\/+$/, '');
+};
+
 const buildMediaUrl = (relativePath: string): string => {
   const cleanDomain = getCleanDomain();
   const cleanPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -152,19 +160,19 @@ export const saveImageToStorage = async (
     .webp({ quality: options?.quality || 80, effort: 4 })
     .toBuffer();
 
-  if (isR2Configured && s3Client) {
-    // Upload lên Cloudflare R2
+  if (!isPrivate && isR2Configured && s3Client) {
+    // Chỉ upload tệp công khai (sản phẩm, avatar...) lên Cloudflare R2 public bucket
     await s3Client.send(
       new PutObjectCommand({
         Bucket: r2BucketName,
         Key: publicId,
         Body: webpBuffer,
         ContentType: 'image/webp',
-        CacheControl: isPrivate ? 'private, max-age=3600' : 'public, max-age=31536000, immutable',
+        CacheControl: 'public, max-age=31536000, immutable',
       })
     );
   } else {
-    // Fallback lưu local: Tài liệu KYC lưu vào private_uploads, tuyệt đối không nằm dưới static uploads/
+    // Tài liệu KYC nhạy cảm (isPrivate) luôn lưu tại private_uploads nội bộ để bảo vệ qua cổng phân quyền
     const baseDir = isPrivate ? PRIVATE_UPLOAD_ROOT : UPLOAD_ROOT;
     const targetDir = path.join(baseDir, folder);
     await ensureDirectoryExists(targetDir);
@@ -172,9 +180,9 @@ export const saveImageToStorage = async (
     await fs.promises.writeFile(destinationPath, webpBuffer);
   }
 
-  // Đối với KYC Card, trả về Streaming endpoint được bảo vệ phân quyền
+  // Đối với KYC Card, trả về Streaming endpoint trên Backend API được bảo vệ phân quyền
   const secure_url = isPrivate
-    ? `${getCleanDomain()}/api/profile/kyc/card/${filename}`
+    ? `${getBackendApiDomain()}/api/profile/kyc/card/${filename}`
     : buildMediaUrl(publicId);
 
   return {
@@ -298,20 +306,4 @@ export const deleteMediaFromStorage = async (publicId: string): Promise<boolean>
     console.error(`Lỗi khi xóa media (${publicId}):`, error);
     return false;
   }
-};
-
-// ----------------------------------------------------------------------------
-// Backward-Compatibility Aliases
-// ----------------------------------------------------------------------------
-export const uploadToCloudinary = saveImageToStorage;
-export const uploadMediaToCloudinary = saveMediaToStorage;
-export const deleteFromCloudinary = deleteMediaFromStorage;
-
-export default {
-  saveImageToStorage,
-  saveMediaToStorage,
-  deleteMediaFromStorage,
-  uploadToCloudinary,
-  uploadMediaToCloudinary,
-  deleteFromCloudinary,
 };

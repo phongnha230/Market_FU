@@ -46,7 +46,6 @@ export default function VouchersPage() {
     user,
     addCoins,
     saveVoucher,
-    checkInDaily,
     showToast,
   } = useMarket();
 
@@ -219,7 +218,7 @@ export default function VouchersPage() {
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || 'Bạn đã điểm danh hôm nay rồi! Hãy quay lại vào ngày mai nhé.';
       showToast(msg, 'info');
-      checkInDaily();
+      useUserStore.getState().updateProfile({ dailyCheckedIn: true });
     }
   };
 

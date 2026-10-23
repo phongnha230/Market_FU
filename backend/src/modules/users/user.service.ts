@@ -1,33 +1,8 @@
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middlewares/error.middleware';
-import { profileService } from '../profile/profile.service';
-import {
-  QueryUserInput,
-  UpdateProfileInput,
-  UpdateBankAccountInput,
-  StudentKycInput,
-} from './user.dto';
+import { QueryUserInput } from './user.dto';
 
 export class UserService {
-  // --------------------------------------------------------------------------
-  // Delegation methods sang ProfileService (Tương thích ngược 100%)
-  // --------------------------------------------------------------------------
-  async getProfile(userId: string) {
-    return profileService.getProfile(userId);
-  }
-
-  async updateProfile(userId: string, input: UpdateProfileInput) {
-    return profileService.updateProfile(userId, input);
-  }
-
-  async updateBankAccount(userId: string, input: UpdateBankAccountInput) {
-    return profileService.updateBankAccount(userId, input);
-  }
-
-  async submitStudentKyc(userId: string, input: StudentKycInput, fileBuffer?: Buffer) {
-    return profileService.submitStudentKyc(userId, input, fileBuffer);
-  }
-
   // --------------------------------------------------------------------------
   // Các nghiệp vụ quản trị User (Dành cho Quản trị viên Admin)
   // --------------------------------------------------------------------------

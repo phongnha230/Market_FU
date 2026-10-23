@@ -154,7 +154,10 @@ export class ReportController {
   approveDispute = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = AdminApproveDisputeSchema.parse(req.body);
-      const result = await reportService.approveDispute(req.params.id as string, input.adminNote);
+      const result = await reportService.resolveDispute(req.params.id as string, {
+        decision: 'REFUND_BUYER',
+        adminNote: input.adminNote,
+      });
       return sendSuccess(res, result);
     } catch (error) {
       next(error);
@@ -164,7 +167,10 @@ export class ReportController {
   rejectDispute = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = AdminRejectDisputeSchema.parse(req.body);
-      const result = await reportService.rejectDispute(req.params.id as string, input.adminNote);
+      const result = await reportService.resolveDispute(req.params.id as string, {
+        decision: 'PAY_SELLER',
+        adminNote: input.adminNote,
+      });
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

@@ -101,6 +101,14 @@ export const createWithdrawalSchema = z.object({
 });
 export type CreateWithdrawalInput = z.infer<typeof createWithdrawalSchema>;
 
+export const processWithdrawalAdminSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED'], {
+    required_error: 'Trạng thái duyệt phải là APPROVED hoặc REJECTED',
+  }),
+  adminNote: z.string().max(500, 'Ghi chú tối đa 500 ký tự').optional(),
+});
+export type ProcessWithdrawalAdminInput = z.infer<typeof processWithdrawalAdminSchema>;
+
 export const queryCoinHistorySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),

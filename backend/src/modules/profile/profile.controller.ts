@@ -8,6 +8,7 @@ import {
   sellerOnboardingSchema,
   buyBadgeSchema,
   createWithdrawalSchema,
+  processWithdrawalAdminSchema,
   queryCoinHistorySchema,
   claimQuestSchema,
   questAdminInputSchema,
@@ -285,11 +286,8 @@ export class ProfileController {
     try {
       const authReq = req as AuthRequest;
       const withdrawalId = req.params.id as string;
-      const { status, adminNote } = req.body;
-      const result = await profileService.processWithdrawal(authReq.user!.userId, withdrawalId, {
-        status,
-        adminNote,
-      });
+      const validated = processWithdrawalAdminSchema.parse(req.body);
+      const result = await profileService.processWithdrawal(authReq.user!.userId, withdrawalId, validated);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

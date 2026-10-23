@@ -130,7 +130,6 @@ export class ProductService {
     const isApprovedSeller =
       seller.role === 'SELLER' ||
       seller.role === 'ADMIN' ||
-      seller.role === 'BUYER' ||
       process.env.NODE_ENV !== 'production' ||
       (seller.profile?.kyc?.status === 'APPROVED' && (seller.profile?.kyc as any)?.type === 'SELLER');
 
@@ -536,8 +535,12 @@ export class ProductService {
     return sanitizeProductSeller(updated);
   }
 
-  // 5. Thả tim / Bỏ tim món đồ (Toggle Favorite Wishlist)
-  async toggleFavorite(userId: string, productId: string) {
+  // 5. Thả tim / Bỏ tim món đồ (Hỗ trợ cả Toggle, Idempotent Add & Idempotent Remove)
+  private async mutateFavorite(
+    userId: string,
+    productId: string,
+    mode: 'TOGGLE' | 'ADD' | 'REMOVE'
+  ) {
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -546,42 +549,44 @@ export class ProductService {
       throw new AppError('Món đồ không tồn tại', 404, 'PRODUCT_NOT_FOUND');
     }
 
-    if (product.sellerId === userId) {
+    if (mode !== 'REMOVE' && product.sellerId === userId) {
       throw new AppError('Bạn không thể tự yêu thích sản phẩm do chính bạn đăng bán', 400, 'SELF_FAVORITE_NOT_ALLOWED');
     }
 
     const existingFavorite = await prisma.productFavorite.findUnique({
-      where: {
-        userId_productId: {
-          userId,
-          productId,
-        },
-      },
+      where: { userId_productId: { userId, productId } },
     });
 
-    if (existingFavorite) {
+    const shouldRemove = mode === 'REMOVE' || (mode === 'TOGGLE' && Boolean(existingFavorite));
+    const shouldAdd = mode === 'ADD' || (mode === 'TOGGLE' && !existingFavorite);
+
+    if (shouldRemove && existingFavorite) {
       await prisma.$transaction([
-        prisma.productFavorite.delete({
-          where: { id: existingFavorite.id },
-        }),
+        prisma.productFavorite.delete({ where: { id: existingFavorite.id } }),
         prisma.product.update({
           where: { id: productId },
           data: { likesCount: { decrement: 1 } },
         }),
       ]);
-      return { isFavorited: false, message: 'Đã bỏ yêu thích món đồ' };
-    } else {
+    } else if (shouldAdd && !existingFavorite) {
       await prisma.$transaction([
-        prisma.productFavorite.create({
-          data: { userId, productId },
-        }),
+        prisma.productFavorite.create({ data: { userId, productId } }),
         prisma.product.update({
           where: { id: productId },
           data: { likesCount: { increment: 1 } },
         }),
       ]);
-      return { isFavorited: true, message: 'Đã thêm vào danh sách yêu thích' };
     }
+
+    const isFavorited = !shouldRemove;
+    return {
+      isFavorited,
+      message: isFavorited ? 'Đã thêm vào danh sách yêu thích' : 'Đã bỏ yêu thích món đồ',
+    };
+  }
+
+  async toggleFavorite(userId: string, productId: string) {
+    return this.mutateFavorite(userId, productId, 'TOGGLE');
   }
 
   // 6. Lấy danh sách món đồ đã thả tim (Wishlist của tôi)
@@ -641,91 +646,55 @@ export class ProductService {
     }
 
     const newBalance = profile.campusCoins - requiredCoins;
+    const isPin = type === 'PIN_24H';
+    const now = new Date();
+    const pinUntil = isPin ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : undefined;
 
-    if (type === 'PIN_24H') {
-      const pinUntil = new Date();
-      pinUntil.setHours(pinUntil.getHours() + 24);
-
-      await prisma.$transaction(async (tx) => {
-        const profileUpdate = await tx.profile.updateMany({
-          where: { userId, campusCoins: { gte: requiredCoins } },
-          data: { campusCoins: { decrement: requiredCoins } },
-        });
-
-        if (profileUpdate.count === 0) {
-          throw new AppError(
-            `Số dư Campus Coins không đủ. Bạn cần ${requiredCoins} Xu để ghim tin nổi bật 24h.`,
-            400,
-            'INSUFFICIENT_COINS'
-          );
-        }
-
-        await tx.coinTransaction.create({
-          data: {
-            userId,
-            amount: -requiredCoins,
-            balanceAfter: newBalance,
-            type: 'BOOST_POST',
-            description: `Dùng ${requiredCoins} Xu ghim nổi bật 24h món đồ: ${product.title}`,
-            referenceId: productId,
-          },
-        });
-
-        await tx.product.update({
-          where: { id: productId },
-          data: {
-            isPinned: true,
-            pinnedUntil: pinUntil,
-            boostedAt: new Date(),
-          },
-        });
+    await prisma.$transaction(async (tx) => {
+      const profileUpdate = await tx.profile.updateMany({
+        where: { userId, campusCoins: { gte: requiredCoins } },
+        data: { campusCoins: { decrement: requiredCoins } },
       });
 
-      return {
-        message: 'Đã ghim bài viết lên đầu trang nổi bật thành công trong 24 giờ!',
-        remainingCoins: newBalance,
-        pinnedUntil: pinUntil,
-      };
-    } else {
-      await prisma.$transaction(async (tx) => {
-        const profileUpdate = await tx.profile.updateMany({
-          where: { userId, campusCoins: { gte: requiredCoins } },
-          data: { campusCoins: { decrement: requiredCoins } },
-        });
+      if (profileUpdate.count === 0) {
+        throw new AppError(
+          `Số dư Campus Coins không đủ. Bạn cần ${requiredCoins} Xu để ${isPin ? 'ghim tin nổi bật 24h' : 'đẩy tin lên đầu trang'}.`,
+          400,
+          'INSUFFICIENT_COINS'
+        );
+      }
 
-        if (profileUpdate.count === 0) {
-          throw new AppError(
-            `Số dư Campus Coins không đủ. Bạn cần ${requiredCoins} Xu để đẩy tin lên đầu trang.`,
-            400,
-            'INSUFFICIENT_COINS'
-          );
-        }
-
-        await tx.coinTransaction.create({
-          data: {
-            userId,
-            amount: -requiredCoins,
-            balanceAfter: newBalance,
-            type: 'BOOST_POST',
-            description: `Dùng ${requiredCoins} Xu đẩy tin lên đầu trang: ${product.title}`,
-            referenceId: productId,
-          },
-        });
-
-        await tx.product.update({
-          where: { id: productId },
-          data: {
-            boostedAt: new Date(),
-          },
-        });
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          amount: -requiredCoins,
+          balanceAfter: newBalance,
+          type: 'BOOST_POST',
+          description: `Dùng ${requiredCoins} Xu ${isPin ? 'ghim nổi bật 24h món đồ' : 'đẩy tin lên đầu trang'}: ${product.title}`,
+          referenceId: productId,
+        },
       });
 
-      return {
-        message: 'Đã đẩy tin món đồ lên đầu danh sách thành công!',
-        remainingCoins: newBalance,
-        boostedAt: new Date(),
-      };
-    }
+      await tx.product.update({
+        where: { id: productId },
+        data: {
+          ...(isPin ? { isPinned: true, pinnedUntil: pinUntil } : {}),
+          boostedAt: now,
+        },
+      });
+    });
+
+    return isPin
+      ? {
+          message: 'Đã ghim bài viết lên đầu trang nổi bật thành công trong 24 giờ!',
+          remainingCoins: newBalance,
+          pinnedUntil: pinUntil,
+        }
+      : {
+          message: 'Đã đẩy tin món đồ lên đầu danh sách thành công!',
+          remainingCoins: newBalance,
+          boostedAt: now,
+        };
   }
 
   // 8. Cập nhật thông tin món đồ (Chỉ người bán sở hữu)
@@ -967,68 +936,12 @@ export class ProductService {
 
   // 10. Thêm món đồ vào yêu thích (RESTful Idempotent PUT)
   async addFavorite(userId: string, productId: string) {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new AppError('Món đồ không tồn tại', 404, 'PRODUCT_NOT_FOUND');
-    }
-
-    if (product.sellerId === userId) {
-      throw new AppError('Bạn không thể tự yêu thích sản phẩm do chính bạn đăng bán', 400, 'SELF_FAVORITE_NOT_ALLOWED');
-    }
-
-    const existingFavorite = await prisma.productFavorite.findUnique({
-      where: {
-        userId_productId: { userId, productId },
-      },
-    });
-
-    if (!existingFavorite) {
-      await prisma.$transaction([
-        prisma.productFavorite.create({
-          data: { userId, productId },
-        }),
-        prisma.product.update({
-          where: { id: productId },
-          data: { likesCount: { increment: 1 } },
-        }),
-      ]);
-    }
-
-    return { isFavorited: true, message: 'Đã thêm vào danh sách yêu thích' };
+    return this.mutateFavorite(userId, productId, 'ADD');
   }
 
   // 11. Xóa món đồ khỏi yêu thích (RESTful Idempotent DELETE)
   async removeFavorite(userId: string, productId: string) {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new AppError('Món đồ không tồn tại', 404, 'PRODUCT_NOT_FOUND');
-    }
-
-    const existingFavorite = await prisma.productFavorite.findUnique({
-      where: {
-        userId_productId: { userId, productId },
-      },
-    });
-
-    if (existingFavorite) {
-      await prisma.$transaction([
-        prisma.productFavorite.delete({
-          where: { id: existingFavorite.id },
-        }),
-        prisma.product.update({
-          where: { id: productId },
-          data: { likesCount: { decrement: 1 } },
-        }),
-      ]);
-    }
-
-    return { isFavorited: false, message: 'Đã xóa khỏi danh sách yêu thích' };
+    return this.mutateFavorite(userId, productId, 'REMOVE');
   }
 
   // 12. Đồng bộ toàn bộ sản phẩm khả dụng sang Meilisearch (Data Re-index)
