@@ -16,11 +16,8 @@ export interface MarketContextType {
   login: (email?: string) => void;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
-  changePassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
   addCoins: (amount: number) => void;
   saveVoucher: (id: string, voucherData?: { id: string; title: string; code: string; discount: number; expiry: string }) => void;
-  checkInDaily: () => { success: boolean; coinsAdded: number };
-  claimQuestCoins: (questId: string, amount: number) => { success: boolean; amount: number };
 
   // Products
   products: ProductItem[];
@@ -77,11 +74,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     login: userStore.login,
     logout: userStore.logout,
     updateProfile: userStore.updateProfile,
-    changePassword: userStore.changePassword,
     addCoins: userStore.addCoins,
     saveVoucher: userStore.saveVoucher,
-    checkInDaily: userStore.checkInDaily,
-    claimQuestCoins: userStore.claimQuestCoins,
 
     // Products
     products: productStore.products,

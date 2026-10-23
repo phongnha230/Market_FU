@@ -109,7 +109,6 @@ export default function ProfilePage() {
   const favorites = useFavoriteStore((state) => state.favorites);
   const orders = useOrderStore((state) => state.orders);
   const updateProfile = useUserStore((state) => state.updateProfile);
-  const checkInDaily = useUserStore((state) => state.checkInDaily);
   const allProducts = useProductStore((state) => state.products);
   const avatarInputRef = React.useRef<HTMLInputElement | null>(null);
 

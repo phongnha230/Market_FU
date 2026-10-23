@@ -62,11 +62,8 @@ interface UserState {
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
   setKycStatus: (status: UserProfile['kycStatus'], role?: 'student' | 'seller', appId?: string, rejectionReason?: string) => void;
-  changePassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
   addCoins: (amount: number) => void;
   saveVoucher: (id: string, voucherData?: { id: string; title: string; code: string; discount: number; expiry: string }) => void;
-  checkInDaily: () => { success: boolean; coinsAdded: number };
-  claimQuestCoins: (questId: string, amount: number) => { success: boolean; amount: number };
   updateSettings: (settings: Partial<UserProfile['settings']>) => void;
   resetUser: () => void;
 }
@@ -125,25 +122,6 @@ export const useUserStore = create<UserState>()(
       };
 
 
-      // ── Helpers để tính tuần/ngày hiện tại (UTC+7) ──────────────────────────
-      const getVNDate = () => new Date(Date.now() + 7 * 60 * 60 * 1000);
-      const getWeekKey = () => {
-        const d = getVNDate();
-        const dayOfWeek = d.getUTCDay();
-        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const monday = new Date(d);
-        monday.setUTCDate(d.getUTCDate() - daysFromMonday);
-        const year = monday.getUTCFullYear();
-        const startOfYear = new Date(Date.UTC(year, 0, 1));
-        const weekNo = Math.ceil(((monday.getTime() - startOfYear.getTime()) / 86400000 + 1) / 7);
-        return `${year}-W${String(weekNo).padStart(2, '0')}`;
-      };
-      const getTodayKey = () => {
-        const d = getVNDate();
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-      };
-      // ─────────────────────────────────────────────────────────────────────────
-
       return {
         user: EMPTY_USER,
         usersById: {},
@@ -157,19 +135,6 @@ export const useUserStore = create<UserState>()(
           const idKey = newUser.id ? newUser.id.trim().toLowerCase() : '';
           const primaryKey = emailKey || idKey || 'user';
           const existing = (emailKey && get().usersById[emailKey]) || (idKey && get().usersById[idKey]) || get().usersById[primaryKey];
-          const currentWeek = getWeekKey();
-          const today = getTodayKey();
-
-          // Auto-reset claimedQuestIds nếu sang tuần mới
-          const resolvedClaimedQuestIds =
-            existing?.lastQuestWeekKey === currentWeek
-              ? existing.claimedQuestIds || []
-              : [];
-          // Auto-reset dailyCheckedIn nếu sang ngày mới
-          const resolvedDailyCheckedIn =
-            existing?.lastCheckInDate === today
-              ? (existing.dailyCheckedIn ?? false)
-              : false;
 
           const mergedUser: UserProfile = existing
             ? {
@@ -187,18 +152,17 @@ export const useUserStore = create<UserState>()(
                 avatarUrl: newUser.avatarUrl || existing.avatarUrl || '',
                 coins: newUser.coins !== undefined ? newUser.coins : (existing.coins !== undefined ? existing.coins : 0),
                 savedVoucherIds: existing.savedVoucherIds || newUser.savedVoucherIds,
-                claimedQuestIds: resolvedClaimedQuestIds,
-                lastQuestWeekKey: existing?.lastQuestWeekKey === currentWeek ? existing.lastQuestWeekKey : currentWeek,
-                dailyCheckedIn: resolvedDailyCheckedIn,
-                lastCheckInDate: resolvedDailyCheckedIn ? today : existing.lastCheckInDate,
+                claimedQuestIds: newUser.claimedQuestIds || existing.claimedQuestIds || [],
+                dailyCheckedIn: newUser.dailyCheckedIn !== undefined ? newUser.dailyCheckedIn : (existing.dailyCheckedIn ?? false),
                 vouchers: existing.vouchers || newUser.vouchers,
               }
             : {
                 ...newUser,
-                claimedQuestIds: [],
-                lastQuestWeekKey: currentWeek,
-                dailyCheckedIn: false,
-                lastCheckInDate: today,
+                coins: newUser.coins !== undefined ? newUser.coins : 0,
+                savedVoucherIds: newUser.savedVoucherIds || [],
+                claimedQuestIds: newUser.claimedQuestIds || [],
+                dailyCheckedIn: newUser.dailyCheckedIn ?? false,
+                vouchers: newUser.vouchers || [],
               };
 
           useFavoriteStore.getState().setActiveUser(primaryKey);
@@ -288,16 +252,6 @@ export const useUserStore = create<UserState>()(
           syncUserToCache(updated);
         },
 
-        changePassword: (oldPass, newPass) => {
-          if (!oldPass || !newPass) {
-            return { success: false, message: 'Vui lòng nhập đầy đủ mật khẩu cũ và mới!' };
-          }
-          if (newPass.length < 6) {
-            return { success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự!' };
-          }
-          return { success: true, message: 'Đổi mật khẩu thành công! Hãy dùng mật khẩu mới trong lần đăng nhập tới.' };
-        },
-
         addCoins: (amount) => {
           const newBalance = Math.max(0, (get().user.coins || 0) + amount);
           const updated = {
@@ -323,42 +277,6 @@ export const useUserStore = create<UserState>()(
             vouchers: updatedVouchers,
           };
           syncUserToCache(updated);
-        },
-
-        checkInDaily: () => {
-          const today = getTodayKey();
-          const user = get().user;
-          // Reset nếu sang ngày mới
-          if (user.dailyCheckedIn && user.lastCheckInDate === today) {
-            return { success: false, coinsAdded: 0 };
-          }
-          const updated = {
-            ...user,
-            coins: user.coins + 20,
-            dailyCheckedIn: true,
-            lastCheckInDate: today,
-          };
-          syncUserToCache(updated);
-          return { success: true, coinsAdded: 20 };
-        },
-
-        claimQuestCoins: (questId, amount) => {
-          const currentWeek = getWeekKey();
-          const user = get().user;
-          // Reset nếu sang tuần mới
-          const claimedThisWeek =
-            user.lastQuestWeekKey === currentWeek ? user.claimedQuestIds || [] : [];
-          if (claimedThisWeek.includes(questId)) {
-            return { success: false, amount: 0 };
-          }
-          const updated = {
-            ...user,
-            coins: user.coins + amount,
-            claimedQuestIds: [...claimedThisWeek, questId],
-            lastQuestWeekKey: currentWeek,
-          };
-          syncUserToCache(updated);
-          return { success: true, amount };
         },
 
         updateSettings: (newSettings) => {

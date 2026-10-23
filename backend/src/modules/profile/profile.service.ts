@@ -666,6 +666,7 @@ export class ProfileService {
             where: {
               sellerId: userId,
               status: 'COMPLETED',
+              orderType: { not: 'SHIP_COD' },
               payment: {
                 is: {
                   paymentMethod: { in: ['VIETQR', 'PAYOS_WEB'] },
@@ -782,19 +783,29 @@ export class ProfileService {
 
     const isAdmin = currentUser.role === 'ADMIN';
     if (!isAdmin) {
-      // Kiểm tra xem thẻ sinh viên này có thuộc về currentUser hay không
+      // Kiểm tra xem tài liệu KYC (Thẻ SV mặt trước/sau, Selfie hoặc CCCD mặt trước/sau) có thuộc về currentUser hay không
       const [userProfile, userKycRecord] = await Promise.all([
         prisma.profile.findFirst({
           where: {
             userId: currentUser.userId,
-            kyc: { is: { cardImageUrl: { contains: safeFilename } } },
+            OR: [
+              { kyc: { is: { cardImageUrl: { contains: safeFilename } } } },
+              { kyc: { is: { cardBackUrl: { contains: safeFilename } } } },
+              { kyc: { is: { selfieCardUrl: { contains: safeFilename } } } },
+              { kyc: { is: { cccdFrontUrl: { contains: safeFilename } } } },
+              { kyc: { is: { cccdBackUrl: { contains: safeFilename } } } },
+            ],
           },
           select: { id: true },
         }),
         prisma.kycVerification.findFirst({
           where: {
             userId: currentUser.userId,
-            cardImageUrl: { contains: safeFilename },
+            OR: [
+              { cardImageUrl: { contains: safeFilename } },
+              { cardBackUrl: { contains: safeFilename } },
+              { selfieCardUrl: { contains: safeFilename } },
+            ],
           },
           select: { id: true },
         }),

@@ -47,7 +47,7 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
   });
 
   // 1. Handshake Authentication Middleware (Hỗ trợ cả User đăng nhập & Khách duyệt tin)
-  io.use((socket: AuthenticatedSocket, next) => {
+  io.use(async (socket: AuthenticatedSocket, next) => {
     try {
       let token: string | undefined = socket.handshake.auth?.token;
 
@@ -61,7 +61,23 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
       if (token) {
         try {
           const decoded = verifyAccessToken(token);
-          socket.data.user = decoded;
+          const dbUser = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: { isActive: true, tokenVersion: true, role: true },
+          });
+
+          if (
+            dbUser &&
+            dbUser.isActive &&
+            (decoded.tokenVersion === undefined || decoded.tokenVersion === dbUser.tokenVersion)
+          ) {
+            socket.data.user = {
+              ...decoded,
+              role: dbUser.role,
+            };
+          } else {
+            socket.data.user = undefined;
+          }
         } catch {
           // Token không hợp lệ thì gán undefined để xử lý như guest
           socket.data.user = undefined;
@@ -187,10 +203,11 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
       });
     });
 
-    // Sự kiện Đang gõ tin nhắn (Typing status)
+    // Sự kiện Đang gõ tin nhắn (Typing status — chỉ phát nếu socket đã join phòng hội thoại hợp lệ)
     socket.on('typing', (data: { conversationId: string }) => {
-      if (data?.conversationId) {
-        socket.to(`conversation_${data.conversationId}`).emit('user_typing', {
+      const roomName = `conversation_${data?.conversationId}`;
+      if (data?.conversationId && socket.rooms.has(roomName)) {
+        socket.to(roomName).emit('user_typing', {
           userId,
           conversationId: data.conversationId,
         });
@@ -198,8 +215,9 @@ export const initSocketServer = (httpServer: HttpServer): SocketIOServer => {
     });
 
     socket.on('stop_typing', (data: { conversationId: string }) => {
-      if (data?.conversationId) {
-        socket.to(`conversation_${data.conversationId}`).emit('user_stop_typing', {
+      const roomName = `conversation_${data?.conversationId}`;
+      if (data?.conversationId && socket.rooms.has(roomName)) {
+        socket.to(roomName).emit('user_stop_typing', {
           userId,
           conversationId: data.conversationId,
         });

@@ -79,6 +79,25 @@ const COUNTERPARTY_SELECT = {
   },
 } as const;
 
+/** Bảo vệ mã bí mật Handshake: Chỉ Buyer hoặc Admin mới được nhìn thấy handshakeToken & handshakeOtp */
+export const sanitizeOrderHandshake = <T extends { buyerId: string; handshake?: any }>(
+  order: T,
+  viewerUserId: string,
+  isAdmin = false
+): T => {
+  if (!isAdmin && order.buyerId !== viewerUserId && order.handshake) {
+    return {
+      ...order,
+      handshake: {
+        ...order.handshake,
+        handshakeToken: null,
+        handshakeOtp: null,
+      },
+    };
+  }
+  return order;
+};
+
 export class OrderService {
   /**
    * 1. Tạo đơn hàng mới (MEETUP hoặc SHIP_COD)
@@ -244,11 +263,10 @@ export class OrderService {
       if (userVoucher && userVoucher.voucher) {
         voucherDiscount = userVoucher.voucher.discountValue;
         appliedUserVoucherId = userVoucher.id;
-      } else if (cleanVoucherCode === 'FPTCARE' || cleanVoucherCode === 'FPTK20WELCOME' || cleanVoucherCode === 'CAMPUS15K') {
-        voucherDiscount = cleanVoucherCode === 'CAMPUS15K' ? 15000 : 30000;
       }
     }
 
+    const effectivePaymentMethod = orderType === 'SHIP_COD' ? 'CASH' : paymentMethod;
     const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount - voucherDiscount);
 
     // 4. Sinh mã định danh giao dịch độc nhất
@@ -270,7 +288,7 @@ export class OrderService {
     // 6.1. Reserve a unique PayOS code before persisting the order. Create the remote link afterwards.
     let payosOrderCode: number | null = null;
 
-    if (paymentMethod === 'PAYOS_WEB') {
+    if (effectivePaymentMethod === 'PAYOS_WEB') {
       if (!isPayOsConfigured()) {
         throw new AppError(
           'PayOS chưa được cấu hình. Hãy kiểm tra PAYOS_CLIENT_ID, PAYOS_API_KEY và PAYOS_CHECKSUM_KEY.',
@@ -360,7 +378,7 @@ export class OrderService {
             payosOrderCode,
             payosCheckoutUrl: null,
             appliedUserVoucherId,
-            paymentMethod,
+            paymentMethod: effectivePaymentMethod,
             isPaid: false,
           },
           handshake: {
@@ -621,7 +639,7 @@ export class OrderService {
     ]);
 
     return {
-      orders,
+      orders: orders.map((o) => sanitizeOrderHandshake(o, userId)),
       pagination: {
         page,
         limit,
@@ -698,15 +716,16 @@ export class OrderService {
       select: { role: true },
     });
 
+    const isAdmin = user?.role === 'ADMIN';
     const isAuthorized =
-      order.buyerId === userId || order.sellerId === userId || user?.role === 'ADMIN';
+      order.buyerId === userId || order.sellerId === userId || isAdmin;
 
     if (!isAuthorized) {
       throw new AppError('Bạn không có quyền xem thông tin đơn hàng này', 403, 'FORBIDDEN');
     }
 
-    // Cả Người mua và Người bán trong đơn đều có quyền xem mã QR & OTP để xác thực tại điểm hẹn Safe-Handoff
-    return order;
+    // Chỉ Người mua (hoặc Admin) mới được xem mã QR & OTP gốc; ẩn khỏi Người bán để chống tự giải ngân Escrow
+    return sanitizeOrderHandshake(order, userId, isAdmin);
   }
 
   /**
@@ -791,9 +810,8 @@ export class OrderService {
     const expectedToken = generateHandshakeToken(order.orderCode, order.sellerId);
     const isTokenMatch = !!handshakeToken && constantTimeEquals(handshakeToken, expectedToken);
     const isOtpMatch = !!handshakeOtp && constantTimeEquals(handshakeOtp, currentHandshake.handshakeOtp);
-    const isDevFallback = process.env.NODE_ENV !== 'production' && handshakeOtp === '1234';
 
-    if (!isTokenMatch && !isOtpMatch && !isDevFallback) {
+    if (!isTokenMatch && !isOtpMatch) {
       await setCache(attemptKey, attempts + 1, HANDSHAKE_LOCKOUT_SECONDS);
       throw new AppError('Mã QR Handshake hoặc mã OTP không chính xác', 400, 'INVALID_HANDSHAKE_CREDENTIALS');
     }
@@ -1581,7 +1599,10 @@ export class OrderService {
 
     for (const o of orders) {
       const price = o.payment?.price || 0;
-      const isOnlineEscrow = ['VIETQR', 'PAYOS_WEB'].includes(o.payment?.paymentMethod || 'VIETQR');
+      const isOnlineEscrow =
+        o.orderType !== 'SHIP_COD' &&
+        ['VIETQR', 'PAYOS_WEB'].includes(o.payment?.paymentMethod || 'VIETQR') &&
+        Boolean(o.payment?.isPaid);
       if (o.status === 'COMPLETED') {
         totalRevenue += price;
         if (isOnlineEscrow) {
@@ -1692,6 +1713,14 @@ export class OrderService {
 
     if (order.status !== 'PENDING') {
       throw new AppError('Đơn hàng này đã được xác nhận hoặc đã kết thúc', 400, 'ORDER_ALREADY_CONFIRMED');
+    }
+
+    if (order.payment.paymentMethod !== 'CASH' && !order.payment.isPaid) {
+      throw new AppError(
+        'Đơn hàng thanh toán trực tuyến cần được người mua thanh toán trước khi xác nhận',
+        400,
+        'ORDER_PAYMENT_REQUIRED'
+      );
     }
 
     const updated = await prisma.order.update({
