@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   HomeScreen,
   PostItemScreen,
@@ -80,6 +81,7 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
 };
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useUserStore();
   const { inventoryStats } = useKho();
   const { orders } = useOrderStore();
@@ -176,71 +178,80 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
 
   return (
     <>
-      <View style={styles.tabBar}>
-        {state.routes.map((route, index) => {
-          if (route.name === 'Explore') return null;
+      <View
+        style={[
+          styles.tabBar,
+          {
+            paddingBottom: insets.bottom > 0 ? insets.bottom : (Platform.OS === 'android' ? 4 : 0),
+          },
+        ]}
+      >
+        <View style={styles.tabBarInner}>
+          {state.routes.map((route, index) => {
+            if (route.name === 'Explore') return null;
 
-          const isFocused = state.index === index;
-          const config = getTabConfig(route.name, isAuthenticated, isSeller);
-          const iconName = isFocused ? config.iconFocused : config.iconUnfocused;
-          const isPostItem = route.name === 'PostItem';
+            const isFocused = state.index === index;
+            const config = getTabConfig(route.name, isAuthenticated, isSeller);
+            const iconName = isFocused ? config.iconFocused : config.iconUnfocused;
+            const isPostItem = route.name === 'PostItem';
 
-          if (isPostItem) {
+            if (isPostItem) {
+              return (
+                <TouchableOpacity
+                  key={route.key}
+                  style={styles.postItemTab}
+                  activeOpacity={0.85}
+                  onPress={() => handleTabPress(route, isFocused)}
+                >
+                  <View style={styles.postItemButton}>
+                    <Ionicons name="add" size={28} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.postItemLabel}>Đăng tin</Text>
+                </TouchableOpacity>
+              );
+            }
+
+            const iconSize = isFocused ? 24 : 22;
+            const iconColor = isFocused ? '#EA580C' : '#64748B';
+
             return (
               <TouchableOpacity
                 key={route.key}
-                style={styles.postItemTab}
-                activeOpacity={0.85}
+                style={[styles.tabItem, isFocused && styles.activeTabItem]}
+                activeOpacity={0.7}
                 onPress={() => handleTabPress(route, isFocused)}
               >
-                <View style={styles.postItemButton}>
-                  <Ionicons name="add" size={28} color="#FFFFFF" />
+                <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
+                  <Ionicons name={iconName} size={iconSize} color={iconColor} />
+                  {route.name === 'Chat' && isAuthenticated && unreadChatCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>
+                        {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                      </Text>
+                    </View>
+                  )}
+                  {route.name === 'Orders' && isAuthenticated && activeOrdersCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>
+                        {activeOrdersCount > 99 ? '99+' : activeOrdersCount}
+                      </Text>
+                    </View>
+                  )}
+                  {route.name === 'MyListings' && isSeller && khoAttentionCount > 0 && (
+                    <View style={styles.chatBadge}>
+                      <Text style={styles.chatBadgeText}>
+                        {khoAttentionCount > 99 ? '99+' : khoAttentionCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.postItemLabel}>Đăng tin</Text>
+                <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
+                  {config.label}
+                </Text>
               </TouchableOpacity>
             );
-          }
-
-          const iconSize = isFocused ? 24 : 22;
-          const iconColor = isFocused ? '#EA580C' : '#64748B';
-
-          return (
-            <TouchableOpacity
-              key={route.key}
-              style={[styles.tabItem, isFocused && styles.activeTabItem]}
-              activeOpacity={0.7}
-              onPress={() => handleTabPress(route, isFocused)}
-            >
-              <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
-                <Ionicons name={iconName} size={iconSize} color={iconColor} />
-                {route.name === 'Chat' && isAuthenticated && unreadChatCount > 0 && (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>
-                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                    </Text>
-                  </View>
-                )}
-                {route.name === 'Orders' && isAuthenticated && activeOrdersCount > 0 && (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>
-                      {activeOrdersCount > 99 ? '99+' : activeOrdersCount}
-                    </Text>
-                  </View>
-                )}
-                {route.name === 'MyListings' && isSeller && khoAttentionCount > 0 && (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>
-                      {khoAttentionCount > 99 ? '99+' : khoAttentionCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
-                {config.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+          })}
+        </View>
       </View>
 
       <RequireAuthModal
@@ -302,14 +313,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 6,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -319,6 +325,13 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 8 },
     }),
+  },
+  tabBarInner: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 6,
   },
   tabItem: {
     alignItems: 'center',
