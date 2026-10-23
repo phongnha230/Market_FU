@@ -332,6 +332,18 @@ export default function OrderCard({
                   </Link>
                 </Button>
               )}
+              {order.status === 'completed' && order.reviewed && (
+                <Button
+                  type="button"
+                  onClick={() => onOpenReviewDetail?.(order)}
+                  variant="outline"
+                  className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  title="Xem đánh giá từ người mua"
+                >
+                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                  <span>Xem đánh giá</span>
+                </Button>
+              )}
               <Button
                 asChild
                 className="h-auto rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 flex-1 sm:flex-initial"
@@ -385,19 +397,30 @@ export default function OrderCard({
               )}
 
               {order.status === 'delivered' && (
-                <Button
-                  asChild
-                  variant="outline"
-                  className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                >
-                  <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                    <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                    <span>Yêu cầu trả hàng</span>
-                  </Link>
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => onConfirmReceived(order.code)}
+                    className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                    <span>Đã nhận hàng</span>
+                  </Button>
+
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Yêu cầu trả hàng</span>
+                    </Link>
+                  </Button>
+                </>
               )}
 
-              {(order.status === 'delivered' || order.status === 'completed') && (
+              {order.status === 'completed' && (
                 order.reviewed ? (
                   <Button
                     type="button"
@@ -416,7 +439,7 @@ export default function OrderCard({
                   >
                     <Link href={`/orders/review?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
                       <Star className="h-3.5 w-3.5 fill-white text-white" />
-                      <span>Đánh giá (+50 xu)</span>
+                      <span>Đánh giá (+100 xu)</span>
                     </Link>
                   </Button>
                 )

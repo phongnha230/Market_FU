@@ -139,7 +139,10 @@ export default function OrderDetailPage() {
       await orderService.confirmDelivery(order.code.replace('#', ''));
       updateOrderStatus(order.code, 'completed', 'Đã nhận hàng thành công');
       setOrder((prev) => (prev ? { ...prev, status: 'completed', statusText: 'Đã nhận hàng thành công' } : null));
-      showToast('🎉 Xác nhận nhận hàng an toàn thành công! Quỹ Escrow đã giải ngân tiền cho Người bán.', 'success');
+      showToast('🎉 Xác nhận nhận hàng an toàn thành công! Quỹ Escrow đã giải ngân tiền. Đang chuyển sang đánh giá...', 'success');
+      setTimeout(() => {
+        router.push(`/orders/review?code=${encodeURIComponent(cleanCode)}`);
+      }, 1200);
     } catch {
       updateOrderStatus(order.code, 'completed', 'Đã nhận hàng thành công');
       setOrder((prev) => (prev ? { ...prev, status: 'completed', statusText: 'Đã nhận hàng thành công' } : null));
@@ -1277,6 +1280,28 @@ export default function OrderDetailPage() {
                     </Link>
                   </Button>
                 </div>
+              ) : isOrderCompleted ? (
+                !order.reviewed ? (
+                  <Button
+                    asChild
+                    className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Link href={`/orders/review?code=${encodeURIComponent(cleanCode)}`}>
+                      <Star className="h-4 w-4 fill-white" />
+                      <span>Đánh giá nhận +100 Xu</span>
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setIsReviewModalOpen(true)}
+                    variant="outline"
+                    className="w-full h-11 border-emerald-300 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Xem lại đánh giá</span>
+                  </Button>
+                )
               ) : (isOrderPending && !isCodOrder) ? (
                 <Button
                   type="button"
