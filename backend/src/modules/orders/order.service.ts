@@ -1138,22 +1138,69 @@ export class OrderService {
       actor: actorId,
     });
 
-    const otherUserId = order.buyerId === actorId ? order.sellerId : order.buyerId;
-    try {
-      await notificationService.sendNotification({
-        userId: otherUserId,
-        title: 'Đơn hàng đã bị hủy',
-        body: `Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}`,
-        type: 'ORDER',
-        targetUrl: '/orders',
-      });
-    } catch (notificationError) {
-      console.error('Order was cancelled but notification failed', { orderCode: order.orderCode, error: notificationError });
+    const userIdsToNotify =
+      actorId === 'SYSTEM'
+        ? [order.buyerId, order.sellerId]
+        : [order.buyerId === actorId ? order.sellerId : order.buyerId];
+
+    for (const targetUserId of userIdsToNotify) {
+      try {
+        await notificationService.sendNotification({
+          userId: targetUserId,
+          title: 'Đơn hàng đã bị hủy',
+          body: `Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}`,
+          type: 'ORDER',
+          targetUrl: '/orders',
+        });
+      } catch (notificationError) {
+        console.error('Order was cancelled but notification failed', { orderCode: order.orderCode, error: notificationError });
+      }
+      emitToUser(targetUserId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
     }
 
-    emitToUser(otherUserId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
-
     return cancelledOrder;
+  }
+
+  /**
+   * Quét và tự động hủy các đơn hàng PENDING đã quá hạn thanh toán (mặc định 15 phút)
+   * Giải phóng sản phẩm RESERVED -> AVAILABLE, hoàn FPT Coin và Voucher cho người mua.
+   */
+  async cancelExpiredPendingOrders(ttlMinutes = 15): Promise<number> {
+    const cutoffTime = new Date(Date.now() - ttlMinutes * 60 * 1000);
+    const expiredOrders = await prisma.order.findMany({
+      where: {
+        status: 'PENDING',
+        createdAt: { lt: cutoffTime },
+      },
+    });
+
+    let cancelledCount = 0;
+    for (const order of expiredOrders) {
+      try {
+        if (order.payment.paymentMethod === 'PAYOS_WEB' && order.payment.payosOrderCode) {
+          try {
+            const payos = getPayOsClient();
+            await payos.paymentRequests.cancel(
+              order.payment.payosOrderCode,
+              `Quá hạn thanh toán ${ttlMinutes} phút`
+            );
+          } catch (payosErr) {
+            console.warn(`PayOS cancel notice for expired order ${order.orderCode}:`, payosErr);
+          }
+        }
+
+        await this.cancelPendingOrderInDb(
+          order,
+          `Hệ thống tự động hủy do quá hạn thanh toán ${ttlMinutes} phút`,
+          'SYSTEM'
+        );
+        cancelledCount++;
+      } catch (err: any) {
+        console.error(`Không thể tự động hủy đơn quá hạn ${order.orderCode}:`, err?.message || err);
+      }
+    }
+
+    return cancelledCount;
   }
 
   /**

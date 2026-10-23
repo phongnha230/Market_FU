@@ -42,6 +42,8 @@ import {
   Receipt,
   FileCheck,
   CreditCard,
+  XCircle,
+  RotateCcw,
 } from 'lucide-react';
 
 function OrderSuccessContent() {
@@ -55,6 +57,7 @@ function OrderSuccessContent() {
   const paymentMethod = paymentMethodParam.toLowerCase();
   const isOnlinePayment = paymentMethod === 'vietqr' || paymentMethod === 'payos';
   const payosWasCancelled = searchParams.get('cancelled') === 'true' || searchParams.get('cancel') === 'true';
+  const [isCancelledByPayos, setIsCancelledByPayos] = useState<boolean>(payosWasCancelled);
 
   const [backendOrder, setBackendOrder] = useState<BackendOrder | null>(null);
   const [isPaid, setIsPaid] = useState<boolean>(() => {
@@ -142,6 +145,8 @@ function OrderSuccessContent() {
         setBackendOrder(ord);
         if (ord.payment?.isPaid || ord.status === 'PAID' || ord.status === 'COMPLETED') {
           setIsPaid(true);
+        } else if (ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled') {
+          setIsCancelledByPayos(true);
         }
       }).catch((err) => {
         console.warn('Could not fetch backend order detail:', err);
@@ -151,6 +156,35 @@ function OrderSuccessContent() {
       isMounted = false;
     };
   }, [orderCode]);
+
+  // 1b. Tự động hủy đơn hàng và giải phóng sản phẩm khi PayOS redirect về cancelled=true
+  useEffect(() => {
+    let isCancelled = false;
+    if (
+      payosWasCancelled &&
+      backendOrder?.id &&
+      (backendOrder.status === 'PENDING' || (backendOrder.status as string) === 'pending') &&
+      !backendOrder.payment?.isPaid
+    ) {
+      orderService
+        .cancelOrder(backendOrder.id, 'Người mua hủy giao dịch trên PayOS')
+        .then(() => {
+          if (!isCancelled) {
+            setIsCancelledByPayos(true);
+            showToast('Đã tự động hủy đơn và hoàn lại quyền mua.');
+          }
+        })
+        .catch((err) => {
+          console.warn('Auto cancel order error:', err);
+          if (!isCancelled) {
+            setIsCancelledByPayos(true);
+          }
+        });
+    }
+    return () => {
+      isCancelled = true;
+    };
+  }, [payosWasCancelled, backendOrder?.id, backendOrder?.status, backendOrder?.payment?.isPaid]);
 
   // 2. Poll payment status if online payment and unpaid
   useEffect(() => {
@@ -249,7 +283,9 @@ function OrderSuccessContent() {
         {/* 1. TOP CELEBRATION / PAYMENT STATUS BANNER */}
         <Card
           className={`mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs ${
-            isPaid
+            isCancelledByPayos || (payosWasCancelled && !isPaid)
+              ? 'border-rose-200/80 bg-gradient-to-br from-rose-500 via-rose-600 to-slate-900 text-white'
+              : isPaid
               ? 'border-emerald-200/80 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 text-white'
               : paymentMethod === 'vietqr'
               ? 'border-amber-200/80 bg-gradient-to-br from-amber-500 via-orange-600 to-slate-900 text-white'
@@ -260,14 +296,18 @@ function OrderSuccessContent() {
             <div className="flex items-start sm:items-center gap-4">
               <div
                 className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md ${
-                  isPaid
+                  isCancelledByPayos || (payosWasCancelled && !isPaid)
+                    ? 'bg-white text-rose-600'
+                    : isPaid
                     ? 'bg-white text-emerald-600'
                     : paymentMethod === 'vietqr'
                     ? 'bg-white text-amber-600'
                     : 'bg-white text-fpt-orange'
                 }`}
               >
-                {isPaid ? (
+                {isCancelledByPayos || (payosWasCancelled && !isPaid) ? (
+                  <XCircle className="h-8 w-8 stroke-[2.5]" />
+                ) : isPaid ? (
                   <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />
                 ) : (
                   <Clock className="h-8 w-8 stroke-[2.5]" />
@@ -280,7 +320,9 @@ function OrderSuccessContent() {
                     variant="outline"
                     className="border-white/30 bg-white/15 text-white font-bold text-[10px] tracking-wider uppercase px-2.5 py-0.5"
                   >
-                    {isPaid
+                    {isCancelledByPayos || (payosWasCancelled && !isPaid)
+                      ? 'GIAO DỊCH ĐÃ HỦY • HOÀN TRẢ QUYỀN MUA'
+                      : isPaid
                       ? isOnlinePayment
                         ? 'VIETQR NAPAS247 (PAYOS) • ĐÃ NHẬN TIỀN ESCROW'
                         : 'THANH TOÁN KHI NHẬN HÀNG (COD)'
@@ -294,7 +336,9 @@ function OrderSuccessContent() {
                 </div>
 
                 <h1 className="mt-1.5 text-xl sm:text-2xl font-black tracking-tight text-white">
-                  {isPaid
+                  {isCancelledByPayos || (payosWasCancelled && !isPaid)
+                    ? 'Giao dịch thanh toán PayOS đã bị hủy'
+                    : isPaid
                     ? 'Thanh toán & Đặt hàng thành công!'
                     : isOnlinePayment
                     ? 'Đơn hàng đã tạo • Vui lòng quét mã VietQR để thanh toán'
@@ -302,7 +346,9 @@ function OrderSuccessContent() {
                 </h1>
 
                 <p className="mt-1 text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
-                  {isPaid
+                  {isCancelledByPayos || (payosWasCancelled && !isPaid)
+                    ? `Bạn đã dừng hoặc hủy thanh toán qua cổng PayOS. Đơn hàng #${orderCode} đã được tự động hủy, Xu và Voucher đã hoàn về tài khoản của bạn. Sản phẩm đã được mở lại cho các bạn sinh viên khác mua.`
+                    : isPaid
                     ? 'Khoản thanh toán của bạn đã được đóng băng an toàn trong Ví Escrow của Sàn ĐH FPT. Người bán sẽ chỉ nhận được tiền sau 48h kiểm tra hàng.'
                     : isOnlinePayment
                     ? `Đơn hàng #${orderCode} đang chờ bạn chuyển khoản ${productData.price.toLocaleString('vi-VN')} đ. Tiền sẽ được sàn bảo hộ an toàn trong ví Escrow ngay khi nhận được giao dịch.`

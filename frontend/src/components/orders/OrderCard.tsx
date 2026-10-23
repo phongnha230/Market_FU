@@ -346,14 +346,29 @@ export default function OrderCard({
             <>
               {/* Buyer Actions */}
               {canShowImmediatePayment && (
-                <Button
-                  type="button"
-                  onClick={() => onOpenPaymentModal(order)}
-                  className="h-auto rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-orange-700 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
-                >
-                  <QrCode className="h-3.5 w-3.5 text-white" />
-                  <span>Thanh toán ngay</span>
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => onOpenPaymentModal(order)}
+                    className="h-auto rounded-xl bg-gradient-to-r from-orange-500 to-fpt-orange hover:from-orange-600 hover:to-orange-700 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs animate-pulse"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-white" />
+                    <span>Thanh toán ngay</span>
+                  </Button>
+
+                  {onCancelOrder && (
+                    <Button
+                      type="button"
+                      onClick={() => onCancelOrder(order.id || order.code, order.code)}
+                      variant="outline"
+                      className="h-auto rounded-xl border-slate-300 text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                      title="Hủy đơn hàng và hoàn lại xu/sản phẩm"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      <span>Hủy đơn</span>
+                    </Button>
+                  )}
+                </>
               )}
 
               {order.status === 'disputed' && (

@@ -7,6 +7,7 @@ import {
   startExpireProductsCron,
   startBlindReviewRevealCron,
   startEscrowAutoReleaseCron,
+  startExpirePendingOrdersCron,
 } from './cron';
 
 const server = http.createServer(app);
@@ -21,6 +22,7 @@ const startServer = async () => {
   startExpireProductsCron();
   startBlindReviewRevealCron();
   startEscrowAutoReleaseCron();
+  startExpirePendingOrdersCron();
 
   server.listen(Number(ENV.PORT), '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${ENV.PORT} (0.0.0.0)`);
