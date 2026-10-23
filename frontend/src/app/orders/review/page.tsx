@@ -223,7 +223,7 @@ function ReviewContent() {
         proofVideoUrl: proofVideoUrl.trim() || undefined,
         isAnonymous,
         reviewedAt: new Date().toISOString(),
-        isPublic: false,
+        isPublic: true,
         canEdit: true,
         bonusCoins: earnedCoins,
       };
