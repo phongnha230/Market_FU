@@ -21,7 +21,7 @@ interface CheckoutVoucherModalProps {
     discount: number;
     title?: string;
   } | null;
-  onSelectVoucher: (voucher: { code: string; discount: number; title?: string } | null) => void;
+  onSelectVoucher: (voucher: { code: string; discount: number; title?: string; minOrderValue?: number } | null) => void;
   myVouchers: UserVoucher[];
   loadingVouchers: boolean;
   customVoucherInput: string;
@@ -30,6 +30,7 @@ interface CheckoutVoucherModalProps {
   onNavigateVoucherList: () => void;
   insetsBottom: number;
   formatCurrency: (val: number) => string;
+  productPrice: number;
 }
 
 export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
@@ -45,6 +46,7 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
   onNavigateVoucherList,
   insetsBottom,
   formatCurrency,
+  productPrice,
 }) => {
   const renderVoucherItem = useCallback(
     ({ item }: ListRenderItemInfo<UserVoucher>) => {
@@ -53,16 +55,33 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
         item.voucher.partner === 'OTHER' ||
         item.voucher.title.toLowerCase().includes('ship') ||
         item.voucher.title.toLowerCase().includes('vận chuyển');
+
+      const minOrder = item.voucher.minOrderValue || 0;
+      const isEligible = productPrice >= minOrder;
+
       return (
         <TouchableOpacity
           key={item.id}
-          style={[styles.modalVoucherCard, isSelected && styles.selectedModalVoucher]}
-          activeOpacity={0.7}
+          style={[
+            styles.modalVoucherCard,
+            isSelected && styles.selectedModalVoucher,
+            !isEligible && { opacity: 0.65, backgroundColor: '#F8FAFC' }
+          ]}
+          activeOpacity={isEligible ? 0.7 : 0.9}
           onPress={() => {
+            if (!isEligible) {
+              const { Alert } = require('react-native');
+              Alert.alert(
+                'Chưa đủ điều kiện',
+                `Voucher này yêu cầu đơn hàng từ ${formatCurrency(minOrder)} trở lên (Đơn hiện tại: ${formatCurrency(productPrice)}).`
+              );
+              return;
+            }
             onSelectVoucher({
               code: item.voucherCode,
               discount: item.voucher.discountValue,
               title: item.voucher.title,
+              minOrderValue: minOrder,
             });
             onClose();
           }}
@@ -72,13 +91,24 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
               <Ionicons name={isShipVoucher ? "car-outline" : "ticket"} size={20} color={isShipVoucher ? "#7C3AED" : "#EA580C"} />
             </View>
             <View style={styles.voucherInfo}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <Text style={styles.modalVoucherTitle} numberOfLines={1}>
                   {item.voucher.title}
                 </Text>
                 {isShipVoucher && (
-                  <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                     <Text style={{ fontSize: 9, fontWeight: '800', color: '#7E22CE' }}>FREESHIP</Text>
+                  </View>
+                )}
+                {minOrder > 0 ? (
+                  <View style={{ backgroundColor: isEligible ? '#F3E8FF' : '#FFE4E6', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 8.5, fontWeight: '800', color: isEligible ? '#7E22CE' : '#E11D48' }}>
+                      {isEligible ? `ĐƠN TỪ ${formatCurrency(minOrder)}` : `CẦN ${formatCurrency(minOrder)}`}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 8.5, fontWeight: '800', color: '#15803D' }}>MỌI ĐƠN</Text>
                   </View>
                 )}
               </View>
@@ -92,21 +122,29 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
             <Text style={styles.modalVoucherValue}>
               -{formatCurrency(item.voucher.discountValue)}
             </Text>
-            <View style={[styles.useBtn, isSelected && styles.useBtnSelected]}>
-              <Text
-                style={[
-                  styles.useBtnText,
-                  isSelected && styles.useBtnTextSelected,
-                ]}
-              >
-                {isSelected ? 'Đang dùng' : 'Dùng mã'}
-              </Text>
-            </View>
+            {isEligible ? (
+              <View style={[styles.useBtn, isSelected && styles.useBtnSelected]}>
+                <Text
+                  style={[
+                    styles.useBtnText,
+                    isSelected && styles.useBtnTextSelected,
+                  ]}
+                >
+                  {isSelected ? 'Đang dùng' : 'Dùng mã'}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.useBtn, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
+                <Text style={[styles.useBtnText, { color: '#94A3B8', fontSize: 10 }]}>
+                  Chưa đủ đ/k
+                </Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       );
     },
-    [appliedVoucher, onSelectVoucher, onClose, formatCurrency]
+    [appliedVoucher, onSelectVoucher, onClose, formatCurrency, productPrice]
   );
 
   return (

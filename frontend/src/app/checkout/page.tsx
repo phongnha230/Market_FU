@@ -198,7 +198,8 @@ function CheckoutContent() {
           (v.voucher.partner === 'CAMPUS_SHIP' ||
             v.voucher.partner === 'OTHER' ||
             v.voucher.title.toLowerCase().includes('ship') ||
-            v.voucher.title.toLowerCase().includes('vận chuyển'))
+            v.voucher.title.toLowerCase().includes('vận chuyển')) &&
+          productData.price >= (v.voucher.minOrderValue || 0)
       );
       if (shipVoucher) {
         setSelectedVoucher(shipVoucher);
@@ -1338,6 +1339,11 @@ function CheckoutContent() {
                 if (!code) return;
                 const matched = myVouchers.find((v) => v.voucherCode.toUpperCase() === code && v.status === 'UNUSED');
                 if (matched) {
+                  const minOrder = matched.voucher.minOrderValue || 0;
+                  if (minOrder > 0 && productData.price < minOrder) {
+                    showToast(`❌ Voucher này yêu cầu đơn tối thiểu ${minOrder.toLocaleString('vi-VN')} đ (Đơn hiện tại: ${productData.price.toLocaleString('vi-VN')} đ)`);
+                    return;
+                  }
                   setSelectedVoucher(matched);
                   setIsVoucherModalOpen(false);
                   setCustomVoucherInput('');
@@ -1389,13 +1395,18 @@ function CheckoutContent() {
                       item.voucher.title.toLowerCase().includes('ship') ||
                       item.voucher.title.toLowerCase().includes('vận chuyển');
 
+                    const minOrder = item.voucher.minOrderValue || 0;
+                    const isEligible = productData.price >= minOrder;
+
                     return (
                       <div
                         key={item.id}
                         className={`flex items-center justify-between p-3.5 rounded-xl border transition ${
                           isSelected
                             ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-400'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            : isEligible
+                            ? 'border-slate-200 hover:border-slate-300 bg-white'
+                            : 'border-slate-200/60 bg-slate-50/70 opacity-75'
                         }`}
                       >
                         <div className="min-w-0 flex-1 pr-3">
@@ -1410,6 +1421,21 @@ function CheckoutContent() {
                             }`}>
                               {isShip ? 'FREESHIP' : 'GIẢM GIÁ'}
                             </span>
+                            {minOrder > 0 ? (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                isEligible
+                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}>
+                                {isEligible
+                                  ? `Đơn từ ${minOrder.toLocaleString('vi-VN')} đ`
+                                  : `Cần đơn từ ${minOrder.toLocaleString('vi-VN')} đ (Thiếu ${(minOrder - productData.price).toLocaleString('vi-VN')} đ)`}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Mọi đơn hàng
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
                             {item.voucher.description || 'Ưu đãi đổi từ Campus Coins'}
@@ -1423,21 +1449,32 @@ function CheckoutContent() {
                           <span className="text-xs font-black text-emerald-600">
                             -{item.voucher.discountValue.toLocaleString('vi-VN')} đ
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedVoucher(item);
-                              setIsVoucherModalOpen(false);
-                              showToast(`🎟️ Đã áp dụng ${item.voucher.title}!`);
-                            }}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition ${
-                              isSelected
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-fpt-orange text-white hover:bg-fpt-orange-hover'
-                            }`}
-                          >
-                            {isSelected ? 'Đang dùng' : 'Dùng mã'}
-                          </button>
+                          {isEligible ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedVoucher(item);
+                                setIsVoucherModalOpen(false);
+                                showToast(`🎟️ Đã áp dụng ${item.voucher.title}!`);
+                              }}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-fpt-orange text-white hover:bg-fpt-orange-hover'
+                              }`}
+                            >
+                              {isSelected ? 'Đang dùng' : 'Dùng mã'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="rounded-lg px-2.5 py-1 text-[11px] font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                              title={`Đơn hàng cần tối thiểu ${minOrder.toLocaleString('vi-VN')} đ`}
+                            >
+                              Chưa đủ đ/k
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

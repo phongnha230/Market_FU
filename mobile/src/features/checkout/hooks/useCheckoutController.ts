@@ -76,6 +76,7 @@ export function useCheckoutController() {
     code: string;
     discount: number;
     title?: string;
+    minOrderValue?: number;
   } | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [customVoucherInput, setCustomVoucherInput] = useState('');
@@ -89,17 +90,19 @@ export function useCheckoutController() {
           (v.voucher.partner === 'CAMPUS_SHIP' ||
             v.voucher.partner === 'OTHER' ||
             v.voucher.title?.toLowerCase().includes('ship') ||
-            v.voucher.title?.toLowerCase().includes('vận chuyển'))
+            v.voucher.title?.toLowerCase().includes('vận chuyển')) &&
+          effectiveProductPrice >= (v.voucher.minOrderValue || 0)
       );
       if (shipVoucher) {
         setAppliedVoucher({
           code: shipVoucher.voucherCode,
           discount: shipVoucher.voucher.discountValue,
           title: shipVoucher.voucher.title,
+          minOrderValue: shipVoucher.voucher.minOrderValue || 0,
         });
       }
     }
-  }, [isMeetup, myVouchers, appliedVoucher]);
+  }, [isMeetup, myVouchers, appliedVoucher, effectiveProductPrice]);
 
   // KYC verification check
   const isEduEmail = Boolean(
@@ -161,11 +164,18 @@ export function useCheckoutController() {
   }, []);
 
   const handleSelectVoucher = useCallback(
-    (voucher: { code: string; discount: number; title?: string } | null) => {
+    (voucher: { code: string; discount: number; title?: string; minOrderValue?: number } | null) => {
+      if (voucher && voucher.minOrderValue && effectiveProductPrice < voucher.minOrderValue) {
+        Alert.alert(
+          'Chưa đủ điều kiện',
+          `Voucher này yêu cầu đơn hàng từ ${formatCurrency(voucher.minOrderValue)} trở lên (Đơn hiện tại: ${formatCurrency(effectiveProductPrice)}).`
+        );
+        return;
+      }
       setAppliedVoucher(voucher);
       setIsVoucherModalOpen(false);
     },
-    []
+    [effectiveProductPrice, formatCurrency]
   );
 
   const handleApplyCustomVoucher = useCallback(() => {
@@ -178,10 +188,19 @@ export function useCheckoutController() {
     // Kiểm tra trong danh sách Voucher khả dụng của người dùng
     const matched = myVouchers.find((v) => v.voucherCode.toUpperCase() === code && v.status === 'UNUSED');
     if (matched) {
+      const minOrder = matched.voucher.minOrderValue || 0;
+      if (minOrder > 0 && effectiveProductPrice < minOrder) {
+        Alert.alert(
+          'Chưa đủ điều kiện',
+          `Voucher "${matched.voucher.title}" chỉ áp dụng cho đơn hàng từ ${formatCurrency(minOrder)} trở lên (Đơn hiện tại: ${formatCurrency(effectiveProductPrice)}).`
+        );
+        return;
+      }
       setAppliedVoucher({
         code: matched.voucherCode,
         discount: matched.voucher.discountValue,
         title: matched.voucher.title,
+        minOrderValue: minOrder,
       });
       setIsVoucherModalOpen(false);
       setCustomVoucherInput('');

@@ -195,6 +195,7 @@ export default function AdminVouchersPage() {
     partner: 'CANTEEN' as VoucherPartner,
     coinCost: 50,
     discountValue: 10000,
+    minOrderValue: 0,
     quantity: 100,
     validDays: 30,
     imageUrl: '',
@@ -297,6 +298,7 @@ export default function AdminVouchersPage() {
         partner: 'CANTEEN',
         coinCost: 50,
         discountValue: 10000,
+        minOrderValue: 0,
         quantity: 100,
         validDays: 30,
         imageUrl: '',
@@ -523,6 +525,8 @@ export default function AdminVouchersPage() {
                             </div>
                             <div className="mt-1 flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                               <span>Giá trị: <strong className="text-slate-800">{voucher.discountValue.toLocaleString()} đ</strong></span>
+                              <span>•</span>
+                              <span>Đơn tối thiểu: <strong className="text-purple-700">{voucher.minOrderValue && voucher.minOrderValue > 0 ? `${voucher.minOrderValue.toLocaleString()} đ` : 'Mọi đơn'}</strong></span>
                               <span>•</span>
                               <span>Cần: <strong className="text-amber-600">{voucher.coinCost} Xu</strong></span>
                               <span>•</span>
@@ -776,6 +780,29 @@ export default function AdminVouchersPage() {
                       className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-orange-500 focus:outline-hidden"
                     />
                   </div>
+                </div>
+
+                <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">
+                      Đơn hàng tối thiểu áp dụng (VNĐ)
+                    </label>
+                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                      {formData.minOrderValue > 0 ? `Áp dụng đơn từ ${formData.minOrderValue.toLocaleString()}đ` : 'Mọi giá trị đơn'}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={5000}
+                    placeholder="0 (Áp dụng cho mọi giá trị đơn)"
+                    value={formData.minOrderValue === 0 ? '' : formData.minOrderValue}
+                    onChange={(e) => setFormData({ ...formData, minOrderValue: Math.max(0, Number(e.target.value) || 0) })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 focus:border-purple-500 focus:outline-hidden"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                    💡 <strong>Điều kiện áp dụng:</strong> Nhập <strong>0đ</strong> nếu áp dụng cho mọi đơn hàng (1 đơn nhiều tiền hay ít tiền đều được). Nhập số tiền (VD: <strong>100.000đ</strong>, <strong>200.000đ</strong>) nếu yêu cầu đơn hàng phải đạt từ mức tiền này mới được áp mã freeship.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">

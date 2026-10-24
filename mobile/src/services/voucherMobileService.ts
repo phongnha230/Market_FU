@@ -13,6 +13,7 @@ export interface BackendVoucher {
   partner: VoucherPartner;
   coinCost: number;
   discountValue: number;
+  minOrderValue?: number;
   quantity: number;
   imageUrl?: string | null;
   validDays: number;
@@ -59,6 +60,7 @@ export function adaptBackendVoucher(bv: any): Voucher {
     partnerLabel: bv.partnerLabel || mapPartnerLabel(partner),
     coinCost: Number(bv.coinCost ?? 10),
     discountValue: Number(bv.discountValue ?? 10000),
+    minOrderValue: Number(bv.minOrderValue ?? 0),
     quantity: Number(bv.quantity ?? 50),
     imageUrl:
       bv.imageUrl ||

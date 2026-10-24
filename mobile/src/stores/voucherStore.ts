@@ -23,6 +23,7 @@ export interface Voucher {
   partnerLabel: string;
   coinCost: number;
   discountValue: number;
+  minOrderValue?: number;
   quantity: number;
   imageUrl: string;
   validDays: number;

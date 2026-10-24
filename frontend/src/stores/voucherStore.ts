@@ -14,6 +14,7 @@ export interface Voucher {
   partnerLabel: string;
   coinCost: number; // Số xu cần đổi (VD: 50 Xu)
   discountValue: number; // Giá trị giảm VNĐ (VD: 15.000đ)
+  minOrderValue?: number; // Đơn tối thiểu áp dụng (VD: 100.000đ, 0 là mọi đơn)
   quantity: number;
   imageUrl: string;
   validDays: number;
@@ -74,6 +75,7 @@ const mapBackendVoucher = (bv: BackendVoucher): Voucher => ({
   partnerLabel: mapPartnerLabel(bv.partner),
   coinCost: bv.coinCost,
   discountValue: bv.discountValue,
+  minOrderValue: bv.minOrderValue ?? 0,
   quantity: bv.quantity,
   imageUrl: bv.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
   validDays: bv.validDays,
