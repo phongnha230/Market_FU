@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 export default function HomePage() {
   const router = useRouter();
   const [selectedCampus, setSelectedCampus] = useState('hola');
+  const [canStartTour, setCanStartTour] = useState(false);
 
   React.useEffect(() => {
     const saved = localStorage.getItem('fu_default_campus');
@@ -34,9 +35,13 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-100 selection:text-fpt-orange">
-      <HomePromoPopup />
-      {/* Tour chỉ dẫn Onboarding chuẩn phong cách FPT Coursera */}
-      <CampusTourGuide />
+      {/* Banner quảng cáo Pop-up trang chủ */}
+      <HomePromoPopup
+        onOpenChange={(isOpen) => setCanStartTour(!isOpen)}
+        onClose={() => setCanStartTour(true)}
+      />
+      {/* Tour chỉ dẫn Onboarding - Chỉ xuất hiện sau khi người dùng đã đóng/tương tác với banner */}
+      <CampusTourGuide canStart={canStartTour} />
 
       {/* 1. Header & Navigation with Clean Logo from Image 2 */}
       <Navbar

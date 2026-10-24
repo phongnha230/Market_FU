@@ -7,7 +7,12 @@ import { ArrowUpRight, Sparkles, X } from 'lucide-react';
 
 const PROMO_DISMISS_KEY = 'fu_home_promo_dismissed';
 
-export default function HomePromoPopup() {
+interface HomePromoPopupProps {
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export default function HomePromoPopup({ onClose, onOpenChange }: HomePromoPopupProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -15,12 +20,21 @@ export default function HomePromoPopup() {
 
   useEffect(() => {
     try {
-      setIsOpen(sessionStorage.getItem(PROMO_DISMISS_KEY) !== 'true');
+      const willOpen = sessionStorage.getItem(PROMO_DISMISS_KEY) !== 'true';
+      setIsOpen(willOpen);
+      onOpenChange?.(willOpen);
+      if (!willOpen) {
+        onClose?.();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fu_home_promo_closed'));
+        }
+      }
     } catch (error) {
       console.error('Không đọc được trạng thái banner quảng cáo:', error);
       setIsOpen(true);
+      onOpenChange?.(true);
     }
-  }, []);
+  }, [onClose, onOpenChange]);
 
   const closePopup = useCallback(() => {
     try {
@@ -29,7 +43,12 @@ export default function HomePromoPopup() {
       console.error('Không lưu được trạng thái banner quảng cáo:', error);
     }
     setIsOpen(false);
-  }, []);
+    onOpenChange?.(false);
+    onClose?.();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fu_home_promo_closed'));
+    }
+  }, [onClose, onOpenChange]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,7 +96,7 @@ export default function HomePromoPopup() {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[100001] flex items-center justify-center p-4 sm:p-6">
       <div
         className="absolute inset-0 bg-slate-950/65 backdrop-blur-[3px]"
         aria-hidden="true"

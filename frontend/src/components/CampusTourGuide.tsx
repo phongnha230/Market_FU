@@ -49,29 +49,63 @@ const TOUR_STEPS: TourStep[] = [
 
 const STORAGE_KEY = 'fu_campus_onboarding_tour_completed_v1';
 
-export default function CampusTourGuide() {
+interface CampusTourGuideProps {
+  canStart?: boolean;
+}
+
+export default function CampusTourGuide({ canStart = true }: CampusTourGuideProps = {}) {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // 1. Kiểm tra trạng thái đã xem tour chưa khi tải trang
-  useEffect(() => {
-    setMounted(true);
+  // Kiểm tra xem popup banner quảng cáo có đang mở hay không
+  const isPromoActive = useCallback(() => {
     try {
-      const hasCompleted = localStorage.getItem(STORAGE_KEY);
-      if (!hasCompleted) {
-        // Đợi 1.2s sau khi trang tải xong mới kích hoạt tour mượt mà
-        const timer = setTimeout(() => {
-          setIsOpen(true);
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
-    } catch (e) {
-      console.warn('Lỗi khi đọc trạng thái tour:', e);
+      if (typeof window === 'undefined') return false;
+      return sessionStorage.getItem('fu_home_promo_dismissed') !== 'true';
+    } catch {
+      return false;
     }
   }, []);
+
+  // 1. Kiểm tra trạng thái đã xem tour chưa khi tải trang hoặc khi người dùng thao tác đóng/bấm banner
+  useEffect(() => {
+    setMounted(true);
+
+    const checkAndStartTour = (delayMs = 600) => {
+      try {
+        const hasCompleted = localStorage.getItem(STORAGE_KEY);
+        if (!hasCompleted) {
+          const timer = setTimeout(() => {
+            // Đảm bảo tại thời điểm mở tour thì banner đã thực sự đóng
+            if (!isPromoActive()) {
+              setIsOpen(true);
+            }
+          }, delayMs);
+          return () => clearTimeout(timer);
+        }
+      } catch (e) {
+        console.warn('Lỗi khi đọc trạng thái tour:', e);
+      }
+    };
+
+    // Nếu canStart = false hoặc banner quảng cáo đang mở: TUYỆT ĐỐI KHÔNG mở tour đè lên banner
+    if (!canStart || isPromoActive()) {
+      const handlePromoClosed = () => {
+        checkAndStartTour(600);
+      };
+
+      window.addEventListener('fu_home_promo_closed', handlePromoClosed);
+      return () => {
+        window.removeEventListener('fu_home_promo_closed', handlePromoClosed);
+      };
+    }
+
+    // Nếu không có banner nào đang mở, khởi động tour sau 800ms
+    return checkAndStartTour(800);
+  }, [canStart, isPromoActive]);
 
   // 2. Tính toán vị trí phần tử mục tiêu (Target Element)
   const updateTargetPosition = useCallback(() => {
