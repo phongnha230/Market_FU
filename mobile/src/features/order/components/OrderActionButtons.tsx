@@ -172,8 +172,17 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     );
   }
 
-  // 4. Buyer flow: khi shipper/bưu tá đã phát tới sảnh KTX (DELIVERED), người mua kiểm tra xong mới bấm nhận hàng
-  if (!isSeller && (orderStatus === 'delivered' || orderStatus === 'DELIVERED')) {
+  // 4. Buyer flow: khi shipper/bưu tá đã phát tới sảnh KTX (DELIVERED) hoặc đang giao (SHIPPING) mà người mua đã nhận tận tay
+  const isDeliveryConfirmable =
+    !isSeller &&
+    (orderStatus === 'delivered' ||
+      orderStatus === 'DELIVERED' ||
+      orderStatus === 'shipping' ||
+      orderStatus === 'SHIPPING' ||
+      orderStatus === 'HANDOVER_CONFIRMED');
+
+  if (isDeliveryConfirmable) {
+    const isEarlyConfirm = orderStatus === 'shipping' || orderStatus === 'SHIPPING' || orderStatus === 'HANDOVER_CONFIRMED';
     return (
       <TouchableOpacity
         style={styles.confirmReceivedBtn}
@@ -186,7 +195,9 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
         ) : (
           <>
             <Ionicons name="checkmark-done" size={20} color="#FFFFFF" style={styles.mr6} />
-            <Text style={styles.confirmReceivedText}>Đã nhận hàng (Giải ngân Escrow)</Text>
+            <Text style={styles.confirmReceivedText}>
+              {isEarlyConfirm ? 'Đã nhận hàng tận tay (Xác nhận sớm)' : 'Đã nhận hàng (Giải ngân Escrow)'}
+            </Text>
           </>
         )}
       </TouchableOpacity>
