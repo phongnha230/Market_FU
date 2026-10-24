@@ -108,7 +108,7 @@ export default function VouchersPage() {
   // Map backend vouchers to VoucherItem format for standard rendering
   const mappedBackendVouchers: VoucherItem[] = availableVouchers.map((bv) => {
     let category: VoucherCategoryTab = 'coins';
-    if (bv.partner === 'OTHER') category = 'ship';
+    if (bv.partner === 'CAMPUS_SHIP' || bv.partner === 'OTHER') category = 'ship';
     else if (bv.partner === 'SEVEN_ELEVEN') category = 'dorm';
 
     const partnerLabel =
@@ -119,15 +119,17 @@ export default function VouchersPage() {
         ? 'Passio Coffee'
         : bv.partner === 'SEVEN_ELEVEN'
         ? '7-Eleven FPT'
+        : bv.partner === 'CAMPUS_SHIP'
+        ? 'FPT CampusShip'
         : 'CampusShip');
 
     let tagTheme: 'hot' | 'blue' | 'green' | 'purple' | 'slate' | 'amber' = 'hot';
     if (bv.partner === 'PASSIO') tagTheme = 'green';
     else if (bv.partner === 'SEVEN_ELEVEN') tagTheme = 'blue';
-    else if (bv.partner === 'OTHER') tagTheme = 'purple';
+    else if (bv.partner === 'CAMPUS_SHIP' || bv.partner === 'OTHER') tagTheme = 'purple';
 
     let iconType: VoucherItem['iconType'] = 'coin';
-    if (bv.partner === 'OTHER') iconType = 'truck';
+    if (bv.partner === 'CAMPUS_SHIP' || bv.partner === 'OTHER') iconType = 'truck';
     else if (bv.partner === 'SEVEN_ELEVEN') iconType = 'dorm';
 
     return {

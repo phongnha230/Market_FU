@@ -21,7 +21,7 @@ export const CheckoutVoucherCard: React.FC<CheckoutVoucherCardProps> = ({
 }) => {
   return (
     <>
-      <Text style={styles.sectionHeader}>MÃ GIẢM GIÁ / VOUCHER</Text>
+      <Text style={styles.sectionHeader}>VOUCHER FREESHIP LIÊN CAMPUS</Text>
       <TouchableOpacity
         style={styles.voucherCard}
         activeOpacity={0.75}
@@ -30,12 +30,12 @@ export const CheckoutVoucherCard: React.FC<CheckoutVoucherCardProps> = ({
         <Ionicons name="ticket" size={20} color="#EA580C" />
         <View style={styles.voucherInfo}>
           <Text style={styles.voucherCode}>
-            {appliedVoucher ? `Mã: ${appliedVoucher.code}` : 'Chưa áp dụng voucher'}
+            {appliedVoucher ? `Mã: ${appliedVoucher.code}` : 'Ví Voucher của tôi'}
           </Text>
           <Text style={styles.voucherDesc}>
             {appliedVoucher
               ? `${appliedVoucher.title ? appliedVoucher.title + ' • ' : ''}Giảm ${formatCurrency(appliedVoucher.discount)}`
-              : 'Bấm để chọn hoặc nhập voucher giảm giá'}
+              : 'Mở Ví áp mã Freeship trừ cước vận chuyển'}
           </Text>
         </View>
         {appliedVoucher ? (
@@ -50,7 +50,7 @@ export const CheckoutVoucherCard: React.FC<CheckoutVoucherCardProps> = ({
           </TouchableOpacity>
         ) : (
           <View style={styles.selectVoucherBadge}>
-            <Text style={styles.selectVoucherText}>Chọn mã ›</Text>
+            <Text style={styles.selectVoucherText}>Mở Ví áp mã ›</Text>
           </View>
         )}
       </TouchableOpacity>

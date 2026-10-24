@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useWalletStore } from './walletStore';
 import { voucherService, BackendVoucher, BackendUserVoucher } from '@/services/voucherService';
 
-export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
+export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'CAMPUS_SHIP' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
 
 export interface Voucher {
@@ -58,6 +58,8 @@ const mapPartnerLabel = (partner: VoucherPartner): string => {
       return 'Passio Coffee';
     case 'SEVEN_ELEVEN':
       return '7-Eleven FPT';
+    case 'CAMPUS_SHIP':
+      return 'FPT CampusShip';
     case 'OTHER':
     default:
       return 'Đối Tác Campus';
@@ -134,8 +136,8 @@ export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
     id: 'vch-ship-free',
     title: 'Miễn Phí Vận Chuyển CampusShip',
     description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
-    partner: 'OTHER',
-    partnerLabel: 'CampusShip Express',
+    partner: 'CAMPUS_SHIP',
+    partnerLabel: 'FPT CampusShip',
     coinCost: 25,
     discountValue: 25000,
     quantity: 200,

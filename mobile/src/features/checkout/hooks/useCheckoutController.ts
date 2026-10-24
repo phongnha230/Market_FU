@@ -80,6 +80,27 @@ export function useCheckoutController() {
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [customVoucherInput, setCustomVoucherInput] = useState('');
 
+  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu chưa chọn và trong ví có mã
+  useEffect(() => {
+    if (!isMeetup && !appliedVoucher && myVouchers.length > 0) {
+      const shipVoucher = myVouchers.find(
+        (v) =>
+          v.status === 'UNUSED' &&
+          (v.voucher.partner === 'CAMPUS_SHIP' ||
+            v.voucher.partner === 'OTHER' ||
+            v.voucher.title?.toLowerCase().includes('ship') ||
+            v.voucher.title?.toLowerCase().includes('vận chuyển'))
+      );
+      if (shipVoucher) {
+        setAppliedVoucher({
+          code: shipVoucher.voucherCode,
+          discount: shipVoucher.voucher.discountValue,
+          title: shipVoucher.voucher.title,
+        });
+      }
+    }
+  }, [isMeetup, myVouchers, appliedVoucher]);
+
   // KYC verification check
   const isEduEmail = Boolean(
     user?.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
@@ -105,8 +126,18 @@ export function useCheckoutController() {
 
   // Pricing calculations
   const shippingFee = isMeetup ? 0 : 30000;
-  const voucherDiscount = appliedVoucher ? appliedVoucher.discount : 0;
-  const totalAmount = Math.max(0, effectiveProductPrice + shippingFee - voucherDiscount - coinDiscountAmount);
+  const isShippingVoucher = Boolean(
+    appliedVoucher &&
+      (appliedVoucher.title?.toLowerCase().includes('vận chuyển') ||
+        appliedVoucher.title?.toLowerCase().includes('ship') ||
+        appliedVoucher.code?.toUpperCase().includes('SHIP'))
+  );
+  const voucherDiscount = appliedVoucher
+    ? (isShippingVoucher ? Math.min(shippingFee, appliedVoucher.discount) : appliedVoucher.discount)
+    : 0;
+  const effectiveShippingFee = isMeetup ? 0 : Math.max(0, shippingFee - (isShippingVoucher ? voucherDiscount : 0));
+  const productVoucherDiscount = !isShippingVoucher ? voucherDiscount : 0;
+  const totalAmount = Math.max(0, effectiveProductPrice + effectiveShippingFee - productVoucherDiscount - coinDiscountAmount);
 
   const formatCurrency = useCallback((val: number) => {
     return val.toLocaleString('vi-VN') + 'đ';

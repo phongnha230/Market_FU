@@ -41,6 +41,12 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
 }) => {
   const finalProductPrice = effectiveProductPrice ?? (isAgreedPriceApplied && agreedPrice ? agreedPrice : basePrice);
   const priceDifference = isAgreedPriceApplied ? basePrice - finalProductPrice : 0;
+  const isShippingVoucher = Boolean(
+    appliedVoucher &&
+      (appliedVoucher.title?.toLowerCase().includes('vận chuyển') ||
+        appliedVoucher.title?.toLowerCase().includes('ship') ||
+        appliedVoucher.code?.toUpperCase().includes('SHIP'))
+  );
 
   return (
     <>
@@ -105,12 +111,15 @@ export const CheckoutSummaryCard: React.FC<CheckoutSummaryCardProps> = ({
           <Text style={[styles.summaryVal, styles.freeEscrow]}>Miễn phí (0đ)</Text>
         </View>
 
-        {/* Giảm giá Voucher */}
+        {/* Giảm giá Voucher / Freeship */}
         {discountAmount > 0 && (
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              Voucher giảm giá {appliedVoucher?.code ? `(${appliedVoucher.code})` : ''}
-            </Text>
+            <View style={styles.labelWithIcon}>
+              <Ionicons name={isShippingVoucher ? "car-outline" : "ticket-outline"} size={13} color="#059669" />
+              <Text style={[styles.summaryLabel, styles.greenText]}>
+                {isShippingVoucher ? 'Freeship CampusShip' : 'Voucher giảm giá'} {appliedVoucher?.code ? `(${appliedVoucher.code})` : ''}
+              </Text>
+            </View>
             <Text style={[styles.summaryVal, styles.discountVal]}>
               -{formatCurrency(discountAmount)}
             </Text>

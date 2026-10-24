@@ -41,6 +41,8 @@ export function mapPartnerLabel(partner: VoucherPartner): string {
       return 'Passio Coffee';
     case 'SEVEN_ELEVEN':
       return '7-Eleven FPT';
+    case 'CAMPUS_SHIP':
+      return 'FPT CampusShip';
     case 'OTHER':
     default:
       return 'CampusShip Express';

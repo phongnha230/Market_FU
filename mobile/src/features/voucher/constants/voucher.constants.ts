@@ -62,15 +62,15 @@ export const INITIAL_QUESTS: CoinQuestItem[] = [
 export const VOUCHERS: VoucherItem[] = INITIAL_AVAILABLE_VOUCHERS.map((v) => ({
   id: v.id,
   categoryTag: v.partnerLabel,
-  categoryColor: v.partner === 'CANTEEN' ? '#EA580C' : v.partner === 'PASSIO' ? '#059669' : '#1D4ED8',
+  categoryColor: v.partner === 'CANTEEN' ? '#EA580C' : v.partner === 'PASSIO' ? '#059669' : v.partner === 'CAMPUS_SHIP' ? '#7C3AED' : '#1D4ED8',
   title: v.title,
   description: v.description,
   coinCost: v.coinCost,
   hsd: `${v.validDays} ngày`,
   actionType: 'exchange',
-  accentColor: v.partner === 'CANTEEN' ? '#EA580C' : v.partner === 'PASSIO' ? '#059669' : '#1D4ED8',
-  lightBg: v.partner === 'CANTEEN' ? '#FFF7ED' : v.partner === 'PASSIO' ? '#ECFDF5' : '#EFF6FF',
-  borderColor: v.partner === 'CANTEEN' ? '#FDBA74' : v.partner === 'PASSIO' ? '#A7F3D0' : '#BFDBFE',
+  accentColor: v.partner === 'CANTEEN' ? '#EA580C' : v.partner === 'PASSIO' ? '#059669' : v.partner === 'CAMPUS_SHIP' ? '#7C3AED' : '#1D4ED8',
+  lightBg: v.partner === 'CANTEEN' ? '#FFF7ED' : v.partner === 'PASSIO' ? '#ECFDF5' : v.partner === 'CAMPUS_SHIP' ? '#F5F3FF' : '#EFF6FF',
+  borderColor: v.partner === 'CANTEEN' ? '#FDBA74' : v.partner === 'PASSIO' ? '#A7F3D0' : v.partner === 'CAMPUS_SHIP' ? '#DDD6FE' : '#BFDBFE',
 }));
 
 // Mapped legacy MISSIONS

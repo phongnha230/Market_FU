@@ -1,6 +1,6 @@
 import { apiClient, ApiResponse } from './apiClient';
 
-export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
+export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'CAMPUS_SHIP' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
 
 export interface BackendVoucher {

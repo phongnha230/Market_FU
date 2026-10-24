@@ -12,7 +12,7 @@ const getUserStore = () => {
   }
 };
 
-export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'OTHER';
+export type VoucherPartner = 'CANTEEN' | 'PASSIO' | 'SEVEN_ELEVEN' | 'CAMPUS_SHIP' | 'OTHER';
 export type UserVoucherStatus = 'UNUSED' | 'USED' | 'EXPIRED';
 
 export interface Voucher {
@@ -85,8 +85,8 @@ export const INITIAL_AVAILABLE_VOUCHERS: Voucher[] = [
     id: 'vch-ship-free',
     title: 'Miễn Phí Vận Chuyển CampusShip',
     description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
-    partner: 'OTHER',
-    partnerLabel: 'CampusShip Express',
+    partner: 'CAMPUS_SHIP',
+    partnerLabel: 'FPT CampusShip',
     coinCost: 25,
     discountValue: 25000,
     quantity: 200,
