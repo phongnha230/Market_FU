@@ -261,7 +261,18 @@ export class OrderService {
         include: { voucher: true },
       });
       if (userVoucher && userVoucher.voucher) {
-        voucherDiscount = userVoucher.voucher.discountValue;
+        const isShippingVoucher =
+          userVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+          userVoucher.voucher.partner === 'OTHER' ||
+          userVoucher.voucher.title.toLowerCase().includes('vận chuyển') ||
+          userVoucher.voucher.title.toLowerCase().includes('ship');
+
+        if (isShippingVoucher) {
+          // Trợ giá cước vận chuyển liên campus: giảm tối đa bằng cước ship thực tế
+          voucherDiscount = Math.min(shippingFee, userVoucher.voucher.discountValue);
+        } else {
+          voucherDiscount = userVoucher.voucher.discountValue;
+        }
         appliedUserVoucherId = userVoucher.id;
       }
     }

@@ -79,7 +79,7 @@ export class VoucherService {
             {
               title: 'Miễn Phí Vận Chuyển CampusShip',
               description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
-              partner: 'OTHER',
+              partner: 'CAMPUS_SHIP',
               coinCost: 25,
               discountValue: 25000,
               quantity: 200,
@@ -239,7 +239,7 @@ export class VoucherService {
     }
 
     // Sinh mã voucher duy nhất: FUV-[PARTNER]-[HEX8] (VD: FUV-PAS-9F3C1A2B)
-    const partnerPrefix = voucher.partner.substring(0, 3).toUpperCase();
+    const partnerPrefix = voucher.partner === 'CAMPUS_SHIP' ? 'SHIP' : voucher.partner.substring(0, 3).toUpperCase();
     const randomCode = crypto.randomBytes(4).toString('hex').toUpperCase();
     const voucherCode = `FUV-${partnerPrefix}-${randomCode}`;
 

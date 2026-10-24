@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const VoucherPartnerEnum = z.enum(['CANTEEN', 'PASSIO', 'SEVEN_ELEVEN', 'OTHER'], {
-  errorMap: () => ({ message: 'Đối tác phải là CANTEEN, PASSIO, SEVEN_ELEVEN hoặc OTHER' }),
+export const VoucherPartnerEnum = z.enum(['CANTEEN', 'PASSIO', 'SEVEN_ELEVEN', 'CAMPUS_SHIP', 'OTHER'], {
+  errorMap: () => ({ message: 'Đối tác phải là CANTEEN, PASSIO, SEVEN_ELEVEN, CAMPUS_SHIP hoặc OTHER' }),
 });
 
 export const UserVoucherStatusEnum = z.enum(['UNUSED', 'USED', 'EXPIRED'], {

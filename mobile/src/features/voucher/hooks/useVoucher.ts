@@ -114,7 +114,7 @@ export const useVoucher = () => {
         return v.partner === 'SEVEN_ELEVEN';
       }
       if (activeCategory === 'ship') {
-        return v.partner === 'OTHER' || v.title.toLowerCase().includes('vận chuyển');
+        return v.partner === 'CAMPUS_SHIP' || v.partner === 'OTHER' || v.title.toLowerCase().includes('vận chuyển') || v.title.toLowerCase().includes('ship');
       }
       return true;
     });
@@ -126,7 +126,7 @@ export const useVoucher = () => {
       all: availableVouchers.length,
       coins: availableVouchers.filter((v) => v.partner === 'CANTEEN' || v.partner === 'PASSIO').length,
       dorm: availableVouchers.filter((v) => v.partner === 'SEVEN_ELEVEN').length,
-      ship: availableVouchers.filter((v) => v.partner === 'OTHER' || v.title.toLowerCase().includes('vận chuyển')).length,
+      ship: availableVouchers.filter((v) => v.partner === 'CAMPUS_SHIP' || v.partner === 'OTHER' || v.title.toLowerCase().includes('vận chuyển') || v.title.toLowerCase().includes('ship')).length,
     };
   }, [availableVouchers]);
 

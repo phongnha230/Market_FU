@@ -123,6 +123,7 @@ enum VoucherPartner {
   CANTEEN
   PASSIO
   SEVEN_ELEVEN
+  CAMPUS_SHIP
   OTHER
 }
 

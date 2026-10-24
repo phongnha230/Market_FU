@@ -34,6 +34,8 @@ import {
   Calendar,
 } from 'lucide-react';
 import { safehandoffService, SafeHandoffHubItem } from '@/services/safehandoffService';
+import { useVoucherStore, UserVoucher } from '@/stores/voucherStore';
+import { Ticket, Tag, X } from 'lucide-react';
 
 // Campus mapping helper for rate calculation
 function parseCampusCode(str: string): 'HOL' | 'DAD' | 'QN' | 'HCM' | 'CT' {
@@ -133,6 +135,19 @@ function CheckoutContent() {
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [useCoinDiscount, setUseCoinDiscount] = useState(false);
 
+  // Voucher State
+  const myVouchers = useVoucherStore((state) => state.myVouchers);
+  const fetchMyVouchers = useVoucherStore((state) => state.fetchMyVouchers);
+  const [selectedVoucher, setSelectedVoucher] = useState<UserVoucher | null>(null);
+  const [customVoucherInput, setCustomVoucherInput] = useState('');
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+
+  useEffect(() => {
+    fetchMyVouchers().catch(() => {});
+  }, [fetchMyVouchers]);
+
+
+
   const createOrder = useOrderStore((state) => state.createOrder);
 
   const showToast = (msg: string) => {
@@ -173,6 +188,23 @@ function CheckoutContent() {
   const typeParam = searchParams.get('type');
   const isSameCampus = originCode === destinationCode;
   const isMeetup = typeParam === 'meetup' || isSameCampus;
+
+  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví
+  useEffect(() => {
+    if (!isMeetup && !selectedVoucher && myVouchers && myVouchers.length > 0) {
+      const shipVoucher = myVouchers.find(
+        (v) =>
+          v.status === 'UNUSED' &&
+          (v.voucher.partner === 'CAMPUS_SHIP' ||
+            v.voucher.partner === 'OTHER' ||
+            v.voucher.title.toLowerCase().includes('ship') ||
+            v.voucher.title.toLowerCase().includes('vận chuyển'))
+      );
+      if (shipVoucher) {
+        setSelectedVoucher(shipVoucher);
+      }
+    }
+  }, [isMeetup, myVouchers, selectedVoucher]);
 
   // 2b. Fetch safe-handoff hubs for current campus when isMeetup
   useEffect(() => {
@@ -222,9 +254,20 @@ function CheckoutContent() {
     };
   }, [originCode, destinationCode, isMeetup]);
 
-  // Voucher discount (only applies to inter-campus shipping)
-  const voucherDiscount = isMeetup ? 0 : 15000;
-  const effectiveShippingFee = isMeetup ? 0 : Math.max(0, shippingFee - voucherDiscount);
+  // Voucher discount (Freeship CampusShip hoặc voucher đối tác)
+  const isShippingVoucher = Boolean(
+    selectedVoucher &&
+      (selectedVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+        selectedVoucher.voucher.partner === 'OTHER' ||
+        selectedVoucher.voucher.title.toLowerCase().includes('vận chuyển') ||
+        selectedVoucher.voucher.title.toLowerCase().includes('ship'))
+  );
+  const rawVoucherDiscount = selectedVoucher ? selectedVoucher.voucher.discountValue : 0;
+  const voucherDiscount = isShippingVoucher
+    ? Math.min(shippingFee, rawVoucherDiscount)
+    : rawVoucherDiscount;
+  const effectiveShippingFee = isMeetup ? 0 : Math.max(0, shippingFee - (isShippingVoucher ? voucherDiscount : 0));
+  const productVoucherDiscount = !isShippingVoucher ? voucherDiscount : 0;
 
   // Negotiated price agreed in Chat P2P
   const rawAgreedPrice = searchParams.get('agreedPrice') || searchParams.get('offerPrice');
@@ -236,7 +279,7 @@ function CheckoutContent() {
   const maxCoinsAllowed = Math.min(50, currentUser.coins, Math.floor((effectiveProductPrice * 0.1) / 1000));
   const coinDiscountAmount = useCoinDiscount && maxCoinsAllowed > 0 ? maxCoinsAllowed * 1000 : 0;
 
-  const totalAmount = Math.max(0, effectiveProductPrice + effectiveShippingFee - coinDiscountAmount);
+  const totalAmount = Math.max(0, effectiveProductPrice + effectiveShippingFee - productVoucherDiscount - coinDiscountAmount);
 
   const isOwner = Boolean(
     currentUser && (
@@ -286,7 +329,7 @@ function CheckoutContent() {
           meetupLocation: isMeetup ? selectedHub : undefined,
           safePoint: isMeetup ? selectedHub : undefined,
           appointmentTime: appointmentIso,
-          voucherCode: isMeetup ? undefined : 'CAMPUS15K',
+          voucherCode: selectedVoucher ? selectedVoucher.voucherCode : undefined,
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined
@@ -815,6 +858,119 @@ function CheckoutContent() {
               </div>
             </div>
 
+            {/* SECTION: VOUCHER & FREESHIP ƯU ĐÃI - CHỈ HIỂN THỊ VỚI ĐƠN HÀNG LIÊN CAMPUS */}
+            {!isMeetup && (
+              <div className="rounded-2xl border border-purple-200/80 bg-linear-to-r from-purple-50/40 via-white to-orange-50/30 p-5 sm:p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-purple-100/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                      <Truck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm sm:text-base font-black text-slate-900">
+                          Ưu Đãi Freeship Đơn Liên Campus
+                        </h2>
+                        <span className="rounded-full bg-purple-100 text-purple-700 px-2 py-0.5 text-[10px] font-extrabold uppercase">
+                          {originCode} ➔ {destinationCode}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Cước vận chuyển liên Campus: <strong className="text-slate-800">{shippingFee.toLocaleString('vi-VN')} đ</strong>. Mở Ví Voucher của bạn để áp mã miễn/giảm cước.
+                      </p>
+                    </div>
+                  </div>
+                  {selectedVoucher && (
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black text-emerald-800 border border-emerald-300">
+                      ✓ ĐÃ ÁP DỤNG
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  {selectedVoucher ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50/80 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-2xs">
+                          <Check className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-slate-900 text-sm">
+                              {selectedVoucher.voucher.title}
+                            </span>
+                            <span className="rounded bg-white border border-emerald-300 px-2 py-0.5 text-[11px] font-extrabold text-emerald-800">
+                              {selectedVoucher.voucherCode}
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-900 font-semibold mt-1">
+                            ⚡ Đã trừ <strong className="text-emerald-700">-{voucherDiscount.toLocaleString('vi-VN')}đ</strong> vào cước vận chuyển. Cước ship thực tế còn: <strong className="text-emerald-800">{effectiveShippingFee.toLocaleString('vi-VN')}đ</strong>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => setIsVoucherModalOpen(true)}
+                          className="rounded-xl bg-white border border-slate-300 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+                        >
+                          Chọn mã khác
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVoucher(null)}
+                          className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
+                          title="Bỏ áp dụng voucher"
+                        >
+                          Bỏ chọn ✕
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-purple-300 bg-white/90 p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                            <Ticket className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                              <span>Ví Voucher của tôi</span>
+                              <span className="rounded-full bg-purple-100 text-purple-700 px-2 py-0.5 text-[10px] font-bold">
+                                {myVouchers.filter((v) => v.status === 'UNUSED').length} mã trong ví
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Bạn có voucher Freeship trong ví? Bấm nút bên cạnh để mở Ví và áp mã giảm cước ship ngay.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Nút hành động mở Ví của tôi để áp mã */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => setIsVoucherModalOpen(true)}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-xs cursor-pointer transition active:scale-98"
+                          >
+                            <Ticket className="h-4 w-4" />
+                            <span>Mở Ví của tôi áp mã ›</span>
+                          </button>
+                          <Link
+                            href="/vouchers"
+                            className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer text-center"
+                            title="Chưa có voucher? Đổi thêm bằng Xu"
+                          >
+                            Đổi Xu lấy mã +
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* SECTION 4: PHƯƠNG THỨC THANH TOÁN */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1154,6 +1310,157 @@ function CheckoutContent() {
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 text-white px-5 py-3 shadow-xl backdrop-blur-md text-xs sm:text-sm font-semibold animate-in slide-in-from-bottom-4 duration-200">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+            {/* Modal Voucher Selector */}
+      {isVoucherModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Ticket className="h-5 w-5 text-fpt-orange" />
+                <h3 className="text-base font-black text-slate-900">Ví Voucher của tôi (Chọn mã Freeship Liên Campus)</h3>
+              </div>
+              <button
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Nhập mã thủ công */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const code = customVoucherInput.trim().toUpperCase();
+                if (!code) return;
+                const matched = myVouchers.find((v) => v.voucherCode.toUpperCase() === code && v.status === 'UNUSED');
+                if (matched) {
+                  setSelectedVoucher(matched);
+                  setIsVoucherModalOpen(false);
+                  setCustomVoucherInput('');
+                  showToast(`🎟️ Đã áp dụng ${matched.voucher.title}!`);
+                } else {
+                  showToast('Mã voucher không tồn tại trong ví của bạn hoặc đã hết hạn!');
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                placeholder="Nhập mã voucher (VD: FUV-SHIP-8A3F2C)"
+                value={customVoucherInput}
+                onChange={(e) => setCustomVoucherInput(e.target.value)}
+                className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-sm sm:text-xs font-medium focus:border-orange-500 focus:outline-hidden uppercase"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck="false"
+              />
+              <button
+                type="submit"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 active:scale-95 transition cursor-pointer shrink-0"
+              >
+                Áp dụng
+              </button>
+            </form>
+
+            {/* Danh sách voucher có sẵn */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              {myVouchers.filter((v) => v.status === 'UNUSED').length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400 space-y-3">
+                  <p>Bạn chưa có mã voucher nào khả dụng trong ví.</p>
+                  <Link
+                    href="/vouchers"
+                    className="inline-block rounded-xl bg-orange-50 border border-orange-200 px-4 py-2 text-xs font-bold text-fpt-orange hover:bg-orange-100"
+                  >
+                    Đến Kho Voucher đổi Xu ngay ›
+                  </Link>
+                </div>
+              ) : (
+                myVouchers
+                  .filter((v) => v.status === 'UNUSED')
+                  .map((item) => {
+                    const isSelected = selectedVoucher?.voucherCode === item.voucherCode;
+                    const isShip =
+                      item.voucher.partner === 'CAMPUS_SHIP' ||
+                      item.voucher.partner === 'OTHER' ||
+                      item.voucher.title.toLowerCase().includes('ship') ||
+                      item.voucher.title.toLowerCase().includes('vận chuyển');
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition ${
+                          isSelected
+                            ? 'border-orange-500 bg-orange-50/40 ring-1 ring-orange-400'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1 pr-3">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-black text-slate-900">
+                              {item.voucher.title}
+                            </span>
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                              isShip
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-orange-100 text-orange-700'
+                            }`}>
+                              {isShip ? 'FREESHIP' : 'GIẢM GIÁ'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                            {item.voucher.description || 'Ưu đãi đổi từ Campus Coins'}
+                          </p>
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            Mã: <strong className="text-slate-700">{item.voucherCode}</strong> • HSD: {item.expiredAt}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <span className="text-xs font-black text-emerald-600">
+                            -{item.voucher.discountValue.toLocaleString('vi-VN')} đ
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedVoucher(item);
+                              setIsVoucherModalOpen(false);
+                              showToast(`🎟️ Đã áp dụng ${item.voucher.title}!`);
+                            }}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-fpt-orange text-white hover:bg-fpt-orange-hover'
+                            }`}
+                          >
+                            {isSelected ? 'Đang dùng' : 'Dùng mã'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <Link
+                href="/vouchers"
+                className="font-bold text-fpt-orange hover:underline flex items-center gap-1"
+              >
+                <span>🪙 Đổi thêm voucher bằng Campus Coins</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-1.5 font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

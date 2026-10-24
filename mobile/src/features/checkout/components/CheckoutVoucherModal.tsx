@@ -49,6 +49,10 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
   const renderVoucherItem = useCallback(
     ({ item }: ListRenderItemInfo<UserVoucher>) => {
       const isSelected = appliedVoucher?.code === item.voucherCode;
+      const isShipVoucher = item.voucher.partner === 'CAMPUS_SHIP' ||
+        item.voucher.partner === 'OTHER' ||
+        item.voucher.title.toLowerCase().includes('ship') ||
+        item.voucher.title.toLowerCase().includes('vận chuyển');
       return (
         <TouchableOpacity
           key={item.id}
@@ -64,13 +68,20 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
           }}
         >
           <View style={styles.modalVoucherLeft}>
-            <View style={styles.ticketIconBg}>
-              <Ionicons name="ticket" size={20} color="#EA580C" />
+            <View style={[styles.ticketIconBg, isShipVoucher && { backgroundColor: '#F3E8FF' }]}>
+              <Ionicons name={isShipVoucher ? "car-outline" : "ticket"} size={20} color={isShipVoucher ? "#7C3AED" : "#EA580C"} />
             </View>
             <View style={styles.voucherInfo}>
-              <Text style={styles.modalVoucherTitle} numberOfLines={1}>
-                {item.voucher.title}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.modalVoucherTitle} numberOfLines={1}>
+                  {item.voucher.title}
+                </Text>
+                {isShipVoucher && (
+                  <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, fontWeight: '800', color: '#7E22CE' }}>FREESHIP</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.modalVoucherDesc} numberOfLines={1}>
                 {item.voucher.description}
               </Text>
@@ -157,7 +168,13 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
             <FlatList
               style={styles.voucherList}
               showsVerticalScrollIndicator={false}
-              data={myVouchers}
+              data={myVouchers
+                .filter((v) => v.status === 'UNUSED')
+                .sort((a, b) => {
+                  const aIsShip = a.voucher.partner === 'CAMPUS_SHIP' || a.voucher.partner === 'OTHER' ? 1 : 0;
+                  const bIsShip = b.voucher.partner === 'CAMPUS_SHIP' || b.voucher.partner === 'OTHER' ? 1 : 0;
+                  return bIsShip - aIsShip;
+                })}
               keyExtractor={(item) => item.id}
               renderItem={renderVoucherItem}
             />

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayoutShell from '@/components/admin/AdminLayoutShell';
 import {
   Ticket,
+  Truck,
   Plus,
   Trash2,
   CheckCircle,
@@ -36,6 +37,7 @@ const PARTNER_LABELS: Record<VoucherPartner, { name: string; color: string; icon
   CANTEEN: { name: 'Căn tin FPT', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Utensils },
   PASSIO: { name: 'Passio Coffee', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: Coffee },
   SEVEN_ELEVEN: { name: '7-Eleven', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Store },
+  CAMPUS_SHIP: { name: 'FPT CampusShip', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Truck },
   OTHER: { name: 'Đối tác khác', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Sparkles },
 };
 
@@ -149,7 +151,7 @@ const DEFAULT_ADMIN_VOUCHERS: BackendVoucher[] = [
     id: 'vch-ship-free',
     title: 'Miễn Phí Vận Chuyển CampusShip',
     description: 'Trợ giá 100% cước giao hàng nội bộ giữa các KTX và liên Campus FPT toàn quốc.',
-    partner: 'OTHER',
+    partner: 'CAMPUS_SHIP',
     coinCost: 25,
     discountValue: 25000,
     quantity: 200,
@@ -466,6 +468,7 @@ export default function AdminVouchersPage() {
                 { label: 'Căn tin FPT', value: 'CANTEEN' },
                 { label: 'Passio Coffee', value: 'PASSIO' },
                 { label: '7-Eleven', value: 'SEVEN_ELEVEN' },
+                { label: 'FPT CampusShip (Freeship)', value: 'CAMPUS_SHIP' },
                 { label: 'Khác', value: 'OTHER' },
               ].map((p) => (
                 <button
@@ -757,6 +760,7 @@ export default function AdminVouchersPage() {
                       <option value="CANTEEN">Căn tin trường FPT</option>
                       <option value="PASSIO">Passio Coffee</option>
                       <option value="SEVEN_ELEVEN">7-Eleven</option>
+                      <option value="CAMPUS_SHIP">FPT CampusShip (Vận chuyển liên Campus)</option>
                       <option value="OTHER">Đối tác khác</option>
                     </select>
                   </div>

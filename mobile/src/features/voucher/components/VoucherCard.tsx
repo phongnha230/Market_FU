@@ -34,6 +34,14 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
           iconName: 'storefront-outline' as const,
           label: '7-Eleven FPT',
         };
+      case 'CAMPUS_SHIP':
+        return {
+          bg: '#F5F3FF',
+          border: '#DDD6FE',
+          text: '#7C3AED',
+          iconName: 'car-outline' as const,
+          label: 'FPT CampusShip',
+        };
       case 'OTHER':
         return {
           bg: '#F5F3FF',
