@@ -660,8 +660,9 @@ export class ProfileService {
         // Thực thi trong ACID Transaction: Kiểm tra số dư Doanh thu Escrow khả dụng
         // (FPT Coin chỉ dùng mua hàng & giảm giá, chỉ có Doanh thu Escrow từ đơn COMPLETED mới được rút)
         return await prisma.$transaction(async (tx) => {
-          // 1. Tính toán tổng doanh thu Escrow từ các đơn hàng bán đã hoàn tất (COMPLETED) qua cổng online (VIETQR / PAYOS_WEB)
+          // 1. Tính toán tổng doanh thu Escrow thực thu từ các đơn hàng bán đã hoàn tất (COMPLETED) qua cổng online (VIETQR / PAYOS_WEB)
           // Đơn thanh toán tiền mặt (CASH) người bán đã nhận tiền trực tiếp tại điểm hẹn nên không được rút thêm từ sàn
+          // Doanh thu khả dụng được tính theo số tiền thực thu của đơn (trừ phí ship) để chống thâm hụt quỹ khi áp dụng Voucher/FPT Coin
           const completedOrders = await tx.order.findMany({
             where: {
               sellerId: userId,
@@ -676,7 +677,10 @@ export class ProfileService {
             },
             select: { payment: true },
           });
-          const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.payment?.price || 0), 0);
+          const totalRevenue = completedOrders.reduce(
+            (sum, o) => sum + Math.max(0, (o.payment?.totalAmount || 0) - (o.payment?.shippingFee || 0)),
+            0
+          );
 
           // 2. Tính các khoản rút tiền đang chờ duyệt hoặc đã duyệt
           const activeWithdrawals = await tx.withdrawalRequest.findMany({

@@ -1014,14 +1014,23 @@ export default function OrderDetailPage() {
 
                   {/* Case 2: SHIPPING (Đang vận chuyển) */}
                   {isOrderShipping && (
-                    <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-1">
+                    <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-2">
                       <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                         <Clock className="h-4 w-4 text-fpt-orange" />
                         <span>Kiện hàng đang trên đường giao</span>
                       </p>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Khi bưu tá phát hàng tới sảnh KTX, nút <strong>Đã nhận hàng an toàn</strong> và <strong>Khiếu nại / Trả hàng</strong> sẽ tự động mở khóa để bạn kiểm tra máy.
+                        Nếu bưu tá đã phát hàng tận tay hoặc bạn đã nhận xong đồ, hãy bấm xác nhận bên dưới để hoàn tất sớm và giải phóng tiền cho người bán.
                       </p>
+                      <Button
+                        type="button"
+                        onClick={handleConfirmReceived}
+                        disabled={isConfirmingDelivery}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs h-9 shadow-xs cursor-pointer"
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                        <span>{isConfirmingDelivery ? 'Đang giải ngân...' : 'Đã nhận hàng tận tay (Xác nhận sớm)'}</span>
+                      </Button>
                     </div>
                   )}
 
@@ -1258,7 +1267,7 @@ export default function OrderDetailPage() {
               )
             ) : (
               /* Buyer Action on Mobile */
-              isOrderDelivered ? (
+              isOrderDelivered || isOrderShipping ? (
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
