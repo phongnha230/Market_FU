@@ -143,7 +143,9 @@ export default function VouchersPage() {
       },
       iconType,
       title: bv.title,
-      subBadge: `Đổi bằng ${bv.coinCost} Coins`,
+      subBadge: bv.minOrderValue && bv.minOrderValue > 0
+        ? `Đơn từ ${bv.minOrderValue.toLocaleString('vi-VN')}đ • ${bv.coinCost} Coins`
+        : `Mọi đơn • ${bv.coinCost} Coins`,
       description:
         bv.description ||
         `Áp dụng giảm trực tiếp ${bv.discountValue.toLocaleString('vi-VN')}đ tại quầy ${partnerLabel} trong campus.`,
@@ -650,6 +652,17 @@ export default function VouchersPage() {
                         <p className="text-xs text-slate-500 line-clamp-2 pt-1">
                           {uv.voucher?.description || 'Áp dụng giảm trực tiếp khi thanh toán tại cơ sở.'}
                         </p>
+                        <div className="pt-1">
+                          {uv.voucher?.minOrderValue && uv.voucher.minOrderValue > 0 ? (
+                            <span className="inline-block rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-extrabold text-purple-700">
+                              Đơn tối thiểu: {uv.voucher.minOrderValue.toLocaleString('vi-VN')} đ
+                            </span>
+                          ) : (
+                            <span className="inline-block rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                              Áp dụng mọi giá trị đơn
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Voucher Code Box */}

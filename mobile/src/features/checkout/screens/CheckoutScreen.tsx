@@ -150,6 +150,7 @@ export const CheckoutScreen: React.FC = () => {
         onNavigateVoucherList={ctrl.handleNavigateVoucherList}
         insetsBottom={insets.bottom}
         formatCurrency={ctrl.formatCurrency}
+        productPrice={ctrl.effectiveProductPrice}
       />
 
       {/* Student Identity KYC Registration Modal */}

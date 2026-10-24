@@ -91,10 +91,19 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
           <Text style={styles.title} numberOfLines={2}>
             {voucher.title}
           </Text>
-          <View style={styles.coinCostPill}>
-            <Text style={styles.coinCostPillText}>
-              Đổi bằng {voucher.coinCost} Coins
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginVertical: 3 }}>
+            <View style={styles.coinCostPill}>
+              <Text style={styles.coinCostPillText}>
+                Đổi bằng {voucher.coinCost} Coins
+              </Text>
+            </View>
+            {voucher.minOrderValue && voucher.minOrderValue > 0 ? (
+              <View style={[styles.coinCostPill, { backgroundColor: '#F3E8FF' }]}>
+                <Text style={[styles.coinCostPillText, { color: '#7E22CE' }]}>
+                  Đơn từ {voucher.minOrderValue.toLocaleString('vi-VN')}đ
+                </Text>
+              </View>
+            ) : null}
           </View>
           <Text style={styles.desc} numberOfLines={2}>
             {voucher.description || 'Áp dụng tại quầy đối tác Campus FPT'}

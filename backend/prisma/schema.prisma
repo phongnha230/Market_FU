@@ -603,6 +603,7 @@ model Voucher {
   partner       VoucherPartner @default(CANTEEN)
   coinCost      Int            // Số Xu cần đổi (VD: 1000 Xu)
   discountValue Int            // Giá trị giảm (VD: 10000 VNĐ)
+  minOrderValue Int            @default(0)   // Giá trị đơn hàng tối thiểu để áp dụng (VD: 100000 VNĐ, 0 là mọi đơn)
   quantity      Int            @default(100) // Số lượng còn lại trong kho
   imageUrl      String?        // Ảnh minh họa voucher
   validDays     Int            @default(30)  // Số ngày sử dụng sau khi đổi

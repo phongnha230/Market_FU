@@ -261,6 +261,16 @@ export class OrderService {
         include: { voucher: true },
       });
       if (userVoucher && userVoucher.voucher) {
+        // Kiểm tra điều kiện giá trị đơn hàng tối thiểu (minOrderValue)
+        const minOrder = userVoucher.voucher.minOrderValue || 0;
+        if (minOrder > 0 && finalProductPrice < minOrder) {
+          throw new AppError(
+            `Voucher "${userVoucher.voucher.title}" chỉ áp dụng cho đơn hàng từ ${minOrder.toLocaleString('vi-VN')} đ trở lên (giá trị sản phẩm hiện tại: ${finalProductPrice.toLocaleString('vi-VN')} đ).`,
+            400,
+            'VOUCHER_MIN_ORDER_NOT_MET'
+          );
+        }
+
         const isShippingVoucher =
           userVoucher.voucher.partner === 'CAMPUS_SHIP' ||
           userVoucher.voucher.partner === 'OTHER' ||
@@ -268,6 +278,13 @@ export class OrderService {
           userVoucher.voucher.title.toLowerCase().includes('ship');
 
         if (isShippingVoucher) {
+          if (orderType === 'MEETUP' || shippingFee <= 0) {
+            throw new AppError(
+              'Voucher Freeship chỉ áp dụng cho đơn hàng vận chuyển liên Campus!',
+              400,
+              'VOUCHER_CROSS_CAMPUS_ONLY'
+            );
+          }
           // Trợ giá cước vận chuyển liên campus: giảm tối đa bằng cước ship thực tế
           voucherDiscount = Math.min(shippingFee, userVoucher.voucher.discountValue);
         } else {

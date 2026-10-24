@@ -10,6 +10,7 @@ export interface BackendVoucher {
   partner: VoucherPartner;
   coinCost: number;
   discountValue: number;
+  minOrderValue?: number;
   quantity: number;
   imageUrl?: string | null;
   validDays: number;
@@ -142,6 +143,7 @@ export const voucherService = {
     partner: VoucherPartner;
     coinCost: number;
     discountValue: number;
+    minOrderValue?: number;
     quantity?: number;
     imageUrl?: string;
     validDays?: number;
@@ -159,6 +161,7 @@ export const voucherService = {
       partner: VoucherPartner;
       coinCost: number;
       discountValue: number;
+      minOrderValue?: number;
       quantity: number;
       isActive: boolean;
     }>

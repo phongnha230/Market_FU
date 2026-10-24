@@ -24,6 +24,12 @@ export const CreateVoucherSchema = z.object({
     .number({ required_error: 'Giá trị voucher (VNĐ) là bắt buộc' })
     .int('Giá trị phải là số nguyên')
     .positive('Giá trị voucher phải lớn hơn 0'),
+  minOrderValue: z.coerce
+    .number()
+    .int('Giá trị đơn tối thiểu phải là số nguyên')
+    .nonnegative('Giá trị đơn tối thiểu không được âm')
+    .default(0)
+    .optional(),
   quantity: z.coerce
     .number()
     .int('Số lượng phải là số nguyên')
