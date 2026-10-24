@@ -611,21 +611,33 @@ export class ReportService {
 
     const orderId = dispute.orderId;
     const isRefund = decision === 'REFUND_BUYER';
+    const now = new Date();
+
+    // Lấy thông tin tài khoản ngân hàng của Người mua để lưu vết hoàn trả tiền mặt Escrow
+    const buyerProfile = await prisma.profile.findUnique({
+      where: { userId: dispute.order.buyerId },
+      select: { campusCoins: true, bankAccount: true },
+    });
 
     await prisma.$transaction(async (tx) => {
+      // Ghi chú chi tiết hoàn tiền nếu có tài khoản ngân hàng của Buyer
+      const resolvedAdminNote = isRefund && buyerProfile?.bankAccount
+        ? `${adminNote?.trim() ? adminNote.trim() + ' | ' : ''}Hoàn tiền ${dispute.order.payment?.totalAmount?.toLocaleString('vi-VN')}đ về STK ${buyerProfile.bankAccount}`
+        : (adminNote?.trim() || null);
+
       // 1. Cập nhật trạng thái Dispute
       await tx.dispute.update({
         where: { id },
         data: {
           status: isRefund ? 'RESOLVED' : 'REJECTED',
-          adminNote: adminNote?.trim() || null,
-          resolvedAt: new Date(),
+          adminNote: resolvedAdminNote,
+          resolvedAt: now,
         },
       });
 
-      // 2. B4-1: Xử lý trạng thái đơn hàng & hoàn trả tiền / Xu / sản phẩm
+      // 2. B4-1: Xử lý trạng thái đơn hàng & hoàn trả tiền / Xu / Voucher / sản phẩm
       if (isRefund) {
-        // Cập nhật Order -> CANCELLED
+        // Cập nhật Order -> CANCELLED và trả trạng thái thanh toán về false
         await tx.order.update({
           where: { id: orderId },
           data: {
@@ -637,19 +649,27 @@ export class ReportService {
           },
         });
 
-        // Khôi phục hàng về AVAILABLE để người bán có thể đăng lại hoặc nhận lại
+        // Chuyển sản phẩm sang HIDDEN để người bán tự kiểm tra lại hàng gửi về trước khi chủ động đăng bán lại
         await tx.product.update({
           where: { id: dispute.order.productId },
-          data: { status: 'AVAILABLE' },
+          data: { status: 'HIDDEN' },
         });
+
+        // Khôi phục Voucher đã dùng nếu có
+        if (dispute.order.payment?.appliedUserVoucherId) {
+          await tx.userVoucher.updateMany({
+            where: {
+              id: dispute.order.payment.appliedUserVoucherId,
+              userId: dispute.order.buyerId,
+              status: 'USED',
+            },
+            data: { status: 'UNUSED', usedAt: null },
+          });
+        }
 
         // B4-1: Hoàn lại đúng số FPT Xu đã dùng cho Người mua
         const coinsUsed = dispute.order.payment?.coinsUsed || 0;
         if (coinsUsed > 0) {
-          const buyerProfile = await tx.profile.findUnique({
-            where: { userId: dispute.order.buyerId },
-            select: { campusCoins: true },
-          });
           const balanceAfter = (buyerProfile?.campusCoins || 0) + coinsUsed;
 
           await tx.profile.update({
@@ -766,6 +786,7 @@ export class ReportService {
             orderCode: true,
             buyerId: true,
             sellerId: true,
+            payment: true,
           },
         },
       },
@@ -784,6 +805,7 @@ export class ReportService {
     }
 
     const orderId = dispute.orderId;
+    const now = new Date();
 
     await prisma.$transaction(async (tx) => {
       await tx.dispute.update({
@@ -791,7 +813,7 @@ export class ReportService {
         data: {
           status: 'CANCELLED',
           adminNote: reason?.trim() ? `Người mua rút khiếu nại: ${reason.trim()}` : 'Người mua tự rút khiếu nại',
-          resolvedAt: new Date(),
+          resolvedAt: now,
         },
       });
 
@@ -799,6 +821,11 @@ export class ReportService {
         where: { id: orderId },
         data: {
           status: 'COMPLETED',
+          payment: {
+            ...dispute.order.payment,
+            isPaid: true,
+            paidAt: dispute.order.payment?.paidAt || now,
+          },
         },
       });
     });

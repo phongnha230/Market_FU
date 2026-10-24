@@ -1267,15 +1267,15 @@ export class OrderService {
       return order;
     }
 
-    if (order.status !== 'DELIVERED') {
+    if (order.status !== 'DELIVERED' && order.status !== 'SHIPPING') {
       throw new AppError(
-        'Hãng vận chuyển chưa xác nhận đơn hàng đã giao',
+        'Đơn hàng chưa ở trạng thái đang giao hoặc đã giao',
         400,
         'INVALID_ORDER_STATUS'
       );
     }
 
-    if (!order.payment.isPaid) {
+    if (order.orderType !== 'SHIP_COD' && !order.payment.isPaid) {
       throw new AppError('Đơn hàng chưa được thanh toán', 400, 'PAYMENT_REQUIRED');
     }
 
@@ -1599,6 +1599,7 @@ export class OrderService {
 
     for (const o of orders) {
       const price = o.payment?.price || 0;
+      const netEscrow = Math.max(0, (o.payment?.totalAmount || 0) - (o.payment?.shippingFee || 0));
       const isOnlineEscrow =
         o.orderType !== 'SHIP_COD' &&
         ['VIETQR', 'PAYOS_WEB'].includes(o.payment?.paymentMethod || 'VIETQR') &&
@@ -1606,7 +1607,7 @@ export class OrderService {
       if (o.status === 'COMPLETED') {
         totalRevenue += price;
         if (isOnlineEscrow) {
-          withdrawableEscrowRevenue += price;
+          withdrawableEscrowRevenue += netEscrow;
         }
         completedOrders += 1;
 
