@@ -128,17 +128,30 @@ export function adaptBackendProduct(item: any): ProductItem {
   if (item.price === 0) badges.push('Tặng miễn phí');
 
   const sellerId = item.sellerId || item.seller?.id || item.seller?.userId || item.seller?._id;
+  const rawRating = typeof item.seller?.rating === 'number'
+    ? item.seller.rating
+    : (typeof item.seller?.profile?.rating === 'number' ? item.seller.profile.rating : null);
+  const rawReviewCount = typeof item.seller?.reviewCount === 'number'
+    ? item.seller.reviewCount
+    : (typeof item.seller?.profile?.reviewCount === 'number' ? item.seller.profile.reviewCount : 0);
+  const rawDealCount = typeof item.seller?.dealCount === 'number'
+    ? item.seller.dealCount
+    : (typeof item.seller?.profile?.dealCount === 'number' ? item.seller.profile.dealCount : 0);
+
+  const rawAvatar = item.seller?.avatarUrl || item.seller?.profile?.avatarUrl;
+  const avatarUrl = typeof rawAvatar === 'string' && rawAvatar.trim() ? rawAvatar.trim() : undefined;
+
   const sellerObj: Seller = {
     id: sellerId,
     name: item.seller?.profile?.fullName || item.seller?.fullName || item.seller?.name || 'Sinh viên FPT',
     cohort: item.seller?.profile?.campus ? formatCampusTag(item.seller.profile.campus) : (item.seller?.studentVerification?.studentId || item.seller?.cohort || 'FPT University'),
     initial: ((item.seller?.profile?.fullName || item.seller?.fullName || item.seller?.name || 'U')[0] || 'U').toUpperCase(),
     verified: item.seller?.profile?.isKycVerified || item.seller?.studentVerification?.status === 'APPROVED' || item.seller?.verified === true,
-    avatarUrl: item.seller?.profile?.avatarUrl || item.seller?.avatarUrl || undefined,
-    rating: item.seller?.profile?.reputationScore ? Math.min(5.0, Number((item.seller.profile.reputationScore / 20).toFixed(1))) : (item.seller?.reputationScore ? Math.min(5.0, Number((item.seller.reputationScore / 20).toFixed(1))) : 0),
-    reviewCount: item.seller?.reviewCount || 0,
-    dealCount: item.seller?.dealCount || 0,
-    responseRate: '0%',
+    avatarUrl,
+    rating: rawReviewCount > 0 && typeof rawRating === 'number' ? rawRating : (rawReviewCount > 0 ? 5.0 : undefined),
+    reviewCount: rawReviewCount,
+    dealCount: rawDealCount,
+    responseRate: item.seller?.responseRate || (rawDealCount > 0 ? '~15 phút (Rất nhanh)' : 'Mới tham gia'),
     email: item.seller?.email || item.seller?.profile?.email,
     phoneNumber: item.seller?.phoneNumber || item.seller?.profile?.phoneNumber || item.seller?.phone,
   };
