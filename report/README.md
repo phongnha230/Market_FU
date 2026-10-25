@@ -16,7 +16,8 @@ report/
 │
 ├── backend/                                           <-- Phân hệ Máy chủ & API RESTful / Socket
 │   ├── 00_BACKEND_OVERVIEW_AND_ENDPOINTS.md           <-- Danh mục các endpoint API cốt lõi
-│   └── 01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md   <-- Kiểm toán tính toàn vẹn dữ liệu, quan hệ Prisma & Test Suites
+│   ├── 01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md   <-- Kiểm toán tính toàn vẹn dữ liệu, quan hệ Prisma & Test Suites
+│   └── backend_audit_report.md                        <-- Rà soát API endpoints chưa khai thác hết & hạn mức rate-limiting
 │
 ├── frontend/                                          <-- Phân hệ Web Client (Next.js / React)
 │   ├── 00_FRONTEND_OVERVIEW_AND_ARCHITECTURE.md       <-- Kiến trúc giao diện Web
@@ -27,7 +28,8 @@ report/
 │   ├── 05_REDIS_REALTIME_TRENDING_SEARCHES.md         <-- Top từ khóa thịnh hành Redis
 │   ├── 06_DISPUTE_RESOLUTION_AND_WITHDRAWAL.md        <-- Tự rút khiếu nại tranh chấp
 │   ├── 07_CODE_OPTIMIZATION_AND_MODULAR_REFACTORING.md<-- Tối ưu Clean Code & Modular
-│   └── 08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md<-- [MỚI] Triệt tiêu dữ liệu ảo, đổi mật khẩu & KYC thật, sửa nút liệt
+│   ├── 08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md<-- Triệt tiêu dữ liệu ảo, đổi mật khẩu & KYC thật, sửa nút liệt
+│   └── frontend_audit_report.md                       <-- Rà soát modal đổi mật khẩu, KYC, review & nút chức năng
 │
 └── mobile/                                            <-- Phân hệ Ứng dụng Di động (React Native / Expo)
     ├── 00_OVERVIEW_AND_METRICS.md                     <-- Chỉ số và hiệu năng ứng dụng di động
@@ -47,8 +49,9 @@ report/
     ├── 14_WEB_PARITY_SYNC_REPORT.md                   <-- So khớp độ tương đồng Web - Mobile
     ├── 15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md <-- Xóa fallback ảo, nạp/rút tiền thật, nối AI Vision quét ảnh
     ├── 16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md <-- Sửa lỗi văng app (Circular Dependency useAuthStore) khi vào Trang chủ trên APK
-    ├── 17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md <-- Sửa lỗi Trang chủ rỗng (không tải được sản phẩm) do lệch môi trường EAS & kết nối VPS
-    └── 18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md <-- [MỚI] Sửa chọn tài khoản Google, Realtime tin nhắn trong phòng chat & In-App Banner trắng sang trọng
+    ├── 17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md <-- Sửa lỗi Trang chủ rỗng do lệch môi trường EAS & kết nối VPS
+    ├── 18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md <-- Sửa chọn tài khoản Google, Realtime tin nhắn & Banner trắng
+    └── mobile_optimization_and_audit_report.md        <-- Tối ưu hóa toàn bộ màn hình, dọn dẹp component rác & cuộn 60fps
 ```
 
 ---
@@ -59,7 +62,9 @@ report/
 - **Quản lý dữ liệu nghiêm ngặt**: Đảm bảo toàn bộ quan hệ trong MongoDB Prisma (`Report`, `User`, `Order`, `Review`) xử lý nhất quán khi có tài khoản hoặc dữ liệu bị xóa (chống crash 500 với orphan records).
 - **Kiểm soát phân quyền & hạn mức**: Giới hạn đăng tin tối đa 3 tin/tháng đối với người dùng thông thường (`BUYER`); chỉ tài khoản Người Bán đã xác thực (`SELLER`) mới được đăng tin không giới hạn.
 - **Bảo mật & Rate Limiter**: Kiểm soát chặt chẽ các API Gemini Vision, Chatbot và giao dịch tiền/xu, ngăn chặn gian lận số dư qua client.
-- **Chi tiết tại:** [`report/backend/01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md`](./backend/01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md)
+- **Chi tiết tại:**
+  - [`01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md`](./backend/01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md)
+  - [`backend_audit_report.md`](./backend/backend_audit_report.md)
 
 ### 2. Phân hệ Web Frontend (`report/frontend/`)
 - **Triệt tiêu 3 lỗ hổng Fake nghiêm trọng**:
@@ -70,7 +75,9 @@ report/
   - Nút "Nhắn tin >" trên thẻ người bán (`SellerTrustCard`) tự động tạo hội thoại thật và mở khung chat.
   - Nút "Xem bài đăng gốc" trong mục Yêu thích trỏ chính xác vào ID sản phẩm.
   - Nút phóng to ảnh (`ProductGallery`) mở lightbox xem ảnh kích thước đầy đủ.
-- **Chi tiết tại:** [`report/frontend/08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md`](./frontend/08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md)
+- **Chi tiết tại:**
+  - [`08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md`](./frontend/08_REAL_DATA_ALIGNMENT_AND_DEAD_BUTTON_FIXES.md)
+  - [`frontend_audit_report.md`](./frontend/frontend_audit_report.md)
 
 ### 3. Phân hệ Mobile App (`report/mobile/`)
 - **Xóa bỏ toàn bộ cơ chế giả lập Offline**:
@@ -81,10 +88,15 @@ report/
 - **Kết nối AI Vision Thật**:
   - Loại bỏ hoàn toàn `AI_PRESETS` và `setTimeout` giả lập.
   - Nối trực tiếp luồng chụp ảnh sản phẩm với `POST /api/ai/vision-post` để Gemini AI phân tích hình ảnh, định giá và điền tự động 100% dữ liệu thực tế.
-- **Chi tiết tại:** [`report/mobile/15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md`](./mobile/15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md)
-- **Sửa crash APK khi vào Home**: Khử vòng lặp phụ thuộc `useAuthStore` <-> `apiClient` trên máy ảo JS Hermes của Android. Chi tiết: [`report/mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md`](./mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md)
-- **Khắc phục lỗi không tải được sản phẩm trên APK Build**: Đồng bộ biến môi trường EAS VPS `https://api.jintdp.dpdns.org/api`. Chi tiết: [`report/mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md`](./mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md)
-- **Chọn tài khoản Google, Chat Realtime & Banner Trắng**: Bật Account Chooser Google, tự động sync auth token socket phòng chat, thiết kế in-app notification banner nền trắng có logo & avatar. Chi tiết: [`report/mobile/18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md`](./mobile/18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md)
+- **Tối ưu cuộn mượt 60fps & dọn dẹp component thừa**:
+  - Áp dụng `React.memo` & `useCallback` cho mọi danh sách lớn (`HomeScreen`, `ProductListScreen`, `SearchScreen`).
+  - Xóa sạch 6 component mồ côi trong `features/home/` và hợp nhất modal xác thực trùng lặp 480 dòng.
+- **Chi tiết tại:**
+  - [`15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md`](./mobile/15_ELIMINATE_MOCK_FALLBACKS_AND_AI_VISION_WIRING.md)
+  - [`16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md`](./mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md)
+  - [`17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md`](./mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md)
+  - [`18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md`](./mobile/18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md)
+  - [`mobile_optimization_and_audit_report.md`](./mobile/mobile_optimization_and_audit_report.md)
 
 ---
 
