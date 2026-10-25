@@ -24,6 +24,7 @@ interface OrderQrModalProps {
   onClose: () => void;
   order?: OrderItem | null;
   onSuccess?: () => void;
+  initialTab?: 'buyer' | 'seller';
 }
 
 export default function OrderQrModal({
@@ -31,6 +32,7 @@ export default function OrderQrModal({
   onClose,
   order,
   onSuccess,
+  initialTab,
 }: OrderQrModalProps) {
   const addCoins = useUserStore((state) => state.addCoins);
   const currentUser = useUserStore((state) => state.user);
@@ -50,7 +52,9 @@ export default function OrderQrModal({
     if (!isOpen || !order) return;
     let isMounted = true;
 
-    if (order.sellerId && currentUser?.id === order.sellerId) {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    } else if (order.sellerId && currentUser?.id === order.sellerId) {
       setActiveTab('seller');
     } else {
       setActiveTab('buyer');

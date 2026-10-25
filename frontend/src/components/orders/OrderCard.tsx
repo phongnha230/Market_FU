@@ -15,6 +15,7 @@ import {
   Compass,
   QrCode,
   XCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
@@ -221,17 +222,33 @@ export default function OrderCard({
         <div className="mx-4 sm:mx-5 mb-3 rounded-xl bg-orange-50/50 border border-orange-100 p-3 text-xs">
           <div className="flex items-center justify-between gap-1 mb-2">
             <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Truck className="h-3.5 w-3.5 text-fpt-orange" />
-              {order.tracking.routeTitle}
+              {order.type === 'safe-handoff' ? (
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <Truck className="h-3.5 w-3.5 text-fpt-orange" />
+              )}
+              {order.type === 'safe-handoff'
+                ? `Safe-Point: ${order.product?.subtitle || 'Sảnh Tòa Alpha'}`
+                : order.tracking.routeTitle}
             </span>
             <span className="font-bold text-fpt-orange text-[11px]">
-              {order.tracking.estimatedArrival}
+              {order.type === 'safe-handoff'
+                ? (order.appointmentTime ? new Date(order.appointmentTime).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : 'Hẹn gặp trực tiếp')
+                : order.tracking.estimatedArrival}
             </span>
           </div>
 
           {/* 4 Hub Steps */}
           <div className="grid grid-cols-4 gap-2 text-center text-[10px] mb-2">
-            {order.tracking.steps.map((st, sIdx) => (
+            {(order.type === 'safe-handoff'
+              ? [
+                  { title: 'Đặt cọc', status: 'completed' },
+                  { title: 'Chốt hẹn', status: 'completed' },
+                  { title: 'Bàn giao QR', status: 'current' },
+                  { title: 'Giải ngân', status: 'pending' },
+                ]
+              : order.tracking.steps
+            ).map((st, sIdx) => (
               <div key={sIdx} className="flex flex-col items-center">
                 <div
                   className={`h-1.5 w-full rounded-full mb-1 ${
@@ -310,15 +327,30 @@ export default function OrderCard({
           {/* Seller Actions */}
           {isSellerViewer ? (
             <>
-              {((order.status as string) === 'pending' || order.status === 'processing') && onShipOrder && (
-                <Button
-                  type="button"
-                  onClick={() => onShipOrder(order)}
-                  className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                >
-                  <Truck className="h-3.5 w-3.5 text-white" />
-                  <span>Bàn giao GHN</span>
-                </Button>
+              {((order.status as string) === 'pending' || order.status === 'processing') && (
+                order.type === 'safe-handoff' ? (
+                  onOpenQrModal && (
+                    <Button
+                      type="button"
+                      onClick={() => onOpenQrModal(order)}
+                      className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <QrCode className="h-3.5 w-3.5 text-white" />
+                      <span>Xác thực Safe-Point</span>
+                    </Button>
+                  )
+                ) : (
+                  onShipOrder && (
+                    <Button
+                      type="button"
+                      onClick={() => onShipOrder(order)}
+                      className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Truck className="h-3.5 w-3.5 text-white" />
+                      <span>Bàn giao GHN</span>
+                    </Button>
+                  )
+                )
               )}
               {order.status === 'disputed' && (
                 <Button
@@ -357,6 +389,17 @@ export default function OrderCard({
           ) : (
             <>
               {/* Buyer Actions */}
+              {!canShowImmediatePayment && order.type === 'safe-handoff' && (order.status === 'pending' || order.status === 'processing') && onOpenQrModal && (
+                <Button
+                  type="button"
+                  onClick={() => onOpenQrModal(order)}
+                  variant="outline"
+                  className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <QrCode className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Mã QR Handshake / OTP</span>
+                </Button>
+              )}
               {canShowImmediatePayment && (
                 <>
                   <Button

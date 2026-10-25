@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { OrderItem } from '@/stores/orderStore';
-import { X, Truck, CheckCircle2, Clock, MapPin, Package, Phone, RefreshCw, Sparkles } from 'lucide-react';
+import { X, Truck, CheckCircle2, Clock, MapPin, Package, Phone, RefreshCw, Sparkles, ShieldCheck } from 'lucide-react';
 import { orderService } from '@/services/orderService';
 import { Badge } from '@/components/ui';
 
@@ -50,18 +50,70 @@ export default function OrderTrackingModal({
 
   if (!order) return null;
 
-  const trackingCode = liveTracking?.trackingCode || order.tracking?.trackingCode || (order as any).shipping?.trackingCode || 'FPT-SHIP-99410';
-  const partner = liveTracking?.shippingPartner || order.tracking?.currentLocation || 'GHN Express';
-  const routeTitle = liveTracking?.routeTitle || order.tracking?.routeTitle || 'Tuyến Chuyển phát liên Hub Campus FPT';
-  const estimatedArrival = liveTracking?.estimatedArrival || order.tracking?.estimatedArrival || 'Dự kiến 1 - 2 ngày tới';
-  const steps = liveTracking?.steps || order.tracking?.steps || [
-    { title: 'Tiếp nhận đơn hàng', desc: 'Đã tạo trên hệ thống', status: 'completed' },
-    { title: 'Đóng gói & Bưu tá nhận', desc: 'Đã bàn giao bưu cục', status: order.status !== 'processing' ? 'completed' : 'current' },
-    { title: 'Vận chuyển liên Hub', desc: partner, status: order.status === 'shipping' ? 'current' : order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
-    { title: 'Giao hàng tới KTX', desc: 'Sảnh KTX điểm đến', status: order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
+  const isSafeHandoff = order.type === 'safe-handoff' || (order as any).orderType === 'MEETUP';
+
+  const trackingCode = isSafeHandoff
+    ? (order.handshake?.handshakeOtp ? `OTP-${order.handshake.handshakeOtp}` : order.code)
+    : liveTracking?.trackingCode || order.tracking?.trackingCode || (order as any).shipping?.trackingCode || 'FPT-SHIP-99410';
+
+  const partner = isSafeHandoff
+    ? 'Safe-Point FPT (Giao dịch trực tiếp)'
+    : liveTracking?.shippingPartner || order.tracking?.currentLocation || 'GHN Express';
+
+  const routeTitle = isSafeHandoff
+    ? (order.product?.subtitle ? `Điểm hẹn: ${order.product.subtitle}` : 'Điểm hẹn Safe-Point • Hola Campus')
+    : liveTracking?.routeTitle || order.tracking?.routeTitle || 'Tuyến Chuyển phát liên Hub Campus FPT';
+
+  const estimatedArrival = isSafeHandoff
+    ? (order.appointmentTime ? new Date(order.appointmentTime).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại sảnh Safe-Point')
+    : liveTracking?.estimatedArrival || order.tracking?.estimatedArrival || 'Dự kiến 1 - 2 ngày tới';
+
+  const isPaid = Boolean(order.payment?.isPaid);
+  const isCompleted = order.status === 'completed';
+  const isDelivered = order.status === 'delivered' || isCompleted;
+  const isHandoffReady = order.status === 'processing' || order.status === 'shipping' || isDelivered;
+
+  const safeHandoffSteps = [
+    {
+      title: 'Đặt cọc Escrow bảo hộ',
+      desc: isPaid
+        ? 'Đã đặt cọc 100% vào Quỹ Campus Escrow bảo vệ an toàn'
+        : 'Chờ người mua thanh toán tiền cọc Escrow (PayOS / VietQR)',
+      status: isPaid ? 'completed' : 'current',
+      time: order.timeLabel,
+    },
+    {
+      title: 'Chốt hẹn Safe-Point',
+      desc: order.appointmentTime
+        ? `Lịch hẹn: ${new Date(order.appointmentTime).toLocaleString('vi-VN')} tại ${order.product?.subtitle || 'Sảnh Tòa Alpha'}`
+        : `Điểm hẹn: ${order.product?.subtitle || 'Sảnh chính Tòa Alpha (Tầng 1)'} • Camera AI 24/7`,
+      status: isPaid ? 'completed' : 'pending',
+    },
+    {
+      title: 'Bàn giao & Test máy tại trạm',
+      desc: isDelivered
+        ? 'Đã đối soát sản phẩm & quét mã QR / OTP thành công'
+        : 'Gặp mặt đối soát, test máy và xuất trình mã QR / OTP',
+      status: isDelivered ? 'completed' : isHandoffReady ? 'current' : 'pending',
+    },
+    {
+      title: 'Giải ngân Escrow & Hoàn tất',
+      desc: isCompleted
+        ? 'Đã giải ngân tiền về ví Người bán • Kích hoạt 48 giờ bao test'
+        : 'Tiền cọc Escrow tự động giải ngân về ví Người bán khi bàn giao xong',
+      status: isCompleted ? 'completed' : 'pending',
+    },
   ];
 
-  const handleSyncTracking = async () => {
+  const steps = isSafeHandoff
+    ? (liveTracking?.steps && liveTracking.steps.some((s: any) => s.title.includes('Escrow') || s.title.includes('Safe-Point')) ? liveTracking.steps : safeHandoffSteps)
+    : (liveTracking?.steps || order.tracking?.steps || [
+        { title: 'Tiếp nhận đơn hàng', desc: 'Đã tạo trên hệ thống', status: 'completed' },
+        { title: 'Đóng gói & Bưu tá nhận', desc: 'Đã bàn giao bưu cục', status: order.status !== 'processing' ? 'completed' : 'current' },
+        { title: 'Vận chuyển liên Hub', desc: partner, status: order.status === 'shipping' ? 'current' : order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
+        { title: 'Giao hàng tới KTX', desc: 'Sảnh KTX điểm đến', status: order.status === 'delivered' || order.status === 'completed' ? 'completed' : 'pending' },
+      ]);
+const handleSyncTracking = async () => {
     try {
       setSyncing(true);
       const updated = await orderService.getOrderTracking(order.id || order.code.replace('#', ''));

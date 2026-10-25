@@ -1601,48 +1601,100 @@ export class OrderService {
     const isShipped = order.status === 'SHIPPING' || order.status === 'DELIVERED' || order.status === 'COMPLETED';
     const isDelivered = order.status === 'DELIVERED' || order.status === 'COMPLETED';
 
-    const steps = [
-      {
-        title: 'Tiếp nhận đơn hàng',
-        desc: `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
-        status: 'completed',
-        time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
-      },
-      {
-        title: 'Đóng gói & Bưu tá nhận',
-        desc: isShipped ? `Đã bàn giao bưu cục (${partner})` : 'Người bán đang chuẩn bị đóng gói',
-        status: isShipped ? 'completed' : order.status === 'PENDING' ? 'current' : 'pending',
-        time: isShipped && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
-      },
-      {
-        title: 'Trung chuyển liên Campus',
-        desc: isShipped ? (ghnData?.currentLocation || matrixInfo.transitHub) : `Tuyến ${matrixInfo.routeTitle}`,
-        status: order.status === 'SHIPPING' ? 'current' : isDelivered ? 'completed' : 'pending',
-      },
-      {
-        title: 'Giao hàng tới KTX',
-        desc: isDelivered ? 'Đã giao thành công tại sảnh KTX' : `Dự kiến: ${matrixInfo.estimatedDays}`,
-        status: isDelivered ? 'completed' : 'pending',
-        time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
-      },
-    ];
+    const isMeetup =
+      order.orderType === 'MEETUP' ||
+      (order.orderType as string) === 'SAFE_HANDOFF' ||
+      (order.orderType as string) === 'safe-handoff';
+
+    const isPaid = Boolean(order.payment?.isPaid) || (order.payment as any)?.status === 'PAID';
+    const isCompleted = order.status === 'COMPLETED';
+    const isHandoffReady = order.status === 'PAID' || order.status === 'SHIPPING' || isDelivered;
+    const safePointName = (order.shipping as any)?.meetupLocation || (order.product as any)?.subtitle || 'Sảnh chính Tòa Alpha (Tầng 1)';
+
+    const steps = isMeetup
+      ? [
+          {
+            title: 'Đặt cọc Escrow bảo hộ',
+            desc: isPaid
+              ? 'Đã đặt cọc 100% vào Quỹ Campus Escrow bảo vệ an toàn'
+              : 'Chờ người mua hoàn tất thanh toán cọc Escrow (PayOS)',
+            status: isPaid ? 'completed' : 'current',
+            time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
+          },
+          {
+            title: 'Chốt hẹn Safe-Point',
+            desc: (order.shipping as any)?.appointmentTime
+              ? `Lịch hẹn: ${new Date((order.shipping as any).appointmentTime).toLocaleString('vi-VN')} tại ${safePointName}`
+              : `Điểm hẹn: ${safePointName} • Camera AI 24/7`,
+            status: isPaid ? 'completed' : 'pending',
+          },
+          {
+            title: 'Bàn giao & Test máy tại trạm',
+            desc: isDelivered
+              ? 'Đã đối soát sản phẩm & xác thực mã QR / OTP thành công'
+              : 'Gặp mặt đối soát, test máy và xuất trình mã QR / OTP',
+            status: isDelivered ? 'completed' : isHandoffReady ? 'current' : 'pending',
+            time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
+          },
+          {
+            title: 'Giải ngân Escrow & Hoàn tất',
+            desc: isCompleted
+              ? 'Đã giải ngân tiền về ví Người bán • Kích hoạt 48 giờ bao test'
+              : 'Tiền cọc Escrow tự động giải ngân về ví Người bán khi bàn giao xong',
+            status: isCompleted ? 'completed' : 'pending',
+            time: isCompleted && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
+          },
+        ]
+      : [
+          {
+            title: 'Tiếp nhận đơn hàng',
+            desc: `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
+            status: 'completed',
+            time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
+          },
+          {
+            title: 'Đóng gói & Bưu tá nhận',
+            desc: isShipped ? `Đã bàn giao bưu cục (${partner})` : 'Người bán đang chuẩn bị đóng gói',
+            status: isShipped ? 'completed' : order.status === 'PENDING' ? 'current' : 'pending',
+            time: isShipped && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
+          },
+          {
+            title: 'Trung chuyển liên Campus',
+            desc: isShipped ? (ghnData?.currentLocation || matrixInfo.transitHub) : `Tuyến ${matrixInfo.routeTitle}`,
+            status: order.status === 'SHIPPING' ? 'current' : isDelivered ? 'completed' : 'pending',
+          },
+          {
+            title: 'Giao hàng tới KTX',
+            desc: isDelivered ? 'Đã giao thành công tại sảnh KTX' : `Dự kiến: ${matrixInfo.estimatedDays}`,
+            status: isDelivered ? 'completed' : 'pending',
+            time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
+          },
+        ];
 
     return {
       orderId: order.id,
       orderCode: order.orderCode,
       status: order.status,
       orderType: order.orderType,
-      shippingPartner: partner,
-      trackingCode,
-      shippingAddress: order.shipping?.shippingAddress,
+      shippingPartner: isMeetup ? 'Safe-Point FPT (Giao dịch trực tiếp)' : partner,
+      trackingCode: isMeetup
+        ? (order.handshake?.handshakeOtp ? `OTP-${order.handshake.handshakeOtp}` : order.orderCode)
+        : trackingCode,
+      shippingAddress: order.shipping?.shippingAddress || (order.shipping as any)?.meetupLocation,
       receiverName: order.shipping?.receiverName,
       receiverPhone: order.shipping?.receiverPhone,
-      routeTitle: matrixInfo.routeTitle,
-      estimatedArrival: matrixInfo.estimatedDays,
-      currentLocation: ghnData?.currentLocation || (isDelivered ? 'Sảnh KTX điểm đến' : isShipped ? matrixInfo.transitHub : 'Chờ lấy hàng'),
+      routeTitle: isMeetup
+        ? `Điểm hẹn Safe-Point • Nội bộ Campus ${fromCampus}`
+        : matrixInfo.routeTitle,
+      estimatedArrival: isMeetup
+        ? ((order.shipping as any)?.appointmentTime ? new Date((order.shipping as any).appointmentTime).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại Safe-Point')
+        : matrixInfo.estimatedDays,
+      currentLocation: isMeetup
+        ? (isCompleted ? 'Đã giải ngân Escrow • Hoàn tất' : isDelivered ? 'Đang trong 48h bao test' : 'Sẵn sàng gặp mặt tại Safe-Point')
+        : (ghnData?.currentLocation || (isDelivered ? 'Sảnh KTX điểm đến' : isShipped ? matrixInfo.transitHub : 'Chờ lấy hàng')),
       steps,
-      ghnLogs: ghnData?.logs || [],
-      shipper: ghnData?.shipperName ? { name: ghnData.shipperName, phone: ghnData.shipperPhone } : undefined,
+      ghnLogs: isMeetup ? [] : (ghnData?.logs || []),
+      shipper: isMeetup ? undefined : (ghnData?.shipperName ? { name: ghnData.shipperName, phone: ghnData.shipperPhone } : undefined),
     };
   }
 
