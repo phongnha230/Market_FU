@@ -51,7 +51,7 @@ function DisputeContent() {
     }
   }, [orderCodeParam]);
 
-  const matchedOrder = storeOrder || backendOrder;
+  const matchedOrder = backendOrder || storeOrder;
   const isInterCampus =
     matchedOrder?.type === 'inter-campus' ||
     (matchedOrder as any)?.orderType === 'SHIP_COD' ||
@@ -108,7 +108,7 @@ function DisputeContent() {
     setIsSubmitting(true);
 
     try {
-      const orderId = matchedOrder?.id || cleanCode.replace('#', '');
+      const orderId = backendOrder?.id || matchedOrder?.id || cleanCode.replace('#', '');
       const proofVideoUrl = uploadedProofVideoUrl || 'https://storage.marketfu.com/disputes/video-unbox-test.mp4';
       const reasonLabel = selectedReason === 'defect' ? 'Hàng lỗi kỹ thuật/hỏng hóc khi test' : 'Hàng không đúng như mô tả trên sàn';
 

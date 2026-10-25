@@ -334,7 +334,7 @@ export class ReportService {
   /**
    * Người mua mở khiếu nại trong thời hạn Bao test (24h - 48h)
    */
-  async createDispute(buyerId: string, input: CreateDisputeInput) {
+  async createDispute(buyerId: string, input: CreateDisputeInput, userRole?: string) {
     const { orderId, reason, proofVideoUrl } = input;
 
     const cleanCode = orderId.replace(/^#/, '');
@@ -357,7 +357,7 @@ export class ReportService {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
-    if (order.buyerId !== buyerId) {
+    if (order.buyerId !== buyerId && userRole !== 'ADMIN') {
       throw new AppError('Bạn không phải là người mua của đơn hàng này', 403, 'FORBIDDEN');
     }
 
@@ -375,7 +375,12 @@ export class ReportService {
     }
 
     // B4-2: Kiểm tra thời hạn bao test (warrantyEndsAt)
-    if (!order.warrantyEndsAt || new Date() > order.warrantyEndsAt) {
+    const now = new Date();
+    const effectiveWarrantyEnd = order.warrantyEndsAt
+      ? order.warrantyEndsAt
+      : new Date(order.updatedAt.getTime() + (order.warrantyHours || 48) * 3600 * 1000);
+
+    if (now > effectiveWarrantyEnd && (now.getTime() - order.updatedAt.getTime() > 48 * 3600 * 1000)) {
       throw new AppError(
         'Đã hết thời hạn bao test sản phẩm hoặc đơn hàng chưa kích hoạt thời hạn bao test.',
         400,
@@ -387,7 +392,7 @@ export class ReportService {
       const newDispute = await tx.dispute.create({
         data: {
           orderId: order.id,
-          claimantId: buyerId,
+          claimantId: order.buyerId,
           reason: reason.trim(),
           proofVideoUrl: proofVideoUrl.trim(),
           status: 'PENDING',

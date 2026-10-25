@@ -1382,7 +1382,7 @@ export class OrderService {
         where: { id: order.id },
         data: {
           status: 'COMPLETED',
-          warrantyEndsAt: now,
+          warrantyEndsAt: new Date(now.getTime() + (order.warrantyHours || 48) * 60 * 60 * 1000),
           payment: {
             ...order.payment,
             isPaid: true,

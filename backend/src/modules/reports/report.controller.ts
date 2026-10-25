@@ -113,8 +113,9 @@ export class ReportController {
     try {
       const authReq = req as AuthRequest;
       const buyerId = authReq.user!.userId;
+      const userRole = authReq.user?.role;
       const input = CreateDisputeSchema.parse(req.body);
-      const dispute = await reportService.createDispute(buyerId, input);
+      const dispute = await reportService.createDispute(buyerId, input, userRole);
       return sendSuccess(res, dispute, undefined, 201);
     } catch (error) {
       next(error);

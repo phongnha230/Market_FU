@@ -58,10 +58,10 @@ apiClient.interceptors.request.use(
         adminToken = useAdminStore.getState().accessToken;
       } catch {}
 
-      const isAdminEndpoint = config.url?.startsWith('/reports') || config.url?.startsWith('/admin');
       const isAdminPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+      const isAdminEndpoint = config.url?.startsWith('/admin') || (isAdminPage && config.url?.startsWith('/reports'));
 
-      const token = (isAdminEndpoint || isAdminPage) ? (adminToken || userToken) : (userToken || adminToken);
+      const token = isAdminPage ? (adminToken || userToken) : (userToken || adminToken);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
