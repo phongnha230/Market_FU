@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -125,6 +125,18 @@ function CheckoutContent() {
     if (dateVal === 'tomorrow') return 'Ngày mai';
     const parts = dateVal.split('-');
     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateVal;
+  };
+
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenDatePicker = () => {
+    if (dateInputRef.current) {
+      try {
+        dateInputRef.current.showPicker();
+      } catch {
+        dateInputRef.current.focus();
+      }
+    }
   };
 
   // Delivery notes state
@@ -751,20 +763,30 @@ function CheckoutContent() {
                         >
                           Ngày mai
                         </button>
-                        <div
-                          className={`relative py-2 px-1.5 rounded-xl text-xs font-bold border transition cursor-pointer text-center flex items-center justify-center gap-1 ${
-                            appointmentDate !== 'today' && appointmentDate !== 'tomorrow'
-                              ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>{appointmentDate !== 'today' && appointmentDate !== 'tomorrow' ? getDisplayDateText(appointmentDate) : '📅 Chọn ngày'}</span>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={handleOpenDatePicker}
+                            className={`w-full py-2 px-1.5 rounded-xl text-xs font-bold border transition cursor-pointer text-center flex items-center justify-center gap-1 ${
+                              appointmentDate !== 'today' && appointmentDate !== 'tomorrow'
+                                ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{appointmentDate !== 'today' && appointmentDate !== 'tomorrow' ? getDisplayDateText(appointmentDate) : '📅 Chọn ngày'}</span>
+                          </button>
                           <input
+                            ref={dateInputRef}
                             type="date"
                             min={new Date().toISOString().split('T')[0]}
                             value={appointmentDate !== 'today' && appointmentDate !== 'tomorrow' ? appointmentDate : ''}
-                            onChange={(e) => e.target.value && setAppointmentDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setAppointmentDate(e.target.value);
+                              }
+                            }}
+                            className="absolute opacity-0 pointer-events-none w-0 h-0"
+                            tabIndex={-1}
                           />
                         </div>
                       </div>

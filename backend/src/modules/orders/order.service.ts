@@ -1204,6 +1204,65 @@ export class OrderService {
       emitToUser(targetUserId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
     }
 
+    // Tự động đẩy thông báo hủy đơn vào cuộc trò chuyện giữa 2 bên
+    try {
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          productId: order.productId,
+          OR: [
+            { buyerId: order.buyerId, sellerId: order.sellerId },
+            { buyerId: order.sellerId, sellerId: order.buyerId },
+          ],
+        },
+      });
+
+      if (conversation) {
+        const cancelMessageText = `[ORDER_CANCELLED] Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}. Tiền cọc Escrow và sản phẩm đã được tự động hoàn trả.`;
+        const senderId = actorId === 'SYSTEM' ? order.sellerId : actorId;
+
+        const savedCancelMessage = await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId,
+            messageType: 'TEXT',
+            text: cancelMessageText,
+          },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                email: true,
+                profile: {
+                  select: {
+                    fullName: true,
+                    avatarUrl: true,
+                    campus: true,
+                    reputationScore: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessageText: `[Đã hủy đơn #${order.orderCode}]`,
+            lastMessageAt: savedCancelMessage.createdAt,
+          },
+        });
+
+        const io = getIO();
+        io?.to(`conversation_${conversation.id}`).emit('receive_message', savedCancelMessage);
+      }
+    } catch (chatError) {
+      console.error('Order was cancelled but conversation broadcast failed', {
+        orderCode: order.orderCode,
+        error: chatError,
+      });
+    }
+
     return cancelledOrder;
   }
 

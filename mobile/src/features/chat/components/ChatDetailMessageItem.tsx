@@ -312,6 +312,51 @@ const ChatOrderTicketBubble: React.FC<ChatOrderTicketBubbleProps> = ({ item, isM
   );
 };
 
+interface ChatOrderCancelledBubbleProps {
+  item: MessageItem;
+}
+
+const ChatOrderCancelledBubble: React.FC<ChatOrderCancelledBubbleProps> = ({ item }) => {
+  const text = item.text || '';
+  const orderCodeMatch = text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+  const orderCode = orderCodeMatch ? orderCodeMatch[1] : '';
+  const cleanText = text.replace(/^\[ORDER_CANCELLED\]\s*/i, '');
+
+  return (
+    <View style={[styles.msgWrapper, { alignSelf: 'center', width: '92%', maxWidth: 360 }]}>
+      <View style={styles.orderCancelledCard}>
+        {/* Header Tag + Time */}
+        <View style={styles.orderHeaderRow}>
+          <View style={styles.orderCancelledPill}>
+            <Ionicons name="close-circle" size={11} color="#DC2626" />
+            <Text style={styles.orderCancelledPillText}>Đơn Hàng Đã Hủy</Text>
+          </View>
+          <Text style={styles.orderTimeText}>{item.time}</Text>
+        </View>
+
+        {/* Order Cancelled Title */}
+        <View style={styles.orderTitleRow}>
+          <Ionicons name="alert-circle" size={18} color="#DC2626" style={{ marginRight: 6 }} />
+          <Text style={[styles.orderMainTitle, { color: '#991B1B' }]}>
+            {orderCode ? `Đơn hàng #${orderCode} đã bị hủy` : 'Đơn hàng đã bị hủy'}
+          </Text>
+        </View>
+
+        {/* Body */}
+        <View style={styles.orderCancelledContentBox}>
+          <Text style={styles.orderCancelledBodyText}>{cleanText}</Text>
+          <View style={styles.orderCancelledNoticeRow}>
+            <Ionicons name="information-circle" size={11} color="#DC2626" style={{ marginRight: 4 }} />
+            <Text style={styles.orderCancelledNoticeText}>
+              Tiền cọc Escrow/xu đã được hoàn trả, món đồ được mở lại trạng thái Đang bán.
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 interface ChatDetailMessageItemProps {
   item: MessageItem;
   isBuyer: boolean;
@@ -335,6 +380,10 @@ export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
 
   if (item.type === 'order' || (item.text && item.text.startsWith('[ORDER_CREATED]'))) {
     return <ChatOrderTicketBubble item={item} isMe={isMe} onViewOrder={onViewOrder} />;
+  }
+
+  if (item.text && item.text.startsWith('[ORDER_CANCELLED]')) {
+    return <ChatOrderCancelledBubble item={item} />;
   }
 
   if (item.type === 'offer' && item.offerData) {
@@ -692,6 +741,63 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  orderCancelledCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 14,
+    padding: 10,
+    width: '100%',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  orderCancelledPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  orderCancelledPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  orderCancelledContentBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
+  },
+  orderCancelledBodyText: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: '#7F1D1D',
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  orderCancelledNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 5,
+    borderRadius: 5,
+    marginTop: 2,
+    borderWidth: 0.5,
+    borderColor: '#FECACA',
+  },
+  orderCancelledNoticeText: {
+    fontSize: 9.5,
+    color: '#B91C1C',
+    lineHeight: 13,
+    flex: 1,
   },
 });
 

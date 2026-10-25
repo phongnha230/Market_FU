@@ -709,12 +709,26 @@ function ChatContent() {
                   const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
                     (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
 
+                  const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
+                    .reverse()
+                    .find((m) => m.text?.includes('[ORDER_CREATED]'));
+                  const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
+                    .reverse()
+                    .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
+
+                  const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
+                  const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
+                  const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
+                  const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
+
                   return (
                     <PinnedProductBar
                       product={activeConv.pinnedProduct}
                       partnerName={activeConv.name}
                       agreedPrice={activeAgreedPrice}
                       isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
+                      hasActiveOrder={hasActiveOrder}
+                      activeOrderCode={activeOrderCode}
                       onOfferPrice={(offer) => {
                         const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
                         chatStore.sendOfferPrice(activeConv.id, numericPrice);

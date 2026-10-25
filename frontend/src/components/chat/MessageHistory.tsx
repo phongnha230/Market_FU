@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle, PackageCheck, Lock, ReceiptText, XCircle } from 'lucide-react';
 
 function getInitials(name?: string): string {
   if (!name) return 'SV';
@@ -392,6 +392,116 @@ export default function MessageHistory({
                       <span>⏳ Đang chờ {isSeller ? 'người mua' : 'người bán'} phản hồi đề xuất...</span>
                     </div>
                   )}
+                </div>
+              </div>
+            );
+          }
+
+          const isOrderCreatedMsg = msg.text?.includes('[ORDER_CREATED]');
+          if (isOrderCreatedMsg) {
+            const orderCodeMatch = msg.text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+            const orderCode = orderCodeMatch ? orderCodeMatch[1] : '';
+            const cleanText = msg.text.replace(/^\[ORDER_CREATED\]\s*/i, '');
+
+            return (
+              <div key={msg.id} className="flex justify-center my-3 w-full">
+                <div className="rounded-2xl bg-white border border-emerald-200/90 p-4 shadow-xs max-w-md w-full">
+                  {/* Header Tag + Time */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Đơn Hàng Escrow</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {formatMessageTime(msg.time)}
+                    </span>
+                  </div>
+
+                  {/* Order Main Title */}
+                  <div className="flex items-center gap-2.5 mt-3">
+                    <div className="h-9 w-9 rounded-xl bg-orange-100 text-fpt-orange flex items-center justify-center shrink-0">
+                      <PackageCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-extrabold text-slate-900 text-sm">
+                        Đã Đặt Mua Thành Công!
+                      </h5>
+                      {orderCode && (
+                        <span className="text-[11px] font-mono font-semibold text-slate-500">
+                          Mã đơn: #{orderCode}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Order Body Text */}
+                  <div className="mt-2.5 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-700 leading-relaxed">
+                    <p className="font-medium text-slate-800">{cleanText}</p>
+                    <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-slate-200/60 text-[11px] text-sky-800">
+                      <Lock className="h-3.5 w-3.5 text-sky-600 shrink-0 mt-0.5" />
+                      <span>
+                        Tiền cọc được sàn FPT giữ bảo chứng an toàn, chỉ thanh toán cho người bán khi hai bên quét mã bàn giao tại Safe Point.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="mt-3 flex items-center justify-end">
+                    <Link
+                      href={orderCode ? `/orders/${encodeURIComponent(orderCode)}` : '/orders'}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-3.5 py-2 transition shadow-xs cursor-pointer"
+                    >
+                      <ReceiptText className="h-3.5 w-3.5" />
+                      <span>Xem chi tiết đơn hàng</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const isOrderCancelledMsg = msg.text?.includes('[ORDER_CANCELLED]');
+          if (isOrderCancelledMsg) {
+            const orderCodeMatch = msg.text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+            const orderCode = orderCodeMatch ? orderCodeMatch[1] : '';
+            const cleanText = msg.text.replace(/^\[ORDER_CANCELLED\]\s*/i, '');
+
+            return (
+              <div key={msg.id} className="flex justify-center my-3 w-full">
+                <div className="rounded-2xl bg-rose-50/70 border border-rose-200 p-4 shadow-xs max-w-md w-full">
+                  {/* Header Tag + Time */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-rose-200/60">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
+                      <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Đơn Hàng Đã Hủy</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {formatMessageTime(msg.time)}
+                    </span>
+                  </div>
+
+                  {/* Cancel Title */}
+                  <div className="flex items-center gap-2.5 mt-3">
+                    <div className="h-9 w-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-extrabold text-slate-900 text-sm">
+                        Đơn hàng {orderCode ? `#${orderCode}` : ''} đã bị hủy
+                      </h5>
+                      <span className="text-[11px] text-rose-700 font-medium">
+                        Tiền cọc / Xu đã được hoàn về ví người mua
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cancel Details */}
+                  <div className="mt-2.5 rounded-xl bg-white/90 border border-rose-100 p-3 text-xs text-slate-700 leading-relaxed">
+                    <p className="font-medium text-slate-800">{cleanText}</p>
+                    <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-rose-100 text-[11px] text-slate-600">
+                      <span>Món hàng đã được mở lại trạng thái Đang bán. Hai bên có thể tiếp tục trao đổi hoặc thương lượng lại.</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
