@@ -187,7 +187,7 @@ export const useOrderStore = create<OrderState>()(
                   bo.status === 'COMPLETED'
                     ? 'Giao dịch thành công'
                     : bo.status === 'CANCELLED'
-                    ? 'Đã hủy đơn'
+                    ? ((bo as any).dispute ? 'Đã hoàn tiền (Khiếu nại được duyệt)' : 'Đã hủy đơn')
                     : bo.status === 'SHIPPING'
                     ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : ((bo as any).trackingCode ? 'Đang giao hàng (GHN)' : 'Đang chuẩn bị hàng'))
                     : bo.status === 'PAID'

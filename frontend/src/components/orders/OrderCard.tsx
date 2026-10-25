@@ -63,6 +63,12 @@ export default function OrderCard({
       !order.payment?.paymentMethod?.toLowerCase().includes('payos'));
 
   const getEscrowBadgeMeta = () => {
+    if (order.status === 'cancelled') {
+      return {
+        text: 'Đã hoàn tiền Escrow',
+        className: 'bg-rose-50 text-rose-700 border-rose-200',
+      };
+    }
     if (order.type === 'safe-handoff') {
       return {
         text: 'Xác thực QR Handshake',
@@ -128,6 +134,8 @@ export default function OrderCard({
             </span>
           ) : order.status === 'disputed' ? (
             <AlertTriangle className="h-4 w-4 text-rose-600" />
+          ) : order.status === 'cancelled' ? (
+            <XCircle className="h-4 w-4 text-rose-600" />
           ) : (
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           )}
@@ -165,14 +173,16 @@ export default function OrderCard({
                 <span className="text-[10px] font-bold text-slate-500 block leading-none mb-0.5">
                   Doanh thu thực nhận
                 </span>
-                <div className="text-base sm:text-lg font-black text-emerald-600">
-                  +{formatVND(order.product.price)}
+                <div className={`text-base sm:text-lg font-black ${order.status === 'cancelled' ? 'text-slate-400 line-through' : 'text-emerald-600'}`}>
+                  {order.status === 'cancelled' ? '0 đ' : `+${formatVND(order.product.price)}`}
                 </div>
                 <Badge
                   variant="outline"
                   className={`rounded text-[10px] font-bold px-1.5 py-0.5 border ${
                     order.status === 'completed'
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : order.status === 'cancelled'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
                       : isCodOrder
                       ? 'bg-sky-50 text-sky-800 border-sky-200'
                       : 'bg-amber-50 text-amber-800 border-amber-200'
@@ -180,6 +190,8 @@ export default function OrderCard({
                 >
                   {order.status === 'completed'
                     ? 'Đã quyết toán ví'
+                    : order.status === 'cancelled'
+                    ? 'Đơn đã hủy / Hoàn tiền'
                     : isCodOrder
                     ? 'Chờ bưu tá thu COD'
                     : 'Đang giữ trong Escrow'}
@@ -316,6 +328,26 @@ export default function OrderCard({
             className="text-[11px] font-bold text-rose-700 hover:text-rose-900 underline shrink-0 ml-2"
           >
             Chi tiết ➔
+          </Link>
+        </div>
+      )}
+
+      {/* CANCELLED / REFUNDED STATUS STRIP */}
+      {order.status === 'cancelled' && (
+        <div className="mx-4 sm:mx-5 mb-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-700">
+          <div className="flex items-center gap-2 min-w-0">
+            <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span className="truncate font-medium">
+              {isSellerViewer
+                ? 'Đơn hàng đã được duyệt hoàn tiền cho Người mua • Bài đăng chuyển sang Ẩn'
+                : 'Yêu cầu trả hàng đã được BQT chấp thuận • Tiền Escrow & Xu đã được xử lý hoàn trả'}
+            </span>
+          </div>
+          <Link
+            href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}
+            className="text-[11px] font-bold text-fpt-orange hover:underline shrink-0 ml-2"
+          >
+            Xem hồ sơ ➔
           </Link>
         </div>
       )}
