@@ -297,7 +297,7 @@ function DisputeContent() {
 
                 {/* Scenario Guide Card */}
                 <Card className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3 text-xs">
-                  <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm uppercase tracking-wider text-slate-500">
+                  <h4 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-slate-500">
                     CÁC KỊCH BẢN XỬ LÝ KHIẾU NẠI & QUYỀN LỢI CỦA BẠN
                   </h4>
 
