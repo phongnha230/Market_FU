@@ -17,6 +17,7 @@ report/
 ├── backend/                                           <-- Phân hệ Máy chủ & API RESTful / Socket
 │   ├── 00_BACKEND_OVERVIEW_AND_ENDPOINTS.md           <-- Danh mục các endpoint API cốt lõi
 │   ├── 01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md   <-- Kiểm toán tính toàn vẹn dữ liệu, quan hệ Prisma & Test Suites
+│   ├── 02_ONE_WAY_BUYER_REVIEW_SYSTEM_AND_BLIND_REVIEW_CLEANUP.md <-- Chuẩn hóa đánh giá 1 chiều, bỏ Blind Review, kiểm soát đơn PayOS
 │   └── backend_audit_report.md                        <-- Rà soát API endpoints chưa khai thác hết & hạn mức rate-limiting
 │
 ├── frontend/                                          <-- Phân hệ Web Client (Next.js / React)
@@ -51,6 +52,8 @@ report/
     ├── 16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md <-- Sửa lỗi văng app (Circular Dependency useAuthStore) khi vào Trang chủ trên APK
     ├── 17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md <-- Sửa lỗi Trang chủ rỗng do lệch môi trường EAS & kết nối VPS
     ├── 18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md <-- Sửa chọn tài khoản Google, Realtime tin nhắn & Banner trắng
+    ├── 19_ANDROID_3BUTTON_NAVIGATION_BAR_ADAPTATION_AND_FAVORITE_BADGE.md <-- Tương thích 3 phím ảo Android & Badge tab Đã lưu Realtime
+    ├── 20_EAS_BUILD_MIGRATION_NEW_ACCOUNT_AND_KEYSTORE_SETUP.md <-- Đổi tài khoản EAS Build mới NhaSC, tạo Keystore & sửa slug
     └── mobile_optimization_and_audit_report.md        <-- Tối ưu hóa toàn bộ màn hình, dọn dẹp component rác & cuộn 60fps
 ```
 
@@ -60,10 +63,11 @@ report/
 
 ### 1. Phân hệ Backend (`report/backend/`)
 - **Quản lý dữ liệu nghiêm ngặt**: Đảm bảo toàn bộ quan hệ trong MongoDB Prisma (`Report`, `User`, `Order`, `Review`) xử lý nhất quán khi có tài khoản hoặc dữ liệu bị xóa (chống crash 500 với orphan records).
-- **Kiểm soát phân quyền & hạn mức**: Giới hạn đăng tin tối đa 3 tin/tháng đối với người dùng thông thường (`BUYER`); chỉ tài khoản Người Bán đã xác thực (`SELLER`) mới được đăng tin không giới hạn.
-- **Bảo mật & Rate Limiter**: Kiểm soát chặt chẽ các API Gemini Vision, Chatbot và giao dịch tiền/xu, ngăn chặn gian lận số dư qua client.
+- **Chuẩn hóa đánh giá 1 chiều (Buyer -> Seller)**: Bỏ cơ chế Blind Review 7 ngày, công khai đánh giá tức thì (`isPublic: true`) và cập nhật điểm tín nhiệm Seller ngay khi gửi.
+- **Kiểm soát đơn hàng PayOS & Tồn kho**: Phân tích và thiết lập cơ chế tự hủy đơn PayOS treo quá hạn để giải phóng sản phẩm về chợ.
 - **Chi tiết tại:**
   - [`01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md`](./backend/01_DATA_INTEGRITY_AUDIT_AND_API_ALIGNMENT.md)
+  - [`02_ONE_WAY_BUYER_REVIEW_SYSTEM_AND_BLIND_REVIEW_CLEANUP.md`](./backend/02_ONE_WAY_BUYER_REVIEW_SYSTEM_AND_BLIND_REVIEW_CLEANUP.md)
   - [`backend_audit_report.md`](./backend/backend_audit_report.md)
 
 ### 2. Phân hệ Web Frontend (`report/frontend/`)
@@ -96,6 +100,8 @@ report/
   - [`16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md`](./mobile/16_ANDROID_APK_CRASH_AND_CIRCULAR_DEPENDENCY_FIX.md)
   - [`17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md`](./mobile/17_EAS_BUILD_ENVIRONMENT_VPS_CONNECTION_AND_EMPTY_FEED_FIX.md)
   - [`18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md`](./mobile/18_REALTIME_CHAT_GOOGLE_LOGIN_CHOOSER_AND_WHITE_NOTIFICATION_BANNER.md)
+  - [`19_ANDROID_3BUTTON_NAVIGATION_BAR_ADAPTATION_AND_FAVORITE_BADGE.md`](./mobile/19_ANDROID_3BUTTON_NAVIGATION_BAR_ADAPTATION_AND_FAVORITE_BADGE.md)
+  - [`20_EAS_BUILD_MIGRATION_NEW_ACCOUNT_AND_KEYSTORE_SETUP.md`](./mobile/20_EAS_BUILD_MIGRATION_NEW_ACCOUNT_AND_KEYSTORE_SETUP.md)
   - [`mobile_optimization_and_audit_report.md`](./mobile/mobile_optimization_and_audit_report.md)
 
 ---
