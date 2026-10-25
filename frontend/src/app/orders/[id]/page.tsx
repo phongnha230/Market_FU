@@ -231,9 +231,18 @@ export default function OrderDetailPage() {
     setIsConfirmingOrder(true);
     try {
       await orderService.confirmOrder(cleanCode);
-      updateOrderStatus(order.code, 'shipping', 'Đã chốt hẹn Safe-Point • Chờ bàn giao');
-      setOrder((prev) => (prev ? { ...prev, status: 'shipping', statusText: 'Đã chốt hẹn Safe-Point • Chờ bàn giao' } : null));
-      showToast('🎉 Đã chốt lịch hẹn Safe-Point thành công! Vui lòng có mặt đúng giờ để giao hàng.', 'success');
+      const isHandoff = order.type === 'safe-handoff' || (order as any).orderType === 'MEETUP';
+      const newStatusText = isHandoff
+        ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao'
+        : 'Đã nhận đơn • Chờ bàn giao bưu cục GHN';
+      updateOrderStatus(order.code, 'shipping', newStatusText);
+      setOrder((prev) => (prev ? { ...prev, status: 'shipping', statusText: newStatusText } : null));
+      showToast(
+        isHandoff
+          ? '🎉 Đã chốt lịch hẹn Safe-Point thành công! Vui lòng có mặt đúng giờ để giao hàng.'
+          : '🎉 Đã tiếp nhận đơn hàng thành công! Bạn hãy bấm [Bàn giao bưu cục GHN] để tạo vận đơn.',
+        'success'
+      );
     } catch (err: any) {
       showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận đơn lúc này.', 'error');
     } finally {
@@ -443,14 +452,38 @@ export default function OrderDetailPage() {
     },
   ];
 
+  const hasTrackingCode = Boolean(
+    (order as any).trackingCode ||
+    order.tracking?.trackingCode ||
+    liveTracking?.trackingCode ||
+    backendOrderDetail?.trackingCode
+  );
+
   // Tracking steps fallback
-  const rawTrackingSteps = isSafeHandoff
+  const rawTrackingSteps = order.status === 'cancelled'
+    ? [
+        { title: 'Tiếp nhận đơn hàng', desc: 'Đơn hàng đã được tạo', status: 'completed' },
+        { title: 'Đã hủy đơn hàng', desc: 'Đơn hàng đã được hủy thành công • Đã hoàn tiền cọc Escrow 100% cho người mua', status: 'cancelled' },
+      ]
+    : isSafeHandoff
     ? (liveTracking?.steps && liveTracking.steps.some((s: any) => s.title.includes('Escrow') || s.title.includes('Safe-Point')) ? liveTracking.steps : safeHandoffDefaultSteps)
     : liveTracking?.steps || order.tracking?.steps || [
-        { title: 'Tiếp nhận đơn hàng', desc: 'Đơn đã tạo tại Campus Cần Thơ', status: 'completed' },
-        { title: 'Đóng gói & Bưu tá nhận', desc: 'Đã bàn giao bưu cục (GHN)', status: isOrderShipping || isOrderDelivered || isOrderCompleted ? 'completed' : 'current' },
-        { title: 'Trung chuyển liên Campus', desc: 'Hub Tây Nam Bộ (Cần Thơ) ➔ Hub Nội Bài - Hòa Lạc', status: isOrderDelivered || isOrderCompleted ? 'completed' : isOrderShipping ? 'current' : 'pending' },
-        { title: 'Giao hàng tới KTX', desc: 'Dự kiến: 2 - 3 ngày làm việc', status: isOrderDelivered || isOrderCompleted ? 'completed' : 'pending' },
+        { title: 'Tiếp nhận đơn hàng', desc: 'Đơn đã tạo tại Campus', status: 'completed' },
+        {
+          title: 'Đóng gói & Bưu tá nhận',
+          desc: hasTrackingCode ? 'Đã bàn giao bưu cục (GHN)' : isOrderShipping ? 'Người bán đã nhận đơn • Đang chuẩn bị hàng' : 'Chờ người bán xác nhận đơn',
+          status: isOrderShipping && !hasTrackingCode ? 'current' : isOrderShipping || isOrderDelivered || isOrderCompleted ? 'completed' : 'pending',
+        },
+        {
+          title: 'Trung chuyển liên Campus',
+          desc: 'Hub Tây Nam Bộ (Cần Thơ) ➔ Hub Nội Bài - Hòa Lạc',
+          status: isOrderDelivered || isOrderCompleted ? 'completed' : isOrderShipping && hasTrackingCode ? 'current' : 'pending',
+        },
+        {
+          title: 'Giao hàng tới KTX',
+          desc: isOrderDelivered ? 'Đã phát thành công • Kích hoạt 48h bao test' : 'Dự kiến: 2 - 3 ngày làm việc',
+          status: isOrderDelivered || isOrderCompleted ? 'completed' : 'pending',
+        },
       ];
 const trackingSteps = rawTrackingSteps.map((st: any) => ({
     ...st,
@@ -660,9 +693,40 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   </div>
                 </div>
               )}
+
+              {order.status === 'cancelled' && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-3 text-xs text-rose-950">
+                  <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
+                      Đơn hàng đã được hủy / từ chối
+                    </h4>
+                    <p className="text-[11px] text-rose-800 leading-relaxed">
+                      Đơn hàng này đã bị hủy. Toàn bộ tiền cọc Escrow và xu của Người mua đã được tự động hoàn trả 100%. Sản phẩm đã được tự động mở lại trạng thái Đang bán trên sàn.
+                    </p>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>
+              {order.status === 'cancelled' && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-3 text-xs text-rose-950">
+                  <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
+                      Đơn hàng đã được hủy thành công
+                    </h4>
+                    <p className="text-[11px] text-rose-800 leading-relaxed">
+                      Đơn hàng này đã bị hủy. Toàn bộ tiền cọc Escrow ({formatVND(order.product.price)}) và Xu/Voucher của bạn đã được tự động hoàn trả đầy đủ vào ví tài khoản.
+                    </p>
+                  </div>
+                </div>
+              )}
               {isOrderDelivered && (
                 <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3 sm:p-4 flex items-start gap-3 text-xs text-emerald-950">
                   <div className="rounded-xl bg-emerald-600 p-2 text-white shrink-0 mt-0.5">
@@ -1091,6 +1155,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                 {trackingSteps.map((st: any, idx: number) => {
                   const isDone = st.status === 'completed';
                   const isCurrent = st.status === 'current';
+                  const isCancelled = st.status === 'cancelled';
                   const isLast = idx === trackingSteps.length - 1;
 
                   return (
@@ -1098,7 +1163,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       {!isLast && (
                         <div
                           className={`absolute left-[13px] top-[26px] bottom-[-16px] w-[2px] ${
-                            isDone ? 'bg-emerald-500' : 'bg-slate-200'
+                            isDone ? 'bg-emerald-500' : isCancelled ? 'bg-rose-300' : 'bg-slate-200'
                           }`}
                         />
                       )}
@@ -1107,6 +1172,8 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                         className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full shrink-0 border-2 ${
                           isDone
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-600'
+                            : isCancelled
+                            ? 'bg-rose-50 border-rose-500 text-rose-600'
                             : isCurrent
                             ? 'bg-orange-50 border-fpt-orange text-fpt-orange animate-pulse'
                             : 'bg-white border-slate-200 text-slate-300'
@@ -1114,6 +1181,8 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       >
                         {isDone ? (
                           <CheckCircle2 className="h-4 w-4" />
+                        ) : isCancelled ? (
+                          <XCircle className="h-4 w-4" />
                         ) : (
                           <div className={`h-2.5 w-2.5 rounded-full ${isCurrent ? 'bg-fpt-orange' : 'bg-slate-300'}`} />
                         )}
@@ -1121,12 +1190,12 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
 
                       <div className="flex-1 min-w-0 pt-0.5">
                         <div className="flex items-center justify-between gap-1">
-                          <h5 className={`font-bold text-xs ${isDone ? 'text-slate-900' : isCurrent ? 'text-fpt-orange font-extrabold' : 'text-slate-400'}`}>
+                          <h5 className={`font-bold text-xs ${isDone ? 'text-slate-900' : isCancelled ? 'text-rose-600 font-extrabold' : isCurrent ? 'text-fpt-orange font-extrabold' : 'text-slate-400'}`}>
                             {st.title}
                           </h5>
                           {st.time && <span className="text-[10px] text-slate-400 font-mono">{st.time}</span>}
                         </div>
-                        {st.desc && <p className="text-[11px] text-slate-500 mt-0.5">{st.desc}</p>}
+                        {st.desc && <p className={`text-[11px] mt-0.5 ${isCancelled ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>{st.desc}</p>}
                       </div>
                     </div>
                   );
@@ -1366,11 +1435,12 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       ) : (
                         <Button
                           type="button"
-                          onClick={() => setIsShipModalOpen(true)}
-                          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                          onClick={handleSellerConfirmOrder}
+                          disabled={isConfirmingOrder}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                         >
-                          <Truck className="h-4 w-4" />
-                          <span>Bàn giao bưu cục GHN (Tạo mã vận đơn)</span>
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>{isConfirmingOrder ? 'Đang tiếp nhận...' : 'Đồng ý nhận đơn'}</span>
                         </Button>
                       )}
 
@@ -1402,6 +1472,37 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                           Bạn đã đồng ý lịch hẹn. Hãy mang hàng đến trạm Safe-Point đúng giờ để gặp người mua và quét mã xác nhận.
                         </p>
                       </div>
+                    ) : !hasTrackingCode ? (
+                      <div className="space-y-2">
+                        <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 text-xs text-orange-950 space-y-1">
+                          <p className="font-bold flex items-center gap-1.5 text-xs text-orange-900">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            <span>Đã tiếp nhận đơn hàng</span>
+                          </p>
+                          <p className="text-[11px] text-orange-800 leading-relaxed">
+                            Vui lòng đóng gói hàng cẩn thận và bấm [Bàn giao bưu cục GHN] để tạo mã vận đơn cho bưu tá.
+                          </p>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => setIsShipModalOpen(true)}
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Truck className="h-4 w-4" />
+                          <span>Bàn giao bưu cục GHN (Tạo mã vận đơn)</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleCancelOrder}
+                          className="w-full border-rose-200 text-rose-700 hover:bg-rose-50 hover:border-rose-300 font-bold rounded-xl text-xs h-9 cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <XCircle className="h-4 w-4 text-rose-600" />
+                          <span>Hủy đơn / Từ chối (Hoàn cọc 100%)</span>
+                        </Button>
+                      </div>
                     ) : (
                       <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-2">
                         <div className="flex items-center justify-between">
@@ -1418,6 +1519,18 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                         </p>
                       </div>
                     )
+                  )}
+
+                  {order.status === 'cancelled' && (
+                    <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-900 space-y-1">
+                      <p className="font-bold flex items-center gap-1.5 text-xs text-rose-900">
+                        <XCircle className="h-4 w-4 text-rose-600" />
+                        <span>Đơn hàng đã hủy</span>
+                      </p>
+                      <p className="text-[11px] text-rose-800 leading-relaxed">
+                        Đơn hàng đã đóng. Tiền cọc Escrow đã được hoàn trả lại cho người mua và sản phẩm đã mở lại bán.
+                      </p>
+                    </div>
                   )}
 
                   {isOrderDelivered && (
@@ -1736,14 +1849,26 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     <span className="truncate">{isConfirmingOrder ? 'Đang chốt hẹn...' : 'Đồng ý đơn & Chốt hẹn'}</span>
                   </Button>
                 ) : (
-                  <Button
-                    type="button"
-                    onClick={() => setIsShipModalOpen(true)}
-                    className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
-                  >
-                    <Truck className="h-4 w-4" />
-                    <span className="truncate">Bàn giao GHN</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleSellerConfirmOrder}
+                      disabled={isConfirmingOrder}
+                      className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="truncate">{isConfirmingOrder ? 'Đang nhận...' : 'Đồng ý nhận đơn'}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelOrder}
+                      className="h-11 px-3 border-rose-200 text-rose-700 hover:bg-rose-50 font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1 active:scale-95 shrink-0"
+                    >
+                      <XCircle className="h-4 w-4 text-rose-600" />
+                      <span>Từ chối</span>
+                    </Button>
+                  </div>
                 )
               ) : isOrderShipping ? (
                 order.type === 'safe-handoff' ? (
@@ -1755,11 +1880,35 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     <QrCode className="h-4 w-4 mr-1.5" />
                     <span>Xác thực Safe-Point (Quét QR)</span>
                   </Button>
+                ) : !hasTrackingCode ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => setIsShipModalOpen(true)}
+                      className="flex-1 h-11 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <Truck className="h-4 w-4" />
+                      <span className="truncate">Bàn giao GHN</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelOrder}
+                      className="h-11 px-3 border-rose-200 text-rose-700 hover:bg-rose-50 font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1 active:scale-95 shrink-0"
+                    >
+                      <XCircle className="h-4 w-4 text-rose-600" />
+                      <span>Hủy</span>
+                    </Button>
+                  </div>
                 ) : (
                   <div className="h-11 rounded-xl bg-orange-50 border border-orange-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-orange-800">
                     🚚 Chờ hãng vận chuyển xác nhận đã giao
                   </div>
                 )
+              ) : order.status === 'cancelled' ? (
+                <div className="h-11 rounded-xl bg-rose-50 border border-rose-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-rose-700">
+                  🚫 Đơn hàng đã hủy
+                </div>
               ) : isOrderDelivered ? (
                 <div className="h-11 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-emerald-800">
                   ⏳ Đang 48h bao test an toàn

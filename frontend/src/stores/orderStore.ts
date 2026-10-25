@@ -189,13 +189,13 @@ export const useOrderStore = create<OrderState>()(
                     : bo.status === 'CANCELLED'
                     ? 'Đã hủy đơn'
                     : bo.status === 'SHIPPING'
-                    ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : 'Đang vận chuyển')
+                    ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : ((bo as any).trackingCode ? 'Đang giao hàng (GHN)' : 'Đang chuẩn bị hàng'))
                     : bo.status === 'PAID'
-                    ? (bo.orderType === 'MEETUP' ? 'Đã nạp Escrow • Chờ người bán xác nhận lịch hẹn' : 'Đã nạp Escrow bảo hộ')
+                    ? (bo.orderType === 'MEETUP' ? 'Đã nạp Escrow • Chờ người bán xác nhận lịch hẹn' : 'Đã thanh toán (Escrow bảo hộ) • Chờ người bán xác nhận')
                     : bo.status === 'DELIVERED'
-                    ? 'Đã giao tới nơi'
+                    ? 'Đã giao tới nơi (48h bao test)'
                     : bo.status === 'PENDING' && !bo.payment?.isPaid && bo.payment?.paymentMethod !== 'CASH'
-                    ? 'Chờ thanh toán (Quét QR / PayOS)'
+                    ? 'Chờ thanh toán (PayOS)'
                     : 'Chờ người bán xác nhận',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
                 reviewed: bo.reviews && bo.reviews.length > 0,

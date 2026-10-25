@@ -159,6 +159,7 @@ function CheckoutContent() {
   const myVouchers = useVoucherStore((state) => state.myVouchers);
   const fetchMyVouchers = useVoucherStore((state) => state.fetchMyVouchers);
   const [selectedVoucher, setSelectedVoucher] = useState<UserVoucher | null>(null);
+  const [isVoucherManuallyRemoved, setIsVoucherManuallyRemoved] = useState(false);
   const [customVoucherInput, setCustomVoucherInput] = useState('');
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
@@ -211,7 +212,7 @@ function CheckoutContent() {
 
   // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví
   useEffect(() => {
-    if (!isMeetup && !selectedVoucher && myVouchers && myVouchers.length > 0) {
+    if (!isMeetup && !selectedVoucher && !isVoucherManuallyRemoved && myVouchers && myVouchers.length > 0) {
       const shipVoucher = myVouchers.find(
         (v) =>
           v.status === 'UNUSED' &&
@@ -225,7 +226,7 @@ function CheckoutContent() {
         setSelectedVoucher(shipVoucher);
       }
     }
-  }, [isMeetup, myVouchers, selectedVoucher]);
+  }, [isMeetup, myVouchers, selectedVoucher, isVoucherManuallyRemoved]);
 
   // 2b. Fetch safe-handoff hubs for current campus when isMeetup
   useEffect(() => {
@@ -963,7 +964,10 @@ function CheckoutContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setSelectedVoucher(null)}
+                          onClick={() => {
+                            setSelectedVoucher(null);
+                            setIsVoucherManuallyRemoved(true);
+                          }}
                           className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
                           title="Bỏ áp dụng voucher"
                         >
@@ -1020,6 +1024,7 @@ function CheckoutContent() {
                                         .myVouchers.find((v) => v.status === 'UNUSED');
                                       if (restored) {
                                         setSelectedVoucher(restored);
+                                        setIsVoucherManuallyRemoved(false);
                                       }
                                       showToast('✅ Đã khôi phục mã Freeship về ví và tự động áp dụng!');
                                     }}
@@ -1395,6 +1400,7 @@ function CheckoutContent() {
                     return;
                   }
                   setSelectedVoucher(matched);
+                  setIsVoucherManuallyRemoved(false);
                   setIsVoucherModalOpen(false);
                   setCustomVoucherInput('');
                   showToast(`🎟️ Đã áp dụng ${matched.voucher.title}!`);
@@ -1461,6 +1467,7 @@ function CheckoutContent() {
                           .myVouchers.find((v) => v.status === 'UNUSED');
                         if (restored) {
                           setSelectedVoucher(restored);
+                          setIsVoucherManuallyRemoved(false);
                           setIsVoucherModalOpen(false);
                         }
                         showToast('✅ Đã khôi phục mã Freeship và áp dụng cho đơn hàng!');
@@ -1552,6 +1559,7 @@ function CheckoutContent() {
                               type="button"
                               onClick={() => {
                                 setSelectedVoucher(item);
+                                setIsVoucherManuallyRemoved(false);
                                 setIsVoucherModalOpen(false);
                                 showToast(`🎟️ Đã áp dụng ${item.voucher.title}!`);
                               }}

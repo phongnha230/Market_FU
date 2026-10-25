@@ -294,7 +294,7 @@ export class OrderService {
       }
     }
 
-    const effectivePaymentMethod = orderType === 'SHIP_COD' ? 'CASH' : paymentMethod;
+    const effectivePaymentMethod = paymentMethod === 'PAYOS_WEB' ? 'PAYOS_WEB' : (orderType === 'SHIP_COD' ? 'CASH' : paymentMethod);
     const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount - voucherDiscount);
 
     // 4. Sinh mã định danh giao dịch độc nhất
@@ -1615,7 +1615,25 @@ export class OrderService {
     const actualAppointment = order.appointmentTime || (order.shipping as any)?.appointmentTime;
     const isSellerConfirmed = order.status === 'SHIPPING' || isDelivered || order.status === 'COMPLETED';
 
-    const steps = isMeetup
+    const isCancelled = order.status === 'CANCELLED';
+    const isProcessing = (order.status as any) === 'PROCESSING';
+
+    const steps = isCancelled
+      ? [
+          {
+            title: 'Tiếp nhận đơn hàng',
+            desc: `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
+            status: 'completed',
+            time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
+          },
+          {
+            title: 'Đơn hàng đã hủy',
+            desc: 'Đơn hàng đã dừng xử lý và hủy thành công. Tiền cọc Escrow (nếu có), xu và voucher đã hoàn lại đầy đủ.',
+            status: 'cancelled',
+            time: order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
+          },
+        ]
+      : isMeetup
       ? [
           {
             title: 'Đặt cọc Escrow bảo hộ',
@@ -1652,14 +1670,20 @@ export class OrderService {
       : [
           {
             title: 'Tiếp nhận đơn hàng',
-            desc: `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
+            desc: order.status === 'PENDING'
+              ? 'Đơn đã tạo, đang chờ Người bán xác nhận đơn'
+              : `Đơn #${order.orderCode} đã tạo tại Campus ${fromCampus}`,
             status: 'completed',
             time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
           },
           {
             title: 'Đóng gói & Bưu tá nhận',
-            desc: isShipped ? `Đã bàn giao bưu cục (${partner})` : 'Người bán đang chuẩn bị đóng gói',
-            status: isShipped ? 'completed' : order.status === 'PENDING' ? 'current' : 'pending',
+            desc: isShipped
+              ? `Đã bàn giao bưu cục (${partner})`
+              : isProcessing
+              ? 'Người bán đã nhận đơn & đang đóng gói kiện hàng'
+              : 'Chờ người bán xác nhận và đóng gói',
+            status: isShipped ? 'completed' : isProcessing ? 'current' : 'pending',
             time: isShipped && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
           },
           {
@@ -1669,7 +1693,7 @@ export class OrderService {
           },
           {
             title: 'Giao hàng tới KTX',
-            desc: isDelivered ? 'Đã giao thành công tại sảnh KTX' : `Dự kiến: ${matrixInfo.estimatedDays}`,
+            desc: isDelivered ? 'Đã giao thành công tại sảnh KTX (Kích hoạt 48h bao test)' : `Dự kiến: ${matrixInfo.estimatedDays}`,
             status: isDelivered ? 'completed' : 'pending',
             time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
           },

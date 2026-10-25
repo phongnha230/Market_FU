@@ -337,30 +337,6 @@ export default function OrderCard({
           {/* Seller Actions */}
           {isSellerViewer ? (
             <>
-              {((order.status as string) === 'pending' || order.status === 'processing') && (
-                order.type === 'safe-handoff' ? (
-                  <Button
-                    asChild
-                    className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                  >
-                    <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
-                      <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                      <span>Xem & Xác nhận đơn</span>
-                    </Link>
-                  </Button>
-                ) : (
-                  onShipOrder && (
-                    <Button
-                      type="button"
-                      onClick={() => onShipOrder(order)}
-                      className="h-auto rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <Truck className="h-3.5 w-3.5 text-white" />
-                      <span>Bàn giao GHN</span>
-                    </Button>
-                  )
-                )
-              )}
               {order.status === 'shipping' && order.type === 'safe-handoff' && (
                 onOpenQrModal && (
                   <Button

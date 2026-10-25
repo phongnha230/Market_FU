@@ -49,6 +49,8 @@ import {
   Coins,
   Eye,
   EyeOff,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import EditProductModal from '@/components/modals/EditProductModal';
@@ -97,6 +99,8 @@ export default function ProfilePage() {
 
   // Edit product
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [listingViewMode, setListingViewMode] = useState<'grid' | 'list'>('grid');
+  const [listingFilter, setListingFilter] = useState<'ALL' | 'AVAILABLE' | 'PENDING_APPROVAL' | 'HIDDEN'>('ALL');
   const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
   const [isLoadingMyProducts, setIsLoadingMyProducts] = useState(false);
 
@@ -288,6 +292,20 @@ export default function ProfilePage() {
         _raw: p,
       }));
   }, [myProducts]);
+
+  const filteredSellingItems = useMemo(() => {
+    if (listingFilter === 'ALL') return sellingItems;
+    return sellingItems.filter((item) => item.status === listingFilter);
+  }, [sellingItems, listingFilter]);
+
+  const sellingCounts = useMemo(() => {
+    return {
+      all: sellingItems.length,
+      available: sellingItems.filter((p) => p.status === 'AVAILABLE').length,
+      pending: sellingItems.filter((p) => p.status === 'PENDING_APPROVAL').length,
+      hidden: sellingItems.filter((p) => p.status === 'HIDDEN').length,
+    };
+  }, [sellingItems]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1078,53 +1096,149 @@ export default function ProfilePage() {
 
                 {/* TAB 1: TIN ĐANG RAO BÁN */}
                 {activeTab === 'selling' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        Danh sách đồ dùng đang pass
-                      </h3>
-                      {isLoadingMyProducts ? (
-                        <span className="text-slate-400 flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-slate-300 border-t-fpt-orange rounded-full"></span>Đang tải...</span>
-                      ) : (
-                        <span>{sellingItems.length} tin đăng</span>
-                      )}
+                  <div className="space-y-3.5">
+                    {/* Top Control Bar: Title, Count, Filters, View Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Danh sách đồ dùng đang pass
+                        </h3>
+                        {isLoadingMyProducts ? (
+                          <span className="text-slate-400 flex items-center gap-1 text-xs">
+                            <span className="animate-spin inline-block w-3 h-3 border-2 border-slate-300 border-t-fpt-orange rounded-full"></span>
+                            Đang tải...
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-fpt-orange">
+                            {sellingItems.length} tin
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right controls: Status Filter & View Mode Toggle */}
+                      <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
+                        {/* Filter chips */}
+                        <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-lg text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setListingFilter('ALL')}
+                            className={`px-2 py-0.5 rounded-md font-bold transition ${
+                              listingFilter === 'ALL'
+                                ? 'bg-white text-slate-900 shadow-2xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Tất cả ({sellingCounts.all})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setListingFilter('AVAILABLE')}
+                            className={`px-2 py-0.5 rounded-md font-bold transition ${
+                              listingFilter === 'AVAILABLE'
+                                ? 'bg-white text-emerald-700 shadow-2xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Đang bán ({sellingCounts.available})
+                          </button>
+                          {sellingCounts.pending > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setListingFilter('PENDING_APPROVAL')}
+                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                                listingFilter === 'PENDING_APPROVAL'
+                                  ? 'bg-white text-amber-700 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              Chờ duyệt ({sellingCounts.pending})
+                            </button>
+                          )}
+                          {sellingCounts.hidden > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setListingFilter('HIDDEN')}
+                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                                listingFilter === 'HIDDEN'
+                                  ? 'bg-white text-zinc-700 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              Đã ẩn ({sellingCounts.hidden})
+                            </button>
+                          )}
+                        </div>
+
+                        {/* View Mode Toggle: Grid vs List */}
+                        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => setListingViewMode('grid')}
+                            className={`p-1 rounded-md transition ${
+                              listingViewMode === 'grid'
+                                ? 'bg-white text-fpt-orange shadow-2xs'
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                            title="Hiển thị dạng lưới thu gọn"
+                          >
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setListingViewMode('list')}
+                            className={`p-1 rounded-md transition ${
+                              listingViewMode === 'list'
+                                ? 'bg-white text-fpt-orange shadow-2xs'
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                            title="Hiển thị dạng danh sách gọn"
+                          >
+                            <List className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Grid 2x2 Products or Empty State */}
+                    {/* Loading Skeletons */}
                     {isLoadingMyProducts ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[1, 2].map((i) => (
-                          <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden animate-pulse">
-                            <div className="aspect-[16/10] bg-slate-100" />
-                            <div className="p-4 space-y-2">
-                              <div className="h-4 bg-slate-200 rounded w-2/3" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+                            <div className="aspect-[4/3] bg-slate-100" />
+                            <div className="p-3 space-y-2">
+                              <div className="h-3.5 bg-slate-200 rounded w-2/3" />
                               <div className="h-3 bg-slate-100 rounded w-full" />
                             </div>
                           </div>
                         ))}
                       </div>
-                    ) : sellingItems.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
-                        <p className="text-sm font-semibold text-slate-600">Bạn chưa đăng bài pass đồ nào</p>
-                        <p className="text-xs text-slate-400 mt-1">Đăng bán các món giáo trình, đồ KTX hoặc đồ công nghệ không còn dùng đến</p>
+                    ) : filteredSellingItems.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 sm:p-8 text-center bg-slate-50/50">
+                        <p className="text-sm font-semibold text-slate-600">
+                          {sellingItems.length === 0 ? 'Bạn chưa đăng bài pass đồ nào' : 'Không có tin đăng nào ở bộ lọc này'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Đăng bán các món giáo trình, đồ KTX hoặc đồ công nghệ không còn dùng đến
+                        </p>
                         <Link
                           href="/create-post"
-                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-2xs"
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-3.5 py-1.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-2xs"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           <span>Đăng tin ngay</span>
                         </Link>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {sellingItems.map((prod) => (
+                    ) : listingViewMode === 'grid' ? (
+                      /* COMPACT GRID VIEW (3 Columns on Desktop, 2 on SM, 1 on Mobile) */
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5">
+                        {filteredSellingItems.map((prod) => (
                           <Card
                             key={prod.id}
-                            className="group flex flex-col justify-between rounded-2xl border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden"
+                            className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden"
                           >
                             <div>
-                              {/* Top Image */}
-                              <div className="relative aspect-[16/10] w-full bg-slate-100 overflow-hidden">
+                              {/* Top Compact Image (aspect-[4/3] - compact and neat) */}
+                              <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
                                 <Image
                                   src={prod.imageUrl}
                                   alt={prod.title}
@@ -1132,143 +1246,294 @@ export default function ProfilePage() {
                                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
                                 {/* Campus badge */}
-                                <div className="absolute top-2.5 left-2.5 rounded-md bg-slate-900/75 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white">
+                                <div className="absolute top-2 left-2 rounded-md bg-slate-900/75 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   {prod.campusBadge}
                                 </div>
 
                                 {/* Condition badge */}
-                                <div className="absolute top-2.5 right-2.5 rounded-md bg-amber-500/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white">
+                                <div className="absolute top-2 right-2 rounded-md bg-amber-500/90 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   {prod.conditionBadge}
                                 </div>
 
-                                {/* Status badge (PENDING_APPROVAL / REJECTED / SOLD / HIDDEN / RESERVED) */}
+                                {/* Status badge */}
                                 {prod.status && prod.status !== 'AVAILABLE' && (
-                                  <div className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md ${
-                                    prod.status === 'PENDING_APPROVAL' ? 'bg-amber-600/90' :
-                                    prod.status === 'REJECTED' ? 'bg-rose-600/90' :
-                                    prod.status === 'SOLD' ? 'bg-slate-800/90' :
-                                    prod.status === 'HIDDEN' ? 'bg-zinc-600/90' :
-                                    'bg-sky-600/90'
-                                  }`}>
-                                    {prod.status === 'PENDING_APPROVAL' ? '⏳ Chờ BQT duyệt' :
-                                     prod.status === 'REJECTED' ? '🚫 Bị từ chối' :
-                                     prod.status === 'SOLD' ? '✓ Đã bán' :
-                                     prod.status === 'RESERVED' ? '🔒 Đã đặt cọc' :
-                                     prod.status === 'HIDDEN' ? 'Đã ẩn' : prod.status}
+                                  <div
+                                    className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md shadow-2xs ${
+                                      prod.status === 'PENDING_APPROVAL'
+                                        ? 'bg-amber-600/90'
+                                        : prod.status === 'REJECTED'
+                                        ? 'bg-rose-600/90'
+                                        : prod.status === 'SOLD'
+                                        ? 'bg-slate-800/90'
+                                        : prod.status === 'HIDDEN'
+                                        ? 'bg-zinc-700/90'
+                                        : 'bg-sky-600/90'
+                                    }`}
+                                  >
+                                    {prod.status === 'PENDING_APPROVAL'
+                                      ? '⏳ Chờ duyệt'
+                                      : prod.status === 'REJECTED'
+                                      ? '🚫 Bị từ chối'
+                                      : prod.status === 'SOLD'
+                                      ? '✓ Đã bán'
+                                      : prod.status === 'RESERVED'
+                                      ? '🔒 Đã cọc'
+                                      : prod.status === 'HIDDEN'
+                                      ? 'Đã ẩn'
+                                      : prod.status}
                                   </div>
                                 )}
                               </div>
 
-                              {/* Content */}
-                              <div className="p-4 space-y-2">
-                                <div className="text-base font-extrabold text-rose-600">
-                                  {formatVND(prod.price)}
+                              {/* Card Content - Compact & Clean */}
+                              <div className="p-3 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm sm:text-base font-extrabold text-rose-600">
+                                    {formatVND(prod.price)}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {prod.timeAgo}
+                                  </span>
                                 </div>
 
-                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-fpt-orange transition-colors">
+                                <h4
+                                  className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1 leading-snug group-hover:text-fpt-orange transition-colors"
+                                  title={prod.title}
+                                >
                                   {prod.title}
                                 </h4>
 
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">
                                   {prod.description}
                                 </p>
                               </div>
                             </div>
 
-                            {/* Actions Footer */}
-                            <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-1.5 bg-slate-50/50 text-[11px]">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {prod.status !== 'SOLD' ? (
-                                  <>
-                                    {/* Edit button */}
-                                    <Link
-                                      href={`/posts/${encodeURIComponent(prod.id)}/edit`}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                      title="Chỉnh sửa toàn bộ thông tin bài đăng"
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                      <span>Sửa tin</span>
-                                    </Link>
+                            {/* Card Footer Actions - Compact 2-Tier Toolbar */}
+                            <div className="border-t border-slate-100 p-2 bg-slate-50/70 space-y-1.5 text-[11px]">
+                              {/* Primary Actions: Quick Edit + Boost */}
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setEditingProduct(prod._raw);
+                                  }}
+                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50/80 px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Chỉnh sửa nhanh thông tin bài đăng"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>Sửa tin</span>
+                                </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        handleRenewProduct(prod.id, prod.title);
-                                      }}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
-                                      title="Gia hạn bài đăng thêm 30 ngày"
-                                    >
-                                      <RefreshCw className="h-3 w-3 text-slate-500" />
-                                      <span>Gia hạn 30d</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        handleBoostProduct(prod.id, prod.title);
-                                      }}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                      title="Đẩy tin lên đầu trang (-100 FPT Coin)"
-                                    >
-                                      <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
-                                      <span>Đẩy tin (-100 Xu)</span>
-                                    </button>
-
-                                    {/* Nút Tạm ẩn / Hiện lại (cho bài AVAILABLE hoặc HIDDEN) */}
-                                    {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN');
-                                        }}
-                                        className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
-                                          prod.status === 'HIDDEN'
-                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                                        }`}
-                                        title={prod.status === 'HIDDEN' ? 'Mở lại hiển thị ra Chợ Campus' : 'Tạm ẩn bài đăng khỏi chợ'}
-                                      >
-                                        {prod.status === 'HIDDEN' ? (
-                                          <>
-                                            <Eye className="h-3 w-3 text-emerald-600" />
-                                            <span>Hiện lại</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <EyeOff className="h-3 w-3 text-slate-500" />
-                                            <span>Tạm ẩn</span>
-                                          </>
-                                        )}
-                                      </button>
-                                    )}
-
-
-                                  </>
-                                ) : (
-                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                                    ✓ Đã giao dịch
-                                  </Badge>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleBoostProduct(prod.id, prod.title);
+                                  }}
+                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Đẩy tin lên đầu trang (-100 FPT Coin)"
+                                >
+                                  <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                  <span>Đẩy tin (-100)</span>
+                                </button>
                               </div>
+
+                              {/* Secondary Actions: Renew + Hide/Show + Detail Link */}
+                              <div className="flex items-center justify-between gap-1 pt-0.5">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleRenewProduct(prod.id, prod.title);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
+                                    title="Gia hạn bài đăng thêm 30 ngày"
+                                  >
+                                    <RefreshCw className="h-2.5 w-2.5 text-slate-400" />
+                                    <span>Gia hạn</span>
+                                  </button>
+
+                                  {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN');
+                                      }}
+                                      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
+                                        prod.status === 'HIDDEN'
+                                          ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                                      }`}
+                                      title={prod.status === 'HIDDEN' ? 'Mở lại hiển thị tin' : 'Tạm ẩn tin'}
+                                    >
+                                      {prod.status === 'HIDDEN' ? (
+                                        <>
+                                          <Eye className="h-2.5 w-2.5 text-emerald-600" />
+                                          <span>Hiện</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <EyeOff className="h-2.5 w-2.5 text-slate-500" />
+                                          <span>Ẩn</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                <Link
+                                  href={prod.detailLink}
+                                  className="font-bold text-[10px] text-slate-500 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
+                                >
+                                  <span>Chi tiết</span>
+                                  <ArrowRight className="h-2.5 w-2.5" />
+                                </Link>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      /* COMPACT HORIZONTAL LIST VIEW */
+                      <div className="space-y-2.5">
+                        {filteredSellingItems.map((prod) => (
+                          <div
+                            key={prod.id}
+                            className="group flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 sm:p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs transition"
+                          >
+                            {/* Left: Thumbnail & Main Info */}
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+                                <Image
+                                  src={prod.imageUrl}
+                                  alt={prod.title}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                      prod.status === 'AVAILABLE'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : prod.status === 'PENDING_APPROVAL'
+                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        : prod.status === 'HIDDEN'
+                                        ? 'bg-zinc-100 text-zinc-600'
+                                        : 'bg-rose-50 text-rose-700'
+                                    }`}
+                                  >
+                                    {prod.status === 'AVAILABLE'
+                                      ? '🟢 Đang bán'
+                                      : prod.status === 'PENDING_APPROVAL'
+                                      ? '⏳ Chờ duyệt'
+                                      : prod.status === 'HIDDEN'
+                                      ? '⚪ Đã ẩn'
+                                      : prod.status}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.2 rounded">
+                                    {prod.campusBadge}
+                                  </span>
+                                  <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.2 rounded">
+                                    {prod.conditionBadge}
+                                  </span>
+                                </div>
+
+                                <h4
+                                  className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-fpt-orange transition-colors"
+                                  title={prod.title}
+                                >
+                                  {prod.title}
+                                </h4>
+
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs sm:text-sm font-black text-rose-600">
+                                    {formatVND(prod.price)}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    • {prod.timeAgo}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right: Actions Cluster */}
+                            <div className="flex items-center gap-1.5 shrink-0 justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                              <button
+                                type="button"
+                                onClick={() => setEditingProduct(prod._raw)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 shadow-2xs"
+                                title="Chỉnh sửa bài đăng"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                <span>Sửa tin</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleBoostProduct(prod.id, prod.title)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition active:scale-95 shadow-2xs"
+                                title="Đẩy tin (-100 FPT Coin)"
+                              >
+                                <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                <span>Đẩy tin</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRenewProduct(prod.id, prod.title)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition active:scale-95 shadow-2xs"
+                                title="Gia hạn bài đăng 30 ngày"
+                              >
+                                <RefreshCw className="h-3 w-3 text-slate-400" />
+                                <span>Gia hạn</span>
+                              </button>
+
+                              {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN')}
+                                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition active:scale-95 shadow-2xs ${
+                                    prod.status === 'HIDDEN'
+                                      ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                                  }`}
+                                  title={prod.status === 'HIDDEN' ? 'Mở lại tin' : 'Tạm ẩn tin'}
+                                >
+                                  {prod.status === 'HIDDEN' ? (
+                                    <>
+                                      <Eye className="h-3 w-3 text-emerald-600" />
+                                      <span>Hiện</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <EyeOff className="h-3 w-3 text-slate-500" />
+                                      <span>Ẩn</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
 
                               <Link
                                 href={prod.detailLink}
-                                className="font-bold text-slate-700 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
+                                className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:text-fpt-orange transition"
                               >
                                 <span>Chi tiết</span>
                                 <ArrowRight className="h-3 w-3" />
                               </Link>
                             </div>
-                          </Card>
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
-
 
                 {/* TAB 2: ĐÁNH GIÁ CỘNG ĐỒNG */}
                 {activeTab === 'reviews' && (
@@ -1451,15 +1716,15 @@ export default function ProfilePage() {
                         </div>
                       )
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5">
                         {soldItems.map((item) => (
                           <Card
                             key={item.id}
-                            className="group flex flex-col justify-between rounded-2xl border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden"
+                            className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden"
                           >
                             <div>
-                              {/* Top Image with Sold Overlay */}
-                              <div className="relative aspect-[16/10] w-full bg-slate-100 overflow-hidden">
+                              {/* Top Image with Sold Overlay (aspect-[4/3] compact) */}
+                              <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
                                 <Image
                                   src={item.imageUrl}
                                   alt={item.title}
@@ -1467,73 +1732,72 @@ export default function ProfilePage() {
                                   className="object-cover grayscale-[20%] group-hover:scale-105 transition-transform duration-300"
                                 />
                                 {/* Campus badge */}
-                                <div className="absolute top-2.5 left-2.5 rounded-md bg-slate-900/75 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white">
+                                <div className="absolute top-2 left-2 rounded-md bg-slate-900/75 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   {item.campusBadge}
                                 </div>
 
                                 {/* Sold Success Badge */}
-                                <div className="absolute top-2.5 right-2.5 rounded-md bg-emerald-600/95 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow-xs">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  <span>Đã pass thành công</span>
+                                <div className="absolute top-2 right-2 rounded-md bg-emerald-600/95 backdrop-blur-md px-2 py-0.5 text-[9px] font-bold text-white flex items-center gap-1 shadow-2xs">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  <span>Đã pass</span>
                                 </div>
 
                                 {/* SafeHandoff tag */}
-                                <div className="absolute bottom-2 left-2 rounded-md bg-slate-900/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-medium text-slate-200 flex items-center gap-1">
-                                  <ShieldCheck className="h-3 w-3 text-emerald-400" />
-                                  <span>Safe-Handoff</span>
+                                <div className="absolute bottom-2 left-2 rounded-md bg-slate-900/80 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-medium text-slate-200 flex items-center gap-1">
+                                  <ShieldCheck className="h-2.5 w-2.5 text-emerald-400" />
+                                  <span>SafeHandoff</span>
                                 </div>
                               </div>
 
                               {/* Content */}
-                              <div className="p-4 space-y-2">
+                              <div className="p-3 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <div className="text-base font-extrabold text-slate-800">
+                                  <div className="text-sm sm:text-base font-extrabold text-slate-800">
                                     {formatVND(item.price)}
                                   </div>
-                                  <span className="text-[11px] font-medium text-slate-400">
+                                  <span className="text-[10px] font-medium text-slate-400">
                                     {item.timeAgo}
                                   </span>
                                 </div>
 
-                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-fpt-orange transition-colors">
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1 leading-snug group-hover:text-fpt-orange transition-colors" title={item.title}>
                                   {item.title}
                                 </h4>
 
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">
                                   {item.description}
                                 </p>
                               </div>
                             </div>
 
                             {/* Actions Footer */}
-                            <div className="border-t border-slate-100 px-3 py-2.5 flex items-center justify-between gap-1.5 bg-slate-50/70 text-[11px]">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* Relist / Post Similar button */}
+                            <div className="border-t border-slate-100 p-2 flex items-center justify-between gap-1.5 bg-slate-50/70 text-[11px]">
+                              <div className="flex items-center gap-1">
                                 <Link
                                   href="/create-post"
-                                  className="inline-flex items-center gap-1 rounded-lg border border-fpt-orange/30 bg-orange-50 px-2.5 py-1 font-bold text-fpt-orange hover:bg-orange-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Đăng bài mới hoặc pass món đồ tương tự"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-fpt-orange/30 bg-orange-50 px-2 py-1 text-[10px] font-bold text-fpt-orange hover:bg-orange-100 transition active:scale-95 shadow-2xs"
+                                  title="Đăng bài mới tương tự"
                                 >
                                   <Plus className="h-3 w-3" />
-                                  <span>Đăng lại món tương tự</span>
+                                  <span>Đăng lại</span>
                                 </Link>
 
                                 <Link
                                   href="/orders"
-                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Xem chi tiết đơn hàng & lịch sử giao dịch"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-95 shadow-2xs"
+                                  title="Xem đơn hàng"
                                 >
-                                  <ShoppingBag className="h-3 w-3 text-slate-500" />
-                                  <span>Đơn hàng</span>
+                                  <ShoppingBag className="h-3 w-3 text-slate-400" />
+                                  <span>Đơn</span>
                                 </Link>
                               </div>
 
                               <Link
                                 href={item.detailLink}
-                                className="font-bold text-slate-700 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
+                                className="font-bold text-[10px] text-slate-600 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
                               >
                                 <span>Xem tin</span>
-                                <ArrowRight className="h-3 w-3" />
+                                <ArrowRight className="h-2.5 w-2.5" />
                               </Link>
                             </div>
                           </Card>
