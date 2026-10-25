@@ -57,6 +57,15 @@ GEMINI_API_KEY=your_gemini_api_key
 # 6. Webhooks & QR Secrets
 SHIPPING_WEBHOOK_SECRET=your_shipping_webhook_secret
 HANDSHAKE_QR_SECRET=your_handshake_qr_secret
+
+# 7. Email SMTP (Nodemailer gửi mã OTP, thông báo duyệt tin qua Gmail hoặc Resend)
+EMAIL_USER=your_email@gmail.com
+EMAIL_APP_PASSWORD=xxxx_xxxx_xxxx_xxxx
+EMAIL_FROM="Campus Marketplace FU" <no-reply@marketfu.com>
+# Nếu VPS Linux chặn port SMTP (465/587), sử dụng Transactional SMTP (Resend / Brevo):
+# SMTP_HOST=smtp.resend.com
+# SMTP_PORT=587
+# SMTP_SECURE=false
 ```
 *(Bấm `Ctrl + O` $\rightarrow$ `Enter` để lưu, `Ctrl + X` để thoát nano)*.
 
