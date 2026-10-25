@@ -97,6 +97,25 @@ export class ReviewController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/reviews/order/:orderId/reply
+   * Người bán phản hồi đánh giá của người mua
+   */
+  async replyReview(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { replyComment } = req.body;
+      const targetId = (req.params.orderId || req.params.id) as string;
+      const updated = await reviewService.replyReview(
+        req.user!.userId,
+        targetId,
+        replyComment
+      );
+      return sendSuccess(res, updated, { message: 'Đã gửi phản hồi đánh giá thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const reviewController = new ReviewController();

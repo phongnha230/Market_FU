@@ -16,5 +16,7 @@ router.patch('/order/:orderId', reviewController.updateReviewByOrder);
 router.patch('/:id', reviewController.updateReview);
 router.post('/order/:orderId/toggle-public', reviewController.toggleReviewPublic);
 router.post('/:id/toggle-public', reviewController.toggleReviewPublic);
+router.post('/order/:orderId/reply', reviewController.replyReview);
+router.post('/:id/reply', reviewController.replyReview);
 
 export default router;

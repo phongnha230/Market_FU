@@ -65,6 +65,18 @@ interface RatingStats {
   ratingDistribution: Record<number, number>;
 }
 
+function formatDateTime(d?: string | Date | null): string {
+  if (!d) return 'Gần đây';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return typeof d === 'string' ? d : 'Gần đây';
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 export default function SellerProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -190,7 +202,7 @@ export default function SellerProfilePage() {
           reviewerCohort: 'Sinh viên FPT',
           reviewerCampus: currentUser?.campus || 'FPT Campus',
           reviewerAvatar: currentUser?.avatarUrl,
-          createdAt: rev.reviewedAt ? new Date(rev.reviewedAt).toLocaleDateString('vi-VN') : 'Gần đây',
+          createdAt: rev.reviewedAt ? formatDateTime(rev.reviewedAt) : 'Gần đây',
           images: rev.images || [],
           productTitle: myReviewedOrderWithSeller.product?.title,
           orderCode: myReviewedOrderWithSeller.code,
@@ -361,7 +373,7 @@ export default function SellerProfilePage() {
                 reviewerCohort: 'Sinh viên FPT',
                 reviewerCampus: r.reviewer?.profile?.campus || sellerData.campus,
                 reviewerAvatar: r.reviewer?.profile?.avatarUrl,
-                createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+                createdAt: r.createdAt ? formatDateTime(r.createdAt) : 'Gần đây',
                 images: r.images || [],
                 productTitle: r.order?.product?.title,
                 orderCode: r.order?.orderCode,
@@ -894,7 +906,7 @@ export default function SellerProfilePage() {
                             <span className="text-xs font-black text-slate-900">Phản hồi từ Người Bán</span>
                             {rev.repliedAt && (
                               <span className="text-[11px] text-slate-400 font-medium">
-                                • {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}
+                                • {formatDateTime(rev.repliedAt)}
                               </span>
                             )}
                           </div>
@@ -947,7 +959,7 @@ export default function SellerProfilePage() {
                               <span>{isOwnProfile ? 'Xem phản hồi' : 'Xem lại / Sửa'}</span>
                             </button>
                           )}
-                          <span>{rev.createdAt}</span>
+                          <span>{formatDateTime(rev.createdAt)}</span>
                         </div>
                       </div>
                     </div>

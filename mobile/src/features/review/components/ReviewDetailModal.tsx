@@ -23,6 +23,18 @@ interface ReviewDetailModalProps {
   onEditReview?: (order: OrderItem) => void;
 }
 
+function formatDateTime(d?: string | Date | null): string {
+  if (!d) return 'Gần đây';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return typeof d === 'string' ? d : 'Gần đây';
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
   visible,
   order,
@@ -308,7 +320,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
               </View>
               <View style={styles.metaItem}>
                 <Ionicons name="calendar-outline" size={15} color="#94A3B8" />
-                <Text style={styles.metaSubText}>{review.reviewedAt || 'Vừa xong'}</Text>
+                <Text style={styles.metaSubText}>{formatDateTime(review.reviewedAt)}</Text>
               </View>
             </View>
           </View>
@@ -320,7 +332,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                 <Ionicons name="return-down-forward" size={16} color="#EA580C" />
                 <Text style={styles.sellerRepliedTitle}>Phản hồi từ Người Bán</Text>
                 {review.repliedAt && (
-                  <Text style={styles.sellerRepliedTime}>• {review.repliedAt}</Text>
+                  <Text style={styles.sellerRepliedTime}>• {formatDateTime(review.repliedAt)}</Text>
                 )}
               </View>
               <Text style={styles.sellerRepliedContent}>{review.replyComment}</Text>

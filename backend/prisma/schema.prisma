@@ -421,6 +421,8 @@ model Review {
   proofVideoUrl String? // Kèm video test: thưởng +200 Xu theo Task 3.3
   isPublic    Boolean  @default(false)
   revealedAt  DateTime? // Thời điểm mở khóa công khai (blind reveal)
+  replyComment String? // Phản hồi công khai từ người bán
+  repliedAt   DateTime? // Thời điểm người bán phản hồi
   createdAt   DateTime @default(now())
 
   // B3-7: Mỗi người chỉ được đánh giá 1 lần/đơn — chặn double-submit

@@ -442,6 +442,86 @@ export class ReviewService {
 
     return updated;
   }
+
+  /**
+   * 7. Người bán phản hồi công khai đánh giá của người mua
+   */
+  async replyReview(sellerId: string, orderIdOrCode: string, replyComment: string) {
+    if (!replyComment || !replyComment.trim()) {
+      throw new AppError('Nội dung phản hồi không được để trống', 400, 'REPLY_EMPTY');
+    }
+
+    const cleanCode = orderIdOrCode.replace(/^#/, '').trim();
+    let order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          { orderCode: orderIdOrCode },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
+      select: { id: true, sellerId: true, buyerId: true, orderCode: true },
+    });
+
+    let review: any = null;
+
+    if (!order && isValidObjectId(orderIdOrCode)) {
+      review = await prisma.review.findUnique({
+        where: { id: orderIdOrCode },
+        include: { order: { select: { id: true, sellerId: true, buyerId: true, orderCode: true } } },
+      });
+      if (review?.order) {
+        order = review.order;
+      }
+    }
+
+    if (!order && !review) {
+      throw new AppError('Không tìm thấy đơn hàng cần phản hồi đánh giá', 404, 'ORDER_NOT_FOUND');
+    }
+
+    const effectiveSellerId = order?.sellerId || review?.revieweeId;
+
+    if (effectiveSellerId !== sellerId) {
+      const user = await prisma.user.findUnique({ where: { id: sellerId }, select: { role: true } });
+      if (user?.role !== 'ADMIN') {
+        throw new AppError('Chỉ người bán của đơn hàng này mới được quyền viết phản hồi', 403, 'FORBIDDEN');
+      }
+    }
+
+    if (!review) {
+      // Tìm đánh giá của người mua cho đơn này
+      review = await prisma.review.findFirst({
+        where: {
+          orderId: order!.id,
+          reviewerId: order!.buyerId,
+        },
+      });
+
+      if (!review) {
+        review = await prisma.review.findFirst({
+          where: {
+            orderId: order!.id,
+            revieweeId: order!.sellerId,
+          },
+        });
+      }
+    }
+
+    if (!review) {
+      throw new AppError('Đơn hàng này chưa có đánh giá nào từ người mua để phản hồi', 404, 'REVIEW_NOT_FOUND');
+    }
+
+    const updated = await prisma.review.update({
+      where: { id: review.id },
+      data: {
+        replyComment: replyComment.trim(),
+        repliedAt: new Date(),
+      },
+    });
+
+    return updated;
+  }
 }
 
 export const reviewService = new ReviewService();

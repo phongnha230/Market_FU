@@ -42,6 +42,18 @@ const TAG_LABELS: Record<string, string> = {
   phukien: 'Tặng kèm phụ kiện cáp HDMI mini',
 };
 
+function formatDateTime(d?: string | Date | null): string {
+  if (!d) return 'Gần đây';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return typeof d === 'string' ? d : 'Gần đây';
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 const RATING_TEXTS: Record<number, string> = {
   5: 'Cực kỳ hài lòng • Chuẩn FPT 5 sao',
   4: 'Hài lòng • Giao dịch tốt',
@@ -104,7 +116,8 @@ export default function ReviewDetailModal({
               isPublic: rev.isPublic ?? true,
               canEdit: true,
               replyComment: rev.replyComment,
-              replyCreatedAt: rev.replyCreatedAt,
+              replyCreatedAt: rev.repliedAt || rev.replyCreatedAt,
+              repliedAt: rev.repliedAt || rev.replyCreatedAt,
             };
             setLoadedReview(freshRev);
             if (rev.reviewer) {
@@ -164,14 +177,30 @@ export default function ReviewDetailModal({
       showToast('⚠️ Vui lòng nhập nội dung phản hồi trước khi gửi.');
       return;
     }
+    const cleanReply = replyText.trim();
     setIsSubmittingReply(true);
     try {
-      replyOrderReview(order.code, replyText.trim());
+      replyOrderReview(order.code, cleanReply);
+      const nowIso = new Date().toISOString();
       try {
-        await orderService.replyReview(order.code, replyText.trim());
+        await orderService.replyReview(order.code, cleanReply);
       } catch {
         // Mock / offline fallback
       }
+      setLoadedReview((prev) => {
+        if (!prev) {
+          return {
+            ...fallbackReview,
+            replyComment: cleanReply,
+            repliedAt: nowIso,
+          };
+        }
+        return {
+          ...prev,
+          replyComment: cleanReply,
+          repliedAt: nowIso,
+        };
+      });
       showToast('🎉 Đã gửi phản hồi công khai thành công!');
       setIsReplying(false);
       setReplyText('');
@@ -369,7 +398,7 @@ export default function ReviewDetailModal({
                   <span className="text-xs font-black text-slate-900">Phản hồi từ Người Bán</span>
                   {review.repliedAt && (
                     <span className="text-[11px] text-slate-400 font-medium">
-                      • {new Date(review.repliedAt).toLocaleDateString('vi-VN')}
+                      • {formatDateTime(review.repliedAt)}
                     </span>
                   )}
                 </div>
@@ -508,7 +537,7 @@ export default function ReviewDetailModal({
                     : (isSeller ? buyerDisplayName : (currentUser?.name || 'Sinh viên FPT'))}
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Thời gian: {review.reviewedAt ? new Date(review.reviewedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
+                  Thời gian: {formatDateTime(review.reviewedAt)}
                 </div>
               </div>
             </div>

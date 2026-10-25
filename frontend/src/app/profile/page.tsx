@@ -68,6 +68,18 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductItem } from '@/types/product';
 import SellerWalletCard from '@/components/profile/SellerWalletCard';
 
+function formatDateTime(d?: string | Date | null): string {
+  if (!d) return 'Gần đây';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return typeof d === 'string' ? d : 'Gần đây';
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'selling' | 'reviews' | 'sold'>('selling');
   const [buyerTab, setBuyerTab] = useState<'orders' | 'favorites'>('orders');
@@ -1252,9 +1264,7 @@ export default function ProfilePage() {
                           const reviewerCampus =
                             rev.reviewer?.profile?.campus || rev.reviewerCohort || 'FPT University';
                           const avatarUrl = rev.reviewer?.profile?.avatarUrl;
-                          const formattedDate = rev.createdAt
-                            ? new Date(rev.createdAt).toLocaleDateString('vi-VN')
-                            : (rev.date || 'Gần đây');
+                          const formattedDate = formatDateTime(rev.createdAt || rev.date);
                           const productTitle =
                             rev.order?.product?.title || rev.productTitle || 'Sản phẩm giao dịch';
 
@@ -1305,7 +1315,7 @@ export default function ProfilePage() {
                                     <span className="text-fpt-orange">↳</span> Phản hồi của bạn (Người bán)
                                     {rev.repliedAt && (
                                       <span className="text-[10px] text-slate-400 font-normal">
-                                        • {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}
+                                        • {formatDateTime(rev.repliedAt)}
                                       </span>
                                     )}
                                   </div>

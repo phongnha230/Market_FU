@@ -24,6 +24,18 @@ interface SellerReviewsListProps {
   onToggleReviewPublic?: (orderId: string) => void;
 }
 
+function formatDateTime(d?: string | Date | null): string {
+  if (!d) return 'Gần đây';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return typeof d === 'string' ? d : 'Gần đây';
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
   reviews,
   stats,
@@ -193,7 +205,7 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
                       <Ionicons name="checkmark-circle" size={13} color="#10B981" style={{ marginLeft: 3 }} />
                     </View>
                     <Text style={styles.reviewMetaText}>
-                      {reviewerCampus} • {rev.createdAt || 'Gần đây'}
+                      {reviewerCampus} • {formatDateTime(rev.createdAt)}
                     </Text>
                   </View>
 
@@ -240,7 +252,7 @@ export const SellerReviewsList: React.FC<SellerReviewsListProps> = ({
                       <Ionicons name="return-down-forward" size={13} color="#EA580C" />
                       <Text style={styles.sellerReplyTitle}>Phản hồi từ Người Bán</Text>
                       {rev.repliedAt && (
-                        <Text style={styles.sellerReplyTime}>• {new Date(rev.repliedAt).toLocaleDateString('vi-VN')}</Text>
+                        <Text style={styles.sellerReplyTime}>• {formatDateTime(rev.repliedAt)}</Text>
                       )}
                     </View>
                     <Text style={styles.sellerReplyText}>{rev.replyComment || rev.reply}</Text>
