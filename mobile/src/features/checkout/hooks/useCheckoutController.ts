@@ -78,12 +78,13 @@ export function useCheckoutController() {
     title?: string;
     minOrderValue?: number;
   } | null>(null);
+  const [isVoucherManuallyRemoved, setIsVoucherManuallyRemoved] = useState(false);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [customVoucherInput, setCustomVoucherInput] = useState('');
 
   // Tự động gợi ý voucher Freeship cho đơn liên campus nếu chưa chọn và trong ví có mã
   useEffect(() => {
-    if (!isMeetup && !appliedVoucher && myVouchers.length > 0) {
+    if (!isMeetup && !appliedVoucher && !isVoucherManuallyRemoved && myVouchers.length > 0) {
       const shipVoucher = myVouchers.find(
         (v) =>
           v.status === 'UNUSED' &&
@@ -102,7 +103,7 @@ export function useCheckoutController() {
         });
       }
     }
-  }, [isMeetup, myVouchers, appliedVoucher, effectiveProductPrice]);
+  }, [isMeetup, myVouchers, appliedVoucher, effectiveProductPrice, isVoucherManuallyRemoved]);
 
   // KYC verification check
   const isEduEmail = Boolean(
@@ -157,6 +158,7 @@ export function useCheckoutController() {
 
   const handleRemoveVoucher = useCallback(() => {
     setAppliedVoucher(null);
+    setIsVoucherManuallyRemoved(true);
   }, []);
 
   const handleOpenVoucherModal = useCallback(() => {
@@ -173,6 +175,7 @@ export function useCheckoutController() {
         return;
       }
       setAppliedVoucher(voucher);
+      setIsVoucherManuallyRemoved(false);
       setIsVoucherModalOpen(false);
     },
     [effectiveProductPrice, formatCurrency]
@@ -202,6 +205,7 @@ export function useCheckoutController() {
         title: matched.voucher.title,
         minOrderValue: minOrder,
       });
+      setIsVoucherManuallyRemoved(false);
       setIsVoucherModalOpen(false);
       setCustomVoucherInput('');
       Alert.alert('Thành công', `Đã áp dụng ${matched.voucher.title}!`);
@@ -209,7 +213,7 @@ export function useCheckoutController() {
     }
 
     Alert.alert('Không tìm thấy', 'Mã voucher không tồn tại trong ví của bạn hoặc đã hết hạn sử dụng.');
-  }, [customVoucherInput, myVouchers]);
+  }, [customVoucherInput, myVouchers, effectiveProductPrice, formatCurrency]);
 
   const handleNavigateVoucherList = useCallback(() => {
     setIsVoucherModalOpen(false);
