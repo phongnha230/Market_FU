@@ -325,35 +325,85 @@ export class SemesterAnalyticsService {
       }
     }
 
-    // 3. Phân bổ Cơ Cấu Danh Mục Đồ thực tế từ cơ sở dữ liệu
+    // 3. Phân bổ Cơ Cấu Danh Mục Đồ thống nhất với 6 Danh Mục Chuẩn của Trang Chủ
     const categoryCounts: Record<string, number> = {
-      'Thiết bị IT & Phụ kiện': 0,
-      'Giáo trình & Sách PE/FE': 0,
-      'Đồ dùng KTX & Đời sống': 0,
-      'Xe cộ & Di chuyển': 0,
-      'Áo Cam Merch & Thể thao': 0,
+      'Thiết bị điện tử': 0,
+      'Sách & Tài liệu': 0,
+      'Thời trang & Phụ kiện': 0,
+      'Đồ dùng & KTX': 0,
+      'Giải trí & Đam mê': 0,
+      'Tiện ích khác': 0,
     };
 
     products.forEach((p) => {
-      if (p.categoryType === 'ELECTRONICS') {
-        categoryCounts['Thiết bị IT & Phụ kiện'] += 1;
-      } else if (p.categoryType === 'BOOKS') {
-        categoryCounts['Giáo trình & Sách PE/FE'] += 1;
-      } else if (p.categoryType === 'VEHICLE') {
-        categoryCounts['Xe cộ & Di chuyển'] += 1;
-      } else if (p.categoryType === 'CLOTHING') {
-        categoryCounts['Áo Cam Merch & Thể thao'] += 1;
+      const text = ((p.title || '') + ' ' + (p.categoryType || '')).toLowerCase();
+      if (
+        p.categoryType === 'ELECTRONICS' ||
+        text.includes('laptop') ||
+        text.includes('chuột') ||
+        text.includes('phím') ||
+        text.includes('màn hình') ||
+        text.includes('tai nghe') ||
+        text.includes('macbook') ||
+        text.includes('ram') ||
+        text.includes('sạc')
+      ) {
+        categoryCounts['Thiết bị điện tử'] += 1;
+      } else if (
+        p.categoryType === 'BOOKS' ||
+        text.includes('sách') ||
+        text.includes('giáo trình') ||
+        text.includes('pe/fe') ||
+        text.includes('prf') ||
+        text.includes('tài liệu') ||
+        text.includes('đề thi')
+      ) {
+        categoryCounts['Sách & Tài liệu'] += 1;
+      } else if (
+        p.categoryType === 'CLOTHING' ||
+        text.includes('áo') ||
+        text.includes('vovinam') ||
+        text.includes('võ phục') ||
+        text.includes('polo') ||
+        text.includes('hoodie') ||
+        text.includes('giày') ||
+        text.includes('quần') ||
+        text.includes('đồng phục')
+      ) {
+        categoryCounts['Thời trang & Phụ kiện'] += 1;
+      } else if (
+        p.categoryType === 'DORM_ITEM' ||
+        text.includes('ktx') ||
+        text.includes('bàn gấp') ||
+        text.includes('quạt') ||
+        text.includes('tủ lạnh') ||
+        text.includes('tủ vải') ||
+        text.includes('ấm') ||
+        text.includes('nồi') ||
+        text.includes('phòng trọ')
+      ) {
+        categoryCounts['Đồ dùng & KTX'] += 1;
+      } else if (
+        p.categoryType === 'VEHICLE' ||
+        text.includes('xe') ||
+        text.includes('bus') ||
+        text.includes('vé') ||
+        text.includes('thẻ gym') ||
+        text.includes('voucher')
+      ) {
+        categoryCounts['Tiện ích khác'] += 1;
       } else {
-        categoryCounts['Đồ dùng KTX & Đời sống'] += 1;
+        categoryCounts['Giải trí & Đam mê'] += 1;
       }
     });
 
     const categoryDefinitions = [
-      { name: 'Thiết bị IT & Phụ kiện', categoryType: 'ELECTRONICS', stroke: '#F27024', dot: 'bg-orange-500' },
-      { name: 'Giáo trình & Sách PE/FE', categoryType: 'BOOKS', stroke: '#2563EB', dot: 'bg-blue-600' },
-      { name: 'Đồ dùng KTX & Đời sống', categoryType: 'DORM_ITEM', stroke: '#10B981', dot: 'bg-emerald-500' },
-      { name: 'Xe cộ & Di chuyển', categoryType: 'VEHICLE', stroke: '#8B5CF6', dot: 'bg-purple-500' },
-      { name: 'Áo Cam Merch & Thể thao', categoryType: 'CLOTHING', stroke: '#F59E0B', dot: 'bg-amber-500' },
+      { name: 'Thiết bị điện tử', categoryType: 'ELECTRONICS', stroke: '#F27024', dot: 'bg-orange-500' },
+      { name: 'Sách & Tài liệu', categoryType: 'BOOKS', stroke: '#2563EB', dot: 'bg-blue-600' },
+      { name: 'Thời trang & Phụ kiện', categoryType: 'CLOTHING', stroke: '#E11D48', dot: 'bg-rose-500' },
+      { name: 'Đồ dùng & KTX', categoryType: 'DORM_ITEM', stroke: '#10B981', dot: 'bg-emerald-500' },
+      { name: 'Giải trí & Đam mê', categoryType: 'OTHER', stroke: '#6366F1', dot: 'bg-indigo-500' },
+      { name: 'Tiện ích khác', categoryType: 'VEHICLE', stroke: '#F59E0B', dot: 'bg-amber-500' },
     ];
 
     const totalProductCount = products.length;

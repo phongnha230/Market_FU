@@ -136,34 +136,82 @@ export default function AdminDashboard() {
 
     const total = products.length;
     const counts: Record<string, number> = {
-      'Thiết bị IT & Phụ kiện': 0,
-      'Giáo trình & Sách PE/FE': 0,
-      'Đồ dùng KTX & Đời sống': 0,
-      'Xe cộ & Di chuyển': 0,
-      'Áo Cam Merch & Thể thao': 0,
+      'Thiết bị điện tử': 0,
+      'Sách & Tài liệu': 0,
+      'Thời trang & Phụ kiện': 0,
+      'Đồ dùng & KTX': 0,
+      'Giải trí & Đam mê': 0,
+      'Tiện ích khác': 0,
     };
 
     products.forEach((p) => {
-      const text = ((p.category || '') + ' ' + (p.title || '')).toLowerCase();
-      if (text.includes('giáo trình') || text.includes('sách') || text.includes('pe/fe') || text.includes('prf') || text.includes('đề thi')) {
-        counts['Giáo trình & Sách PE/FE'] += 1;
-      } else if (text.includes('chuột') || text.includes('bàn phím') || text.includes('switch') || text.includes('màn hình') || text.includes('it') || text.includes('laptop') || text.includes('tai nghe') || text.includes('ram') || text.includes('nintendo')) {
-        counts['Thiết bị IT & Phụ kiện'] += 1;
-      } else if (text.includes('xe') || text.includes('máy') || text.includes('đạp') || text.includes('vinfast') || text.includes('wave')) {
-        counts['Xe cộ & Di chuyển'] += 1;
-      } else if (text.includes('áo') || text.includes('vovinam') || text.includes('merch') || text.includes('đồng phục')) {
-        counts['Áo Cam Merch & Thể thao'] += 1;
+      const text = ((p.category || '') + ' ' + (p.categoryType || '') + ' ' + (p.title || '')).toLowerCase();
+      if (
+        text.includes('giáo trình') ||
+        text.includes('sách') ||
+        text.includes('pe/fe') ||
+        text.includes('prf') ||
+        text.includes('đề thi') ||
+        text.includes('tài liệu') ||
+        p.categoryType === 'BOOKS'
+      ) {
+        counts['Sách & Tài liệu'] += 1;
+      } else if (
+        text.includes('chuột') ||
+        text.includes('bàn phím') ||
+        text.includes('màn hình') ||
+        text.includes('it') ||
+        text.includes('laptop') ||
+        text.includes('tai nghe') ||
+        text.includes('ram') ||
+        text.includes('macbook') ||
+        p.categoryType === 'ELECTRONICS'
+      ) {
+        counts['Thiết bị điện tử'] += 1;
+      } else if (
+        text.includes('áo') ||
+        text.includes('vovinam') ||
+        text.includes('merch') ||
+        text.includes('đồng phục') ||
+        text.includes('polo') ||
+        text.includes('hoodie') ||
+        text.includes('giày') ||
+        p.categoryType === 'CLOTHING'
+      ) {
+        counts['Thời trang & Phụ kiện'] += 1;
+      } else if (
+        text.includes('ktx') ||
+        text.includes('bàn gấp') ||
+        text.includes('quạt') ||
+        text.includes('tủ lạnh') ||
+        text.includes('tủ vải') ||
+        text.includes('ấm') ||
+        text.includes('nồi') ||
+        text.includes('đèn') ||
+        p.categoryType === 'DORM_ITEM'
+      ) {
+        counts['Đồ dùng & KTX'] += 1;
+      } else if (
+        text.includes('xe') ||
+        text.includes('bus') ||
+        text.includes('vé') ||
+        text.includes('thẻ gym') ||
+        text.includes('voucher') ||
+        p.categoryType === 'VEHICLE'
+      ) {
+        counts['Tiện ích khác'] += 1;
       } else {
-        counts['Đồ dùng KTX & Đời sống'] += 1;
+        counts['Giải trí & Đam mê'] += 1;
       }
     });
 
     const categories = [
-      { name: 'Thiết bị IT & Phụ kiện', stroke: '#F27024', dot: 'bg-orange-500' },
-      { name: 'Giáo trình & Sách PE/FE', stroke: '#2563EB', dot: 'bg-blue-600' },
-      { name: 'Đồ dùng KTX & Đời sống', stroke: '#10B981', dot: 'bg-emerald-500' },
-      { name: 'Xe cộ & Di chuyển', stroke: '#8B5CF6', dot: 'bg-purple-500' },
-      { name: 'Áo Cam Merch & Thể thao', stroke: '#F59E0B', dot: 'bg-amber-500' },
+      { name: 'Thiết bị điện tử', stroke: '#F27024', dot: 'bg-orange-500' },
+      { name: 'Sách & Tài liệu', stroke: '#2563EB', dot: 'bg-blue-600' },
+      { name: 'Thời trang & Phụ kiện', stroke: '#E11D48', dot: 'bg-rose-500' },
+      { name: 'Đồ dùng & KTX', stroke: '#10B981', dot: 'bg-emerald-500' },
+      { name: 'Giải trí & Đam mê', stroke: '#6366F1', dot: 'bg-indigo-500' },
+      { name: 'Tiện ích khác', stroke: '#F59E0B', dot: 'bg-amber-500' },
     ];
 
     const circumference = 2 * Math.PI * 58;

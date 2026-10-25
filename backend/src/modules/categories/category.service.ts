@@ -177,40 +177,40 @@ export class CategoryService {
       description: string;
     }[] = [
       {
-        name: 'Đồ Dùng Phòng Trọ',
-        slug: 'do-dung-phong-tro',
-        category: 'DORM_ITEM',
-        description: 'Tủ lạnh, quạt điện, ấm đun nước, nệm, bàn ghế học tập cho sinh viên',
-      },
-      {
-        name: 'Giáo Trình & Sách',
-        slug: 'giao-trinh-sach',
-        category: 'BOOKS',
-        description: 'Sách chuyên ngành SE, IA, GD, MKT, ngoại ngữ tiếng Nhật, tiếng Anh',
-      },
-      {
-        name: 'Đồ Điện Tử & Phụ Kiện',
+        name: 'Thiết bị điện tử',
         slug: 'do-dien-tu',
         category: 'ELECTRONICS',
-        description: 'Màn hình máy tính, chuột, bàn phím cơ, tai nghe, router Wi-Fi',
+        description: 'Laptop, màn hình máy tính, chuột, bàn phím cơ, tai nghe, phụ kiện công nghệ',
       },
       {
-        name: 'Xe Cộ & Đi Lại',
-        slug: 'xe-co',
-        category: 'VEHICLE',
-        description: 'Xe máy, xe đạp điện, mũ bảo hiểm, áo mưa',
+        name: 'Sách & Tài liệu',
+        slug: 'giao-trinh-sach',
+        category: 'BOOKS',
+        description: 'Giáo trình, slide tóm tắt, đề thi PE/FE, sách chuyên ngành SE, IA, GD, MKT',
       },
       {
-        name: 'Thời Trang & Trang Phục',
+        name: 'Thời trang & Phụ kiện',
         slug: 'thoi-trang',
         category: 'CLOTHING',
-        description: 'Áo cam FPT, đồng phục thể dục, áo khoác, balo, giày dép',
+        description: 'Võ phục Vovinam, áo cam FPT, áo polo, hoodie, balo, giày dép sinh viên',
       },
       {
-        name: 'Đồ Dùng Khác',
-        slug: 'do-dung-khac',
+        name: 'Đồ dùng & KTX',
+        slug: 'do-dung-phong-tro',
+        category: 'DORM_ITEM',
+        description: 'Bàn gấp, quạt điện, tủ lạnh mini, tủ vải, ấm đun nước cho phòng trọ & KTX',
+      },
+      {
+        name: 'Giải trí & Đam mê',
+        slug: 'giai-tri-dam-me',
         category: 'OTHER',
-        description: 'Các vật dụng tiện ích, đồ decor phòng, dụng cụ thể thao',
+        description: 'Máy chơi game Switch, console, boardgame, đàn guitar, mô hình sưu tầm',
+      },
+      {
+        name: 'Tiện ích khác',
+        slug: 'xe-co-tien-ich',
+        category: 'VEHICLE',
+        description: 'Vé bus Hola, thẻ gym KTX, xe cộ di chuyển, voucher và dịch vụ tiện ích',
       },
     ];
 
