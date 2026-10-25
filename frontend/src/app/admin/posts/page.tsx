@@ -35,7 +35,7 @@ import {
 import { ProductService } from '@/services/productService';
 import { formatCampusTag, extractImageUrl } from '@/lib/adapters';
 
-type TabType = 'all' | 'pending' | 'risk' | 'live' | 'rejected';
+type TabType = 'all' | 'pending' | 'appeals' | 'risk' | 'live' | 'rejected';
 
 export interface AdminPostItem {
   id: string;
@@ -68,6 +68,9 @@ export interface AdminPostItem {
   phone?: string;
   email?: string;
   rejectionReason?: string;
+  appealStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  appealReason?: string;
+  appealedAt?: string;
   approvedAt?: string;
   updatedAt: string;
 }
@@ -216,9 +219,15 @@ export default function AdminPostsPage() {
   const [counts, setCounts] = useState({
     all: 0,
     pending: 0,
+    appeals: 0,
     live: 0,
     rejected: 0,
   });
+
+  // Modal Bác bỏ kháng nghị
+  const [rejectAppealModalTarget, setRejectAppealModalTarget] = useState<AdminPostItem | null>(null);
+  const [appealRejectReason, setAppealRejectReason] = useState('');
+  const [isRejectingAppeal, setIsRejectingAppeal] = useState(false);
 
   // Modal Từ chối tin
   const [rejectModalTarget, setRejectModalTarget] = useState<AdminPostItem | null>(null);
@@ -250,12 +259,14 @@ export default function AdminPostsPage() {
 
       // Cập nhật bộ đếm thật
       const pendingNum = mapped.filter((p) => p.status === 'PENDING_APPROVAL').length;
+      const appealsNum = mapped.filter((p) => p.appealStatus === 'PENDING').length;
       const liveNum = mapped.filter((p) => p.status === 'AVAILABLE').length;
       const rejectedNum = mapped.filter((p) => p.status === 'REJECTED').length;
 
       setCounts({
         all: res.counts?.all ?? mapped.length,
         pending: res.counts?.pending ?? pendingNum,
+        appeals: res.counts?.appeals ?? appealsNum,
         live: res.counts?.live ?? liveNum,
         rejected: res.counts?.rejected ?? rejectedNum,
       });
@@ -328,6 +339,64 @@ export default function AdminPostsPage() {
   const openRejectModal = (post: AdminPostItem) => {
     setRejectModalTarget(post);
     setRejectReason(QUICK_REJECT_REASONS[0]);
+  };
+
+  // Xác nhận bác bỏ đơn kháng nghị của Người bán
+  const handleConfirmRejectAppeal = async () => {
+    if (!rejectAppealModalTarget) return;
+    if (!appealRejectReason.trim()) {
+      showToast('Vui lòng nhập lý do từ chối kháng nghị', 'error');
+      return;
+    }
+
+    try {
+      setIsRejectingAppeal(true);
+      await ProductService.rejectAppeal(
+        rejectAppealModalTarget.rawId,
+        appealRejectReason.trim(),
+        rejectAppealModalTarget.updatedAt
+      );
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.rawId === rejectAppealModalTarget.rawId
+            ? {
+                ...p,
+                appealStatus: 'REJECTED',
+                rejectionReason: appealRejectReason.trim(),
+                aiNote: `🚫 Bác bỏ kháng nghị: ${appealRejectReason.trim()}`,
+              }
+            : p
+        )
+      );
+
+      if (selectedDetail?.rawId === rejectAppealModalTarget.rawId) {
+        setSelectedDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                appealStatus: 'REJECTED',
+                rejectionReason: appealRejectReason.trim(),
+                aiNote: `🚫 Bác bỏ kháng nghị: ${appealRejectReason.trim()}`,
+              }
+            : null
+        );
+      }
+
+      setCounts((prev) => ({
+        ...prev,
+        appeals: Math.max(0, prev.appeals - 1),
+      }));
+
+      showToast('🚫 Đã bác bỏ kháng nghị và gửi thông báo tới người bán!');
+      setRejectAppealModalTarget(null);
+      setAppealRejectReason('');
+    } catch (err: any) {
+      if (err?.response?.status === 409) await fetchProducts(true);
+      showToast(`🚫 Lỗi bác bỏ kháng nghị: ${err?.message || 'Vui lòng thử lại'}`, 'error');
+    } finally {
+      setIsRejectingAppeal(false);
+    }
   };
 
   // Xác nhận từ chối tin đăng (gọi API thật)
@@ -427,6 +496,7 @@ export default function AdminPostsPage() {
   const filteredPosts = useMemo(() => {
     return posts.filter((p) => {
       if (activeTab === 'pending' && p.status !== 'PENDING_APPROVAL') return false;
+      if (activeTab === 'appeals' && p.appealStatus !== 'PENDING') return false;
       if (activeTab === 'risk' && p.riskLevel !== 'high' && p.riskLevel !== 'pccc') return false;
       if (activeTab === 'live' && p.status !== 'AVAILABLE') return false;
       if (activeTab === 'rejected' && p.status !== 'REJECTED') return false;
@@ -1037,6 +1107,74 @@ export default function AdminPostsPage() {
                 >
                   {isRejecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Xác nhận từ chối
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+                {/* Modal Bác bỏ kháng nghị */}
+        {rejectAppealModalTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-red-600 font-bold text-base">
+                  <ShieldAlert className="h-5 w-5" />
+                  Bác bỏ kháng nghị của người bán
+                </div>
+                <button
+                  onClick={() => setRejectAppealModalTarget(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div>
+                <div className="text-xs text-slate-500 font-medium">Món đồ:</div>
+                <div className="text-sm font-bold text-slate-900 mt-0.5 truncate">
+                  {rejectAppealModalTarget.title} ({rejectAppealModalTarget.id})
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  Người bán: {rejectAppealModalTarget.seller} ({rejectAppealModalTarget.mssv})
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-purple-50 p-3 text-xs text-purple-950 border border-purple-200">
+                <div className="font-bold text-purple-900 mb-1">Nội dung kháng nghị của Seller:</div>
+                "{rejectAppealModalTarget.appealReason}"
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Lý do bác bỏ kháng nghị (gửi cho người bán):
+                </label>
+                <textarea
+                  rows={3}
+                  value={appealRejectReason}
+                  onChange={(e) => setAppealRejectReason(e.target.value)}
+                  placeholder="Giải thích vì sao lý do kháng nghị không được chấp nhận..."
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 focus:border-red-500 focus:outline-hidden focus:ring-2 focus:ring-red-200"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRejectAppealModalTarget(null)}
+                  disabled={isRejectingAppeal}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRejectAppeal}
+                  disabled={isRejectingAppeal || !appealRejectReason.trim()}
+                  className="rounded-xl bg-red-600 px-5 py-2 text-xs font-bold text-white hover:bg-red-700 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isRejectingAppeal && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Xác nhận bác bỏ
                 </button>
               </div>
             </div>

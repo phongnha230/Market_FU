@@ -303,7 +303,7 @@ export const ProductService = {
   }): Promise<{
     products: any[];
     pagination: { total: number; page: number; limit: number; totalPages: number };
-    counts: { all: number; pending: number; live: number; rejected: number };
+    counts: { all: number; pending: number; live: number; rejected: number; appeals?: number };
   }> {
     const response = await apiClient.get<ApiResponse<any[]>>('/products/admin/moderation', {
       params,
@@ -336,6 +336,21 @@ export const ProductService = {
   // 15. [Admin] Từ chối tin đăng kèm lý do
   async rejectProduct(id: string, reason: string, expectedUpdatedAt: string): Promise<any> {
     const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason, expectedUpdatedAt });
+    return response.data.data;
+  },
+
+  // 16. [Seller] Gửi kháng nghị tin đăng bị từ chối / gỡ bỏ
+  async appealProduct(id: string, reason: string): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(`/products/${id}/appeal`, { reason });
+    return response.data.data;
+  },
+
+  // 17. [Admin] Bác bỏ kháng nghị của người bán
+  async rejectAppeal(id: string, reason: string, expectedUpdatedAt: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject-appeal`, {
+      reason,
+      expectedUpdatedAt,
+    });
     return response.data.data;
   },
 };

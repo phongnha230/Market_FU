@@ -42,6 +42,9 @@ export interface ProductItem {
   viewCount?: number;
   status?: string;
   rejectionReason?: string;
+  appealStatus?: string;
+  appealReason?: string;
+  appealedAt?: string;
   approvedAt?: string;
   createdAt?: string;
 }

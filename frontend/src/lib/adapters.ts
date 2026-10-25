@@ -138,6 +138,9 @@ export function adaptBackendProduct(item: any): ProductItem {
     viewCount: item.viewsCount ?? item.viewCount ?? 0,
     status: item.status,
     rejectionReason: item.rejectionReason,
+    appealStatus: item.appealStatus,
+    appealReason: item.appealReason,
+    appealedAt: item.appealedAt,
     approvedAt: item.approvedAt,
   };
 }
