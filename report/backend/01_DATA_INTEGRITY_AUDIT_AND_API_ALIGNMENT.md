@@ -43,7 +43,7 @@ Bảng tổng hợp các endpoint backend đã được kiểm thử, xác nhậ
 | 3 | `/api/auth/forgot-password` | `POST` | Gửi mã OTP xác thực khôi phục mật khẩu về email sinh viên | Mobile (`useLoginController`) |
 | 4 | `/api/auth/reset-password` | `POST` | Đặt lại mật khẩu mới với OTP từ email | Mobile (`useLoginController`) |
 | 5 | `/api/chats/conversations/:id` | `DELETE` | Xóa vĩnh viễn cuộc hội thoại trò chuyện | Web & Mobile (`chatMobileService`) |
-| 6 | `/api/reviews/order/:orderId/toggle-public` | `POST` | Bật/tắt chế độ hiển thị đánh giá công khai (Blind review) | Mobile (`PublicSellerProfileScreen`) |
+| 6 | `/api/reviews/order/:orderId/toggle-public` | `POST` | Bật/tắt chế độ hiển thị đánh giá công khai | Mobile (`PublicSellerProfileScreen`) |
 | 7 | `/api/profile/coins/history` | `GET` | Lấy danh sách lịch sử biến động FPT Coin | Web & Mobile (`profileService`) |
 | 8 | `/api/profile/badges/buy` | `POST` | Mua huy hiệu avatar (Pro Seller, Uy tín, Sinh viên năng động) bằng Xu | Web & Mobile (`profileService`) |
 | 9 | `/api/reports/me` | `GET` | Xem lịch sử các đơn tố cáo vi phạm cá nhân kèm phản hồi từ BQT | Web & Mobile |

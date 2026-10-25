@@ -37,7 +37,7 @@ Sau quá trình rà soát toàn diện mã nguồn Backend (Express.js, Prisma O
 | 12 | **Video Upload Magic Bytes** | 🟠 HIGH | Chỉ kiểm tra header MIME do client khai báo | Đọc chữ ký nhị phân trực tiếp (MP4 `ftyp`, WebM EBML ID) |
 | 13 | **View Count Inflation** | 🟡 MEDIUM | Gọi GET /products/:id liên tục gây tăng view ảo | Throttling bộ nhớ đệm: mỗi IP/User chỉ tính 1 view mỗi 15 phút |
 | 14 | **Siết điều kiện Review** | 🟡 MEDIUM | Cho phép đánh giá khi đơn còn ở DELIVERED | Bắt buộc hoàn tất `COMPLETED`, sửa lỗi đảo logic thưởng điểm uy tín |
-| 15 | **Cron mở Blind Review 7 ngày** | 🟡 MEDIUM | Đánh giá ẩn bị giam mãi nếu đối tác im lặng | Tự động công khai sau 7 ngày lúc 00:00 và chống lặp email cảnh báo |
+| 15 | **Chuyển đổi Đánh giá Công khai Tức thì & Chống lặp cảnh báo** | 🟡 MEDIUM | Đánh giá ẩn bị giam nếu đối tác im lặng | Công khai tức thì (isPublic = true), loại bỏ cron thừa và chống lặp email cảnh báo |
 
 ---
 
@@ -159,14 +159,14 @@ Sau quá trình rà soát toàn diện mã nguồn Backend (Express.js, Prisma O
   * Chỉ mở quyền đánh giá khi đơn hàng đã chuyển hẳn sang `COMPLETED`.
   * Sửa điều kiện thành `if (isBuyer && rating === 5)`: Khi người mua chấm 5 sao, người bán (`revieweeId`) được cộng chính xác +5 điểm uy tín vào hồ sơ.
 
-### 3.5. Cron Job tự động mở Blind Review sau 7 ngày & Khắc phục lặp cảnh báo
-* **Tệp tin:** `backend/src/cron/expirePosts.cron.ts`, `backend/src/modules/reviews/review.service.ts`
+### 3.5. Chuyển đổi Đánh giá Công khai Tức thì & Khắc phục lặp cảnh báo
+* **Tệp tin:** `backend/src/modules/reviews/review.service.ts`, `backend/src/cron/expire-products.cron.ts`
 * **Nguy cơ:**
-  1. Hệ thống thông báo với sinh viên rằng *"Đánh giá sẽ tự động công khai sau 7 ngày"*, nhưng không có cron job nào thực hiện điều này khiến đánh giá bị ẩn mãi mãi nếu đối tác không đánh giá lại.
+  1. Trong cơ chế Blind Review trước đây, đánh giá bị giam ẩn nếu đối tác không đánh giá lại. Hiện tại hệ thống đã chuyển sang **công khai tức thì** (`isPublic: true`) và cộng điểm uy tín ngay, loại bỏ hoàn toàn cron job thừa thãi.
   2. Cron quét tin hết hạn gửi lặp lại email/notification cảnh báo vào cả 3 ngày liên tiếp (ngày 27, 28, 29).
 * **Khắc phục:**
-  * Bổ sung phương thức `autoPublishExpiredBlindReviews()` trong `ReviewService`: Quét các review `isPublic: false` có `createdAt <= 7 ngày trước`, tự động cập nhật `isPublic: true` và gửi thông báo cho đối tác.
-  * Tích hợp hàm quét này vào tiến trình Cron lúc `00:00:00` hàng ngày.
+  * Cập nhật `ReviewService.createReview`: Gán `isPublic: true`, `revealedAt: new Date()`, tính điểm uy tín và thưởng Coin ngay lập tức.
+  * Loại bỏ file cron thừa `blind-review-reveal.cron.ts`, chuẩn hóa hệ thống về 3 Cron Jobs thực tế.
   * Thêm bộ nhớ `warnedProductIds`: Đảm bảo mỗi tin đăng sắp hết hạn chỉ gửi email và notification cảnh báo đúng 1 lần duy nhất vào ngày thứ 27.
 
 ---
@@ -191,7 +191,7 @@ Sau quá trình rà soát toàn diện mã nguồn Backend (Express.js, Prisma O
 | `backend/src/modules/products/product.service.ts` | Throttle lượt xem 15 phút / IP; kiểm tra Magic Bytes cho video upload |
 | `backend/src/config/storage.ts` | Xây dựng và xuất hàm `isValidVideoBuffer` đọc header MP4/WebM |
 | `backend/src/modules/reviews/review.service.ts` | Ràng buộc chỉ review khi `COMPLETED`; sửa logic thưởng điểm uy tín; thêm hàm tự mở review sau 7 ngày |
-| `backend/src/cron/expirePosts.cron.ts` | Chặn spam email cảnh báo ngày 27; kích hoạt cron quét mở Blind Review định kỳ lúc 00:00 |
+| `backend/src/cron/expirePosts.cron.ts` | Chặn spam email cảnh báo ngày 27; kích hoạt cron định kỳ lúc 00:00 |
 | `backend/tests/unit/sprint3.features.unit.test.ts` | Bổ sung 5 unit test kiểm thử Magic Bytes, Account Lockout và Blind Review TTL |
 
 ---

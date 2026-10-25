@@ -51,7 +51,7 @@ backend/bruno-collection/
 │   ├── 05-Get-Order-Detail.bru              <-- [GET - READ ONE] Chi tiết đơn hàng theo {{orderId}}
 │   ├── 06-Seller-Update-Shipping.bru        <-- [PATCH - UPDATE] Người bán cập nhật mã vận đơn & trạng thái
 │   ├── 07-Verify-Handshake.bru              <-- [POST - ACTION] Quét mã QR/OTP xác nhận giao hàng thành công
-│   ├── 08-Create-Blind-Review.bru           <-- [POST - CREATE] Tạo đánh giá mù 2 chiều sau khi giao dịch
+│   ├── 08-Create-Blind-Review.bru           <-- [POST - CREATE] Đánh giá đơn hàng (công khai tức thì, thưởng Xu & điểm uy tín)
 │   ├── 09-Get-Order-Reviews.bru             <-- [GET - READ] Xem các đánh giá liên quan đến đơn hàng
 │   └── 10-Cancel-Order.bru                  <-- [POST - ACTION] Hủy đơn hàng và hoàn tiền/hàng
 │

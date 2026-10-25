@@ -10,16 +10,14 @@ const REVIEW_COIN_BASE = 100;
 const REVIEW_COIN_WITH_VIDEO = 200;
 /** Task 3.3: Người bán đánh giá 5 sao -> +5 điểm uy tín */
 const FIVE_STAR_SELLER_REPUTATION = 5;
-/** Task 3.3: Blind review tự mở công khai sau 7 ngày kể từ khi đơn COMPLETED */
-const BLIND_REVEAL_DAYS = 7;
+
 
 const isValidObjectId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
 
 export class ReviewService {
   /**
-   * 1. Gửi đánh giá 2 chiều theo Blind Review Pattern (Task 3.3)
-   * Đánh giá lưu isPublic = false. Công khai đồng thời khi CẢ HAI BÊN đã đánh giá,
-   * hoặc sau 7 ngày kể từ khi đơn COMPLETED (cron revealBlindReviews).
+   * 1. Gửi đánh giá đơn hàng (Công khai tức thì, thưởng Xu & điểm uy tín)
+   * Đánh giá lưu isPublic = true, công khai tức thì và cập nhật điểm uy tín ngay lập tức.
    */
   async createReview(reviewerId: string, input: CreateReviewInput) {
     const { orderId, rating, comment, images, proofVideoUrl } = input;
@@ -166,41 +164,6 @@ export class ReviewService {
         data: { reputationScore: { increment: delta } },
       });
     }
-  }
-
-  /**
-   * B3-7 (Task 3.3): Cron/Sweep — tự động công khai các đánh giá mù sau 7 ngày
-   * kể từ khi đơn COMPLETED (khi 1 hoặc 2 bên chưa đánh giá). Áp dụng điểm uy tín
-   * cho review đã có. Trả về số review được mở khóa.
-   */
-  async revealBlindReviewsDue(now: Date = new Date()): Promise<number> {
-    const cutoff = new Date(now.getTime() - BLIND_REVEAL_DAYS * 24 * 60 * 60 * 1000);
-
-    const hiddenReviews = await prisma.review.findMany({
-      where: {
-        isPublic: false,
-        createdAt: { lte: cutoff },
-        order: { status: { in: ['COMPLETED'] } },
-      },
-      include: { order: { select: { id: true, orderCode: true } } },
-    });
-
-    if (hiddenReviews.length === 0) return 0;
-
-    let revealed = 0;
-    for (const review of hiddenReviews) {
-      await prisma.$transaction(async (tx) => {
-        await tx.review.update({
-          where: { id: review.id },
-          data: { isPublic: true, revealedAt: new Date() },
-        });
-        await this.applyReputationInsideTx(tx, review.revieweeId, review.rating);
-      });
-      revealed += 1;
-    }
-
-    console.log(`🔓 [BLIND REVIEW] Đã công khai ${revealed} đánh giá quá hạn 7 ngày chưa mở khóa.`);
-    return revealed;
   }
 
   /**
