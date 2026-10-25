@@ -40,6 +40,19 @@ import { safehandoffService, SafeHandoffHubItem } from '@/services/safehandoffSe
 import { BackendReport } from '@/services/reportService';
 import { DisputeItem } from '@/stores/disputeStore';
 
+const isVideoProofUrl = (url?: string) => {
+  if (!url) return false;
+  if (url.startsWith('data:video/')) return true;
+  if (url.startsWith('data:image/')) return false;
+  const clean = url.split('?')[0].toLowerCase();
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.includes('/video/')
+  );
+};
+
 export default function AdminReportsPage() {
   const { disputes, fetchDisputes, resolveDisputeByAdmin } = useDisputeStore();
 
@@ -674,13 +687,21 @@ export default function AdminReportsPage() {
                     )}
                   </div>
 
-                  {/* Video Test */}
+                  {/* Bằng chứng Test (Ảnh hoặc Video) */}
                   {selectedDisputeForModal.proofVideoUrl && (
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                         <span className="flex items-center gap-1.5">
-                          <Video className="h-4 w-4 text-fpt-orange" />
-                          <span>Video kiểm tra mở hộp / Test thực tế:</span>
+                          {isVideoProofUrl(selectedDisputeForModal.proofVideoUrl) ? (
+                            <Video className="h-4 w-4 text-fpt-orange" />
+                          ) : (
+                            <Camera className="h-4 w-4 text-fpt-orange" />
+                          )}
+                          <span>
+                            {isVideoProofUrl(selectedDisputeForModal.proofVideoUrl)
+                              ? 'Video kiểm tra mở hộp / Test thực tế:'
+                              : 'Hình ảnh bằng chứng kiểm tra lỗi / Test máy:'}
+                          </span>
                         </span>
                         <a
                           href={selectedDisputeForModal.proofVideoUrl}
@@ -692,12 +713,27 @@ export default function AdminReportsPage() {
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       </div>
-                      <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-60 w-full flex items-center justify-center">
-                        <video
-                          src={selectedDisputeForModal.proofVideoUrl}
-                          controls
-                          className="w-full h-full object-contain"
-                        />
+                      <div className="rounded-xl overflow-hidden bg-slate-950 aspect-video max-h-72 w-full flex items-center justify-center border border-slate-200">
+                        {isVideoProofUrl(selectedDisputeForModal.proofVideoUrl) ? (
+                          <video
+                            src={selectedDisputeForModal.proofVideoUrl}
+                            controls
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <img
+                            src={selectedDisputeForModal.proofVideoUrl}
+                            alt="Bằng chứng khiếu nại"
+                            className="w-full h-full object-contain cursor-pointer hover:scale-105 transition"
+                            onClick={() => window.open(selectedDisputeForModal.proofVideoUrl, '_blank')}
+                            onError={(e) => {
+                              const fallback = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80';
+                              if ((e.currentTarget as HTMLImageElement).src !== fallback) {
+                                (e.currentTarget as HTMLImageElement).src = fallback;
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   )}

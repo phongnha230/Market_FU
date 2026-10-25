@@ -455,6 +455,12 @@ export default function ReviewDetailModal({
                         src={imgUrl}
                         alt={`Ảnh đánh giá ${i + 1}`}
                         className="h-full w-full object-cover group-hover/img:scale-105 transition"
+                        onError={(e) => {
+                          const fallback = order.product?.imageUrl || '/products/keyboard-akko.jpg';
+                          if ((e.currentTarget as HTMLImageElement).src !== fallback) {
+                            (e.currentTarget as HTMLImageElement).src = fallback;
+                          }
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center">
                         <ExternalLink className="h-4 w-4 text-white" />
@@ -581,6 +587,12 @@ export default function ReviewDetailModal({
               src={selectedZoomImage}
               alt="Phóng to ảnh test"
               className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              onError={(e) => {
+                const fallback = order.product?.imageUrl || '/products/keyboard-akko.jpg';
+                if ((e.currentTarget as HTMLImageElement).src !== fallback) {
+                  (e.currentTarget as HTMLImageElement).src = fallback;
+                }
+              }}
             />
           </div>
         </div>

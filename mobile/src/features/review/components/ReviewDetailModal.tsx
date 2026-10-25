@@ -261,7 +261,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                       activeOpacity={0.8}
                       onPress={() => setSelectedFullImage(imgUri)}
                     >
-                      <Image source={{ uri: imgUri }} style={styles.mediaThumb} contentFit="cover" />
+                      <Image source={{ uri: imgUri }} style={styles.mediaThumb} contentFit="cover" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
                       <View style={styles.zoomHint}>
                         <Ionicons name="search" size={10} color="#FFFFFF" />
                       </View>
@@ -270,7 +270,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
                   {review.proofVideoUrl && (
                     <View style={styles.mediaBox}>
-                      <Image source={{ uri: review.proofVideoUrl }} style={styles.mediaThumb} contentFit="cover" />
+                      <Image source={{ uri: review.proofVideoUrl }} style={styles.mediaThumb} contentFit="cover" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
                       <View style={styles.videoBadge}>
                         <Ionicons name="play" size={12} color="#FFFFFF" />
                         <Text style={styles.videoText}>Video unbox</Text>
@@ -425,7 +425,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
               onPress={() => setSelectedFullImage(null)}
             >
               <View style={styles.fullModalContent}>
-                <Image source={{ uri: selectedFullImage }} style={styles.fullModalImage} contentFit="contain" />
+                <Image source={{ uri: selectedFullImage }} style={styles.fullModalImage} contentFit="contain" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
                 <TouchableOpacity
                   style={styles.closeFullBtn}
                   onPress={() => setSelectedFullImage(null)}

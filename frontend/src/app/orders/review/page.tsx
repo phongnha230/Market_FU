@@ -9,6 +9,7 @@ import Footer from '@/components/Footer';
 import { useOrderStore, OrderReviewData } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
+import { reportService } from '@/services/reportService';
 import {
   ChevronRight,
   ShieldCheck,
@@ -25,6 +26,7 @@ import {
   Upload,
   AlertTriangle,
   Edit3,
+  Loader2,
 } from 'lucide-react';
 import { Card, Badge, Button, Avatar, AvatarFallback, AvatarImage, Progress } from '@/components/ui';
 
@@ -70,36 +72,52 @@ function ReviewContent() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [reviewMediaList, setReviewMediaList] = useState<Array<{ id: string; url: string; name: string; isVideo?: boolean }>>([
-    {
-      id: 'rev-1',
-      url: '/products/keyboard-akko.jpg',
-      name: 'Bóc hộp KTX',
-    },
-    {
-      id: 'rev-2',
-      url: '/products/keyboard-detail.jpg',
-      name: 'Cắm test ThinkPad',
-    },
-  ]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
+  const [reviewMediaList, setReviewMediaList] = useState<Array<{ id: string; url: string; name: string; isVideo?: boolean }>>([]);
 
-  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    setIsUploadingMedia(true);
     const newItems: typeof reviewMediaList = [];
     let hasVideo = false;
-    Array.from(files).forEach((file) => {
+
+    for (const file of Array.from(files)) {
       const isVideo = file.type.startsWith('video/');
       if (isVideo) hasVideo = true;
-      const objectUrl = URL.createObjectURL(file);
-      newItems.push({
-        id: Math.random().toString(36).substring(7),
-        url: objectUrl,
-        name: file.name,
-        isVideo,
-      });
-    });
+
+      // 1. Tạo data URL Base64 tức thì để hiển thị ngay và bền vững trên mọi trình duyệt/tài khoản (không bị chết như blob:)
+      let finalUrl = await readFileAsDataUrl(file);
+
+      // 2. Thử upload lên Backend Storage (Cloudflare R2 / /uploads/) để lấy URL thật công khai
+      try {
+        const uploadRes = await reportService.uploadDisputeEvidence(file);
+        if (uploadRes && uploadRes.url) {
+          finalUrl = uploadRes.url;
+        }
+      } catch {
+        // Giữ base64 fallback nếu backend offline hoặc mock
+      }
+
+      if (finalUrl) {
+        newItems.push({
+          id: Math.random().toString(36).substring(7),
+          url: finalUrl,
+          name: file.name,
+          isVideo,
+        });
+      }
+    }
 
     setReviewMediaList((prev) => [...prev, ...newItems]);
     if (hasVideo) {
@@ -107,6 +125,7 @@ function ReviewContent() {
     }
     showToast(`✅ Đã tải lên ${newItems.length} hình ảnh / video bóc hộp thực tế!`);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsUploadingMedia(false);
   };
 
   const handleRemoveMedia = (id: string) => {
@@ -283,6 +302,7 @@ function ReviewContent() {
           orderId: rawOrderId,
           rating,
           comment,
+          images: reviewMediaList.map((m) => m.url),
           proofVideoUrl: proofVideoUrl.trim() || undefined,
         });
       } catch (err: any) {
@@ -658,11 +678,10 @@ function ReviewContent() {
                         {item.isVideo ? (
                           <video src={item.url} controls className="w-full h-full object-cover" />
                         ) : (
-                          <Image
+                          <img
                             src={item.url}
                             alt={item.name}
-                            fill
-                            className="object-cover"
+                            className="w-full h-full object-cover"
                           />
                         )}
                         <button
@@ -693,6 +712,7 @@ function ReviewContent() {
                     <Button
                       type="button"
                       variant="outline"
+                      disabled={isUploadingMedia}
                       onClick={() => fileInputRef.current?.click()}
                       className="h-auto aspect-square flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer"
                     >

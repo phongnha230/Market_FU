@@ -41,6 +41,15 @@ export default function DisputeEvidence({
   const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
   const [evidenceList, setEvidenceList] = React.useState<Array<{ id: string; url: string; name: string; size: string; isVideo?: boolean }>>([]);
 
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -52,18 +61,21 @@ export default function DisputeEvidence({
       for (const file of Array.from(files)) {
         const isVideo = file.type.startsWith('video/');
         const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-        let finalUrl = URL.createObjectURL(file);
+        // 1. Base64 Data URL giúp ảnh hiển thị được cho cả Admin và User khác mà không bị chết như blob:
+        let finalUrl = await readFileAsDataUrl(file);
 
         try {
           const uploadRes = await reportService.uploadDisputeEvidence(file);
           if (uploadRes?.url) {
             finalUrl = uploadRes.url;
-            if (isVideo && onUploadedProofVideoUrlChange) {
-              onUploadedProofVideoUrlChange(uploadRes.url);
-            }
           }
         } catch (err: any) {
-          console.warn('⚠️ [Upload fallback to local URL]:', err?.message || err);
+          console.warn('⚠️ [Upload fallback to base64 Data URL]:', err?.message || err);
+        }
+
+        // Cập nhật URL bằng chứng cho form khiếu nại (chấp nhận cả ảnh và video)
+        if (onUploadedProofVideoUrlChange) {
+          onUploadedProofVideoUrlChange(finalUrl);
         }
 
         newItems.push({
@@ -115,11 +127,10 @@ export default function DisputeEvidence({
                 {item.isVideo ? (
                   <video src={item.url} controls className="w-full h-full object-cover" />
                 ) : (
-                  <Image
+                  <img
                     src={item.url}
                     alt={item.name}
-                    fill
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 )}
                 <button

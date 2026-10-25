@@ -22,6 +22,34 @@ export const reviewMobileService = {
     }
   },
 
+  /**
+   * Upload ảnh hoặc video bằng chứng lên server để có public URL dùng chung cho cả Người Bán & Người Mua
+   */
+  async uploadMedia(fileUri: string, isVideo = false): Promise<string | null> {
+    try {
+      const formData = new FormData();
+      const filename = fileUri.split('/').pop() || (isVideo ? 'review-video.mp4' : 'review-photo.jpg');
+      const match = /\.([a-zA-Z0-9]+)$/.exec(filename);
+      const mimeType = isVideo ? 'video/mp4' : match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+      formData.append('file', {
+        uri: fileUri,
+        name: filename,
+        type: mimeType,
+      } as any);
+
+      const res = await apiClient.post<ApiResponse<any>>('/reports/upload-evidence', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return res.data?.data?.url || null;
+    } catch (err) {
+      console.warn('Failed to upload review media to server, fallback to local uri:', err);
+      return null;
+    }
+  },
+
   async updateReview(payload: CreateReviewPayload): Promise<unknown> {
     try {
       const res = await apiClient.patch<ApiResponse<unknown>>(

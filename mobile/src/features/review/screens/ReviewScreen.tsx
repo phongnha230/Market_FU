@@ -142,8 +142,27 @@ export const ReviewScreen: React.FC = () => {
         return;
       }
 
-      const cleanImages = mediaList.filter((m) => !m.isVideo).map((m) => m.uri);
-      const videoUri = mediaList.find((m) => m.isVideo)?.uri;
+      // Upload media files lên server để có public URL dùng được cho cả Người Bán & Người Mua
+      const cleanImages: string[] = [];
+      for (const m of mediaList.filter((x) => !x.isVideo)) {
+        if (m.uri.startsWith('http://') || m.uri.startsWith('https://') || m.uri.startsWith('data:')) {
+          cleanImages.push(m.uri);
+        } else {
+          const uploadedUrl = await reviewMobileService.uploadMedia(m.uri, false);
+          cleanImages.push(uploadedUrl || m.uri);
+        }
+      }
+
+      let videoUri: string | undefined = undefined;
+      const rawVideo = mediaList.find((m) => m.isVideo)?.uri;
+      if (rawVideo) {
+        if (rawVideo.startsWith('http://') || rawVideo.startsWith('https://')) {
+          videoUri = rawVideo;
+        } else {
+          const uploadedVideoUrl = await reviewMobileService.uploadMedia(rawVideo, true);
+          videoUri = uploadedVideoUrl || rawVideo;
+        }
+      }
 
       if (isEditing) {
         await reviewMobileService.updateReview({

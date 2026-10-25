@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { DISPUTE_REASONS } from '../constants/dispute.constants';
 import { DisputeType, EvidenceItem } from '../types/dispute.types';
 import { orderMobileService } from '../../../services/orderMobileService';
+import { reviewMobileService } from '../../../services/reviewMobileService';
 import { useOrderStore } from '../../../stores/orderStore';
 
 export const useDispute = (
@@ -103,8 +104,20 @@ export const useDispute = (
       setIsSubmitting(true);
 
       if (orderId) {
-        const videoEvidence = evidenceList.find((e) => e.isVideo)?.source?.uri;
-        await orderMobileService.createDispute(orderId, fullReason, videoEvidence);
+        let proofUrl: string | undefined = undefined;
+        const primaryItem = evidenceList.find((e) => e.isVideo) || evidenceList[0];
+        const rawUri = primaryItem?.source?.uri;
+
+        if (rawUri) {
+          if (rawUri.startsWith('http://') || rawUri.startsWith('https://')) {
+            proofUrl = rawUri;
+          } else {
+            const uploaded = await reviewMobileService.uploadMedia(rawUri, Boolean(primaryItem?.isVideo));
+            proofUrl = uploaded || rawUri;
+          }
+        }
+
+        await orderMobileService.createDispute(orderId, fullReason, proofUrl);
         useOrderStore.getState().createDispute(orderId, fullReason);
       }
 
