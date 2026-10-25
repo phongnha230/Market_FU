@@ -92,6 +92,7 @@ function ChatContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [isTypingOther, setIsTypingOther] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(false);
 
   const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
   const processedUrlParamRef = useRef<string | null>(null);
@@ -132,6 +133,7 @@ function ChatContent() {
 
     if (existing) {
       setSelectedConvId(existing.id);
+      setShowMobileChat(true);
       chatStore.setActiveConversation(existing.id);
       if (typeof window !== 'undefined') {
         window.history.replaceState({}, '', window.location.pathname);
@@ -198,6 +200,7 @@ function ChatContent() {
 
     const actualId = chatStore.addOrUpdateConversation(newConv, []);
     setSelectedConvId(actualId);
+    setShowMobileChat(true);
     chatStore.setActiveConversation(actualId);
     if (typeof window !== 'undefined') {
       window.history.replaceState({}, '', window.location.pathname);
@@ -683,10 +686,12 @@ function ChatContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[640px]">
           {/* LEFT COLUMN: INBOX & THREADS (4 COLS) */}
           <ChatSidebar
+            className={`lg:col-span-4 ${showMobileChat ? 'hidden lg:flex' : 'flex'} w-full`}
             conversations={conversations}
             selectedConvId={selectedConvId}
             onSelectConv={(id) => {
               setSelectedConvId(id);
+              setShowMobileChat(true);
               chatStore.setActiveConversation(id);
               setConversations((prev) =>
                 prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
@@ -709,7 +714,7 @@ function ChatContent() {
           />
 
           {/* RIGHT COLUMN: ACTIVE CHAT ROOM (8 COLS) */}
-          <div className="lg:col-span-8 flex flex-col h-full min-h-0 bg-[#FAFAFC] overflow-hidden">
+          <div className={`lg:col-span-8 ${showMobileChat ? 'flex' : 'hidden lg:flex'} flex-col h-full min-h-0 bg-[#FAFAFC] overflow-hidden w-full`}>
             {activeConv ? (
               <>
                 {/* Header User Bar */}
@@ -717,6 +722,7 @@ function ChatContent() {
                   conversation={activeConv}
                   onShowToast={(msg) => showToast(msg, 'info')}
                   onDeleteConv={handleDeleteConversation}
+                  onBack={() => setShowMobileChat(false)}
                 />
 
                 {/* Pinned Product Bar */}

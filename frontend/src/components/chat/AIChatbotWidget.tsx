@@ -336,7 +336,7 @@ export default function AIChatbotWidget() {
   }, [isOpen, messages, isTyping, showHistory]);
 
   // Không hiển thị bot trong trang quản trị admin
-  if (pathname && pathname.startsWith('/admin')) {
+  if (pathname && (pathname.startsWith('/admin') || pathname === '/chat')) {
     return null;
   }
 

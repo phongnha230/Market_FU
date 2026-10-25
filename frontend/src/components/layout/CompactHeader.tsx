@@ -48,9 +48,9 @@ export default function CompactHeader({
   const unreadMessages = useChatStore((state) => state.getTotalUnreadCount());
 
   return (
-    <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 pt-1">
+    <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pb-2.5 pt-1">
       {/* Left: Breadcrumbs trail + Optional Back Button */}
-      <nav className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto scrollbar-none py-1">
+      <nav className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto scrollbar-none py-1 max-w-full shrink-0">
         {showBackButton && (
           <button
             type="button"

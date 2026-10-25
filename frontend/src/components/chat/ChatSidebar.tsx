@@ -33,6 +33,7 @@ interface ChatSidebarProps {
   onMarkAllRead: () => void;
   onShowToast: (msg: string) => void;
   isSeller?: boolean;
+  className?: string;
 }
 
 export default function ChatSidebar({
@@ -47,6 +48,7 @@ export default function ChatSidebar({
   onShowToast,
   isSeller = false,
   onDeleteConv,
+  className,
 }: ChatSidebarProps) {
   // Tính toán số lượng thực tế từ danh sách hội thoại
   const totalUnread = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
@@ -100,7 +102,8 @@ export default function ChatSidebar({
   }, [tabs, filterTab, onFilterChange]);
 
   return (
-    <div className="lg:col-span-4 border-r border-slate-200 flex flex-col h-full min-h-0 bg-white">
+    <div className={`border-r border-slate-200 flex flex-col h-full min-h-0 bg-white ${className || 'lg:col-span-4'}`}>
+
       {/* Header */}
       <div className="shrink-0 p-3.5 sm:p-4 border-b border-slate-100">
         <div className="flex items-center justify-between mb-3">

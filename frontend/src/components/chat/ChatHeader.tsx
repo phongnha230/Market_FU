@@ -3,7 +3,7 @@
 import React from 'react';
 import { Conversation } from '@/types/chat';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ShieldCheck, Info, Trash2 } from 'lucide-react';
+import { ShieldCheck, Info, Trash2, ArrowLeft } from 'lucide-react';
 
 function getInitials(name?: string): string {
   if (!name) return 'SV';
@@ -16,16 +16,28 @@ interface ChatHeaderProps {
   conversation: Conversation;
   onShowToast: (msg: string) => void;
   onDeleteConv?: (id: string) => void;
+  onBack?: () => void;
 }
 
 export default function ChatHeader({
   conversation,
   onShowToast,
   onDeleteConv,
+  onBack,
 }: ChatHeaderProps) {
   return (
     <div className="shrink-0 px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
+            title="Quay lại danh sách tin nhắn"
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-700" />
+          </button>
+        )}
         <div className="relative h-10 w-10 shrink-0">
           <Avatar className="h-10 w-10 border border-slate-200">
             <AvatarImage src={conversation.avatar} alt={conversation.name} />
