@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   MapPin,
   KeyRound,
-  ArrowRight,
   Sparkles,
 } from 'lucide-react';
 import { Button, Badge, Card } from '@/components/ui';
@@ -198,34 +197,6 @@ export default function OrderQrModal({
           </Badge>
         </div>
 
-        {/* Switch Tab: Người mua đưa mã vs Người bán nhập mã */}
-        {!isCompleted && (
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl mb-4 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setActiveTab('buyer')}
-              className={`py-2 rounded-lg transition text-center cursor-pointer ${
-                activeTab === 'buyer'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Tôi là Người mua (QR/OTP)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('seller')}
-              className={`py-2 rounded-lg transition text-center cursor-pointer ${
-                activeTab === 'seller'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Tôi là Người bán (Xác nhận)
-            </button>
-          </div>
-        )}
-
         {/* CONTENT */}
         {isCompleted ? (
           /* SUCCESS STATE */
@@ -251,15 +222,6 @@ export default function OrderQrModal({
             </div>
 
             <div className="mt-6 flex flex-col gap-2">
-              <Button
-                asChild
-                className="w-full rounded-xl bg-orange-700 py-2.5 text-xs font-bold text-white hover:bg-orange-800 transition"
-              >
-                <a href={`/orders/review?code=${encodeURIComponent(orderCode)}`}>
-                  <span>Viết Đánh Giá 2 Chiều (Nhận +50 Coins)</span>
-                  <ArrowRight className="h-4 w-4 ml-1.5" />
-                </a>
-              </Button>
               <Button
                 type="button"
                 variant="outline"
