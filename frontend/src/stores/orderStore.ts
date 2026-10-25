@@ -39,6 +39,20 @@ export interface OrderItem {
   reviewData?: OrderReviewData;
   buyerId?: string;
   sellerId?: string;
+  buyer?: {
+    id: string;
+    fullName?: string;
+    avatarUrl?: string;
+    campus?: string;
+    email?: string;
+  };
+  seller?: {
+    id: string;
+    fullName?: string;
+    avatarUrl?: string;
+    campus?: string;
+    email?: string;
+  };
   handshake?: {
     handshakeToken?: string;
     handshakeOtp?: string;
@@ -174,19 +188,37 @@ export const useOrderStore = create<OrderState>()(
                     ? 'Giao dịch thành công'
                     : bo.status === 'CANCELLED'
                     ? 'Đã hủy đơn'
-                    : bo.status === 'PAID'
-                    ? 'Đã nạp Escrow bảo hộ'
                     : bo.status === 'SHIPPING'
-                    ? 'Đang vận chuyển'
+                    ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : 'Đang vận chuyển')
+                    : bo.status === 'PAID'
+                    ? (bo.orderType === 'MEETUP' ? 'Đã nạp Escrow • Chờ người bán xác nhận lịch hẹn' : 'Đã nạp Escrow bảo hộ')
                     : bo.status === 'DELIVERED'
                     ? 'Đã giao tới nơi'
                     : bo.status === 'PENDING' && !bo.payment?.isPaid && bo.payment?.paymentMethod !== 'CASH'
                     ? 'Chờ thanh toán (Quét QR / PayOS)'
-                    : 'Chờ xử lý',
+                    : 'Chờ người bán xác nhận',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
                 reviewed: bo.reviews && bo.reviews.length > 0,
                 buyerId: bo.buyerId,
                 sellerId: bo.sellerId,
+                buyer: bo.buyer
+                  ? {
+                      id: bo.buyer.id,
+                      fullName: bo.buyer.profile?.fullName || bo.buyer.email?.split('@')[0] || 'Sinh viên FPT',
+                      avatarUrl: bo.buyer.profile?.avatarUrl,
+                      campus: bo.buyer.profile?.campus || 'FPT Campus',
+                      email: bo.buyer.email,
+                    }
+                  : undefined,
+                seller: bo.seller
+                  ? {
+                      id: bo.seller.id,
+                      fullName: bo.seller.profile?.fullName || bo.seller.email?.split('@')[0] || 'Người bán FPT',
+                      avatarUrl: bo.seller.profile?.avatarUrl,
+                      campus: bo.seller.profile?.campus || 'FPT Campus',
+                      email: bo.seller.email,
+                    }
+                  : undefined,
                 handshake: bo.handshake,
                 payment: bo.payment
                   ? {

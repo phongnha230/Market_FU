@@ -52,26 +52,30 @@ export default function OrderTrackingModal({
 
   const isSafeHandoff = order.type === 'safe-handoff' || (order as any).orderType === 'MEETUP';
 
+  const safePointName = order.meetupLocation || (order as any).shipping?.meetupLocation || order.product?.subtitle || 'Trạm Safe-Point Campus';
+  const actualAppointment = order.appointmentTime || (order as any).shipping?.appointmentTime;
+
   const trackingCode = isSafeHandoff
     ? (order.handshake?.handshakeOtp ? `OTP-${order.handshake.handshakeOtp}` : order.code)
     : liveTracking?.trackingCode || order.tracking?.trackingCode || (order as any).shipping?.trackingCode || 'FPT-SHIP-99410';
 
   const partner = isSafeHandoff
-    ? 'Safe-Point FPT (Giao dịch trực tiếp)'
+    ? 'Safe-Point Campus (Camera AI 24/7)'
     : liveTracking?.shippingPartner || order.tracking?.currentLocation || 'GHN Express';
 
   const routeTitle = isSafeHandoff
-    ? (order.product?.subtitle ? `Điểm hẹn: ${order.product.subtitle}` : 'Điểm hẹn Safe-Point • Hola Campus')
+    ? `Điểm hẹn: ${safePointName}`
     : liveTracking?.routeTitle || order.tracking?.routeTitle || 'Tuyến Chuyển phát liên Hub Campus FPT';
 
   const estimatedArrival = isSafeHandoff
-    ? (order.appointmentTime ? new Date(order.appointmentTime).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại sảnh Safe-Point')
+    ? (actualAppointment ? new Date(actualAppointment).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại trạm Safe-Point')
     : liveTracking?.estimatedArrival || order.tracking?.estimatedArrival || 'Dự kiến 1 - 2 ngày tới';
 
   const isPaid = Boolean(order.payment?.isPaid);
   const isCompleted = order.status === 'completed';
   const isDelivered = order.status === 'delivered' || isCompleted;
-  const isHandoffReady = order.status === 'processing' || order.status === 'shipping' || isDelivered;
+  const isSellerConfirmed = order.status === 'shipping' || isDelivered;
+  const isHandoffReady = isSellerConfirmed;
 
   const safeHandoffSteps = [
     {
@@ -84,10 +88,10 @@ export default function OrderTrackingModal({
     },
     {
       title: 'Chốt hẹn Safe-Point',
-      desc: order.appointmentTime
-        ? `Lịch hẹn: ${new Date(order.appointmentTime).toLocaleString('vi-VN')} tại ${order.product?.subtitle || 'Sảnh Tòa Alpha'}`
-        : `Điểm hẹn: ${order.product?.subtitle || 'Sảnh chính Tòa Alpha (Tầng 1)'} • Camera AI 24/7`,
-      status: isPaid ? 'completed' : 'pending',
+      desc: actualAppointment
+        ? `Lịch hẹn: ${new Date(actualAppointment).toLocaleString('vi-VN')} tại ${safePointName}`
+        : `Điểm hẹn: ${safePointName} • Camera AI 24/7`,
+      status: isSellerConfirmed ? 'completed' : isPaid ? 'current' : 'pending',
     },
     {
       title: 'Bàn giao & Test máy tại trạm',
@@ -131,12 +135,14 @@ const handleSyncTracking = async () => {
       <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-orange-100 text-fpt-orange flex items-center justify-center shrink-0">
-              <Truck className="h-4.5 w-4.5" />
+            <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
+              isSafeHandoff ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-fpt-orange'
+            }`}>
+              {isSafeHandoff ? <ShieldCheck className="h-4.5 w-4.5" /> : <Truck className="h-4.5 w-4.5" />}
             </div>
             <div>
               <h3 className="font-extrabold text-base text-slate-900">
-                Chi tiết hành trình vận chuyển
+                {isSafeHandoff ? 'Tiến trình giao dịch Safe-Point' : 'Chi tiết hành trình vận chuyển'}
               </h3>
               <p className="text-xs text-slate-500 font-mono">Mã đơn: {order.code}</p>
             </div>
@@ -150,31 +156,43 @@ const handleSyncTracking = async () => {
           </button>
         </div>
 
-        {/* Carrier Info Card */}
+        {/* Carrier / Safe-Point Info Card */}
         <div className="my-3.5 rounded-xl bg-slate-50 border border-slate-100 p-3 space-y-1.5 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Package className="h-4 w-4 text-fpt-orange" />
-              <span>Đối tác: <strong>{partner}</strong></span>
+              {isSafeHandoff ? <ShieldCheck className="h-4 w-4 text-emerald-600" /> : <Package className="h-4 w-4 text-fpt-orange" />}
+              <span>{isSafeHandoff ? 'Phương thức:' : 'Đối tác:'} <strong>{partner}</strong></span>
             </span>
-            <Badge variant="outline" className="rounded bg-white text-fpt-orange border-orange-200 text-[10px] font-bold">
-              {order.status === 'completed' ? 'Giao hoàn tất' : order.status === 'delivered' ? 'Đã phát tới nơi' : 'Đang luân chuyển'}
+            <Badge variant="outline" className={`rounded text-[10px] font-bold ${
+              isSafeHandoff
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-white text-fpt-orange border-orange-200'
+            }`}>
+              {order.status === 'completed'
+                ? 'Giao hoàn tất'
+                : order.status === 'delivered'
+                ? 'Đã nhận đồ'
+                : isSafeHandoff
+                ? isSellerConfirmed
+                  ? 'Đã chốt hẹn'
+                  : 'Chờ chốt hẹn'
+                : 'Đang luân chuyển'}
             </Badge>
           </div>
           <div className="flex items-center justify-between text-slate-500 text-[11px]">
-            <span>Mã vận đơn (Tracking Code):</span>
+            <span>{isSafeHandoff ? 'Mã lịch hẹn Safe-Point:' : 'Mã vận đơn (Tracking Code):'}</span>
             <span className="font-mono font-bold text-slate-900">{trackingCode}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500 text-[11px]">
-            <span>Tuyến hành trình:</span>
+            <span>{isSafeHandoff ? 'Địa điểm hẹn:' : 'Tuyến hành trình:'}</span>
             <span className="font-medium text-slate-700">{routeTitle}</span>
           </div>
           <div className="flex items-center justify-between text-slate-500 text-[11px]">
-            <span>Dự kiến đến:</span>
+            <span>{isSafeHandoff ? 'Thời gian hẹn gặp:' : 'Dự kiến đến:'}</span>
             <span className="font-bold text-emerald-700">{estimatedArrival}</span>
           </div>
 
-          {liveTracking?.shipper && (
+          {!isSafeHandoff && liveTracking?.shipper && (
             <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-700">
               <span>Bưu tá phụ trách: <strong>{liveTracking.shipper.name}</strong></span>
               {liveTracking.shipper.phone && (

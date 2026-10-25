@@ -203,11 +203,11 @@ export default function OrderCard({
           <div className="mt-2 text-xs text-slate-600 flex items-center gap-3 flex-wrap">
             {isSellerViewer ? (
               <span>
-                👤 Khách mua: <strong>{(order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT'}</strong>
+                👤 Khách mua: <strong>{(order as any).buyer?.fullName || (order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT'}</strong>
               </span>
             ) : (
               <span>
-                👤 Người bán: <strong>{order.product.seller.name}</strong> ({order.product.seller.cohortCampus})
+                👤 Người bán: <strong>{(order as any).seller?.fullName || order.product.seller.name}</strong> ({order.product.seller.cohortCampus})
               </span>
             )}
             <span className="text-emerald-600 flex items-center gap-1 font-medium">
@@ -228,7 +228,7 @@ export default function OrderCard({
                 <Truck className="h-3.5 w-3.5 text-fpt-orange" />
               )}
               {order.type === 'safe-handoff'
-                ? `Safe-Point: ${order.product?.subtitle || 'Sảnh Tòa Alpha'}`
+                ? `Safe-Point: ${order.meetupLocation || order.product?.subtitle || 'Sảnh Tòa Alpha'}`
                 : order.tracking.routeTitle}
             </span>
             <span className="font-bold text-fpt-orange text-[11px]">
@@ -329,16 +329,15 @@ export default function OrderCard({
             <>
               {((order.status as string) === 'pending' || order.status === 'processing') && (
                 order.type === 'safe-handoff' ? (
-                  onOpenQrModal && (
-                    <Button
-                      type="button"
-                      onClick={() => onOpenQrModal(order)}
-                      className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <QrCode className="h-3.5 w-3.5 text-white" />
-                      <span>Xác thực Safe-Point</span>
-                    </Button>
-                  )
+                  <Button
+                    asChild
+                    className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                      <span>Xem & Xác nhận đơn</span>
+                    </Link>
+                  </Button>
                 ) : (
                   onShipOrder && (
                     <Button
@@ -350,6 +349,18 @@ export default function OrderCard({
                       <span>Bàn giao GHN</span>
                     </Button>
                   )
+                )
+              )}
+              {order.status === 'shipping' && order.type === 'safe-handoff' && (
+                onOpenQrModal && (
+                  <Button
+                    type="button"
+                    onClick={() => onOpenQrModal(order)}
+                    className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-white" />
+                    <span>Xác thực Safe-Point</span>
+                  </Button>
                 )
               )}
               {order.status === 'disputed' && (

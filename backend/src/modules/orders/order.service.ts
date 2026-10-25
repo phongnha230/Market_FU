@@ -1088,7 +1088,9 @@ export class OrderService {
       throw new AppError('Bạn không có quyền hủy đơn hàng này', 403, 'FORBIDDEN');
     }
 
-    if (order.status !== 'PENDING' && order.status !== 'PAID') {
+    const isMeetupOrder = order.orderType === 'MEETUP' || (order.orderType as string) === 'SAFE_HANDOFF';
+    const isCancellable = order.status === 'PENDING' || order.status === 'PAID' || (isMeetupOrder && order.status === 'SHIPPING');
+    if (!isCancellable) {
       throw new AppError('Chỉ có thể hủy đơn hàng khi đơn chưa gửi hàng hoặc đang chờ chốt hẹn', 400, 'CANNOT_CANCEL');
     }
 
@@ -1121,7 +1123,7 @@ export class OrderService {
   private async cancelPendingOrderInDb(order: Order, reason: string, actorId: string) {
     const cancelledOrder = await prisma.$transaction(async (tx) => {
       const claimed = await tx.order.updateMany({
-        where: { id: order.id, status: { in: ['PENDING', 'PAID'] } },
+        where: { id: order.id, status: { in: ['PENDING', 'PAID', 'SHIPPING'] } },
         data: { status: 'CANCELLED' },
       });
       if (claimed.count !== 1) {
@@ -1609,7 +1611,9 @@ export class OrderService {
     const isPaid = Boolean(order.payment?.isPaid) || (order.payment as any)?.status === 'PAID';
     const isCompleted = order.status === 'COMPLETED';
     const isHandoffReady = order.status === 'PAID' || order.status === 'SHIPPING' || isDelivered;
-    const safePointName = (order.shipping as any)?.meetupLocation || (order.product as any)?.subtitle || 'Sảnh chính Tòa Alpha (Tầng 1)';
+    const safePointName = order.meetupLocation || (order.shipping as any)?.meetupLocation || (order.product as any)?.subtitle || 'Sảnh chính Tòa Alpha (Tầng 1)';
+    const actualAppointment = order.appointmentTime || (order.shipping as any)?.appointmentTime;
+    const isSellerConfirmed = order.status === 'SHIPPING' || isDelivered || order.status === 'COMPLETED';
 
     const steps = isMeetup
       ? [
@@ -1617,23 +1621,23 @@ export class OrderService {
             title: 'Đặt cọc Escrow bảo hộ',
             desc: isPaid
               ? 'Đã đặt cọc 100% vào Quỹ Campus Escrow bảo vệ an toàn'
-              : 'Chờ người mua hoàn tất thanh toán cọc Escrow (PayOS)',
+              : 'Chờ người mua hoàn tất thanh toán cọc Escrow (PayOS / VietQR)',
             status: isPaid ? 'completed' : 'current',
             time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
           },
           {
             title: 'Chốt hẹn Safe-Point',
-            desc: (order.shipping as any)?.appointmentTime
-              ? `Lịch hẹn: ${new Date((order.shipping as any).appointmentTime).toLocaleString('vi-VN')} tại ${safePointName}`
+            desc: actualAppointment
+              ? `Lịch hẹn: ${new Date(actualAppointment).toLocaleString('vi-VN')} tại ${safePointName}`
               : `Điểm hẹn: ${safePointName} • Camera AI 24/7`,
-            status: isPaid ? 'completed' : 'pending',
+            status: isSellerConfirmed ? 'completed' : isPaid ? 'current' : 'pending',
           },
           {
             title: 'Bàn giao & Test máy tại trạm',
             desc: isDelivered
               ? 'Đã đối soát sản phẩm & xác thực mã QR / OTP thành công'
               : 'Gặp mặt đối soát, test máy và xuất trình mã QR / OTP',
-            status: isDelivered ? 'completed' : isHandoffReady ? 'current' : 'pending',
+            status: isDelivered ? 'completed' : isSellerConfirmed ? 'current' : 'pending',
             time: order.shipping?.deliveredAt ? new Date(order.shipping.deliveredAt).toLocaleString('vi-VN') : undefined,
           },
           {
@@ -1680,14 +1684,14 @@ export class OrderService {
       trackingCode: isMeetup
         ? (order.handshake?.handshakeOtp ? `OTP-${order.handshake.handshakeOtp}` : order.orderCode)
         : trackingCode,
-      shippingAddress: order.shipping?.shippingAddress || (order.shipping as any)?.meetupLocation,
+      shippingAddress: isMeetup ? safePointName : (order.shipping?.shippingAddress || (order.shipping as any)?.meetupLocation),
       receiverName: order.shipping?.receiverName,
       receiverPhone: order.shipping?.receiverPhone,
       routeTitle: isMeetup
-        ? `Điểm hẹn Safe-Point • Nội bộ Campus ${fromCampus}`
+        ? `Điểm hẹn Safe-Point: ${safePointName}`
         : matrixInfo.routeTitle,
       estimatedArrival: isMeetup
-        ? ((order.shipping as any)?.appointmentTime ? new Date((order.shipping as any).appointmentTime).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại Safe-Point')
+        ? (actualAppointment ? new Date(actualAppointment).toLocaleString('vi-VN') : 'Hẹn gặp trực tiếp tại Safe-Point')
         : matrixInfo.estimatedDays,
       currentLocation: isMeetup
         ? (isCompleted ? 'Đã giải ngân Escrow • Hoàn tất' : isDelivered ? 'Đang trong 48h bao test' : 'Sẵn sàng gặp mặt tại Safe-Point')
@@ -1863,7 +1867,7 @@ export class OrderService {
       );
     }
 
-    const nextStatus = order.orderType === 'SHIP_COD' ? 'SHIPPING' : 'PAID';
+    const nextStatus = 'SHIPPING';
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: {

@@ -133,9 +133,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (backendStatus === 'DISPUTED') {
     status = 'DISPUTED';
   } else if (backendStatus === 'PAID' || backendStatus === 'ESCROW_PAID') {
-    status = 'ESCROW_PAID';
+    status = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? 'PENDING_SAFEPOINT' : 'ESCROW_PAID';
   } else if (backendStatus === 'SHIPPING') {
-    status = 'HANDOVER_CONFIRMED';
+    status = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? 'ESCROW_PAID' : 'HANDOVER_CONFIRMED';
   } else if (backendStatus === 'CANCELLED') {
     status = 'CANCELLED';
   } else {

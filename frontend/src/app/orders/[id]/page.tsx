@@ -94,6 +94,39 @@ export default function OrderDetailPage() {
       .then((detail) => {
         if (!isMounted || !detail) return;
         setBackendOrderDetail(detail);
+        setOrder((prev) => {
+          if (!prev) return prev;
+          const statusMap: Record<string, any> = {
+            PENDING: 'pending',
+            PAID: 'processing',
+            SHIPPING: 'shipping',
+            DELIVERED: 'delivered',
+            COMPLETED: 'completed',
+            CANCELLED: 'cancelled',
+            DISPUTED: 'disputed',
+          };
+          return {
+            ...prev,
+            status: statusMap[detail.status] || prev.status,
+            appointmentTime: detail.appointmentTime || prev.appointmentTime,
+            meetupLocation: detail.meetupLocation || prev.meetupLocation,
+            handshake: detail.handshake || prev.handshake,
+            buyer: detail.buyer ? {
+              id: detail.buyer.id,
+              fullName: detail.buyer.profile?.fullName || detail.buyer.email?.split('@')[0] || 'Sinh viên FPT',
+              avatarUrl: detail.buyer.profile?.avatarUrl,
+              campus: detail.buyer.profile?.campus || 'FPT Campus',
+              email: detail.buyer.email,
+            } : prev.buyer,
+            seller: detail.seller ? {
+              id: detail.seller.id,
+              fullName: detail.seller.profile?.fullName || detail.seller.email?.split('@')[0] || 'Người bán FPT',
+              avatarUrl: detail.seller.profile?.avatarUrl,
+              campus: detail.seller.profile?.campus || 'FPT Campus',
+              email: detail.seller.email,
+            } : prev.seller,
+          };
+        });
       })
       .catch(() => {});
 
@@ -302,18 +335,26 @@ export default function OrderDetailPage() {
     );
   }
 
+  const isSafeHandoff = order.type === 'safe-handoff' || (order as any).orderType === 'MEETUP';
+
   const partnerName = isSellerViewer
-    ? (order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Người mua FPT'
-    : order.product.seller.name;
+    ? backendOrderDetail?.buyer?.profile?.fullName || (order as any).buyer?.fullName || (order as any).buyer?.profile?.fullName || backendOrderDetail?.buyer?.email || (order as any).buyer?.email || 'Người mua FPT'
+    : backendOrderDetail?.seller?.profile?.fullName || (order as any).seller?.fullName || order.product?.seller?.name || 'Người bán FPT';
 
   const partnerCampus = isSellerViewer
-    ? (order as any).buyer?.profile?.campus || 'FPT Campus'
-    : order.product.seller.cohortCampus;
+    ? backendOrderDetail?.buyer?.profile?.campus || (order as any).buyer?.campus || (order as any).buyer?.profile?.campus || 'FPT Campus'
+    : backendOrderDetail?.seller?.profile?.campus || (order as any).seller?.campus || order.product?.seller?.cohortCampus || 'FPT Campus';
+
+  const partnerAvatar = isSellerViewer
+    ? backendOrderDetail?.buyer?.profile?.avatarUrl || (order as any).buyer?.avatarUrl || (order as any).buyer?.profile?.avatarUrl || ''
+    : backendOrderDetail?.seller?.profile?.avatarUrl || (order as any).seller?.avatarUrl || (order as any).seller?.profile?.avatarUrl || '';
 
   const isOrderDelivered = order.status === 'delivered';
   const isOrderShipping = order.status === 'shipping';
   const isOrderCompleted = order.status === 'completed';
-  const isOrderPending = order.status === 'pending' || (order.status === 'processing' && !order.payment?.isPaid && order.payment?.paymentMethod !== 'CASH');
+  const isOrderPending = isSafeHandoff
+    ? (order.status === 'pending' || order.status === 'processing')
+    : (order.status === 'pending' || (order.status === 'processing' && !order.payment?.isPaid && order.payment?.paymentMethod !== 'CASH'));
   const isOrderProcessing = order.status === 'processing';
   const isOrderDisputed = order.status === 'disputed';
 
@@ -368,7 +409,7 @@ export default function OrderDetailPage() {
     return isInterCampusShipping ? '2 - 3 ngày làm việc' : 'Giao trong ngày';
   })();
 
-  const isSafeHandoff = order.type === 'safe-handoff' || (order as any).orderType === 'MEETUP';
+
 
   const safeHandoffDefaultSteps = [
     {
@@ -504,19 +545,43 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
           {isSellerViewer ? (
             <>
               {isOrderShipping && (
-                <div className="rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-3.5 flex items-start gap-3 text-xs text-orange-950">
-                  <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0 mt-0.5">
-                    <Truck className="h-5 w-5" />
+                isSafeHandoff ? (
+                  <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3.5 flex items-start gap-3 text-xs text-emerald-950">
+                    <div className="rounded-xl bg-emerald-600 p-2 text-white shrink-0 mt-0.5">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-emerald-950 text-xs sm:text-sm">
+                        Đã chốt lịch hẹn Safe-Point • Sẵn sàng gặp mặt bàn giao
+                      </h4>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                        Bạn đã đồng ý lịch hẹn. Hãy mang sản phẩm đến điểm hẹn{' '}
+                        <strong>{order.meetupLocation || (backendOrderDetail as any)?.meetupLocation || order.product?.subtitle || 'Trạm Safe-Point'}</strong>{' '}
+                        vào lúc{' '}
+                        <strong>
+                          {order.appointmentTime || (backendOrderDetail as any)?.appointmentTime
+                            ? new Date(order.appointmentTime || (backendOrderDetail as any)?.appointmentTime).toLocaleString('vi-VN')
+                            : 'thời gian đã hẹn'}
+                        </strong>
+                        . Khi người mua kiểm tra xong, bạn hãy quét mã QR hoặc nhập OTP 4 số từ người mua để giải ngân tiền Escrow!
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-orange-950 text-xs sm:text-sm">
-                      Kiện hàng đang được bưu tá vận chuyển tới Người mua
-                    </h4>
-                    <p className="text-[11px] text-orange-800 leading-relaxed">
-                      Đơn hàng đã được bàn giao bưu cục và đang trên đường phát tới KTX. Doanh thu <strong>{formatVND(order.product.price)}</strong> sẽ tự động được giải ngân vào Ví của bạn sau khi người mua nhận hàng và kết thúc 48 giờ bao test an toàn.
-                    </p>
+                ) : (
+                  <div className="rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-3.5 flex items-start gap-3 text-xs text-orange-950">
+                    <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0 mt-0.5">
+                      <Truck className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-orange-950 text-xs sm:text-sm">
+                        Kiện hàng đang được bưu tá vận chuyển tới Người mua
+                      </h4>
+                      <p className="text-[11px] text-orange-800 leading-relaxed">
+                        Đơn hàng đã được bàn giao bưu cục và đang trên đường phát tới KTX. Doanh thu <strong>{formatVND(order.product.price)}</strong> sẽ tự động được giải ngân vào Ví của bạn sau khi người mua nhận hàng và kết thúc 48 giờ bao test an toàn.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )
               )}
 
               {isOrderDelivered && (
@@ -548,12 +613,16 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   <div className="space-y-0.5">
                     <h4 className="font-extrabold text-blue-950 text-xs sm:text-sm">
                       {order.type === 'safe-handoff'
-                        ? 'Bạn có đơn hẹn bàn giao Safe-Point mới!'
+                        ? 'Bạn có đơn hẹn bàn giao Safe-Point mới cần xác nhận!'
                         : 'Bạn có đơn đặt hàng mới từ Sinh viên FPT!'}
                     </h4>
                     <p className="text-[11px] text-blue-800 leading-relaxed">
                       {order.type === 'safe-handoff'
-                        ? `Vui lòng mang sản phẩm đến điểm hẹn Safe-Point (${order.product.subtitle || 'Sảnh Tòa Alpha'}) theo lịch hẹn đã chốt. Sau khi người mua test đồ xong, hãy quét mã QR hoặc nhập OTP 4 số từ người mua để nhận tiền Escrow về ví.`
+                        ? `Người mua đã thanh toán cọc Escrow và hẹn gặp lúc ${
+                            order.appointmentTime || (backendOrderDetail as any)?.appointmentTime
+                              ? new Date(order.appointmentTime || (backendOrderDetail as any)?.appointmentTime).toLocaleString('vi-VN')
+                              : 'thời gian đã hẹn'
+                          } tại ${order.meetupLocation || (backendOrderDetail as any)?.meetupLocation || order.product?.subtitle || 'Trạm Safe-Point'}. Vui lòng bấm [Đồng ý đơn & Chốt lịch hẹn] ở cột bên phải để chốt đơn.`
                         : 'Vui lòng chuẩn bị đóng gói sản phẩm cẩn thận và bấm Bàn giao bưu cục GHN bên dưới để bưu tá đến lấy hoặc mang gửi tại bưu cục KTX.'}
                     </p>
                   </div>
@@ -615,24 +684,68 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                 </div>
               )}
 
-              {isOrderShipping && (
-                <div className="rounded-xl bg-orange-50/80 border border-orange-200 p-3.5 flex items-start gap-3 text-xs text-orange-950">
-                  <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0 mt-0.5">
-                    <Truck className="h-5 w-5" />
+              {isOrderPending && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-3.5 flex items-start gap-3 text-xs text-blue-950">
+                  <div className="rounded-xl bg-blue-600 p-2 text-white shrink-0 mt-0.5">
+                    <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-orange-950 text-xs">
-                      {isCodOrder
-                        ? 'Đơn hàng đang giao • Thanh toán khi nhận hàng (COD)'
-                        : 'Đơn hàng đang trên đường vận chuyển liên Campus'}
+                    <h4 className="font-extrabold text-blue-950 text-xs sm:text-sm">
+                      {isSafeHandoff
+                        ? 'Đã đặt cọc Escrow bảo hộ • Chờ người bán xác nhận lịch hẹn'
+                        : 'Đơn hàng đang chờ xử lý'}
                     </h4>
-                    <p className="text-[11px] text-orange-800 leading-relaxed">
-                      {isCodOrder
-                        ? 'Bạn chuẩn bị tiền mặt hoặc quét mã QR trả bưu tá khi nhận đồ tại KTX. Sau khi nhận hàng, cơ chế bảo vệ 48 giờ bao test sẽ tự động kích hoạt.'
-                        : 'Tiền cọc của bạn đang được ký quỹ an toàn tại Quỹ Campus Escrow FPT. Tiền chỉ được chuyển cho Người bán sau khi bạn đã nhận hàng thành công và qua 48h bao test.'}
+                    <p className="text-[11px] text-blue-800 leading-relaxed">
+                      {isSafeHandoff
+                        ? 'Tiền cọc của bạn đã được bảo vệ an toàn tại Quỹ Campus Escrow FPT. Hệ thống đã gửi thông báo đến Người bán. Mã QR Handshake và mã OTP 4 số bàn giao sẽ hiển thị tại đây ngay khi Người bán xác nhận đồng ý lịch hẹn.'
+                        : 'Đơn hàng của bạn đang được tiếp nhận và xử lý.'}
                     </p>
                   </div>
                 </div>
+              )}
+
+              {isOrderShipping && (
+                isSafeHandoff ? (
+                  <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3.5 flex items-start gap-3 text-xs text-emerald-950">
+                    <div className="rounded-xl bg-emerald-600 p-2 text-white shrink-0 mt-0.5">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-emerald-950 text-xs sm:text-sm">
+                        Người bán đã đồng ý lịch hẹn • Sẵn sàng gặp mặt tại Safe-Point
+                      </h4>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                        Lịch hẹn gặp tại{' '}
+                        <strong>{order.meetupLocation || (backendOrderDetail as any)?.meetupLocation || order.product?.subtitle || 'Trạm Safe-Point'}</strong>{' '}
+                        lúc{' '}
+                        <strong>
+                          {order.appointmentTime || (backendOrderDetail as any)?.appointmentTime
+                            ? new Date(order.appointmentTime || (backendOrderDetail as any)?.appointmentTime).toLocaleString('vi-VN')
+                            : 'thời gian đã hẹn'}
+                        </strong>
+                        . Bạn hãy chuẩn bị mã QR / OTP bên dưới để cho Người bán quét xác thực khi nhận đồ!
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-orange-50/80 border border-orange-200 p-3.5 flex items-start gap-3 text-xs text-orange-950">
+                    <div className="rounded-xl bg-fpt-orange p-2 text-white shrink-0 mt-0.5">
+                      <Truck className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-orange-950 text-xs">
+                        {isCodOrder
+                          ? 'Đơn hàng đang giao • Thanh toán khi nhận hàng (COD)'
+                          : 'Đơn hàng đang trên đường vận chuyển liên Campus'}
+                      </h4>
+                      <p className="text-[11px] text-orange-800 leading-relaxed">
+                        {isCodOrder
+                          ? 'Bạn chuẩn bị tiền mặt hoặc quét mã QR trả bưu tá khi nhận đồ tại KTX. Sau khi nhận hàng, cơ chế bảo vệ 48 giờ bao test sẽ tự động kích hoạt.'
+                          : 'Tiền cọc của bạn đang được ký quỹ an toàn tại Quỹ Campus Escrow FPT. Tiền chỉ được chuyển cho Người bán sau khi bạn đã nhận hàng thành công và qua 48h bao test.'}
+                      </p>
+                    </div>
+                  </div>
+                )
               )}
 
               {isOrderDisputed && (
@@ -776,63 +889,79 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                 {/* 3. Direct QR Code / Handshake Section */}
                 {!isSellerViewer ? (
                   /* BUYER VIEW: DIRECT QR CODE + OTP ON SCREEN */
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200/90 p-4 sm:p-5 text-center space-y-3.5">
-                    <div className="space-y-1">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-fpt-orange text-xs font-bold">
-                        <QrCode className="h-3.5 w-3.5" />
-                        <span>MÃ QR BÀN GIAO CỦA BẠN (NGƯỜI MUA)</span>
+                  isOrderPending ? (
+                    <div className="rounded-2xl bg-amber-50/60 border border-amber-200/90 p-5 text-center space-y-3">
+                      <div className="mx-auto h-12 w-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <Clock className="h-6 w-6 animate-pulse" />
                       </div>
-                      <p className="text-xs text-slate-600 max-w-sm mx-auto pt-1">
-                        Đưa mã QR này hoặc đọc mã OTP 4 số cho người bán quét tại bàn Safe-Point để hoàn tất bàn giao.
-                      </p>
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm text-amber-950">
+                          Đang chờ Người bán xác nhận lịch hẹn Safe-Point
+                        </h4>
+                        <p className="text-xs text-amber-800 max-w-sm mx-auto leading-relaxed">
+                          Bạn đã nạp tiền cọc Escrow an toàn. Mã QR Handshake và mã OTP 4 số bàn giao sẽ hiển thị tại đây ngay sau khi Người bán bấm đồng ý lịch hẹn!
+                        </p>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="rounded-2xl bg-slate-50 border border-slate-200/90 p-4 sm:p-5 text-center space-y-3.5">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-fpt-orange text-xs font-bold">
+                          <QrCode className="h-3.5 w-3.5" />
+                          <span>MÃ QR BÀN GIAO CỦA BẠN (NGƯỜI MUA)</span>
+                        </div>
+                        <p className="text-xs text-slate-600 max-w-sm mx-auto pt-1">
+                          Đưa mã QR này hoặc đọc mã OTP 4 số cho người bán quét tại bàn Safe-Point để hoàn tất bàn giao.
+                        </p>
+                      </div>
 
-                    {/* QR Code Frame */}
-                    <div className="mx-auto w-52 h-52 sm:w-56 sm:h-56 bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
-                      <img
-                        src={qrImageUrl}
-                        alt="QR Code Bàn giao Safe-Point"
-                        className="w-full h-full object-contain rounded-xl"
-                      />
-                    </div>
+                      {/* QR Code Frame */}
+                      <div className="mx-auto w-52 h-52 sm:w-56 sm:h-56 bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
+                        <img
+                          src={qrImageUrl}
+                          alt="QR Code Bàn giao Safe-Point"
+                          className="w-full h-full object-contain rounded-xl"
+                        />
+                      </div>
 
-                    <div className="font-mono text-xs font-bold text-slate-500">
-                      MÃ HẸN BÀN GIAO: <span className="text-slate-900">{order.code}</span>
-                    </div>
+                      <div className="font-mono text-xs font-bold text-slate-500">
+                        MÃ HẸN BÀN GIAO: <span className="text-slate-900">{order.code}</span>
+                      </div>
 
-                    {/* 4-digit OTP box */}
-                    <div className="max-w-xs mx-auto space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                        Mã OTP Bàn Giao 4 Chữ Số
-                      </span>
-                      <div className="flex items-center justify-center gap-2 bg-slate-900 text-white rounded-xl py-2 px-4 shadow-xs">
-                        <KeyRound className="h-4 w-4 text-emerald-400" />
-                        <span className="font-mono text-2xl font-black tracking-widest text-emerald-400">
-                          {effectiveOtp}
+                      {/* 4-digit OTP box */}
+                      <div className="max-w-xs mx-auto space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                          Mã OTP Bàn Giao 4 Chữ Số
                         </span>
-                        <button
-                          type="button"
-                          onClick={handleCopyOtp}
-                          className="ml-2 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
-                          title="Sao chép OTP"
-                        >
-                          {copiedOtp ? (
-                            <Check className="h-4 w-4 text-emerald-400" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </button>
+                        <div className="flex items-center justify-center gap-2 bg-slate-900 text-white rounded-xl py-2 px-4 shadow-xs">
+                          <KeyRound className="h-4 w-4 text-emerald-400" />
+                          <span className="font-mono text-2xl font-black tracking-widest text-emerald-400">
+                            {effectiveOtp}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyOtp}
+                            className="ml-2 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                            title="Sao chép OTP"
+                          >
+                            {copiedOtp ? (
+                              <Check className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Security Tip */}
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-left text-[11px] text-amber-900 flex items-start gap-2">
+                        <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Lưu ý:</strong> Chỉ cho người bán quét QR hoặc đọc mã OTP này <strong>sau khi</strong> bạn đã kiểm tra và test máy ưng ý tại Safe-Point!
+                        </span>
                       </div>
                     </div>
-
-                    {/* Security Tip */}
-                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-left text-[11px] text-amber-900 flex items-start gap-2">
-                      <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Lưu ý:</strong> Chỉ cho người bán quét QR hoặc đọc mã OTP này <strong>sau khi</strong> bạn đã kiểm tra và test máy ưng ý tại Safe-Point!
-                      </span>
-                    </div>
-                  </div>
+                  )
                 ) : (
                   /* SELLER VIEW: GUIDANCE & VERIFICATION BUTTON */
                   <div className="rounded-2xl bg-slate-50 border border-slate-200/90 p-4 sm:p-5 space-y-4">
@@ -870,7 +999,16 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       </div>
                     </div>
 
-                    {order.status !== 'completed' ? (
+                    {isOrderPending ? (
+                      <div className="rounded-xl bg-blue-50 border border-blue-200 p-3.5 text-center space-y-1">
+                        <p className="text-xs font-bold text-blue-900">
+                          Chưa thể xác thực bàn giao lúc này
+                        </p>
+                        <p className="text-[11px] text-blue-800 leading-relaxed">
+                          Vui lòng bấm <strong>[Đồng ý đơn & Chốt lịch hẹn]</strong> ở bảng bên phải để xác nhận lịch hẹn trước.
+                        </p>
+                      </div>
+                    ) : order.status !== 'completed' ? (
                       <Button
                         type="button"
                         onClick={() => setIsQrModalOpen(true)}
@@ -1025,7 +1163,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
 
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 border border-slate-200">
-                  <AvatarImage src="" alt={partnerName} />
+                  <AvatarImage src={partnerAvatar} alt={partnerName} />
                   <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 font-bold text-white text-sm">
                     {partnerName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -1122,12 +1260,12 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
 
                     <div className="mt-2.5 rounded-lg border border-sky-100 bg-sky-50/70 p-2 text-[11px] text-sky-900 leading-relaxed space-y-1">
                       <div className="flex items-center justify-between font-semibold text-sky-950">
-                        <span>Tổng tiền Shipper thu từ Người mua:</span>
+                        <span>{order.type === 'safe-handoff' ? 'Tổng tiền cọc Escrow bảo hộ:' : 'Tổng tiền Shipper thu từ Người mua:'}</span>
                         <span className="font-bold">{formatVND(totalBuyerPay)}</span>
                       </div>
                       <p className="text-[10px] text-sky-800">
                         {order.type === 'safe-handoff'
-                          ? '💡 Bàn giao Safe-Point: Tiền tạm giữ trong Escrow. Người bán nhập mã OTP hoặc quét QR Handshake của người mua tại trạm để giải ngân tiền.'
+                          ? '💡 Bàn giao Safe-Point: Người mua đã nạp 100% tiền cọc vào Quỹ Campus Escrow. Sau khi bạn quét QR hoặc nhập OTP từ người mua tại điểm hẹn, toàn bộ số tiền sẽ tự động giải ngân về ví của bạn.'
                           : `💡 Giải trình đối soát: Khách trả ${formatVND(totalBuyerPay)} (gồm ${formatVND(order.product.price)} tiền đồ trả về ví bạn + ${formatVND(effectiveShippingFee)} cước giao vận bưu tá GHN nhận). Bạn được nhận trọn vẹn 100% tiền hàng.`}
                       </p>
                     </div>
@@ -1249,20 +1387,37 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   )}
 
                   {isOrderShipping && (
-                    <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                          <Truck className="h-4 w-4 text-fpt-orange" />
-                          <span>Bưu tá GHN đang giao tới Người mua</span>
+                    isSafeHandoff ? (
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-900 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-emerald-900 flex items-center gap-1.5 text-xs">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                            <span>Đã chốt lịch hẹn Safe-Point</span>
+                          </p>
+                          <Badge className="bg-emerald-100 text-emerald-800 border-none text-[10px] font-bold">
+                            Chờ bàn giao
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-emerald-700 leading-relaxed">
+                          Bạn đã đồng ý lịch hẹn. Hãy mang hàng đến trạm Safe-Point đúng giờ để gặp người mua và quét mã xác nhận.
                         </p>
-                        <Badge className="bg-orange-100 text-orange-800 border-none text-[10px] font-bold">
-                          Đang giao
-                        </Badge>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Kiện hàng đang được luân chuyển. Trạng thái đã giao sẽ được đồng bộ sau khi hãng vận chuyển xác nhận.
-                      </p>
-                    </div>
+                    ) : (
+                      <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                            <Truck className="h-4 w-4 text-fpt-orange" />
+                            <span>Bưu tá GHN đang giao tới Người mua</span>
+                          </p>
+                          <Badge className="bg-orange-100 text-orange-800 border-none text-[10px] font-bold">
+                            Đang giao
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Kiện hàng đang được luân chuyển. Trạng thái đã giao sẽ được đồng bộ sau khi hãng vận chuyển xác nhận.
+                        </p>
+                      </div>
+                    )
                   )}
 
                   {isOrderDelivered && (
@@ -1297,7 +1452,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   )}
 
                   {/* Safe-Handoff QR Modal button if direct trade */}
-                  {order.type === 'safe-handoff' && order.status !== 'completed' && (
+                  {order.type === 'safe-handoff' && !isOrderPending && order.status !== 'completed' && (
                     <Button
                       type="button"
                       variant="outline"
@@ -1547,18 +1702,41 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
           <div className="flex-1 min-w-0">
             {isSellerViewer ? (
               (isOrderPending || isOrderProcessing) ? (
-                <Button
-                  type="button"
-                  onClick={() => setIsShipModalOpen(true)}
-                  className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <Truck className="h-4 w-4" />
-                  <span className="truncate">Bàn giao GHN</span>
-                </Button>
+                order.type === 'safe-handoff' ? (
+                  <Button
+                    type="button"
+                    onClick={handleSellerConfirmOrder}
+                    disabled={isConfirmingOrder}
+                    className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="truncate">{isConfirmingOrder ? 'Đang chốt hẹn...' : 'Đồng ý đơn & Chốt hẹn'}</span>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setIsShipModalOpen(true)}
+                    className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Truck className="h-4 w-4" />
+                    <span className="truncate">Bàn giao GHN</span>
+                  </Button>
+                )
               ) : isOrderShipping ? (
-                <div className="h-11 rounded-xl bg-orange-50 border border-orange-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-orange-800">
-                  🚚 Chờ hãng vận chuyển xác nhận đã giao
-                </div>
+                order.type === 'safe-handoff' ? (
+                  <Button
+                    type="button"
+                    onClick={() => setIsQrModalOpen(true)}
+                    className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs active:scale-95 shadow-xs"
+                  >
+                    <QrCode className="h-4 w-4 mr-1.5" />
+                    <span>Xác thực Safe-Point (Quét QR)</span>
+                  </Button>
+                ) : (
+                  <div className="h-11 rounded-xl bg-orange-50 border border-orange-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-orange-800">
+                    🚚 Chờ hãng vận chuyển xác nhận đã giao
+                  </div>
+                )
               ) : isOrderDelivered ? (
                 <div className="h-11 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-emerald-800">
                   ⏳ Đang 48h bao test an toàn
