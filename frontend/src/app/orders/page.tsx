@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import OrderTabs from '@/components/orders/OrderTabs';
@@ -26,7 +26,7 @@ import { orderService } from '@/services/orderService';
 import { ProductService } from '@/services/productService';
 import { ProductItem } from '@/types/product';
 
-export default function OrdersPage() {
+function OrdersPageInner() {
   const router = useRouter();
   const { orders, updateOrderStatus, products: allProducts, showToast } = useMarket();
   const userData = useUserStore((state) => state.user);
@@ -72,8 +72,16 @@ export default function OrdersPage() {
     );
   }, [orders]);
 
-  const [activeMainTab, setActiveMainTab] = useState<'buying' | 'selling' | 'listings' | 'handoff'>('buying');
-  const [activeProgressFilter, setActiveProgressFilter] = useState<string>('all');
+  const searchParams = useSearchParams();
+  const VALID_TABS = ['buying', 'selling', 'listings', 'handoff'] as const;
+  type MainTab = typeof VALID_TABS[number];
+  const tabFromUrl = searchParams.get('tab') as MainTab | null;
+  const filterFromUrl = searchParams.get('filter') ?? 'all';
+
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>(
+    VALID_TABS.includes(tabFromUrl as MainTab) ? (tabFromUrl as MainTab) : 'buying'
+  );
+  const [activeProgressFilter, setActiveProgressFilter] = useState<string>(filterFromUrl);
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -301,9 +309,18 @@ export default function OrdersPage() {
               onMainTabChange={(tab) => {
                 setActiveMainTab(tab);
                 setActiveProgressFilter('all');
+                const p = new URLSearchParams();
+                p.set('tab', tab);
+                router.replace(`/orders?${p.toString()}`, { scroll: false });
               }}
               activeProgressFilter={activeProgressFilter}
-              onProgressFilterChange={setActiveProgressFilter}
+              onProgressFilterChange={(f) => {
+                setActiveProgressFilter(f);
+                const p = new URLSearchParams();
+                p.set('tab', activeMainTab);
+                if (f && f !== 'all') p.set('filter', f);
+                router.replace(`/orders?${p.toString()}`, { scroll: false });
+              }}
               ordersCount={activeMainTab === 'selling' ? sellingOrders.length : buyingOrders.length}
               sellingCount={sellingOrders.length}
               listingsCount={myProducts.length}
@@ -874,5 +891,13 @@ export default function OrdersPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrdersPageInner />
+    </Suspense>
   );
 }
