@@ -234,7 +234,10 @@ export class NotificationService {
         const safeBody = escapeHtml(body || '');
         // Bảo mật F-14: Chỉ chấp nhận URL http://, https:// hoặc đường dẫn tương đối /, đồng thời HTML-escape chống XSS
         const isSafeUrl = typeof targetUrl === 'string' && /^(https?:\/\/|\/)/i.test(targetUrl.trim());
-        const safeTargetUrl = isSafeUrl ? escapeHtml(targetUrl.trim()) : null;
+        const fullUrl = isSafeUrl && targetUrl?.trim().startsWith('/')
+          ? `${ENV.CLIENT_URL.replace(/\/$/, '')}${targetUrl.trim()}`
+          : targetUrl?.trim();
+        const safeTargetUrl = isSafeUrl && fullUrl ? escapeHtml(fullUrl) : null;
 
         await mailTransporter.sendMail({
           from: ENV.EMAIL_FROM || `"Campus Marketplace FU" <${ENV.EMAIL_USER || 'no-reply@marketfu.com'}>`,
