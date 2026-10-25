@@ -440,7 +440,6 @@ export class ProductService {
           prisma.review.aggregate({
             where: {
               revieweeId: product.sellerId,
-              isPublic: true,
             },
             _avg: { rating: true },
             _count: { id: true },
