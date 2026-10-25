@@ -67,6 +67,7 @@ interface PrimaryActionButtonProps {
   onOpenScanner: () => void;
   onOpenReview: () => void;
   onOpenReviewDetail?: () => void;
+  onCancelOrder?: () => void;
 }
 
 const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
@@ -81,6 +82,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   onOpenScanner,
   onOpenReview,
   onOpenReviewDetail,
+  onCancelOrder,
 }) => {
   const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
 
@@ -89,21 +91,39 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     // When pending seller confirmation:
     if (isPending) {
       return (
-        <TouchableOpacity
-          style={[styles.confirmReceivedBtn, { backgroundColor: '#059669' }]}
-          activeOpacity={0.88}
-          onPress={onConfirmOrder}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
-              <Text style={styles.confirmReceivedText}>Đồng ý đơn & Chốt lịch hẹn</Text>
-            </>
+        <View style={{ gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.confirmReceivedBtn, { backgroundColor: '#059669' }]}
+            activeOpacity={0.88}
+            onPress={onConfirmOrder}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
+                <Text style={styles.confirmReceivedText}>
+                  {isInterCampus ? 'Đồng ý đơn & Chuẩn bị gửi GHN' : 'Đồng ý đơn & Chốt lịch hẹn'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {onCancelOrder && (
+            <TouchableOpacity
+              style={[styles.confirmReceivedBtn, { backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECDD3' }]}
+              activeOpacity={0.88}
+              onPress={onCancelOrder}
+              disabled={isSubmitting}
+            >
+              <Ionicons name="close-circle-outline" size={20} color="#E11D48" style={styles.mr6} />
+              <Text style={[styles.confirmReceivedText, { color: '#E11D48', fontWeight: '700' }]}>
+                Từ chối đơn (Hoàn cọc 100% cho khách)
+              </Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       );
     }
 
@@ -338,7 +358,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   const isCancelled = orderStatus === 'cancelled';
   const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
   const canDispute = !isSeller && !isCancelled && !isDisputed && (orderStatus === 'delivered' || orderStatus === 'DELIVERED' || orderStatus === 'completed' || orderStatus === 'COMPLETED');
-  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || isPending || orderStatus === 'ESCROW_PAID');
+  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || isPending || orderStatus === 'ESCROW_PAID') && !(isSeller && isPending);
 
   const cancelLabel = isSeller && isPending
     ? 'Từ chối đơn hàng'
@@ -366,6 +386,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
         onOpenScanner={onOpenScanner}
         onOpenReview={onOpenReview}
         onOpenReviewDetail={onOpenReviewDetail}
+        onCancelOrder={onCancelOrder}
       />
 
       <SubActionButtons

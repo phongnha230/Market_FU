@@ -103,7 +103,7 @@ export const OrderCancelModal: React.FC<OrderCancelModalProps> = ({
                 <Ionicons name="alert-circle" size={20} color="#DC2626" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Hủy Đơn Hàng An Toàn</Text>
+                <Text style={styles.headerTitle}>{isSellerViewer ? 'Từ Chối Đơn Hàng' : 'Hủy Đơn Hàng An Toàn'}</Text>
                 <Text style={styles.headerSubtitle}>
                   {orderCode ? `#${orderCode}` : `Đơn #${orderId}`}
                   {isSellerViewer ? ' • Người bán hủy' : ' • Người mua hủy'}
@@ -131,7 +131,9 @@ export const OrderCancelModal: React.FC<OrderCancelModalProps> = ({
                 <Text style={styles.policyHeading}>Chính sách hoàn tiền cọc Escrow:</Text>
               </View>
               <Text style={styles.policyText}>
-                • Số tiền ký quỹ <Text style={{ fontWeight: '800', color: '#0F172A' }}>{totalAmount.toLocaleString('vi-VN')} đ</Text> (nếu có) sẽ được hoàn trả tự động 100% về ví FPT Pay.
+                {isSellerViewer
+                  ? `• Nếu Người mua đã thanh toán cọc Escrow (${totalAmount.toLocaleString('vi-VN')} đ), hệ thống sẽ tự động hoàn lại 100% về ví cho Người mua ngay lập tức.`
+                  : `• Số tiền ký quỹ ${totalAmount.toLocaleString('vi-VN')} đ (nếu có) sẽ được hoàn trả tự động 100% về ví của bạn.`}
               </Text>
               {coinsUsed > 0 && (
                 <Text style={styles.policyText}>
@@ -212,7 +214,7 @@ export const OrderCancelModal: React.FC<OrderCancelModalProps> = ({
                 ) : (
                   <>
                     <Ionicons name="close-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.confirmCancelBtnText}>Xác Nhận Hủy Đơn</Text>
+                    <Text style={styles.confirmCancelBtnText}>{isSellerViewer ? 'Xác Nhận Từ Chối & Hoàn Tiền' : 'Xác Nhận Hủy Đơn'}</Text>
                   </>
                 )}
               </TouchableOpacity>

@@ -230,10 +230,12 @@ export const OrderDetailScreen: React.FC = () => {
     updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã hủy', '#64748B', '#F1F5F9');
     setOrderStatus('cancelled');
     Alert.alert(
-      '🎉 Đã hủy đơn hàng an toàn',
-      `Lý do: ${reason}\nTiền cọc Escrow và FPT Xu (nếu có) đã được hoàn lại đầy đủ về ví của bạn.`
+      isSeller ? '🎉 Đã từ chối đơn hàng' : '🎉 Đã hủy đơn hàng an toàn',
+      isSeller
+        ? `Lý do: ${reason}\nBạn đã từ chối đơn hàng thành công. Toàn bộ tiền cọc Escrow và FPT Xu (nếu người mua đã thanh toán) đã được hoàn lại 100% cho người mua.`
+        : `Lý do: ${reason}\nTiền cọc Escrow và FPT Xu (nếu có) đã được hoàn lại đầy đủ về ví của bạn.`
     );
-  }, [orderId, updateOrderStatus]);
+  }, [orderId, updateOrderStatus, isSeller]);
 
   const handleWithdrawDisputeSuccess = useCallback(() => {
     updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đang giữ tiền Escrow - Tiếp tục giao dịch', '#2563EB', '#EFF6FF');

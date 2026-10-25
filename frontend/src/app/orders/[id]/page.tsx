@@ -76,6 +76,7 @@ export default function OrderDetailPage() {
   const [isShipModalOpen, setIsShipModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isConfirmingDelivery, setIsConfirmingDelivery] = useState(false);
+  const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -192,17 +193,48 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleSellerConfirmOrder = async () => {
+    if (!order) return;
+    setIsConfirmingOrder(true);
+    try {
+      await orderService.confirmOrder(cleanCode);
+      updateOrderStatus(order.code, 'shipping', 'Đã chốt hẹn Safe-Point • Chờ bàn giao');
+      setOrder((prev) => (prev ? { ...prev, status: 'shipping', statusText: 'Đã chốt hẹn Safe-Point • Chờ bàn giao' } : null));
+      showToast('🎉 Đã chốt lịch hẹn Safe-Point thành công! Vui lòng có mặt đúng giờ để giao hàng.', 'success');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || err?.message || 'Không thể xác nhận đơn lúc này.', 'error');
+    } finally {
+      setIsConfirmingOrder(false);
+    }
+  };
+
   const handleCancelOrder = async () => {
     if (!order) return;
-    if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
+    const isPaid = Boolean(order.payment?.isPaid);
+    const confirmPrompt = isSellerViewer
+      ? isPaid
+        ? `Bạn có chắc chắn muốn TỪ CHỐI đơn hàng này không?\n\n💡 Người mua đã thanh toán cọc Escrow ${formatVND(order.product.price)}. Hệ thống sẽ tự động HOÀN TIỀN 100% về ví/tài khoản cho Người mua ngay lập tức.\n\nSản phẩm sẽ được tự động mở lại trạng thái Đang bán trên sàn.`
+        : 'Bạn có chắc chắn muốn TỪ CHỐI lịch hẹn / đơn hàng này không? Sản phẩm sẽ được mở lại trạng thái Đang bán trên sàn.'
+      : isPaid
+      ? `Bạn có chắc chắn muốn HỦY đơn hàng này không?\n\n💡 Toàn bộ tiền cọc Escrow (${formatVND(order.product.price)}) và Xu của bạn sẽ được hoàn trả lại đầy đủ.`
+      : 'Bạn có chắc chắn muốn hủy đơn hàng này không?';
+
+    if (!confirm(confirmPrompt)) return;
     try {
-      await orderService.cancelOrder(order.id, 'Người dùng hủy đơn qua giao diện');
+      await orderService.cancelOrder(
+        order.id || cleanCode,
+        isSellerViewer ? 'Người bán từ chối nhận đơn / lịch hẹn' : 'Người mua yêu cầu hủy đơn'
+      );
       updateOrderStatus(order.code, 'cancelled', 'Đã hủy đơn hàng');
       setOrder((prev) => (prev ? { ...prev, status: 'cancelled', statusText: 'Đã hủy đơn hàng' } : null));
-      showToast('Đã hủy đơn hàng thành công.', 'info');
-      router.push('/orders');
+      showToast(
+        isPaid
+          ? 'Đã hủy đơn thành công! Hệ thống đã tự động hoàn tiền cọc Escrow 100% cho người mua.'
+          : 'Đã hủy đơn hàng thành công.',
+        'success'
+      );
     } catch (err: any) {
-      showToast(err?.message || 'Không thể hủy đơn hàng này lúc này.', 'error');
+      showToast(err?.response?.data?.message || err?.message || 'Không thể hủy đơn hàng này lúc này.', 'error');
     }
   };
 
@@ -1181,15 +1213,39 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     </div>
                   )}
 
-                  {(isCodOrder || order.payment?.isPaid) && (isOrderPending || isOrderProcessing) && order.type === 'inter-campus' && (
-                    <Button
-                      type="button"
-                      onClick={() => setIsShipModalOpen(true)}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Truck className="h-4 w-4" />
-                      <span>Bàn giao bưu cục GHN (Tạo mã vận đơn)</span>
-                    </Button>
+                  {(isCodOrder || order.payment?.isPaid) && (isOrderPending || isOrderProcessing) && (
+                    <div className="space-y-2">
+                      {order.type === 'safe-handoff' ? (
+                        <Button
+                          type="button"
+                          onClick={handleSellerConfirmOrder}
+                          disabled={isConfirmingOrder}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>{isConfirmingOrder ? 'Đang chốt hẹn...' : 'Đồng ý đơn & Chốt lịch hẹn'}</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => setIsShipModalOpen(true)}
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Truck className="h-4 w-4" />
+                          <span>Bàn giao bưu cục GHN (Tạo mã vận đơn)</span>
+                        </Button>
+                      )}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelOrder}
+                        className="w-full border-rose-200 text-rose-700 hover:bg-rose-50 hover:border-rose-300 font-bold rounded-xl text-xs h-9 cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <XCircle className="h-4 w-4 text-rose-600" />
+                        <span>Từ chối đơn (Hoàn cọc 100% cho khách)</span>
+                      </Button>
+                    </div>
                   )}
 
                   {isOrderShipping && (

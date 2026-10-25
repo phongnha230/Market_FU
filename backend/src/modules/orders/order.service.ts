@@ -1088,11 +1088,11 @@ export class OrderService {
       throw new AppError('Bạn không có quyền hủy đơn hàng này', 403, 'FORBIDDEN');
     }
 
-    if (order.status !== 'PENDING') {
-      throw new AppError('Chỉ có thể hủy đơn hàng khi đơn chưa thanh toán hoặc chưa gửi hàng', 400, 'CANNOT_CANCEL');
+    if (order.status !== 'PENDING' && order.status !== 'PAID') {
+      throw new AppError('Chỉ có thể hủy đơn hàng khi đơn chưa gửi hàng hoặc đang chờ chốt hẹn', 400, 'CANNOT_CANCEL');
     }
 
-    if (order.payment.paymentMethod === 'PAYOS_WEB' && order.payment.payosOrderCode) {
+    if (order.payment.paymentMethod === 'PAYOS_WEB' && order.payment.payosOrderCode && !order.payment.isPaid) {
       if (!order.payment.payosCheckoutUrl) {
         throw new AppError('Liên kết PayOS đang được khởi tạo, vui lòng thử lại sau', 409, 'PAYOS_SETUP_IN_PROGRESS');
       }
@@ -1121,7 +1121,7 @@ export class OrderService {
   private async cancelPendingOrderInDb(order: Order, reason: string, actorId: string) {
     const cancelledOrder = await prisma.$transaction(async (tx) => {
       const claimed = await tx.order.updateMany({
-        where: { id: order.id, status: 'PENDING' },
+        where: { id: order.id, status: { in: ['PENDING', 'PAID'] } },
         data: { status: 'CANCELLED' },
       });
       if (claimed.count !== 1) {
@@ -1851,7 +1851,7 @@ export class OrderService {
       throw new AppError('Bạn không phải người bán của đơn hàng này', 403, 'FORBIDDEN');
     }
 
-    if (order.status !== 'PENDING') {
+    if (order.status !== 'PENDING' && order.status !== 'PAID') {
       throw new AppError('Đơn hàng này đã được xác nhận hoặc đã kết thúc', 400, 'ORDER_ALREADY_CONFIRMED');
     }
 
@@ -1863,10 +1863,11 @@ export class OrderService {
       );
     }
 
+    const nextStatus = order.orderType === 'SHIP_COD' ? 'SHIPPING' : 'PAID';
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: {
-        status: 'PAID',
+        status: nextStatus,
       },
       include: {
         product: {
@@ -1901,12 +1902,12 @@ export class OrderService {
     emitToUser(order.buyerId, 'order_confirmed', {
       orderId: order.id,
       orderCode: order.orderCode,
-      status: 'PAID',
+      status: nextStatus,
     });
     emitToUser(order.sellerId, 'order_confirmed', {
       orderId: order.id,
       orderCode: order.orderCode,
-      status: 'PAID',
+      status: nextStatus,
     });
 
     // 3. Tự động gửi tin nhắn chốt hẹn vào khung Chat

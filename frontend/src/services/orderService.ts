@@ -152,6 +152,15 @@ export const orderService = {
     return response.data.data;
   },
 
+  // 5.5. Người bán đồng ý đơn hàng & chốt lịch hẹn Safe-Point
+  async confirmOrder(orderId: string): Promise<BackendOrder> {
+    const cleanId = orderId.replace(/^#/, '');
+    const response = await apiClient.post<ApiResponse<BackendOrder>>(
+      `/orders/${cleanId}/confirm-order`
+    );
+    return response.data.data;
+  },
+
   // 6. Xác nhận nhận hàng & giải ngân Escrow
   async confirmDelivery(orderId: string): Promise<BackendOrder> {
     const response = await apiClient.post<ApiResponse<BackendOrder>>(
