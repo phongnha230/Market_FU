@@ -214,10 +214,9 @@ export default function ProfilePage() {
       setIsLoadingReviews(true);
       orderService
         .getUserReviews(targetUserId)
-        .then((items) => {
-          if (Array.isArray(items)) {
-            setUserReviews(items);
-          }
+        .then((res: any) => {
+          const list = Array.isArray(res) ? res : res?.reviews || [];
+          setUserReviews(list);
         })
         .catch(() => {})
         .finally(() => setIsLoadingReviews(false));

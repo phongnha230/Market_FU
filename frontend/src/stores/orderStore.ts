@@ -199,6 +199,18 @@ export const useOrderStore = create<OrderState>()(
                     : 'Chờ người bán xác nhận',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
                 reviewed: bo.reviews && bo.reviews.length > 0,
+                reviewData: bo.reviews && bo.reviews.length > 0 ? {
+                  rating: Number(bo.reviews[0].rating) || 5,
+                  comment: bo.reviews[0].comment || '',
+                  tags: Array.isArray(bo.reviews[0].tags) ? bo.reviews[0].tags : [],
+                  images: Array.isArray(bo.reviews[0].images) ? bo.reviews[0].images : [],
+                  proofVideoUrl: bo.reviews[0].proofVideoUrl,
+                  reviewedAt: bo.reviews[0].createdAt || new Date().toISOString(),
+                  isPublic: bo.reviews[0].isPublic ?? true,
+                  canEdit: true,
+                  replyComment: bo.reviews[0].replyComment,
+                  replyCreatedAt: bo.reviews[0].replyCreatedAt,
+                } : undefined,
                 buyerId: bo.buyerId,
                 sellerId: bo.sellerId,
                 buyer: bo.buyer
@@ -395,9 +407,17 @@ export const useOrderStore = create<OrderState>()(
 
       updateOrderStatus: (idOrCode, status, statusText) => {
         const activeUid = get().activeUserId;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const isMatch = (o: OrderItem) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
+        };
+
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
-            if (o.id === idOrCode || o.code === idOrCode) {
+            if (isMatch(o)) {
               let color = 'text-fpt-orange';
               if (status === 'delivered' || status === 'completed') color = 'text-emerald-600';
               if (status === 'disputed') color = 'text-rose-600';
@@ -422,10 +442,18 @@ export const useOrderStore = create<OrderState>()(
 
       markOrderReviewed: (idOrCode, reviewData) => {
         const activeUid = get().activeUserId;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const isMatch = (o: OrderItem) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
+        };
+
         const defaultReview: OrderReviewData = reviewData || {
           rating: 5,
-          comment: 'Đã hoàn tất kiểm tra và nhận hàng an toàn tại Safe-Point!',
-          tags: ['mota', 'donggoi'],
+          comment: '',
+          tags: [],
           reviewedAt: new Date().toISOString(),
           isPublic: true,
           canEdit: true,
@@ -434,7 +462,7 @@ export const useOrderStore = create<OrderState>()(
 
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
-            if (o.id === idOrCode || o.code === idOrCode) {
+            if (isMatch(o)) {
               return {
                 ...o,
                 reviewed: true,
@@ -458,11 +486,19 @@ export const useOrderStore = create<OrderState>()(
 
       updateOrderReview: (idOrCode, partialData) => {
         const activeUid = get().activeUserId;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const isMatch = (o: OrderItem) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
+        };
+
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
-            if (o.id === idOrCode || o.code === idOrCode) {
+            if (isMatch(o)) {
               const currentRev = o.reviewData || {
-                rating: 5,
+                rating: partialData.rating || 5,
                 reviewedAt: new Date().toISOString(),
                 isPublic: true,
                 canEdit: true,
@@ -494,9 +530,17 @@ export const useOrderStore = create<OrderState>()(
 
       replyOrderReview: (idOrCode, replyComment) => {
         const activeUid = get().activeUserId;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const isMatch = (o: OrderItem) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
+        };
+
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
-            if (o.id === idOrCode || o.code === idOrCode) {
+            if (isMatch(o)) {
               const currentRev = o.reviewData || {
                 rating: 5,
                 reviewedAt: new Date().toISOString(),
@@ -527,9 +571,17 @@ export const useOrderStore = create<OrderState>()(
 
       toggleReviewPublic: (idOrCode) => {
         const activeUid = get().activeUserId;
+        const target = String(idOrCode).trim();
+        const cleanTarget = target.replace(/^#/, '').toLowerCase();
+        const isMatch = (o: OrderItem) => {
+          const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
+          const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
+          return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
+        };
+
         set((state) => {
           const updatedOrders = state.orders.map((o) => {
-            if (o.id === idOrCode || o.code === idOrCode) {
+            if (isMatch(o)) {
               if (o.reviewData) {
                 const nextPublic = !o.reviewData.isPublic;
                 return {

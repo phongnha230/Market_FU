@@ -310,7 +310,7 @@ export default function SellerProfilePage() {
               res.reviews.map((r: any) => ({
                 id: r.id || String(Math.random()),
                 rating: r.rating || 5,
-                comment: r.comment || 'Giao dịch nhanh chóng tại Safe-Point, sản phẩm đúng như mô tả.',
+                comment: r.comment || 'Người mua không để lại nhận xét bằng lời.',
                 reviewerName: r.reviewer?.profile?.fullName || 'Sinh viên FPT',
                 reviewerCohort: 'Sinh viên FPT',
                 reviewerCampus: r.reviewer?.profile?.campus || sellerData.campus,

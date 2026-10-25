@@ -1433,9 +1433,22 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   )}
 
                   {isOrderCompleted && (
-                    <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-bold flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <span>Doanh thu đơn hàng này đã được quyết toán vào ví của bạn</span>
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>Doanh thu đơn hàng này đã được quyết toán vào ví của bạn</span>
+                      </div>
+                      {order.reviewed && (
+                        <Button
+                          type="button"
+                          onClick={() => setIsReviewModalOpen(true)}
+                          variant="outline"
+                          className="w-full bg-white hover:bg-emerald-50 border-emerald-300 text-emerald-900 font-bold rounded-xl text-xs h-9 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                          <span>Xem đánh giá của Người Mua</span>
+                        </Button>
+                      )}
                     </div>
                   )}
 
@@ -1701,7 +1714,17 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
           {/* Nút hành động chính tùy theo vai trò & trạng thái */}
           <div className="flex-1 min-w-0">
             {isSellerViewer ? (
-              (isOrderPending || isOrderProcessing) ? (
+              isOrderDisputed ? (
+                <Button
+                  asChild
+                  className="w-full h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                    <ShieldAlert className="h-4 w-4 mr-1.5 text-white" />
+                    <span>Xem khiếu nại trả hàng</span>
+                  </Link>
+                </Button>
+              ) : (isOrderPending || isOrderProcessing) ? (
                 order.type === 'safe-handoff' ? (
                   <Button
                     type="button"
@@ -1742,9 +1765,21 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   ⏳ Đang 48h bao test an toàn
                 </div>
               ) : isOrderCompleted ? (
-                <div className="h-11 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-emerald-800">
-                  ✅ Đơn hàng đã hoàn tất
-                </div>
+                order.reviewed ? (
+                  <Button
+                    type="button"
+                    onClick={() => setIsReviewModalOpen(true)}
+                    variant="outline"
+                    className="w-full h-11 border-emerald-300 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs active:scale-95 flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                    <span>Xem đánh giá từ Người Mua</span>
+                  </Button>
+                ) : (
+                  <div className="h-11 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center justify-center text-center text-[11px] font-bold text-emerald-800">
+                    ✅ Đơn hoàn tất • Chờ người mua đánh giá
+                  </div>
+                )
               ) : order.type === 'safe-handoff' ? (
                 <Button
                   type="button"
@@ -1761,7 +1796,17 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
               )
             ) : (
               /* Buyer Action on Mobile */
-              isOrderDelivered || isOrderShipping ? (
+              isOrderDisputed ? (
+                <Button
+                  asChild
+                  className="w-full h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                    <ShieldAlert className="h-4 w-4 mr-1.5 text-white" />
+                    <span>Xem tiến độ trả hàng & khiếu nại</span>
+                  </Link>
+                </Button>
+              ) : isOrderDelivered || isOrderShipping ? (
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -1775,35 +1820,59 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   <Button
                     asChild
                     variant="outline"
-                    className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0"
+                    className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
                   >
                     <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
-                      <AlertTriangle className="h-4 w-4 mr-1 text-rose-600 shrink-0" />
+                      <AlertTriangle className="h-4 w-4 text-rose-600" />
                       <span>Khiếu nại</span>
                     </Link>
                   </Button>
                 </div>
               ) : isOrderCompleted ? (
                 !order.reviewed ? (
-                  <Button
-                    asChild
-                    className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <Link href={`/orders/review?code=${encodeURIComponent(cleanCode)}`}>
-                      <Star className="h-4 w-4 fill-white" />
-                      <span>Đánh giá nhận +100 Xu</span>
-                    </Link>
-                  </Button>
+                  <div className="flex items-center gap-2 w-full">
+                    <Button
+                      asChild
+                      className="flex-1 h-11 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <Link href={`/orders/review?code=${encodeURIComponent(cleanCode)}`}>
+                        <Star className="h-4 w-4 fill-white" />
+                        <span>Đánh giá nhận +100 Xu</span>
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
+                    >
+                      <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                        <AlertTriangle className="h-4 w-4 text-rose-600" />
+                        <span>Khiếu nại</span>
+                      </Link>
+                    </Button>
+                  </div>
                 ) : (
-                  <Button
-                    type="button"
-                    onClick={() => setIsReviewModalOpen(true)}
-                    variant="outline"
-                    className="w-full h-11 border-emerald-300 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span>Xem lại đánh giá</span>
-                  </Button>
+                  <div className="flex items-center gap-2 w-full">
+                    <Button
+                      type="button"
+                      onClick={() => setIsReviewModalOpen(true)}
+                      variant="outline"
+                      className="flex-1 h-11 border-emerald-300 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Xem lại đánh giá</span>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
+                    >
+                      <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                        <AlertTriangle className="h-4 w-4 text-rose-600" />
+                        <span>Khiếu nại</span>
+                      </Link>
+                    </Button>
+                  </div>
                 )
               ) : (isOrderPending && !isCodOrder) ? (
                 <Button

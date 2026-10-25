@@ -476,16 +476,28 @@ export default function OrderCard({
 
               {order.status === 'completed' && (
                 order.reviewed ? (
-                  <Button
-                    type="button"
-                    onClick={() => onOpenReviewDetail?.(order)}
-                    variant="outline"
-                    className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                    title="Xem lại đánh giá của bạn"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Xem lại đánh giá</span>
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => onOpenReviewDetail?.(order)}
+                      variant="outline"
+                      className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Xem lại đánh giá của bạn"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Xem lại đánh giá</span>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Khiếu nại</span>
+                      </Link>
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button

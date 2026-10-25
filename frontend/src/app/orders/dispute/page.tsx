@@ -39,6 +39,7 @@ function DisputeContent() {
   const [backendOrder, setBackendOrder] = useState<any>(null);
 
   useEffect(() => {
+    useDisputeStore.getState().fetchDisputes().catch(() => {});
     if (orderCodeParam) {
       const clean = orderCodeParam.replace('#', '');
       orderService
@@ -146,9 +147,7 @@ function DisputeContent() {
 
   const canWithdrawDispute =
     isAlreadyDisputed &&
-    disputeStoreItem?.status !== 'REFUNDED' &&
-    disputeStoreItem?.status !== 'REJECTED' &&
-    disputeStoreItem?.status !== 'CANCELLED' &&
+    (!disputeStoreItem || disputeStoreItem.status === 'PENDING') &&
     matchedOrder?.status !== 'cancelled' &&
     matchedOrder?.status !== 'completed';
 
@@ -361,6 +360,16 @@ function DisputeContent() {
                       <span className="text-[11px] font-semibold text-emerald-700 sm:ml-auto flex items-center gap-1">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                         Đã duyệt hoàn tiền (Không thể rút đơn)
+                      </span>
+                    ) : disputeStoreItem?.status === 'REJECTED' ? (
+                      <span className="text-[11px] font-semibold text-rose-700 sm:ml-auto flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                        Khiếu nại bị từ chối (Không thể rút đơn)
+                      </span>
+                    ) : disputeStoreItem?.status === 'CANCELLED' ? (
+                      <span className="text-[11px] font-semibold text-slate-500 sm:ml-auto flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
+                        Đã tự nguyện rút khiếu nại
                       </span>
                     ) : null}
                   </div>

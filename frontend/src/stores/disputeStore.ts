@@ -197,23 +197,8 @@ export const useDisputeStore = create<DisputeState>()(
 
           return { success: true, message: res?.message || 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.' };
         } catch (error: any) {
-          // Fallback optimistic offline mode nếu server tạm thời lỗi
-          set((state) => ({
-            disputes: state.disputes.map((d) =>
-              d.id === disputeId
-                ? {
-                    ...d,
-                    status: 'CANCELLED',
-                    adminNote: reason ? `Người mua rút khiếu nại: ${reason}` : 'Người mua tự rút khiếu nại',
-                    resolvedAt: 'Vừa xong',
-                  }
-                : d
-            ),
-          }));
-          if (target) {
-            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Người mua đã rút khiếu nại');
-          }
-          return { success: true, message: 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.' };
+          const errMsg = error.response?.data?.message || error.message || 'Không thể rút đơn khiếu nại lúc này.';
+          return { success: false, message: errMsg };
         }
       },
 

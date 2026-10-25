@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   X,
@@ -13,6 +14,7 @@ import {
   Edit3,
   ExternalLink,
   AlertCircle,
+  AlertTriangle,
   Package,
   User,
   Sparkles,
@@ -20,7 +22,7 @@ import {
   Send,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
-import { OrderItem, useOrderStore } from '@/stores/orderStore';
+import { OrderItem, OrderReviewData, useOrderStore } from '@/stores/orderStore';
 import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
 
@@ -64,19 +66,83 @@ export default function ReviewDetailModal({
   const [isReplying, setIsReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [loadedReview, setLoadedReview] = useState<OrderReviewData | null>(null);
+  const [reviewerInfo, setReviewerInfo] = useState<{
+    name: string;
+    avatarUrl?: string;
+    campus?: string;
+    studentId?: string;
+  } | null>(null);
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen || !order) {
+      setLoadedReview(null);
+      setReviewerInfo(null);
+      return;
+    }
+
+    if (order.reviewData && (order.reviewData.comment !== undefined || order.reviewData.rating !== undefined)) {
+      setLoadedReview(order.reviewData);
+    }
+
+    const orderIdentifier = (order.id || order.code || '').replace(/^#/, '');
+    if (orderIdentifier) {
+      setIsLoadingReview(true);
+      orderService
+        .getOrderReviews(orderIdentifier)
+        .then((reviews) => {
+          if (Array.isArray(reviews) && reviews.length > 0) {
+            const rev = reviews[0];
+            const freshRev = {
+              rating: Number(rev.rating) || 5,
+              comment: rev.comment || '',
+              tags: Array.isArray(rev.tags) ? rev.tags : [],
+              images: Array.isArray(rev.images) ? rev.images : [],
+              proofVideoUrl: rev.proofVideoUrl,
+              reviewedAt: rev.createdAt || new Date().toISOString(),
+              isPublic: rev.isPublic ?? true,
+              canEdit: true,
+              replyComment: rev.replyComment,
+              replyCreatedAt: rev.replyCreatedAt,
+            };
+            setLoadedReview(freshRev);
+            if (rev.reviewer) {
+              setReviewerInfo({
+                name: rev.reviewer.profile?.fullName || rev.reviewer.email?.split('@')[0] || 'Sinh viên FPT',
+                avatarUrl: rev.reviewer.profile?.avatarUrl,
+                campus: rev.reviewer.profile?.campus || 'FPT Campus',
+                studentId: rev.reviewer.profile?.studentId || rev.reviewer.studentId,
+              });
+            }
+            useOrderStore.getState().markOrderReviewed(order.code, freshRev);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setIsLoadingReview(false);
+        });
+    }
+  }, [isOpen, order?.id, order?.code]);
 
   if (!isOpen || !order) return null;
 
-  const review = order.reviewData || {
-    rating: 5,
-    comment: 'Giao dịch nhanh gọn, đồ rất tốt và đúng như mô tả!',
-    tags: ['mota', 'donggoi'],
+  const fallbackReview: OrderReviewData = {
+    rating: (order as any).rating ?? 5,
+    comment: '',
+    tags: [],
     images: order.product?.imageUrl ? [order.product.imageUrl] : [],
     reviewedAt: new Date().toISOString(),
     isPublic: true,
     canEdit: true,
     bonusCoins: 100,
+    proofVideoUrl: undefined,
+    replyComment: undefined,
+    repliedAt: undefined,
+    isAnonymous: false,
   };
+
+  const review: OrderReviewData = loadedReview || order.reviewData || fallbackReview;
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -118,18 +184,30 @@ export default function ReviewDetailModal({
 
   // Tên người mua hiển thị
   const buyerDisplayName =
+    reviewerInfo?.name ||
+    (order as any).buyer?.fullName ||
     (order as any).buyerName ||
     (order as any).buyer?.name ||
-    (order as any).buyer?.fullName ||
     (isSeller ? 'Người mua FPT' : (currentUser?.name || 'Bạn'));
 
-  // Student anonymous ID
-  const buyerId =
-    currentUser?.studentId ||
-    currentUser?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() ||
+  // Mã SV / định danh người mua hiển thị
+  const buyerStudentId =
+    (isSeller ? reviewerInfo?.studentId : currentUser?.studentId) ||
+    (order as any).buyer?.studentId ||
+    (order as any).buyer?.profile?.studentId ||
+    (!isSeller ? currentUser?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() : undefined) ||
     'SV_FPT';
+
+  const buyerCampus =
+    (isSeller ? reviewerInfo?.campus : currentUser?.campus) ||
+    (order as any).buyer?.campus ||
+    (order as any).buyer?.profile?.campus ||
+    'Campus FPT';
+
   const anonymousBadge =
-    buyerId.length > 4 ? `${buyerId.slice(0, 4)}**** (${currentUser?.campus || 'HL'})` : `${buyerId}****`;
+    buyerStudentId.length > 4
+      ? `${buyerStudentId.slice(0, 4)}**** (${buyerCampus})`
+      : `${buyerStudentId}**** (${buyerCampus})`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -260,7 +338,7 @@ export default function ReviewDetailModal({
             {/* Tags Badges */}
             {review.tags && review.tags.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                {review.tags.map((t) => (
+                {review.tags.map((t: string) => (
                   <span
                     key={t}
                     className="inline-flex items-center gap-1 rounded-lg bg-orange-50 border border-orange-200/80 px-2.5 py-1 text-xs font-bold text-fpt-orange"
@@ -366,7 +444,7 @@ export default function ReviewDetailModal({
                   HÌNH ẢNH / VIDEO BÓC HỘP & TEST MÁY ({review.images.length})
                 </span>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  {review.images.map((imgUrl, i) => (
+                  {review.images.map((imgUrl: string, i: number) => (
                     <button
                       key={i}
                       type="button"
@@ -419,9 +497,9 @@ export default function ReviewDetailModal({
               </div>
               <div>
                 <div className="font-extrabold text-slate-900">
-                  {isSeller
-                    ? buyerDisplayName
-                    : (review.isAnonymous !== false ? `Ẩn danh (${anonymousBadge})` : (currentUser?.name || 'Sinh viên FPT'))}
+                  {review.isAnonymous !== false
+                    ? `Ẩn danh (${anonymousBadge})`
+                    : (isSeller ? buyerDisplayName : (currentUser?.name || 'Sinh viên FPT'))}
                 </div>
                 <div className="text-[11px] text-slate-500">
                   Thời gian: {review.reviewedAt ? new Date(review.reviewedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
@@ -448,7 +526,7 @@ export default function ReviewDetailModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-5 sm:p-6 border-t border-slate-100 bg-slate-50/60 rounded-b-3xl flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-6 border-t border-slate-100 bg-slate-50/60 rounded-b-3xl flex flex-wrap items-center justify-between gap-2.5">
           <Button
             type="button"
             variant="outline"
@@ -458,16 +536,30 @@ export default function ReviewDetailModal({
             Đóng
           </Button>
 
-          {!isSeller && (
-            <Button
-              type="button"
-              onClick={handleEditReview}
-              className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-5 py-2.5 flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
-            >
-              <Edit3 className="h-4 w-4" />
-              <span>Chỉnh sửa đánh giá</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isSeller && (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-2 flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+                >
+                  <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                    <span>Khiếu nại</span>
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleEditReview}
+                  className="rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-4 py-2 flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  <span>Chỉnh sửa đánh giá</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
