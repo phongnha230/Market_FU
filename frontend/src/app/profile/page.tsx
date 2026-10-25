@@ -46,6 +46,8 @@ import {
   Upload,
   Pencil,
   Coins,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import EditProductModal from '@/components/modals/EditProductModal';
@@ -296,6 +298,33 @@ export default function ProfilePage() {
     } catch {
       useUserStore.getState().addCoins(-100);
       showToast(`⚡ Đã đẩy tin "${title}" lên đầu trang (-100 Xu)!`);
+    }
+  };
+
+  const handleToggleHideProduct = async (id: string, title: string, isCurrentlyHidden: boolean) => {
+    const nextStatus = isCurrentlyHidden ? 'AVAILABLE' : 'HIDDEN';
+    const actionText = isCurrentlyHidden ? 'Hiện lại' : 'Tạm ẩn';
+    try {
+      await ProductService.updateProductStatus(id, nextStatus);
+      setMyProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: nextStatus } : p))
+      );
+      showToast(`👁️ Đã ${actionText.toLowerCase()} tin đăng "${title}" thành công!`);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || err?.message || `Không thể ${actionText.toLowerCase()} tin đăng`);
+    }
+  };
+
+  const handleMarkSoldProduct = async (id: string, title: string) => {
+    if (!window.confirm(`Xác nhận đánh dấu món đồ "${title}" đã bán thành công?`)) return;
+    try {
+      await ProductService.updateProductStatus(id, 'SOLD');
+      setMyProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'SOLD' } : p))
+      );
+      showToast(`🎉 Đã đánh dấu "${title}" là Đã bán thành công!`);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || err?.message || 'Không thể cập nhật trạng thái đã bán');
     }
   };
 
@@ -1156,6 +1185,51 @@ export default function ProfilePage() {
                                       <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
                                       <span>Đẩy tin (-100 Xu)</span>
                                     </button>
+
+                                    {/* Nút Tạm ẩn / Hiện lại (cho bài AVAILABLE hoặc HIDDEN) */}
+                                    {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN');
+                                        }}
+                                        className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
+                                          prod.status === 'HIDDEN'
+                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                                        }`}
+                                        title={prod.status === 'HIDDEN' ? 'Mở lại hiển thị ra Chợ Campus' : 'Tạm ẩn bài đăng khỏi chợ'}
+                                      >
+                                        {prod.status === 'HIDDEN' ? (
+                                          <>
+                                            <Eye className="h-3 w-3 text-emerald-600" />
+                                            <span>Hiện lại</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <EyeOff className="h-3 w-3 text-slate-500" />
+                                            <span>Tạm ẩn</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
+
+                                    {/* Nút Đánh dấu Đã bán (cho bài AVAILABLE hoặc HIDDEN) */}
+                                    {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleMarkSoldProduct(prod.id, prod.title);
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                        title="Đánh dấu đã giao dịch thành công"
+                                      >
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                        <span>Đã bán</span>
+                                      </button>
+                                    )}
                                   </>
                                 ) : (
                                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
