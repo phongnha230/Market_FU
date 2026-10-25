@@ -13,6 +13,7 @@ interface ManageListingsCardProps {
   onToggleHide: (id: string, title: string, isCurrentlyHidden?: boolean) => void;
   onMarkSold: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
+  onAppeal?: (item: ListingItemData) => void;
 }
 
 export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
@@ -23,6 +24,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
   onToggleHide,
   onMarkSold,
   onDelete,
+  onAppeal,
 }) => {
   const isHidden = item.rawStatus === 'HIDDEN' || item.status === 'sold';
 
@@ -111,11 +113,27 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
         <View style={styles.rejectedBanner}>
           <View style={styles.rejectedHeaderRow}>
             <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
-            <Text style={styles.rejectedTitle}>Tin đăng bị từ chối duyệt</Text>
+            <Text style={styles.rejectedTitle}>Tin đăng bị từ chối / gỡ bỏ</Text>
           </View>
           <Text style={styles.rejectedReasonText}>
             Lý do: {item.rejectionReason || 'Nội dung hoặc hình ảnh vi phạm quy chế đăng tin FPT Market.'}
           </Text>
+          {item.appealStatus === 'PENDING' && (
+            <View style={styles.appealPendingBox}>
+              <Ionicons name="time-outline" size={13} color="#7C3AED" style={{ marginRight: 4 }} />
+              <Text style={styles.appealPendingText}>
+                Đang chờ BQT xét duyệt kháng nghị
+              </Text>
+            </View>
+          )}
+          {item.appealStatus === 'REJECTED' && (
+            <View style={styles.appealRejectedBox}>
+              <Ionicons name="close-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+              <Text style={styles.appealRejectedText}>
+                Kháng nghị trước đó không được chấp thuận
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -123,15 +141,32 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
       <View style={styles.cardActionsRow}>
         {item.status === 'rejected' ? (
           <>
-            {/* Sửa & gửi lại tin */}
+            {/* Sửa tin */}
             <TouchableOpacity
-              style={[styles.actionBtn, styles.actionBtnOrange, { flex: 2 }]}
+              style={[styles.actionBtn, styles.actionBtnOrange]}
               activeOpacity={0.75}
               onPress={() => onEdit(item)}
             >
               <Ionicons name="create-outline" size={14} color="#C2410C" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnOrangeText}>Sửa & gửi lại tin</Text>
+              <Text style={styles.actionBtnOrangeText}>Sửa tin</Text>
             </TouchableOpacity>
+
+            {/* Kháng nghị */}
+            {item.appealStatus === 'PENDING' ? (
+              <View style={[styles.actionBtn, styles.actionBtnDisabled]}>
+                <Ionicons name="time-outline" size={14} color="#7C3AED" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnPurpleText}>Chờ duyệt KN</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnPurple]}
+                activeOpacity={0.75}
+                onPress={() => onAppeal && onAppeal(item)}
+              >
+                <Ionicons name="shield-checkmark-outline" size={14} color="#7C3AED" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnPurpleText}>Kháng nghị</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Xóa tin */}
             <TouchableOpacity
@@ -242,15 +277,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               </TouchableOpacity>
             )}
 
-            {/* Xóa vĩnh viễn */}
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.actionBtnRed]}
-              activeOpacity={0.75}
-              onPress={() => onDelete(item.id, item.title)}
-            >
-              <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnRedText}>Xóa</Text>
-            </TouchableOpacity>
+
           </>
         )}
       </View>
@@ -477,5 +504,46 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#B91C1C',
     lineHeight: 16,
+  },
+  appealPendingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  appealPendingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  appealRejectedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  appealRejectedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  actionBtnPurple: {
+    backgroundColor: '#F3E8FF',
+  },
+  actionBtnPurpleText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  actionBtnDisabled: {
+    opacity: 0.6,
   },
 });

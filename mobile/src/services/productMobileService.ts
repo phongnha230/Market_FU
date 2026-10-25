@@ -90,6 +90,9 @@ export function adaptBackendProductToMobile(item: any): ProductItem {
     sellerIsVerified: item.seller?.profile?.kyc?.status === 'APPROVED' || item.seller?.role === 'SELLER',
     status: item.status || 'AVAILABLE',
     rejectionReason: item.rejectionReason || undefined,
+    appealStatus: item.appealStatus || null,
+    appealReason: item.appealReason || null,
+    appealedAt: item.appealedAt || null,
     safePoint: item.safePoint || item.meetupLocation || 'Trạm Safe-Point Sảnh Alpha',
     allowNegotiate: item.allowNegotiate ?? true,
     campusShipEnabled: item.campusShipEnabled ?? true,
@@ -350,6 +353,14 @@ export const productMobileService = {
    */
   async deleteProduct(id: string): Promise<any> {
     const res = await apiClient.delete<ApiResponse<any>>(`/products/${id}`);
+    return res.data?.data;
+  },
+
+  /**
+   * Người bán gửi kháng nghị cho tin đăng bị gỡ / từ chối
+   */
+  async appealProduct(id: string, reason: string): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>(`/products/${id}/appeal`, { reason });
     return res.data?.data;
   },
 

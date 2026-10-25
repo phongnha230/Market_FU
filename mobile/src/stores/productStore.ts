@@ -21,6 +21,9 @@ export interface ProductItem {
   sellerIsVerified?: boolean;
   status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
   rejectionReason?: string;
+  appealStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  appealReason?: string | null;
+  appealedAt?: string | null;
   safePoint?: string;
   allowNegotiate?: boolean;
   campusShipEnabled?: boolean;

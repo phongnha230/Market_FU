@@ -72,6 +72,8 @@ export const useManageListings = () => {
             status: st,
             rawStatus: p.status,
             rejectionReason: p.rejectionReason,
+            appealStatus: p.appealStatus,
+            appealReason: p.appealReason,
           };
         });
         setServerListings(mapped);
@@ -141,6 +143,8 @@ export const useManageListings = () => {
         status: st,
         rawStatus: p.status,
         rejectionReason: p.rejectionReason,
+        appealStatus: p.appealStatus,
+        appealReason: p.appealReason,
       });
     });
 

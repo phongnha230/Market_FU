@@ -6,7 +6,14 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { productMobileService } from '../../../services/productMobileService';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -40,6 +47,8 @@ export interface ListingItemData {
   isBoosted?: boolean;
   rawStatus?: string;
   rejectionReason?: string;
+  appealStatus?: string | null;
+  appealReason?: string | null;
 }
 
 export interface ManageListingsScreenProps {
@@ -75,6 +84,34 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
     handleDelete,
     handleEdit,
   } = useManageListings();
+
+  const [appealItem, setAppealItem] = useState<ListingItemData | null>(null);
+  const [appealReasonText, setAppealReasonText] = useState('');
+  const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
+
+  const handleOpenAppealModal = useCallback((item: ListingItemData) => {
+    setAppealItem(item);
+    setAppealReasonText('');
+  }, []);
+
+  const handleConfirmAppeal = useCallback(async () => {
+    if (!appealItem || !appealReasonText.trim() || appealReasonText.trim().length < 5) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập lý do giải trình chi tiết (tối thiểu 5 ký tự)');
+      return;
+    }
+    try {
+      setIsSubmittingAppeal(true);
+      await productMobileService.appealProduct(appealItem.id, appealReasonText.trim());
+      Alert.alert('Thành công', 'Đã gửi đơn kháng nghị lên Ban Quản Trị');
+      setAppealItem(null);
+      setAppealReasonText('');
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('Lỗi gửi kháng nghị', err?.message || 'Vui lòng thử lại sau');
+    } finally {
+      setIsSubmittingAppeal(false);
+    }
+  }, [appealItem, appealReasonText, onRefresh]);
 
   const [boostTarget, setBoostTarget] = useState<{
     id: string;
@@ -248,6 +285,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
                 onToggleHide={handleToggleHide}
                 onMarkSold={handleMarkSold}
                 onDelete={handleDelete}
+                onAppeal={handleOpenAppealModal}
               />
             ))
           )}
@@ -267,6 +305,85 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
           navigation.navigate('MainTabs', { screen: 'Profile' });
         }}
       />
+
+      {/* Modal Kháng nghị tin đăng */}
+      <Modal
+        visible={Boolean(appealItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAppealItem(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                <Text style={styles.modalTitle}>Kháng nghị gỡ tin đăng</Text>
+              </View>
+              <TouchableOpacity onPress={() => setAppealItem(null)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {appealItem && (
+              <View style={styles.modalBody}>
+                <Text style={styles.modalItemTitle} numberOfLines={1}>
+                  {appealItem.title}
+                </Text>
+
+                <View style={styles.modalRejectionBox}>
+                  <Text style={styles.modalRejectionLabel}>Lý do BQT từ chối / gỡ tin:</Text>
+                  <Text style={styles.modalRejectionText}>
+                    {appealItem.rejectionReason || 'Vi phạm tiêu chuẩn kiểm duyệt của sàn.'}
+                  </Text>
+                </View>
+
+                <Text style={styles.modalInputLabel}>Nội dung giải trình / Minh chứng:</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Nêu rõ lý do vì sao bài đăng không vi phạm (VD: ảnh thật chụp tại phòng KTX, thiết bị phù hợp công suất an toàn...)"
+                  placeholderTextColor="#94A3B8"
+                  value={appealReasonText}
+                  onChangeText={setAppealReasonText}
+                  textAlignVertical="top"
+                />
+                <Text style={styles.modalInputHint}>Tối thiểu 5 ký tự. BQT sẽ xem xét và phản hồi sớm.</Text>
+
+                <View style={styles.modalActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, styles.modalCancelBtn]}
+                    onPress={() => setAppealItem(null)}
+                    disabled={isSubmittingAppeal}
+                  >
+                    <Text style={styles.modalCancelText}>Hủy</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modalBtn,
+                      styles.modalSubmitBtn,
+                      (isSubmittingAppeal || appealReasonText.trim().length < 5) && styles.modalSubmitBtnDisabled,
+                    ]}
+                    onPress={handleConfirmAppeal}
+                    disabled={isSubmittingAppeal || appealReasonText.trim().length < 5}
+                  >
+                    {isSubmittingAppeal ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.modalSubmitText}>Gửi kháng nghị</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -297,5 +414,124 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94A3B8',
     marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalBody: {
+    marginTop: 12,
+  },
+  modalItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  modalRejectionBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  modalRejectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  modalRejectionText: {
+    fontSize: 12,
+    color: '#B91C1C',
+    lineHeight: 16,
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  modalTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 90,
+  },
+  modalInputHint: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: '#F1F5F9',
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalSubmitBtn: {
+    backgroundColor: '#DC2626',
+  },
+  modalSubmitBtnDisabled: {
+    opacity: 0.5,
+  },
+  modalSubmitText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
