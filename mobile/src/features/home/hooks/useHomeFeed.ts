@@ -103,6 +103,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
           location: `📍 ${p?.campus || 'FPT'} • ${p?.safePoint || 'Safe-Point'}`,
           seller: String(p?.sellerName || 'Sinh viên FPT'),
           sellerYear: p?.sellerCohort || 'K17',
+          sellerAvatar: p?.sellerAvatar,
           isVerified: p?.sellerIsVerified ?? true,
           image: resolveProductImage(p?.images?.[0]),
           badge: p?.condition || 'Like New',

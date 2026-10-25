@@ -15,7 +15,7 @@ import { useMarket } from '@/context/MarketContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export type { ProductItem };
 
@@ -185,7 +185,14 @@ export default function ProductCard({ product }: ProductCardProps) {
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1.5 min-w-0 hover:text-fpt-orange transition-colors group/seller"
             >
-              <Avatar size="sm" className="h-5 w-5 text-[10px] group-hover/seller:ring-1 group-hover/seller:ring-fpt-orange">
+              <Avatar size="sm" className="h-5 w-5 text-[10px] group-hover/seller:ring-1 group-hover/seller:ring-fpt-orange shrink-0">
+                {product.seller?.avatarUrl && (
+                  <AvatarImage
+                    src={product.seller.avatarUrl}
+                    alt={product.seller.name || 'Người bán'}
+                    className="object-cover"
+                  />
+                )}
                 <AvatarFallback className="bg-slate-100 text-slate-700 border border-slate-200 font-bold">
                   {product.seller.initial}
                 </AvatarFallback>

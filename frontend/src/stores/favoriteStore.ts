@@ -28,6 +28,7 @@ export interface FavoriteItem {
     studentIdMasked: string;
     avatarColor: string;
     initials: string;
+    avatarUrl?: string;
   };
   imageUrl: string;
   savedAt: string;
@@ -180,6 +181,7 @@ export const useFavoriteStore = create<FavoriteState>()(
                 studentIdMasked: 'HE17****',
                 avatarColor: 'bg-orange-600',
                 initials: p.seller.initial || 'FU',
+                avatarUrl: p.seller.avatarUrl,
               },
             };
           }

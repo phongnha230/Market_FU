@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
-import { resolveProductImage, DEFAULT_PRODUCT_FALLBACK } from '../../lib/imageResolver';
+import { resolveProductImage, resolveAvatarImage, DEFAULT_PRODUCT_FALLBACK } from '../../lib/imageResolver';
 
 import { useUserStore } from '../../stores/userStore';
 import { useFavoriteStore } from '../../stores/useFavoriteStore';
@@ -22,6 +22,7 @@ export interface ProductCardProps {
   seller: string;
   sellerId?: string;
   sellerYear?: string;
+  sellerAvatar?: string;
   image: any;
   badge?: string;
   badgeVariant?: 'white' | 'green' | 'orange';
@@ -48,6 +49,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
   seller,
   sellerId,
   sellerYear,
+  sellerAvatar,
   image,
   badge,
   badgeVariant = 'white',
@@ -67,7 +69,10 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
     user && user.name && seller && user.name.trim().toLowerCase() === seller.trim().toLowerCase()
   );
   const [hasError, setHasError] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const imageSource = hasError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(image);
+  const avatarSource = !avatarError && sellerAvatar ? resolveAvatarImage(sellerAvatar) : null;
+  const sellerInitial = (seller && seller.trim() ? seller.trim()[0] : 'U').toUpperCase();
 
   const handleCardPress = () => {
     if (onPress) {
@@ -180,6 +185,19 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
             });
           }}
         >
+          {avatarSource ? (
+            <Image
+              source={avatarSource}
+              style={styles.sellerAvatar}
+              contentFit="cover"
+              transition={150}
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <View style={styles.sellerAvatarFallback}>
+              <Text style={styles.sellerAvatarInitial}>{sellerInitial}</Text>
+            </View>
+          )}
           <Text style={styles.sellerName} numberOfLines={1}>{seller}</Text>
           {sellerYear && <Text style={styles.sellerYear}> ({sellerYear})</Text>}
           {isVerified && <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ marginLeft: 3 }} />}
@@ -278,6 +296,29 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   metaText: { fontSize: 11, color: '#64748B', fontWeight: '500', flex: 1 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  sellerAvatar: {
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    marginRight: 4,
+    backgroundColor: '#F1F5F9',
+  },
+  sellerAvatarFallback: {
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    marginRight: 4,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: '#E2E8F0',
+  },
+  sellerAvatarInitial: {
+    fontSize: 8.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
   sellerName: { fontSize: 11, color: '#0F172A', fontWeight: '600', flexShrink: 1 },
   sellerYear: { fontSize: 10, color: '#64748B', fontWeight: '500', flexShrink: 0 },
 });

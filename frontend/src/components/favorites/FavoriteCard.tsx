@@ -14,7 +14,7 @@ import {
   Clock,
   Settings,
 } from 'lucide-react';
-import { Card, Badge, Button, Avatar, AvatarFallback } from '@/components/ui';
+import { Card, Badge, Button, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
 
 interface FavoriteCardProps {
   item: FavoriteItem;
@@ -169,6 +169,13 @@ export default function FavoriteCard({
         {/* Seller Pill */}
         <div className="mt-2.5 flex items-center gap-2 border-t border-slate-100 pt-2.5 text-xs text-slate-600">
           <Avatar className="h-5 w-5 shrink-0">
+            {(item.seller as any)?.avatarUrl && (
+              <AvatarImage
+                src={(item.seller as any).avatarUrl}
+                alt={item.seller.name || 'Người bán'}
+                className="object-cover"
+              />
+            )}
             <AvatarFallback className={`${item.seller.avatarColor} text-[10px] font-bold text-white`}>
               {item.seller.initials}
             </AvatarFallback>
