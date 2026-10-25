@@ -43,15 +43,16 @@ const BASE_URL = IS_LOCAL
   ? 'http://localhost:5000/api/webhooks/shipping'
   : (process.env.API_URL || 'https://api.jintdp.dpdns.org/api/webhooks/shipping');
 
-async function sendShippingWebhook(orderCode, action) {
+async function sendShippingWebhook(orderCodeOrTracking, action) {
   const isDelivered = action.toLowerCase() === 'delivered' || action === '1';
   const status = isDelivered ? 'DELIVERED' : 'CANCELLED';
+  const cleanCode = orderCodeOrTracking.trim();
 
   const payload = {
-    order_code: orderCode.trim(),
+    order_code: cleanCode,
     status: status,
     action_on: status,
-    tracking_order_code: `CAMPUS-${orderCode.trim()}`,
+    tracking_order_code: cleanCode,
   };
 
   const bodyStr = JSON.stringify(payload);
@@ -127,9 +128,9 @@ if (args.length >= 2) {
   console.log(`🌐 Đích đến: ${BASE_URL}`);
   console.log('========================================================\n');
 
-  rl.question('👉 Nhập mã đơn hàng (orderCode, ví dụ: ORD-123456-ABCD): ', (orderCode) => {
-    if (!orderCode.trim()) {
-      console.log('❌ Mã đơn hàng không được để trống.');
+  rl.question('👉 Nhập mã đơn hàng (ORD-...) hoặc Mã vận đơn bưu cục (GHN...): ', (code) => {
+    if (!code.trim()) {
+      console.log('❌ Mã đơn hàng / mã vận đơn không được để trống.');
       rl.close();
       return;
     }
@@ -140,7 +141,7 @@ if (args.length >= 2) {
     rl.question('\n👉 Lựa chọn của bạn (1 hoặc 2): ', (choice) => {
       rl.close();
       const action = choice.trim() === '2' ? 'cancelled' : 'delivered';
-      sendShippingWebhook(orderCode.trim(), action);
+      sendShippingWebhook(code.trim(), action);
     });
   });
 }

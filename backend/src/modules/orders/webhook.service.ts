@@ -150,21 +150,40 @@ export class ShippingWebhookService {
       include: orderInclude,
     });
 
-    if (!order && (payload.tracking_order_code || (payload as any).OrderCode)) {
-      const carrierCode = String(payload.tracking_order_code || (payload as any).OrderCode);
-      const derived = `ORD-${carrierCode.replace(/^[A-Za-z]+-/i, '')}`;
-      order = await prisma.order.findFirst({
-        where: { orderCode: derived },
-        include: orderInclude,
-      });
+    if (!order) {
+      const searchTerms = [
+        String(orderCode || '').trim(),
+        String(payload.tracking_order_code || '').trim(),
+        String((payload as any).OrderCode || '').trim(),
+      ].filter(Boolean);
 
+      // Thử tìm theo mã derived ORD-... nếu đầu vào là mã vận đơn
+      for (const term of searchTerms) {
+        const derived = `ORD-${term.replace(/^[A-Za-z]+-/i, '')}`;
+        order = await prisma.order.findFirst({
+          where: { orderCode: derived },
+          include: orderInclude,
+        });
+        if (order) break;
+      }
+
+      // Nếu vẫn chưa thấy, tìm trực tiếp qua trackingCode trong shipping của các đơn Ship COD
       if (!order) {
         const candidateOrders = await prisma.order.findMany({
           where: { orderType: 'SHIP_COD', status: { in: ['SHIPPING', 'PENDING', 'PAID'] } },
           include: orderInclude,
-          take: 30,
+          take: 50,
         });
-        order = candidateOrders.find((o) => o.shipping?.trackingCode === carrierCode) || null;
+
+        order = candidateOrders.find((o) => {
+          const tc = o.shipping?.trackingCode?.trim();
+          if (!tc) return false;
+          return searchTerms.some((term) =>
+            tc.toLowerCase() === term.toLowerCase() ||
+            term.toLowerCase().includes(tc.toLowerCase()) ||
+            tc.toLowerCase().includes(term.toLowerCase())
+          );
+        }) || null;
       }
     }
 
