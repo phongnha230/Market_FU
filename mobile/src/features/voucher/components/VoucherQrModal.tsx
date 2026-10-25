@@ -55,7 +55,19 @@ export const VoucherQrModal: React.FC<VoucherQrModalProps> = ({
     }
   };
 
+  const isShip =
+    voucher.voucher?.partner === 'CAMPUS_SHIP' ||
+    voucher.voucher?.title?.toLowerCase().includes('ship') ||
+    voucher.voucher?.title?.toLowerCase().includes('vận chuyển');
+
   const handleConfirm = async () => {
+    if (isShip) {
+      Alert.alert(
+        'Voucher Vận Chuyển CampusShip',
+        'Mã này được tự động áp dụng để trừ tiền ship tại màn hình Thanh toán (Checkout) đơn hàng. Không cần quét tại quầy.'
+      );
+      return;
+    }
     Alert.alert(
       'Xác nhận dùng voucher',
       'Bạn chỉ xác nhận sau khi nhân viên tại quầy đã quét mã hoặc áp dụng giảm giá. Bạn có chắc chắn muốn xác nhận?',
@@ -142,23 +154,35 @@ export const VoucherQrModal: React.FC<VoucherQrModalProps> = ({
             <Text style={styles.expiryValue}>{voucher.expiredAt}</Text>
           </View>
 
-          {/* Confirmation button */}
+          {/* Confirmation button or Ship notice */}
           {isUnused ? (
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              activeOpacity={0.85}
-              disabled={isUsing}
-              onPress={handleConfirm}
-            >
-              {isUsing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.confirmBtnText}>Tôi đã dùng tại quầy (Xác nhận)</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            isShip ? (
+              <View style={styles.shipNoticeBox}>
+                <Ionicons name="airplane-outline" size={18} color="#EA580C" style={{ marginRight: 6 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.shipNoticeTitle}>Voucher Vận Chuyển CampusShip</Text>
+                  <Text style={styles.shipNoticeSub}>
+                    Mã này sẽ tự động giảm phí ship khi bạn thanh toán tại màn hình Checkout đơn hàng. Không cần xác nhận tại quầy.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.confirmBtn}
+                activeOpacity={0.85}
+                disabled={isUsing}
+                onPress={handleConfirm}
+              >
+                {isUsing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.confirmBtnText}>Tôi đã dùng tại quầy (Xác nhận)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )
           ) : (
             <View style={styles.usedBadge}>
               <Ionicons name="checkmark-circle" size={18} color="#059669" style={{ marginRight: 6 }} />
@@ -356,6 +380,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  shipNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF7ED',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+  },
+  shipNoticeTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#9A3412',
+    marginBottom: 2,
+  },
+  shipNoticeSub: {
+    fontSize: 10.5,
+    color: '#64748B',
+    lineHeight: 15,
   },
   usedBadge: {
     flexDirection: 'row',

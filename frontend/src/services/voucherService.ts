@@ -136,6 +136,20 @@ export const voucherService = {
     return response.data.data;
   },
 
+  // 5b. Hoàn lại Voucher về ví (Dành cho trường hợp lỡ bấm xác nhận nhầm)
+  async restoreVoucher(voucherCode: string): Promise<{
+    message: string;
+    voucher: {
+      voucherCode: string;
+      status: string;
+    };
+  }> {
+    const response = await apiClient.post<ApiResponse<any>>('/vouchers/restore', {
+      voucherCode,
+    });
+    return response.data.data;
+  },
+
   // 6. Admin tạo mới voucher
   async createVoucher(payload: {
     title: string;

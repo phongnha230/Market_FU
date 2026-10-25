@@ -480,4 +480,46 @@ export class VoucherService {
       },
     };
   }
+
+  /**
+   * 9. Hoàn lại Voucher về trạng thái UNUSED (Dành cho trường hợp người dùng lỡ bấm xác nhận nhầm)
+   */
+  async restoreVoucher(input: UseVoucherInput, requester: { userId: string; role: string }) {
+    const { voucherCode } = input;
+    const code = voucherCode.trim().toUpperCase();
+
+    const userVoucher = await prisma.userVoucher.findUnique({
+      where: { voucherCode: code },
+      include: { voucher: true },
+    });
+
+    if (!userVoucher) {
+      throw new AppError('Mã voucher không tồn tại trong hệ thống', 404, 'VOUCHER_NOT_FOUND');
+    }
+
+    if (requester.role !== 'ADMIN' && userVoucher.userId !== requester.userId) {
+      throw new AppError('Bạn không có quyền hoàn tác mã voucher của người khác', 403, 'FORBIDDEN');
+    }
+
+    const now = new Date();
+    if (userVoucher.expiredAt < now) {
+      throw new AppError('Voucher này đã hết hạn, không thể hoàn lại', 400, 'VOUCHER_EXPIRED');
+    }
+
+    const updated = await prisma.userVoucher.update({
+      where: { id: userVoucher.id },
+      data: {
+        status: 'UNUSED',
+        usedAt: null,
+      },
+    });
+
+    return {
+      message: 'Đã hoàn lại voucher về ví thành công!',
+      voucher: {
+        voucherCode: updated.voucherCode,
+        status: updated.status,
+      },
+    };
+  }
 }

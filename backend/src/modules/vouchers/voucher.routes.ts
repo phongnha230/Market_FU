@@ -11,6 +11,7 @@ router.get('/my-vouchers', authenticate, voucherController.getMyVouchers);
 
 // 2. Quét mã sử dụng Voucher
 router.post('/use', authenticate, voucherController.useVoucher);
+router.post('/restore', authenticate, voucherController.restoreVoucher);
 
 // 3. Xem danh sách Voucher công khai
 router.get('/', voucherController.getVouchers);

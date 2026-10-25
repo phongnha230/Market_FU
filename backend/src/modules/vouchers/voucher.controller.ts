@@ -120,6 +120,21 @@ export class VoucherController {
       next(error);
     }
   };
+
+  /**
+   * 9. Hoàn lại Voucher về ví (Dành cho trường hợp bấm nhầm)
+   */
+  restoreVoucher = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const input = UseVoucherSchema.parse(req.body);
+      const requester = authReq.user!;
+      const result = await voucherService.restoreVoucher(input, requester);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const voucherController = new VoucherController();

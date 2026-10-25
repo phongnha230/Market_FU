@@ -46,6 +46,7 @@ interface VoucherState {
   fetchMyVouchers: () => Promise<void>;
   redeemVoucher: (voucherId: string) => Promise<{ success: boolean; message: string; voucher?: UserVoucher }>;
   useVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
+  restoreVoucherCode: (userVoucherIdOrCode: string) => Promise<{ success: boolean; message: string }>;
   getUserVouchersByStatus: (status?: UserVoucherStatus) => UserVoucher[];
   getAvailableByPartner: (partner?: VoucherPartner) => Voucher[];
   resetVouchers: () => void;
@@ -286,6 +287,44 @@ export const useVoucherStore = create<VoucherState>()(
           const errMsg = error.response?.data?.message || error.message || 'Lỗi khi kích hoạt voucher';
           return { success: false, message: errMsg };
         }
+      },
+
+      // 4b. Hoàn lại Voucher về ví (Dành cho trường hợp lỡ bấm nhầm)
+      restoreVoucherCode: async (userVoucherIdOrCode) => {
+        const target = get().myVouchers.find(
+          (uv) => uv.id === userVoucherIdOrCode || uv.voucherCode === userVoucherIdOrCode
+        );
+        const code = target ? target.voucherCode : userVoucherIdOrCode;
+
+        try {
+          await voucherService.restoreVoucher(code).catch(() => {});
+        } catch {
+          // Fallback local
+        }
+
+        const activeUid = get().activeUserId || 'guest';
+        const updatedList = get().myVouchers.map((uv) =>
+          uv.voucherCode === code || uv.id === userVoucherIdOrCode
+            ? {
+                ...uv,
+                status: 'UNUSED' as UserVoucherStatus,
+                usedAt: undefined,
+              }
+            : uv
+        );
+
+        set((state) => ({
+          myVouchers: updatedList,
+          myVouchersByUser: {
+            ...state.myVouchersByUser,
+            [activeUid]: updatedList,
+          },
+        }));
+
+        return {
+          success: true,
+          message: 'Đã hoàn lại voucher về ví thành công! Bạn có thể sử dụng khi thanh toán đơn hàng.',
+        };
       },
 
       getUserVouchersByStatus: (status) => {

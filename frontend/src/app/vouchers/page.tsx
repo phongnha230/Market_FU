@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useMarket } from '@/hooks/useMarket';
 import { useVoucherStore, UserVoucher } from '@/stores/voucherStore';
 import { profileService } from '@/services/profileService';
@@ -23,6 +24,8 @@ import {
   X,
   AlertCircle,
   Truck,
+  RotateCcw,
+  ArrowRight,
 } from 'lucide-react';
 import {
   INITIAL_QUESTS,
@@ -302,8 +305,45 @@ export default function VouchersPage() {
     }
   };
 
+  const [isRestoringVoucher, setIsRestoringVoucher] = useState(false);
+
+  // Khôi phục voucher về ví khi lỡ bấm nhầm
+  const handleRestoreVoucher = async (userVoucher: UserVoucher) => {
+    setIsRestoringVoucher(true);
+    try {
+      const res = await useVoucherStore.getState().restoreVoucherCode(userVoucher.voucherCode);
+      if (res.success) {
+        showToast(`✅ ${res.message || 'Đã hoàn lại voucher về ví thành công!'}`, 'success');
+        setSelectedUserVoucher((prev) =>
+          prev && prev.id === userVoucher.id ? { ...prev, status: 'UNUSED', usedAt: undefined } : prev
+        );
+        await fetchMyVouchers();
+      } else {
+        showToast(res.message || 'Không thể hoàn lại mã này', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Lỗi khi hoàn lại voucher', 'error');
+    } finally {
+      setIsRestoringVoucher(false);
+    }
+  };
+
   // Sử dụng voucher tại quầy (Xác nhận đổi thưởng)
   const handleConfirmUseVoucher = async (userVoucher: UserVoucher) => {
+    const isShip =
+      userVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+      userVoucher.voucher.title.toLowerCase().includes('ship') ||
+      userVoucher.voucher.title.toLowerCase().includes('vận chuyển');
+
+    if (isShip) {
+      showToast('⚠️ Voucher vận chuyển tự động áp dụng tại bước Checkout đơn hàng, không cần xác nhận tại quầy!', 'warning');
+      return;
+    }
+
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm(`Xác nhận bạn đã dùng ưu đãi "${userVoucher.voucher.title}" tại quầy đối tác?\n\nSau khi xác nhận, voucher sẽ được đóng lại.`)
+      : true;
+    if (!confirmed) return;
     setIsUsingVoucher(true);
     try {
       const res = await useVoucherStore.getState().useVoucherCode(userVoucher.voucherCode);
@@ -693,18 +733,48 @@ export default function VouchersPage() {
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => setSelectedUserVoucher(uv)}
-                        className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
-                          isUnused
-                            ? 'bg-fpt-orange hover:bg-fpt-orange-hover text-white'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <QrCode className="h-4 w-4" />
-                        <span>{isUnused ? 'Mở Mã QR & Quét Tại Quầy' : 'Xem Chi Tiết Mã'}</span>
-                      </button>
+                      {isUsed ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedUserVoucher(uv)}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <QrCode className="h-4 w-4" />
+                            <span>Chi tiết</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreVoucher(uv)}
+                            disabled={isRestoringVoucher}
+                            className="py-2.5 px-3 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition flex items-center justify-center gap-1 cursor-pointer shadow-xs disabled:opacity-50"
+                            title="Khôi phục lại mã vào ví nếu bạn lỡ bấm dùng nhầm"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Hoàn lại ví</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserVoucher(uv)}
+                          className="w-full py-2.5 rounded-xl text-xs font-bold bg-fpt-orange hover:bg-fpt-orange-hover text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          {uv.voucher?.partner === 'CAMPUS_SHIP' ||
+                          uv.voucher?.title?.toLowerCase().includes('ship') ||
+                          uv.voucher?.title?.toLowerCase().includes('vận chuyển') ? (
+                            <>
+                              <Truck className="h-4 w-4" />
+                              <span>Xem Hướng Dẫn Áp Mã Ship</span>
+                            </>
+                          ) : (
+                            <>
+                              <QrCode className="h-4 w-4" />
+                              <span>Mở Mã QR & Quét Tại Quầy</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -793,21 +863,54 @@ export default function VouchersPage() {
               <span className="font-bold text-slate-700">{selectedUserVoucher.expiredAt}</span>
             </div>
 
-            {/* Confirmation button if UNUSED */}
+            {/* Confirmation button or Ship guide */}
             {selectedUserVoucher.status === 'UNUSED' ? (
-              <button
-                type="button"
-                disabled={isUsingVoucher}
-                onClick={() => handleConfirmUseVoucher(selectedUserVoucher)}
-                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                <span>{isUsingVoucher ? 'Đang xác nhận...' : 'Tôi đã dùng tại quầy (Xác nhận)'}</span>
-              </button>
+              selectedUserVoucher.voucher?.partner === 'CAMPUS_SHIP' ||
+              selectedUserVoucher.voucher?.title?.toLowerCase().includes('ship') ||
+              selectedUserVoucher.voucher?.title?.toLowerCase().includes('vận chuyển') ? (
+                <div className="rounded-xl bg-orange-50 border border-orange-200 p-3.5 text-left">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-orange-950 mb-1">
+                    <Truck className="h-4 w-4 text-fpt-orange shrink-0" />
+                    <span>Ưu Đãi Vận Chuyển CampusShip Online</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-600 mb-2.5">
+                    Mã này được <b>tự động áp dụng</b> giảm cước phí vận chuyển khi bạn thanh toán tại trang <b>Checkout</b> đơn hàng liên Campus. Bạn không cần và không nên bấm xác nhận tại quầy.
+                  </p>
+                  <Link
+                    href="/posts"
+                    onClick={() => setSelectedUserVoucher(null)}
+                    className="w-full rounded-lg bg-fpt-orange hover:bg-orange-600 text-white py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>Khám phá đồ & Dùng mã khi Checkout</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isUsingVoucher}
+                  onClick={() => handleConfirmUseVoucher(selectedUserVoucher)}
+                  className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>{isUsingVoucher ? 'Đang xác nhận...' : 'Tôi đã dùng tại quầy (Xác nhận)'}</span>
+                </button>
+              )
             ) : (
-              <div className="rounded-xl bg-slate-100 p-2.5 text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>Voucher này đã được xác nhận sử dụng</span>
+              <div className="space-y-2">
+                <div className="rounded-xl bg-slate-100 p-2.5 text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Voucher này đã được đánh dấu đã dùng</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isRestoringVoucher}
+                  onClick={() => handleRestoreVoucher(selectedUserVoucher)}
+                  className="w-full rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>{isRestoringVoucher ? 'Đang khôi phục...' : 'Tôi bấm nhầm - Hoàn lại voucher vào ví'}</span>
+                </button>
               </div>
             )}
           </div>
