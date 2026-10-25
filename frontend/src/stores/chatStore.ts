@@ -179,12 +179,7 @@ export const useChatStore = create<ChatState>()(
                     isOnline: true,
                   },
                   lastMessageText: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
-                  lastMessageAt: c.lastMessageAt
-                    ? new Date(c.lastMessageAt).toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Vừa xong',
+                  lastMessageAt: c.lastMessageAt || c.updatedAt || c.createdAt || new Date().toISOString(),
                   unreadCount: c.unreadCount || 0,
                 };
               });
@@ -193,6 +188,11 @@ export const useChatStore = create<ChatState>()(
                 (c) => c.id.startsWith('conv-') && !mapped.some((m) => m.productId && m.productId === c.productId)
               );
               const combined = [...localOptimistic, ...mapped];
+              combined.sort((a, b) => {
+                const timeA = new Date(a.lastMessageAt || 0).getTime() || 0;
+                const timeB = new Date(b.lastMessageAt || 0).getTime() || 0;
+                return timeB - timeA;
+              });
               return {
                 conversations: combined,
                 conversationsByUser: {
@@ -318,16 +318,17 @@ export const useChatStore = create<ChatState>()(
               chatService.markAsRead(conversationId).catch(() => {});
             }
 
-            const updatedConversations = state.conversations.map((c) =>
-              c.id === conversationId
-                ? {
-                    ...c,
-                    lastMessageText: newMsg.text || 'Tin nhắn mới',
-                    lastMessageAt: newMsg.createdAt,
-                    unreadCount: isCurrentlyActive ? 0 : (c.unreadCount || 0) + 1,
-                  }
-                : c
-            );
+            const targetConv = state.conversations.find((c) => c.id === conversationId);
+            const otherConvs = state.conversations.filter((c) => c.id !== conversationId);
+            const updatedTarget = targetConv
+              ? {
+                  ...targetConv,
+                  lastMessageText: newMsg.text || 'Tin nhắn mới',
+                  lastMessageAt: newMsg.createdAt,
+                  unreadCount: isCurrentlyActive ? 0 : (targetConv.unreadCount || 0) + 1,
+                }
+              : null;
+            const updatedConversations = updatedTarget ? [updatedTarget, ...otherConvs] : state.conversations;
 
             const uId = state.activeUserId;
             return {
@@ -486,20 +487,21 @@ export const useChatStore = create<ChatState>()(
           meetupLocation,
           productTicket,
           isRead: true,
-          createdAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          createdAt: new Date().toISOString(),
         };
 
         set((state) => {
           const currentMsgs = state.messagesByConversation[conversationId] || [];
-          const updatedConversations = state.conversations.map((c) =>
-            c.id === conversationId
-              ? {
-                  ...c,
-                  lastMessageText: newMsg.text || 'Đã gửi một tệp đính kèm',
-                  lastMessageAt: newMsg.createdAt,
-                }
-              : c
-          );
+          const targetConv = state.conversations.find((c) => c.id === conversationId);
+          const otherConvs = state.conversations.filter((c) => c.id !== conversationId);
+          const updatedTarget = targetConv
+            ? {
+                ...targetConv,
+                lastMessageText: newMsg.text || 'Đã gửi một tệp đính kèm',
+                lastMessageAt: newMsg.createdAt,
+              }
+            : null;
+          const updatedConversations = updatedTarget ? [updatedTarget, ...otherConvs] : state.conversations;
           const uId = state.activeUserId;
 
           return {

@@ -19,6 +19,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useProductStore } from '@/stores/productStore';
 import { socketClient } from '@/services/socketClient';
 import { chatService } from '@/services/chatService';
+import { formatChatSidebarTime } from '@/lib/adapters';
 
 function resolveAvatar(
   sellerName: string,
@@ -168,7 +169,7 @@ function ChatContent() {
       sellerName: resolvedName,
     };
 
-    const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const nowIso = new Date().toISOString();
 
     const newConv: any = {
       id: newConvId,
@@ -191,7 +192,7 @@ function ChatContent() {
         isOnline: true,
       },
       lastMessageText: 'Bắt đầu cuộc trò chuyện',
-      lastMessageAt: nowStr,
+      lastMessageAt: nowIso,
       unreadCount: 0,
     };
 
@@ -256,7 +257,7 @@ function ChatContent() {
             isOnline: c.otherUser?.isOnline ?? true,
             verified: true,
             lastMessage: c.lastMessageText || 'Bắt đầu cuộc trò chuyện',
-            time: c.lastMessageAt || 'Vừa xong',
+            time: formatChatSidebarTime(c.lastMessageAt),
             unreadCount: c.unreadCount || 0,
             productImage: c.product?.imageUrl,
             pinnedProduct: {

@@ -52,6 +52,48 @@ export function formatTimeAgo(dateStr?: string | Date): string {
   return date.toLocaleDateString('vi-VN');
 }
 
+export function formatChatSidebarTime(dateStr?: string | Date): string {
+  if (!dateStr) return 'Vừa xong';
+  if (dateStr === 'Vừa xong') return 'Vừa xong';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return typeof dateStr === 'string' ? dateStr : 'Vừa xong';
+
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    const diffMinutes = Math.floor((now.getTime() - d.getTime()) / (1000 * 60));
+    if (diffMinutes < 1) return 'Vừa xong';
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) {
+    return 'Hôm qua';
+  }
+
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays >= 1 && diffDays <= 7) {
+    return `${diffDays} ngày trước`;
+  }
+
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${day}/${month}`;
+  }
+  return `${day}/${month}/${d.getFullYear()}`;
+}
+
 export function extractImageUrl(img: any): string {
   if (!img) return '';
   let url = '';
