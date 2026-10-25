@@ -117,20 +117,24 @@ function ChatContent() {
 
     // 1. Kiểm tra xem đã có cuộc hội thoại nào với người bán này / sản phẩm này trong chatStore chưa
     const existing = chatStore.conversations.find((c) => {
-      const matchSeller =
-        sellerParam &&
-        (c.otherUser?.name.toLowerCase().includes(sellerParam.toLowerCase().trim()) ||
-          sellerParam.toLowerCase().trim().includes(c.otherUser?.name.toLowerCase()));
-      const matchProduct = productIdParam && c.productId === productIdParam;
-
-      if (productIdParam && sellerParam) {
-        return matchProduct && matchSeller;
+      if (productIdParam) {
+        return c.productId === productIdParam;
       }
-      return matchProduct || matchSeller;
+      if (sellerParam) {
+        return (
+          c.otherUser?.name.toLowerCase().includes(sellerParam.toLowerCase().trim()) ||
+          sellerParam.toLowerCase().trim().includes(c.otherUser?.name.toLowerCase())
+        );
+      }
+      return false;
     });
 
     if (existing) {
       setSelectedConvId(existing.id);
+      chatStore.setActiveConversation(existing.id);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       return;
     }
 
@@ -193,14 +197,21 @@ function ChatContent() {
 
     const actualId = chatStore.addOrUpdateConversation(newConv, []);
     setSelectedConvId(actualId);
+    chatStore.setActiveConversation(actualId);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
 
     // Đồng bộ phía backend nếu có kết nối
     if (productIdParam) {
       chatService
         .createOrGetConversation(productIdParam, userIdParam || undefined)
-        .then((res) => {
+        .then(async (res) => {
           if (res?.id && res.id !== actualId) {
-            chatStore.fetchConversations();
+            chatStore.replaceConversationId?.(actualId, res.id);
+            setSelectedConvId(res.id);
+            chatStore.setActiveConversation(res.id);
+            await chatStore.fetchConversations();
           }
         })
         .catch(() => {});
@@ -354,22 +365,11 @@ function ChatContent() {
 
     setConversations(mapped);
     if (mapped.length > 0) {
-      if (sellerParam) {
-        const match = mapped.find(
-          (c) =>
-            c.name.toLowerCase().includes(sellerParam.toLowerCase().trim()) ||
-            sellerParam.toLowerCase().trim().includes(c.name.toLowerCase())
-        );
-        if (match) {
-          setSelectedConvId(match.id);
-          return;
-        }
-      }
       if (!selectedConvId || !mapped.some((m) => m.id === selectedConvId)) {
         setSelectedConvId(mapped[0].id);
       }
     }
-  }, [chatStore.conversations, chatStore.messagesByConversation, currentUser.id, currentUser.studentId, currentUser.name, currentUser.avatarUrl, sellerParam]);
+  }, [chatStore.conversations, chatStore.messagesByConversation, currentUser.id, currentUser.studentId, currentUser.name, currentUser.avatarUrl]);
 
   const activeConv =
     conversations.find((c) => c.id === selectedConvId) || conversations[0];

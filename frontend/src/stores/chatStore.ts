@@ -79,6 +79,7 @@ interface ChatState {
   getTotalUnreadCount: () => number;
   getConversationMessages: (conversationId: string) => ChatMessage[];
   deleteConversation: (conversationId: string) => void;
+  replaceConversationId?: (oldId: string, newId: string) => void;
   resetChat: () => void;
 }
 
@@ -187,13 +188,19 @@ export const useChatStore = create<ChatState>()(
                   unreadCount: c.unreadCount || 0,
                 };
               });
-            set((st) => ({
-              conversations: mapped,
-              conversationsByUser: {
-                ...st.conversationsByUser,
-                [uId]: mapped,
-              },
-            }));
+            set((st) => {
+              const localOptimistic = st.conversations.filter(
+                (c) => c.id.startsWith('conv-') && !mapped.some((m) => m.productId && m.productId === c.productId)
+              );
+              const combined = [...localOptimistic, ...mapped];
+              return {
+                conversations: combined,
+                conversationsByUser: {
+                  ...st.conversationsByUser,
+                  [uId]: combined,
+                },
+              };
+            });
 
             // Truy vấn trạng thái Presence thực tế từ Redis/Server
             const otherUserIds = mapped.map((c) => c.otherUser.id).filter(Boolean);
@@ -381,8 +388,8 @@ export const useChatStore = create<ChatState>()(
             (conversation.otherUser?.name &&
               c.otherUser?.name.toLowerCase().trim() === conversation.otherUser.name.toLowerCase().trim());
 
-          if (conversation.productId && c.productId) {
-            return c.productId === conversation.productId && samePartner;
+          if (conversation.productId || c.productId) {
+            return conversation.productId === c.productId && samePartner;
           }
           return samePartner;
         });
@@ -417,6 +424,37 @@ export const useChatStore = create<ChatState>()(
         }));
 
         return conversation.id;
+      },
+
+      replaceConversationId: (oldId: string, newId: string) => {
+        set((state) => {
+          const uId = state.activeUserId;
+          const updatedConversations = state.conversations.map((c) =>
+            c.id === oldId ? { ...c, id: newId } : c
+          );
+          const oldMsgs = state.messagesByConversation[oldId] || [];
+          const updatedMsgs = { ...state.messagesByConversation };
+          if (oldMsgs.length > 0) {
+            updatedMsgs[newId] = [
+              ...(updatedMsgs[newId] || []),
+              ...oldMsgs.map((m) => ({ ...m, conversationId: newId })),
+            ];
+          }
+          delete updatedMsgs[oldId];
+
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? {
+                  ...state.conversationsByUser,
+                  [uId]: updatedConversations,
+                }
+              : state.conversationsByUser,
+            activeConversationId:
+              state.activeConversationId === oldId ? newId : state.activeConversationId,
+            messagesByConversation: updatedMsgs,
+          };
+        });
       },
 
       sendMessage: ({
