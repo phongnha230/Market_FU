@@ -42,6 +42,8 @@ import { Badge, Button, Card } from '@/components/ui';
 
 interface SellerReviewItem {
   id: string;
+  orderId?: string;
+  reviewerId?: string;
   rating: number;
   comment?: string;
   reviewerName?: string;
@@ -139,15 +141,49 @@ export default function SellerProfilePage() {
     );
   }, [orders, sellerData.id, sellerData.name, decodedId]);
 
-  // Hợp nhất đánh giá của người dùng vào danh sách hiển thị (Chuẩn Option A: Đánh giá 1 chiều công khai ngay)
+  const normalizeOrderCode = (c?: string) => (c || '').replace(/^#/, '').trim().toUpperCase();
+
+  // Hợp nhất đánh giá của người dùng vào danh sách hiển thị (Chuẩn Option A: Đánh giá 1 chiều công khai ngay, chống trùng lặp)
   const displayedReviews = useMemo(() => {
     let list = [...sellerReviews];
     if (myReviewedOrderWithSeller?.reviewData && reviewDirection === 'received') {
       const rev = myReviewedOrderWithSeller.reviewData;
-      const alreadyIncluded = list.some((r) => r.orderCode === myReviewedOrderWithSeller.code);
-      if (!alreadyIncluded) {
+      const myOrderClean = normalizeOrderCode(myReviewedOrderWithSeller.code);
+
+      // Tìm xem đánh giá này đã có trong danh sách từ Backend chưa (theo orderCode chuẩn hóa, id hoặc reviewer)
+      const existingIdx = list.findIndex((r) => {
+        if (r.orderCode && normalizeOrderCode(r.orderCode) === myOrderClean) return true;
+        if (r.orderId && (r.orderId === myReviewedOrderWithSeller.id || normalizeOrderCode(r.orderId) === myOrderClean)) return true;
+        if (
+          r.reviewerName &&
+          currentUser?.name &&
+          r.reviewerName.trim().toLowerCase() === currentUser.name.trim().toLowerCase() &&
+          r.productTitle &&
+          myReviewedOrderWithSeller.product?.title &&
+          r.productTitle.trim().toLowerCase() === myReviewedOrderWithSeller.product.title.trim().toLowerCase()
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      if (existingIdx >= 0) {
+        // Đã có từ Backend -> Cập nhật/bổ sung dữ liệu mới nhất từ local (hình ảnh, phản hồi, orderCode chuẩn) chứ KHÔNG tạo thêm phần tử mới
+        const existing = list[existingIdx];
+        list[existingIdx] = {
+          ...existing,
+          orderCode: existing.orderCode || myReviewedOrderWithSeller.code,
+          images: existing.images && existing.images.length > 0 ? existing.images : rev.images || [],
+          replyComment: rev.replyComment || existing.replyComment,
+          repliedAt: rev.repliedAt || existing.repliedAt,
+          comment: rev.comment || existing.comment,
+          rating: rev.rating || existing.rating,
+        };
+      } else {
+        // Chưa có trên Backend (đang chờ đồng bộ hoặc offline) -> unshift vào đầu danh sách
         list.unshift({
           id: `local-${myReviewedOrderWithSeller.code}`,
+          orderId: myReviewedOrderWithSeller.id,
           rating: rev.rating || 5,
           comment: rev.comment || 'Đã mua và đánh giá sản phẩm thành công tại Safe-Point.',
           reviewerName: currentUser?.name || 'Bạn (Tôi)',
@@ -162,15 +198,23 @@ export default function SellerProfilePage() {
           replyComment: rev.replyComment,
           repliedAt: rev.repliedAt,
         });
-      } else {
-        list = list.map((r) =>
-          r.orderCode === myReviewedOrderWithSeller.code
-            ? { ...r, replyComment: rev.replyComment || r.replyComment, repliedAt: rev.repliedAt || r.repliedAt }
-            : r
-        );
       }
     }
-    return list;
+
+    // Bảo đảm triệt để không bao giờ có 2 đánh giá trùng orderCode hoặc trùng id
+    const seenCodes = new Set<string>();
+    const seenIds = new Set<string>();
+    return list.filter((item) => {
+      if (item.id && seenIds.has(item.id)) return false;
+      if (item.id) seenIds.add(item.id);
+
+      if (item.orderCode) {
+        const clean = normalizeOrderCode(item.orderCode);
+        if (clean && seenCodes.has(clean)) return false;
+        if (clean) seenCodes.add(clean);
+      }
+      return true;
+    });
   }, [sellerReviews, reviewDirection, myReviewedOrderWithSeller, currentUser]);
 
   // Cập nhật lại thống kê đánh giá tự động dựa trên toàn bộ đánh giá đang hiển thị
@@ -309,6 +353,8 @@ export default function SellerProfilePage() {
             setSellerReviews(
               res.reviews.map((r: any) => ({
                 id: r.id || String(Math.random()),
+                orderId: r.orderId,
+                reviewerId: r.reviewerId || r.reviewer?.id,
                 rating: r.rating || 5,
                 comment: r.comment || 'Người mua không để lại nhận xét bằng lời.',
                 reviewerName: r.reviewer?.profile?.fullName || 'Sinh viên FPT',
@@ -320,6 +366,8 @@ export default function SellerProfilePage() {
                 productTitle: r.order?.product?.title,
                 orderCode: r.order?.orderCode,
                 direction: reviewDirection,
+                replyComment: r.replyComment,
+                repliedAt: r.repliedAt,
               }))
             );
           }
@@ -886,7 +934,10 @@ export default function SellerProfilePage() {
                           Đã giao dịch qua Safe-Point & Escrow FPT Care
                         </span>
                         <div className="flex items-center gap-3">
-                          {myReviewedOrderWithSeller && rev.orderCode === myReviewedOrderWithSeller.code && (
+                          {myReviewedOrderWithSeller &&
+                            (rev.orderCode === myReviewedOrderWithSeller.code ||
+                              normalizeOrderCode(rev.orderCode) === normalizeOrderCode(myReviewedOrderWithSeller.code) ||
+                              (rev.orderId && (rev.orderId === myReviewedOrderWithSeller.id || normalizeOrderCode(rev.orderId) === normalizeOrderCode(myReviewedOrderWithSeller.code)))) && (
                             <button
                               type="button"
                               onClick={() => setIsReviewDetailModalOpen(true)}
