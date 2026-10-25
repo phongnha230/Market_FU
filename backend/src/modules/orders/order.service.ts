@@ -417,9 +417,9 @@ export class OrderService {
           shipping:
             orderType === 'SHIP_COD' && shipping
               ? {
-                  shippingPartner: shipping.shippingPartner || 'GHTK',
-                  // B3-10: trackingCode gắn theo orderCode độc nhất, tránh đụng độ theo giây
-                  trackingCode: `GHTK-${orderCode.replace(/^ORD-/, '')}`,
+                  shippingPartner: shipping.shippingPartner || 'GHN Express',
+                  // trackingCode chỉ được sinh khi người bán bấm Bàn giao bưu cục GHN
+                  trackingCode: undefined,
                   receiverName: shipping.receiverName,
                   receiverPhone: shipping.receiverPhone,
                   shippingAddress: shipping.shippingAddress,
@@ -457,7 +457,7 @@ export class OrderService {
           description: `Thanh toan ${orderCode}`.slice(0, 25),
           cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&cancelled=true`,
           // PayOS appends its own numeric orderCode; keep our order code in a separate parameter.
-          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos`,
+          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&productId=${encodeURIComponent(product.id)}&amount=${totalAmount}`,
           items: [{ name: product.title.slice(0, 45), quantity: 1, price: totalAmount }],
         });
         if (!paymentLink.checkoutUrl) throw new Error('PayOS did not return a checkout URL');

@@ -148,6 +148,29 @@ function OrderSuccessContent() {
         } else if (ord.status === 'CANCELLED' || (ord.status as string) === 'cancelled') {
           setIsCancelledByPayos(true);
         }
+
+        if (ord.product) {
+          const prodAny = ord.product as any;
+          const sellerName = (ord as any).seller?.profile?.fullName || (ord as any).seller?.fullName || prodAny.seller?.name || 'Người bán FPT';
+          const sellerCohort = (ord as any).seller?.profile?.cohort || (ord as any).seller?.cohort || prodAny.seller?.cohort || 'Sinh viên FPT';
+          const sellerCampus = (ord as any).seller?.profile?.campus || ord.product.campus || 'HOL';
+          const firstImg = Array.isArray(ord.product.images) && ord.product.images.length > 0
+            ? (typeof ord.product.images[0] === 'string' ? ord.product.images[0] : (ord.product.images[0] as any)?.imageUrl)
+            : (prodAny.imageUrl || undefined);
+
+          setProductData((prev) => ({
+            ...prev,
+            id: ord.product?.id || ord.productId || prev.id,
+            title: ord.product?.title || prev.title,
+            price: ord.product?.price || ord.payment?.price || prev.price,
+            imageUrl: firstImg || prev.imageUrl,
+            conditionBadge: prodAny.condition || prev.conditionBadge,
+            sellerName,
+            sellerCohort,
+            originCampus: `FPT ${sellerCampus}`,
+            destinationCampus: ord.shipping?.shippingAddress || prev.destinationCampus,
+          }));
+        }
       }).catch((err) => {
         console.warn('Could not fetch backend order detail:', err);
       });

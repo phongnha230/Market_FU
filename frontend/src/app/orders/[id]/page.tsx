@@ -1118,11 +1118,17 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     <span>{liveTracking?.partner || 'Giao Hàng Nhanh (GHN Express)'}</span>
                   </strong>
                 </div>
-                <div className="flex items-center justify-between font-mono text-[11px]">
-                  <span className="text-slate-600">Mã vận đơn bưu cục:</span>
-                  <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    {liveTracking?.trackingCode || order.tracking?.trackingCode || 'GHTK-421365-C0EF'}
-                  </span>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 font-medium">Mã vận đơn bưu cục:</span>
+                  {hasTrackingCode && (liveTracking?.trackingCode || order.tracking?.trackingCode || (order as any).trackingCode || backendOrderDetail?.trackingCode) ? (
+                    <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {liveTracking?.trackingCode || order.tracking?.trackingCode || (order as any).trackingCode || backendOrderDetail?.trackingCode}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 italic text-[10px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      Chưa tạo mã (Chờ người bán bàn giao)
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-600">Tuyến hành trình:</span>
