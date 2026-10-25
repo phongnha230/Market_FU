@@ -8,6 +8,8 @@ interface DisputeResolutionProps {
   onPlanChange: (plan: 'return' | 'partial') => void;
   selectedReason: string;
   onReasonChange: (reasonId: string) => void;
+  productTitle?: string;
+  refundAmount?: number;
 }
 
 export default function DisputeResolution({
@@ -15,6 +17,8 @@ export default function DisputeResolution({
   onPlanChange,
   selectedReason,
   onReasonChange,
+  productTitle = 'món hàng',
+  refundAmount = 0,
 }: DisputeResolutionProps) {
   const reasons = [
     { id: 'defect', label: 'Thiết bị lỗi chức năng / Không hoạt động khi cắm thử' },
@@ -23,6 +27,9 @@ export default function DisputeResolution({
     { id: 'missing', label: 'Thiếu phụ kiện / Quà tặng kèm theo như thỏa thuận' },
     { id: 'fake', label: 'Nghi vấn hàng nhái / Không đúng thông số linh kiện cam kết' },
   ];
+
+  const formattedRefund = refundAmount > 0 ? `${refundAmount.toLocaleString('vi-VN')}đ` : 'toàn bộ tiền cọc';
+  const partialAmount = refundAmount > 0 ? `${Math.round(refundAmount * 0.3).toLocaleString('vi-VN')}đ` : 'một phần tiền cọc';
 
   return (
     <>
@@ -65,7 +72,7 @@ export default function DisputeResolution({
                   </Badge>
                 </div>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  Gửi lại màn hình qua bưu cục Safe-Handoff Point. Nhận lại toàn bộ <strong>1.225.000đ</strong> sau khi quét mã bưu kiện.
+                  Gửi lại {productTitle} qua Safe-Point hoặc bưu cục Campus. Nhận lại <strong>{formattedRefund}</strong> sau khi xác nhận gửi trả.
                 </p>
               </div>
             </div>
@@ -93,7 +100,7 @@ export default function DisputeResolution({
                   Yêu cầu bồi hoàn một phần
                 </span>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  Giữ lại màn hình để tự sửa chữa tại sảnh Alpha. Đề xuất hoàn lại <strong>300.000đ</strong> phí linh kiện từ Escrow.
+                  Giữ lại đồ để tự sửa chữa/sử dụng tiếp. Đề xuất hoàn lại <strong>{partialAmount}</strong> chi phí hỗ trợ từ Escrow.
                 </p>
               </div>
             </div>

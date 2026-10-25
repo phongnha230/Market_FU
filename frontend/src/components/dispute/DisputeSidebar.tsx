@@ -17,6 +17,7 @@ interface DisputeSidebarProps {
   shippingFee?: number;
   totalEscrow?: number;
   aiConfidenceScore?: number;
+  sellerCohort?: string;
   onShowToast: (msg: string) => void;
 }
 
@@ -25,6 +26,7 @@ export default function DisputeSidebar({
   shippingFee = 0,
   totalEscrow = 0,
   aiConfidenceScore = 0,
+  sellerCohort,
   onShowToast,
 }: DisputeSidebarProps) {
   return (
@@ -79,12 +81,12 @@ export default function DisputeSidebar({
           </div>
           <div>
             <div className="font-extrabold text-xs sm:text-sm text-slate-900">
-              {aiConfidenceScore > 70 ? 'Độ tin cậy khiếu nại rất cao' : aiConfidenceScore > 0 ? 'Đang thẩm tra bằng AI' : 'Chưa có dữ liệu thẩm tra'}
+              {aiConfidenceScore > 70 ? 'Độ tin cậy hồ sơ hợp lệ' : aiConfidenceScore > 0 ? 'Đang phân tích đối chiếu' : 'Chờ đính kèm bằng chứng'}
             </div>
             <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
               {aiConfidenceScore > 0
-                ? 'Video xác thực kiểm tra nguồn tại sảnh Alpha trùng khớp thời gian nhận bưu phẩm.'
-                : 'Vui lòng chọn đơn hàng và đính kèm video bằng chứng để kích hoạt AI thẩm tra.'}
+                ? 'Hệ thống tự động đối chiếu thời gian bàn giao và video bằng chứng để bảo vệ quyền lợi đôi bên.'
+                : 'Vui lòng đính kèm video bóc hộp hoặc ảnh chi tiết lỗi để kích hoạt AI thẩm tra tự động.'}
             </p>
           </div>
         </div>
@@ -92,11 +94,11 @@ export default function DisputeSidebar({
         <div className="space-y-1.5 text-xs text-slate-600">
           <div className="flex items-start gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <span>Người bán K16 sơ cấp chưa có tiền sử vi phạm lừa đảo.</span>
+            <span>Xác thực danh tính sinh viên thông qua tài khoản SSO FPT.</span>
           </div>
           <div className="flex items-start gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <span>Hệ thống ghi nhận đơn giao liên tỉnh qua nhà xe đối tác Hòa Lạc.</span>
+            <span>Tiền Escrow được phong tỏa tạm thời 100% trong thời gian xem xét.</span>
           </div>
         </div>
       </Card>
@@ -112,21 +114,21 @@ export default function DisputeSidebar({
           <div className="flex items-start gap-2">
             <Truck className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed text-[11px]">
-              <strong>Miễn 100% phí gửi trả:</strong> Bưu cục CampusShip hỗ trợ vận chuyển hoàn trả thiết bị giữa các cơ sở mà không trừ ví người mua.
+              <strong>Miễn 100% phí gửi trả:</strong> Hỗ trợ hoàn trả thiết bị thông qua các Safe-Handoff Hub tại sảnh campus mà không phát sinh thêm phí.
             </p>
           </div>
 
           <div className="flex items-start gap-2">
             <Clock className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed text-[11px]">
-              <strong>Hạn phản hồi 24 giờ:</strong> Nếu sinh viên bán không xác nhận phương án trong 24h, hệ thống tự động hoàn 100% tiền về ví bạn.
+              <strong>Hạn phản hồi 24 giờ:</strong> Nếu sinh viên bán không phản hồi phương án trong 24h, hệ thống tự động xử lý theo đề xuất của người mua.
             </p>
           </div>
 
           <div className="flex items-start gap-2">
             <ShieldAlert className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
             <p className="leading-relaxed text-[11px]">
-              <strong>Kỷ luật CTSV nghiêm ngặt:</strong> Trường hợp cố ý tráo hàng hoặc gửi đồ giả sẽ bị chuyển hồ sơ sang Hội đồng Kỷ luật Ban CTSV.
+              <strong>Kỷ luật CTSV nghiêm ngặt:</strong> Trường hợp cố ý tráo hàng hoặc gian lận sẽ bị xử lý kỷ luật theo quy chế công tác sinh viên.
             </p>
           </div>
         </div>
@@ -136,13 +138,13 @@ export default function DisputeSidebar({
           variant="outline"
           onClick={() =>
             onShowToast(
-              '📞 Hotline Ban Điều phối CampusShip (Hola): 024.7300.1866 (Ext: 5588)'
+              '📞 Tổng đài Hỗ trợ Sinh viên FPT Market: 1900.636.009 (Ext: 888)'
             )
           }
           className="h-auto w-full mt-2 rounded-xl bg-rose-50 border border-rose-200 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
         >
           <Phone className="h-3.5 w-3.5" />
-          <span>Hotline Điều phối CampusShip (Ext 5588)</span>
+          <span>Hỗ trợ Ban Quản Trị Campus</span>
         </Button>
       </Card>
     </div>

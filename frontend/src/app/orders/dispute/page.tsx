@@ -377,6 +377,8 @@ function DisputeContent() {
                   onPlanChange={setResolutionPlan}
                   selectedReason={selectedReason}
                   onReasonChange={setSelectedReason}
+                  productTitle={matchedOrder?.product?.title || 'sản phẩm'}
+                  refundAmount={matchedOrder?.product?.price ?? 0}
                 />
 
                 {/* Evidence, Description, Dropoff Location & Submit */}

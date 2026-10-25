@@ -132,6 +132,51 @@ function ReviewContent() {
   const sellerStudentId = currentOrder?.seller?.profile?.studentId || currentOrder?.seller?.studentId || '';
   const sellerInitial = (sellerName || 'N').trim()[0].toUpperCase();
 
+  // Lấy số liệu uy tín người bán từ data thực tế của backend
+  const sellerTrustScore: number = (() => {
+    const score =
+      currentOrder?.seller?.trustScore ??
+      currentOrder?.seller?.profile?.trustScore ??
+      currentOrder?.seller?.sellerStats?.trustScore ??
+      null;
+    if (score !== null && score !== undefined) return Math.min(100, Math.max(0, Number(score)));
+    return null as unknown as number;
+  })();
+
+  const sellerAvgRating: number = (() => {
+    const r =
+      currentOrder?.seller?.avgRating ??
+      currentOrder?.seller?.profile?.avgRating ??
+      currentOrder?.seller?.sellerStats?.avgRating ??
+      currentOrder?.seller?.rating ??
+      null;
+    if (r !== null && r !== undefined) return Math.min(5, Math.max(0, Number(r)));
+    return null as unknown as number;
+  })();
+
+  const sellerTotalReviews: number = (() => {
+    return (
+      currentOrder?.seller?.totalReviews ??
+      currentOrder?.seller?.sellerStats?.totalReviews ??
+      currentOrder?.seller?.reviewCount ??
+      0
+    );
+  })();
+
+  const sellerIsKyc: boolean =
+    currentOrder?.seller?.kycStatus === 'approved_seller' ||
+    currentOrder?.seller?.kycStatus === 'approved' ||
+    Boolean(currentOrder?.seller?.isKyc) ||
+    Boolean(currentOrder?.seller?.profile?.isKycVerified);
+
+  const ratingLabel = (r: number) => {
+    if (r >= 4.8) return 'Xuất sắc';
+    if (r >= 4.5) return 'Rất uy tín';
+    if (r >= 4.0) return 'Uy tín';
+    if (r >= 3.0) return 'Bình thường';
+    return 'Cần cải thiện';
+  };
+
   // Mã số sinh viên của người mua đang review
   const buyerStudentId =
     userData?.studentId ||
@@ -396,7 +441,11 @@ function ReviewContent() {
                     )}
                   </div>
                   <div className="text-xs text-slate-500">Campus FPT {sellerCampus}</div>
-                  <div className="text-[10px] text-emerald-700 font-medium">🪪 Thẻ SV & KYC FPT chính quy</div>
+                  {sellerIsKyc ? (
+                    <div className="text-[10px] text-emerald-700 font-medium">🪪 Thẻ SV & KYC FPT chính quy</div>
+                  ) : (
+                    <div className="text-[10px] text-slate-400 font-medium">Sinh viên FPT</div>
+                  )}
                 </div>
               </div>
 
@@ -404,21 +453,47 @@ function ReviewContent() {
               <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-200/60">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 font-medium">Chỉ số uy tín người bán</span>
-                  <span className="font-black text-slate-900 text-sm">98/100</span>
+                  {sellerTrustScore !== null ? (
+                    <span className="font-black text-slate-900 text-sm">{sellerTrustScore}/100</span>
+                  ) : (
+                    <span className="text-slate-400 text-xs font-medium">Chưa có dữ liệu</span>
+                  )}
                 </div>
-                <Progress value={98} className="mt-1.5 h-1.5 w-full bg-slate-200" />
-                <div className="text-[10px] text-slate-400 mt-1">Đã hoàn tất các giao dịch sinh viên uy tín</div>
+                {sellerTrustScore !== null ? (
+                  <Progress value={sellerTrustScore} className="mt-1.5 h-1.5 w-full bg-slate-200" />
+                ) : (
+                  <div className="mt-1.5 h-1.5 w-full bg-slate-200 rounded-full" />
+                )}
+                <div className="text-[10px] text-slate-400 mt-1">
+                  {sellerTotalReviews > 0
+                    ? `Dựa trên ${sellerTotalReviews} giao dịch đã hoàn tất`
+                    : 'Đây là giao dịch đầu tiên của người bán này'}
+                </div>
               </div>
 
               {/* Service Rating */}
               <div className="mt-3 text-xs">
                 <div className="text-slate-600 mb-1">Đánh giá dịch vụ của người bán:</div>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="h-4 w-4 text-amber-400 fill-amber-400" />
-                  ))}
-                  <span className="text-xs font-bold text-slate-700 ml-1">5.0 (Rất uy tín)</span>
-                </div>
+                {sellerAvgRating !== null ? (
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`h-4 w-4 ${s <= Math.round(sellerAvgRating) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}`}
+                      />
+                    ))}
+                    <span className="text-xs font-bold text-slate-700 ml-1">
+                      {sellerAvgRating.toFixed(1)} ({ratingLabel(sellerAvgRating)})
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star key={s} className="h-4 w-4 text-slate-200 fill-slate-200" />
+                    ))}
+                    <span className="text-[11px] text-slate-400 ml-1">Chưa có đánh giá</span>
+                  </div>
+                )}
               </div>
 
               {/* Give Bonus Trust Checkbox */}
