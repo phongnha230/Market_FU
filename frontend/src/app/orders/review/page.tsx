@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   Edit3,
 } from 'lucide-react';
-import { Card, Badge, Button, Avatar, AvatarFallback, Progress } from '@/components/ui';
+import { Card, Badge, Button, Avatar, AvatarFallback, AvatarImage, Progress } from '@/components/ui';
 
 function ReviewContent() {
   const router = useRouter();
@@ -131,6 +131,11 @@ function ReviewContent() {
   const sellerCampus = currentOrder?.product?.seller?.cohortCampus || currentOrder?.seller?.profile?.campus || 'Campus FPT';
   const sellerStudentId = currentOrder?.seller?.profile?.studentId || currentOrder?.seller?.studentId || '';
   const sellerInitial = (sellerName || 'N').trim()[0].toUpperCase();
+  const sellerAvatarUrl =
+    currentOrder?.seller?.profile?.avatarUrl ||
+    (currentOrder as any)?.seller?.avatarUrl ||
+    (currentOrder as any)?.product?.seller?.avatarUrl ||
+    '';
 
   // Lấy số liệu uy tín người bán từ data thực tế của backend
   const sellerTrustScore: number = (() => {
@@ -426,8 +431,11 @@ function ReviewContent() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarFallback className="bg-orange-700 text-white font-black text-sm">
+                <Avatar className="h-10 w-10 shrink-0 border border-slate-200">
+                  {sellerAvatarUrl && (
+                    <AvatarImage src={sellerAvatarUrl} alt={sellerName} />
+                  )}
+                  <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 text-white font-black text-sm">
                     {sellerInitial}
                   </AvatarFallback>
                 </Avatar>

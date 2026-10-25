@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { OrderItem } from '@/stores/orderStore';
-import { Card, Badge, Avatar, AvatarFallback } from '@/components/ui';
+import { Card, Badge, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
 
 interface DisputeParcelCardProps {
   order?: OrderItem | null;
@@ -37,6 +37,10 @@ export default function DisputeParcelCard({
     (order as any)?.buyer?.profile?.campus ||
     'Campus FPT';
   const buyerInitial = (buyerName || 'M').trim()[0].toUpperCase();
+  const buyerAvatarUrl =
+    (order as any)?.buyer?.profile?.avatarUrl ||
+    (order as any)?.buyer?.avatarUrl ||
+    '';
 
   // Seller Info
   const sellerName =
@@ -51,6 +55,11 @@ export default function DisputeParcelCard({
     (order as any)?.seller?.campus ||
     'Campus FPT';
   const sellerInitial = (sellerName || 'S').trim()[0].toUpperCase();
+  const sellerAvatarUrl =
+    (order?.product?.seller as any)?.avatarUrl ||
+    (order as any)?.seller?.profile?.avatarUrl ||
+    (order as any)?.seller?.avatarUrl ||
+    '';
 
   return (
     <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
@@ -103,7 +112,8 @@ export default function DisputeParcelCard({
       {/* Parties row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
-          <Avatar className="h-7 w-7 shrink-0">
+          <Avatar className="h-7 w-7 shrink-0 border border-slate-200">
+            {buyerAvatarUrl && <AvatarImage src={buyerAvatarUrl} alt={buyerName} />}
             <AvatarFallback className="bg-fpt-orange text-white font-bold text-[10px]">
               {buyerInitial}
             </AvatarFallback>
@@ -116,7 +126,8 @@ export default function DisputeParcelCard({
         </div>
 
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
-          <Avatar className="h-7 w-7 shrink-0">
+          <Avatar className="h-7 w-7 shrink-0 border border-slate-200">
+            {sellerAvatarUrl && <AvatarImage src={sellerAvatarUrl} alt={sellerName} />}
             <AvatarFallback className="bg-slate-800 text-white font-bold text-[10px]">
               {sellerInitial}
             </AvatarFallback>
