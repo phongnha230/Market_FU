@@ -137,6 +137,7 @@ function DisputeContent() {
     }
   };
 
+  const backendDispute = backendOrder?.dispute || (storeOrder as any)?.dispute;
   const disputeStoreItem = useDisputeStore((state) =>
     state.disputes.find(
       (d) =>
@@ -146,14 +147,29 @@ function DisputeContent() {
     )
   );
 
+  const activeDispute = backendDispute
+    ? {
+        id: backendDispute.id,
+        orderId: backendDispute.orderId,
+        orderCode: cleanCode,
+        reason: backendDispute.reason,
+        details: backendDispute.details || backendDispute.reason,
+        proofVideoUrl: backendDispute.proofVideoUrl,
+        status: (backendDispute.status === 'RESOLVED' ? 'REFUNDED' : backendDispute.status) as any,
+        adminNote: backendDispute.adminNote,
+        createdAt: backendDispute.createdAt ? new Date(backendDispute.createdAt).toLocaleString('vi-VN') : 'Gần đây',
+        resolvedAt: backendDispute.resolvedAt ? new Date(backendDispute.resolvedAt).toLocaleString('vi-VN') : undefined,
+      }
+    : disputeStoreItem;
+
   const isAlreadyDisputed =
     matchedOrder?.status === 'disputed' ||
     matchedOrder?.status === 'cancelled' ||
-    Boolean(disputeStoreItem);
+    Boolean(activeDispute);
 
   const canWithdrawDispute =
     isAlreadyDisputed &&
-    (!disputeStoreItem || disputeStoreItem.status === 'PENDING') &&
+    activeDispute?.status === 'PENDING' &&
     matchedOrder?.status !== 'cancelled' &&
     matchedOrder?.status !== 'completed';
 
@@ -167,7 +183,7 @@ function DisputeContent() {
 
     setIsWithdrawing(true);
     try {
-      const disputeId = disputeStoreItem?.id || `dsp-${matchedOrder?.id || cleanCode.replace('#', '')}`;
+      const disputeId = activeDispute?.id || `dsp-${matchedOrder?.id || cleanCode.replace('#', '')}`;
       const res = await useDisputeStore.getState().cancelDispute(
         disputeId,
         'Người mua đã tự nguyện rút khiếu nại và đồng ý nhận hàng.'
@@ -190,7 +206,8 @@ function DisputeContent() {
 
   const currentStepperStep = (() => {
     if (!isAlreadyDisputed) return 1;
-    if (disputeStoreItem?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled') return 4;
+    if (activeDispute?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled') return 4;
+    if (activeDispute?.status === 'REJECTED') return 3;
     return 2;
   })();
 
@@ -245,7 +262,7 @@ function DisputeContent() {
                           Hồ sơ Khiếu nại & Yêu cầu Trả hàng
                         </h3>
                         <p className="text-xs text-slate-500">
-                          Mã hồ sơ: <span className="font-mono font-bold text-slate-700">{disputeStoreItem?.id || `DSP-${cleanCode.replace('#', '')}`}</span> • Gửi lúc: {disputeStoreItem?.createdAt || 'Gần đây'}
+                          Mã hồ sơ: <span className="font-mono font-bold text-slate-700">{activeDispute?.id || `DSP-${cleanCode.replace('#', '')}`}</span> • Gửi lúc: {activeDispute?.createdAt || 'Gần đây'}
                         </p>
                       </div>
                     </div>
@@ -253,16 +270,16 @@ function DisputeContent() {
                     <Badge
                       variant="outline"
                       className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        disputeStoreItem?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled'
+                        activeDispute?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled'
                           ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : disputeStoreItem?.status === 'REJECTED'
+                          : activeDispute?.status === 'REJECTED'
                           ? 'bg-rose-50 text-rose-800 border-rose-200'
                           : 'bg-amber-50 text-amber-800 border-amber-200'
                       }`}
                     >
-                      {disputeStoreItem?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled'
+                      {activeDispute?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled'
                         ? '✓ Đã chấp thuận hoàn tiền'
-                        : disputeStoreItem?.status === 'REJECTED'
+                        : activeDispute?.status === 'REJECTED'
                         ? '✕ Khiếu nại bị từ chối'
                         : '⏳ Chờ BQT & Người bán phản hồi'}
                     </Badge>
@@ -273,14 +290,14 @@ function DisputeContent() {
                     <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-100 space-y-1.5">
                       <div className="text-slate-500 font-bold">Lý do yêu cầu trả hàng:</div>
                       <div className="font-semibold text-slate-900 text-sm">
-                        {disputeStoreItem?.reason || 'Hàng lỗi kỹ thuật/hỏng hóc khi test thực tế'}
+                        {activeDispute?.reason || 'Hàng lỗi kỹ thuật/hỏng hóc khi test thực tế'}
                       </div>
                     </div>
 
                     <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-100 space-y-1.5">
                       <div className="text-slate-500 font-bold">Mô tả tình trạng chi tiết:</div>
                       <div className="text-slate-700 leading-relaxed">
-                        {disputeStoreItem?.details || description || 'Người mua đã phản ánh món hàng không hoạt động đúng cam kết và yêu cầu hoàn trả tiền bảo hộ Escrow.'}
+                        {activeDispute?.details || description || 'Người mua đã phản ánh món hàng không hoạt động đúng cam kết và yêu cầu hoàn trả tiền bảo hộ Escrow.'}
                       </div>
                     </div>
 
@@ -294,10 +311,10 @@ function DisputeContent() {
                       </span>
                     </div>
 
-                    {disputeStoreItem?.adminNote && (
+                    {activeDispute?.adminNote && (
                       <div className="rounded-xl bg-amber-50 p-3.5 border border-amber-200 space-y-1">
                         <div className="text-amber-900 font-bold">Ghi chú từ Ban Quản Trị:</div>
-                        <div className="text-amber-800">{disputeStoreItem.adminNote}</div>
+                        <div className="text-amber-800">{activeDispute.adminNote}</div>
                       </div>
                     )}
                   </div>
@@ -364,17 +381,17 @@ function DisputeContent() {
                         <XCircle className="h-3.5 w-3.5 mr-1.5 text-rose-600" />
                         <span>{isWithdrawing ? 'Đang rút đơn...' : 'Rút yêu cầu khiếu nại'}</span>
                       </Button>
-                    ) : (disputeStoreItem?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled') ? (
+                    ) : (activeDispute?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled') ? (
                       <span className="text-[11px] font-semibold text-emerald-700 sm:ml-auto flex items-center gap-1">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                         Đã duyệt hoàn tiền (Không thể rút đơn)
                       </span>
-                    ) : disputeStoreItem?.status === 'REJECTED' ? (
+                    ) : activeDispute?.status === 'REJECTED' ? (
                       <span className="text-[11px] font-semibold text-rose-700 sm:ml-auto flex items-center gap-1">
                         <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
                         Khiếu nại bị từ chối (Không thể rút đơn)
                       </span>
-                    ) : disputeStoreItem?.status === 'CANCELLED' ? (
+                    ) : activeDispute?.status === 'CANCELLED' ? (
                       <span className="text-[11px] font-semibold text-slate-500 sm:ml-auto flex items-center gap-1">
                         <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
                         Đã tự nguyện rút khiếu nại

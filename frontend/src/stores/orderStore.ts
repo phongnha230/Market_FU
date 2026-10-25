@@ -95,6 +95,7 @@ export interface OrderItem {
     subtitle: string;
     voucherAmount: string;
   };
+  dispute?: any;
 }
 
 interface OrderState {
@@ -232,6 +233,7 @@ export const useOrderStore = create<OrderState>()(
                     }
                   : undefined,
                 handshake: bo.handshake,
+                dispute: (bo as any).dispute,
                 payment: bo.payment
                   ? {
                       price: bo.payment.price,

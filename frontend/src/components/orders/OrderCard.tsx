@@ -17,6 +17,7 @@ import {
   XCircle,
   ShieldCheck,
   ExternalLink,
+  FileText,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
@@ -492,8 +493,60 @@ export default function OrderCard({
                 </>
               )}
 
-              {order.status === 'completed' && (
-                order.reviewed ? (
+              {order.status === 'completed' && (() => {
+                const dispute = (order as any).dispute;
+                const disputeStatus = dispute?.status;
+                const disputeBtn = disputeStatus === 'REJECTED' ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Xem kết quả khiếu nại"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <FileText className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Xem kết quả khiếu nại</span>
+                    </Link>
+                  </Button>
+                ) : disputeStatus === 'REFUNDED' || disputeStatus === 'RESOLVED' ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Xem hồ sơ hoàn tiền"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Hồ sơ hoàn tiền</span>
+                    </Link>
+                  </Button>
+                ) : disputeStatus === 'PENDING' ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Xem tiến trình khiếu nại"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Đang khiếu nại</span>
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    title="Yêu cầu trả hàng & hoàn tiền"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>Yêu cầu trả hàng & hoàn tiền</span>
+                    </Link>
+                  </Button>
+                );
+
+                return order.reviewed ? (
                   <>
                     <Button
                       type="button"
@@ -505,17 +558,7 @@ export default function OrderCard({
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                       <span>Xem lại đánh giá</span>
                     </Button>
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                      title="Yêu cầu trả hàng & hoàn tiền"
-                    >
-                      <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Yêu cầu trả hàng & hoàn tiền</span>
-                      </Link>
-                    </Button>
+                    {disputeBtn}
                   </>
                 ) : (
                   <>
@@ -528,20 +571,10 @@ export default function OrderCard({
                         <span>Đánh giá (+100 xu)</span>
                       </Link>
                     </Button>
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                      title="Yêu cầu trả hàng & hoàn tiền"
-                    >
-                      <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
-                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Yêu cầu trả hàng & hoàn tiền</span>
-                      </Link>
-                    </Button>
+                    {disputeBtn}
                   </>
-                )
-              )}
+                );
+              })()}
 
               <Button
                 asChild
