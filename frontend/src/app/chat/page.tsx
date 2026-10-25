@@ -560,12 +560,30 @@ function ChatContent() {
     showToast(`Đã từ chối mức giá đề xuất ${formattedPrice}.`, 'info');
   };
 
-  const quickChips = [
-    '⚡ Hẹn 17h30 sảnh Alpha nhé!',
-    'Mình đến nơi rồi, đang đứng ở Passio',
-    'Gửi mình số Zalo tiện liên hệ nhé',
-    'Mang kèm củ cáp test đồ nhé bạn',
-  ];
+  const isInterCampusChat = Boolean(
+    activeConv?.messages.some(
+      (m) =>
+        m.text?.includes('[ORDER_SHIPPING_CONFIRMED]') ||
+        m.text?.includes('(Giao hàng Ship COD)') ||
+        m.text?.includes('(Giao hàng ship COD)') ||
+        m.text?.toLowerCase().includes('liên campus') ||
+        m.text?.toLowerCase().includes('ghn')
+    )
+  );
+
+  const quickChips = isInterCampusChat
+    ? [
+        '📦 Mình đang đóng gói đơn hàng nhé!',
+        'Cho mình xin mã vận đơn GHN với ạ',
+        'Nhớ bọc chống sốc kỹ giúp mình nhé',
+        'Hàng đã bàn giao cho bưu tá chưa bạn?',
+      ]
+    : [
+        '⚡ Hẹn 17h30 sảnh Alpha nhé!',
+        'Mình đến nơi rồi, đang đứng ở Passio',
+        'Gửi mình số Zalo tiện liên hệ nhé',
+        'Mang kèm củ cáp test đồ nhé bạn',
+      ];
 
   if (!isMounted) {
     return (
@@ -720,6 +738,11 @@ function ChatContent() {
                   const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
                   const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
                   const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
+                  const isInterCampusOrder = Boolean(
+                    lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
+                    lastOrderCreatedMsg?.text?.toLowerCase().includes('liên campus') ||
+                    isInterCampusChat
+                  );
 
                   return (
                     <PinnedProductBar
@@ -729,6 +752,7 @@ function ChatContent() {
                       isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                       hasActiveOrder={hasActiveOrder}
                       activeOrderCode={activeOrderCode}
+                      isInterCampus={isInterCampusOrder}
                       onOfferPrice={(offer) => {
                         const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
                         chatStore.sendOfferPrice(activeConv.id, numericPrice);

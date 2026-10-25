@@ -1912,12 +1912,16 @@ export class OrderService {
       },
     });
 
+    const isInterCampusShipping = order.orderType === 'SHIP_COD';
+
     // 1. Gửi thông báo tới người mua
     try {
       await notificationService.sendNotification({
         userId: order.buyerId,
-        title: 'Người bán đã đồng ý lịch hẹn!',
-        body: `Người bán đã xác nhận đơn #${order.orderCode}. Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} để bàn giao!`,
+        title: isInterCampusShipping ? 'Người bán đã xác nhận đơn hàng!' : 'Người bán đã đồng ý lịch hẹn!',
+        body: isInterCampusShipping
+          ? `Người bán đã xác nhận đơn #${order.orderCode} và đang chuẩn bị hàng để gửi đơn vị vận chuyển GHN / CampusShip!`
+          : `Người bán đã xác nhận đơn #${order.orderCode}. Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} để bàn giao!`,
         type: 'ORDER',
         targetUrl: '/orders',
       });
@@ -1947,7 +1951,10 @@ export class OrderService {
         },
       });
       if (conv) {
-        const confirmMsgText = `[APPOINTMENT_CONFIRMED] Mình đã xác nhận đồng ý đơn hàng #${order.orderCode} và chốt lịch hẹn! Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} nhé.`;
+        const confirmMsgText = isInterCampusShipping
+          ? `[ORDER_SHIPPING_CONFIRMED] Mình đã xác nhận đồng ý đơn hàng #${order.orderCode}! Mình đang đóng gói kiện hàng và sẽ gửi bưu tá GHN / CampusShip sớm nhất để chuyển đến bạn nhé.`
+          : `[APPOINTMENT_CONFIRMED] Mình đã xác nhận đồng ý đơn hàng #${order.orderCode} và chốt lịch hẹn! Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} nhé.`;
+
         const savedMsg = await prisma.message.create({
           data: {
             conversationId: conv.id,
@@ -1959,7 +1966,9 @@ export class OrderService {
         await prisma.conversation.update({
           where: { id: conv.id },
           data: {
-            lastMessageText: `[Đã chốt hẹn đơn #${order.orderCode}]`,
+            lastMessageText: isInterCampusShipping
+              ? `[Đã xác nhận đơn hàng #${order.orderCode}]`
+              : `[Đã chốt hẹn đơn #${order.orderCode}]`,
             lastMessageAt: savedMsg.createdAt,
           },
         });

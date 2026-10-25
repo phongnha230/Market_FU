@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Conversation } from '@/types/chat';
-import { MapPin, Tag, ExternalLink, ShieldCheck, PackageCheck } from 'lucide-react';
+import { MapPin, Tag, ExternalLink, ShieldCheck, PackageCheck, Truck } from 'lucide-react';
 
 interface PinnedProductBarProps {
   product: Conversation['pinnedProduct'];
@@ -13,6 +13,7 @@ interface PinnedProductBarProps {
   isSeller?: boolean;
   hasActiveOrder?: boolean;
   activeOrderCode?: string;
+  isInterCampus?: boolean;
   onOfferPrice: (offer: string) => void;
   onScheduleMeeting: () => void;
 }
@@ -24,6 +25,7 @@ export default function PinnedProductBar({
   isSeller,
   hasActiveOrder,
   activeOrderCode,
+  isInterCampus,
   onOfferPrice,
   onScheduleMeeting,
 }: PinnedProductBarProps) {
@@ -87,10 +89,21 @@ export default function PinnedProductBar({
             )}
           </div>
           <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
-            <MapPin className="h-3 w-3 text-fpt-orange shrink-0" />
-            <span className="truncate">
-              Handoff ưu tiên: {product.locationNote}
-            </span>
+            {isInterCampus ? (
+              <>
+                <Truck className="h-3 w-3 text-blue-600 shrink-0" />
+                <span className="truncate text-blue-700 font-semibold">
+                  Vận chuyển Liên Campus (GHN Express)
+                </span>
+              </>
+            ) : (
+              <>
+                <MapPin className="h-3 w-3 text-fpt-orange shrink-0" />
+                <span className="truncate">
+                  Handoff ưu tiên: {product.locationNote}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

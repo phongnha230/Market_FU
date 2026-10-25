@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle, PackageCheck, Lock, ReceiptText, XCircle } from 'lucide-react';
+import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle, PackageCheck, Lock, ReceiptText, XCircle, Truck, CalendarCheck, QrCode } from 'lucide-react';
 
 function getInitials(name?: string): string {
   if (!name) return 'SV';
@@ -111,7 +111,7 @@ export default function MessageHistory({
       <div className="mx-4 mt-3 shrink-0 rounded-xl bg-blue-50/80 border border-blue-200/80 p-3 text-xs text-blue-900 flex items-start gap-2.5">
         <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
         <div className="leading-relaxed text-[11px]">
-          <strong>Khuyến nghị An toàn Giao dịch FPT:</strong> Chỉ chuyển khoản hoặc trả tiền mặt sau khi đã gặp trực tiếp, test kỹ thiết bị tại khu vực camera giám sát như Sảnh Alpha, Thư viện Gamma hoặc Căng-tin Dom. Tuyệt đối không cọc trước khi chưa gặp người bán.
+          <strong>Khuyến nghị An toàn Giao dịch FPT:</strong> Với đơn <em>cùng campus</em>, kiểm tra máy kỹ tại trạm Safe-Point (Sảnh Alpha, Thư viện, KTX). Với đơn <em>liên campus</em>, bảo đảm an toàn qua Quỹ Escrow sàn FPT &amp; bưu tá vận chuyển kèm 48h bảo vệ dùng thử.
         </div>
       </div>
 
@@ -440,7 +440,9 @@ export default function MessageHistory({
                     <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-slate-200/60 text-[11px] text-sky-800">
                       <Lock className="h-3.5 w-3.5 text-sky-600 shrink-0 mt-0.5" />
                       <span>
-                        Tiền cọc được sàn FPT giữ bảo chứng an toàn, chỉ thanh toán cho người bán khi hai bên quét mã bàn giao tại Safe Point.
+                        {cleanText.toLowerCase().includes('ship') || cleanText.toLowerCase().includes('giao hàng') || cleanText.toLowerCase().includes('liên campus')
+                        ? 'Tiền cọc Escrow được sàn FPT giữ bảo chứng an toàn. Khoản tiền sẽ được giải ngân cho Người bán sau khi bưu tá giao hàng và qua thời gian dùng thử 48h (Golden Test Period).'
+                        : 'Tiền cọc được sàn FPT giữ bảo chứng an toàn, chỉ thanh toán cho người bán khi hai bên quét mã bàn giao tại Safe Point.'}
                       </span>
                     </div>
                   </div>
@@ -501,6 +503,124 @@ export default function MessageHistory({
                     <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-rose-100 text-[11px] text-slate-600">
                       <span>Món hàng đã được mở lại trạng thái Đang bán. Hai bên có thể tiếp tục trao đổi hoặc thương lượng lại.</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const isShippingConfirmedMsg = msg.text?.includes('[ORDER_SHIPPING_CONFIRMED]');
+          if (isShippingConfirmedMsg) {
+            const orderCodeMatch = msg.text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+            const orderCode = orderCodeMatch ? orderCodeMatch[1] : '';
+            const cleanText = msg.text.replace(/^\[ORDER_SHIPPING_CONFIRMED\]\s*/i, '');
+
+            return (
+              <div key={msg.id} className="flex justify-center my-3 w-full">
+                <div className="rounded-2xl bg-white border border-blue-200/90 p-4 shadow-xs max-w-md w-full">
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-blue-100">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">
+                      <Truck className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Giao Hàng Liên Campus</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {formatMessageTime(msg.time)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 mt-3">
+                    <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                      <PackageCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-extrabold text-slate-900 text-sm">
+                        Người bán đã xác nhận đơn hàng
+                      </h5>
+                      {orderCode && (
+                        <span className="text-[11px] font-mono font-semibold text-slate-500">
+                          Mã đơn: #{orderCode}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-700 leading-relaxed">
+                    <p className="font-medium text-slate-800">{cleanText}</p>
+                    <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-slate-200/60 text-[11px] text-sky-800">
+                      <Lock className="h-3.5 w-3.5 text-sky-600 shrink-0 mt-0.5" />
+                      <span>
+                        Kiện hàng đang được đóng gói gửi bưu tá GHN / CampusShip. Tiền cọc được Escrow bảo hộ an toàn tới khi nhận hàng.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end">
+                    <Link
+                      href={orderCode ? `/orders/${encodeURIComponent(orderCode)}` : '/orders'}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-3.5 py-2 transition shadow-xs cursor-pointer"
+                    >
+                      <ReceiptText className="h-3.5 w-3.5" />
+                      <span>Theo dõi đơn hàng</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const isAppointmentConfirmedMsg = msg.text?.includes('[APPOINTMENT_CONFIRMED]');
+          if (isAppointmentConfirmedMsg) {
+            const orderCodeMatch = msg.text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
+            const orderCode = orderCodeMatch ? orderCodeMatch[1] : '';
+            const cleanText = msg.text.replace(/^\[APPOINTMENT_CONFIRMED\]\s*/i, '');
+
+            return (
+              <div key={msg.id} className="flex justify-center my-3 w-full">
+                <div className="rounded-2xl bg-white border border-emerald-200/90 p-4 shadow-xs max-w-md w-full">
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-emerald-100">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                      <CalendarCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Đã Chốt Hẹn Safe-Point</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {formatMessageTime(msg.time)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 mt-3">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-extrabold text-slate-900 text-sm">
+                        Đã xác nhận &amp; Chốt hẹn nhận hàng
+                      </h5>
+                      {orderCode && (
+                        <span className="text-[11px] font-mono font-semibold text-slate-500">
+                          Mã đơn: #{orderCode}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-700 leading-relaxed">
+                    <p className="font-medium text-slate-800">{cleanText}</p>
+                    <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-slate-200/60 text-[11px] text-emerald-800">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        Hãy gặp nhau tại điểm Safe-Point đã hẹn để kiểm tra đồ và quét mã QR Handshake để hoàn tất giao dịch.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end">
+                    <Link
+                      href={orderCode ? `/orders/${encodeURIComponent(orderCode)}` : '/orders'}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 transition shadow-xs cursor-pointer"
+                    >
+                      <QrCode className="h-3.5 w-3.5" />
+                      <span>Mở mã QR bàn giao</span>
+                    </Link>
                   </div>
                 </div>
               </div>
