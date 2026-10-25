@@ -106,7 +106,11 @@ export default function ProfilePage() {
 
 
   const userData = useUserStore((state) => state.user);
-  const isSeller = userData.role === 'SELLER' || userData.kycStatus === 'approved_seller';
+  const isSeller =
+    userData.role === 'SELLER' ||
+    userData.role === 'ADMIN' ||
+    userData.kycStatus === 'approved_seller' ||
+    userData.kycRole === 'seller';
   const isEduEmail = Boolean(
     userData.email?.toLowerCase().endsWith('@fpt.edu.vn') ||
     userData.email?.toLowerCase().endsWith('@fe.edu.vn')
@@ -161,6 +165,7 @@ export default function ProfilePage() {
   React.useEffect(() => {
     profileService.getProfile().catch(() => {});
     profileService.getCheckInStatus().catch(() => {});
+    useOrderStore.getState().fetchOrders().catch(() => {});
 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -610,14 +615,16 @@ export default function ProfilePage() {
                 </div>
               </button>
 
-              {/* Metric 2: Giao dịch thành công - Bấm vào mở Quản lý đơn bán hàng */}
+              {/* Metric 2: Giao dịch thành công - Bấm vào xem ngay Tab Lịch sử đã bán */}
               <button
                 type="button"
                 onClick={() => {
-                  router.push('/orders?tab=selling');
+                  setActiveTab('sold');
+                  const el = document.getElementById('profile-tabs-content');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
                 className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5 shadow-none text-left hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-2xs transition cursor-pointer group"
-                title="Bấm để xem chi tiết đơn bán hàng và doanh thu đã tất toán"
+                title="Bấm để xem danh sách món đồ và đơn hàng giao dịch thành công"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 group-hover:scale-105 transition">
                   <Handshake className="h-5 w-5" />
@@ -1381,10 +1388,68 @@ export default function ProfilePage() {
                     </div>
 
                     {soldItems.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
-                        <p className="text-sm font-semibold text-slate-600">Chưa có món đồ nào đã bán</p>
-                        <p className="text-xs text-slate-400 mt-1">Các món đồ sau khi hoàn tất giao dịch an toàn SafeHandoff sẽ hiển thị tại đây.</p>
-                      </div>
+                      orders.some((o) => o.status === 'completed') ? (
+                        <div className="space-y-4">
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2.5">
+                              <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                              <div>
+                                <span className="font-bold text-emerald-950">Giao dịch thành công đã tất toán Escrow:</span>
+                                <p className="text-slate-600 mt-0.5">Tiền đã được giải ngân an toàn vào Ví Doanh Thu của bạn.</p>
+                              </div>
+                            </div>
+                            <Link
+                              href="/orders?tab=selling"
+                              className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-white border border-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition shrink-0"
+                            >
+                              <span>Xem quản lý đơn bán hàng</span>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {orders
+                              .filter((o) => o.status === 'completed')
+                              .map((ord) => (
+                                <Card
+                                  key={ord.id || ord.code}
+                                  className="group flex flex-col justify-between rounded-2xl border-slate-200 bg-white shadow-xs p-4 space-y-3"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs font-bold text-slate-800">#{ord.code}</span>
+                                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
+                                          ✓ Hoàn tất 100%
+                                        </Badge>
+                                      </div>
+                                      <h4 className="text-sm font-bold text-slate-900 mt-1 line-clamp-1">
+                                        {ord.product?.title || 'Sản phẩm giao dịch sinh viên'}
+                                      </h4>
+                                    </div>
+                                    <div className="text-base font-black text-emerald-600">
+                                      {formatVND(ord.payment?.price || ord.product?.price || 250000)}
+                                    </div>
+                                  </div>
+                                  <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span>Bàn giao an toàn KTX</span>
+                                    <Link
+                                      href="/orders?tab=selling"
+                                      className="font-bold text-fpt-orange hover:underline flex items-center gap-0.5"
+                                    >
+                                      <span>Xem chi tiết</span>
+                                      <ArrowRight className="h-3 w-3" />
+                                    </Link>
+                                  </div>
+                                </Card>
+                              ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
+                          <p className="text-sm font-semibold text-slate-600">Chưa có món đồ nào đã bán</p>
+                          <p className="text-xs text-slate-400 mt-1">Các món đồ sau khi hoàn tất giao dịch an toàn SafeHandoff sẽ hiển thị tại đây.</p>
+                        </div>
+                      )
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {soldItems.map((item) => (

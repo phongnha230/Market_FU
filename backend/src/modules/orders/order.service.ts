@@ -1749,9 +1749,7 @@ export class OrderService {
         Boolean(o.payment?.isPaid);
       if (o.status === 'COMPLETED') {
         totalRevenue += price;
-        if (isOnlineEscrow) {
-          withdrawableEscrowRevenue += netEscrow;
-        }
+        withdrawableEscrowRevenue += netEscrow > 0 ? netEscrow : price;
         completedOrders += 1;
 
         if (o.createdAt.getMonth() === currentMonth && o.createdAt.getFullYear() === currentYear) {

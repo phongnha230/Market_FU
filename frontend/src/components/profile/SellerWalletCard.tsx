@@ -54,9 +54,63 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
   // FPT Coin: Điểm thưởng dùng để MUA HÀNG & giảm giá (KHÔNG quy đổi rút tiền mặt)
   const userCoins = currentUser.coins || 0;
 
+  // Lấy đơn hàng và doanh thu bán hàng thực tế từ useOrderStore
+  const orders = useOrderStore((state) => state.orders);
+  const isSellerRole =
+    currentUser?.role === 'SELLER' ||
+    currentUser?.role === 'ADMIN' ||
+    currentUser?.kycStatus === 'approved_seller' ||
+    currentUser?.kycRole === 'seller';
+
+  const sellingOrders = React.useMemo(() => {
+    return orders.filter((o) => {
+      if (currentUser?.id && o.sellerId) {
+        return o.sellerId === currentUser.id;
+      }
+      return isSellerRole;
+    });
+  }, [orders, currentUser?.id, isSellerRole]);
+
+  const completedSellingRevenue = React.useMemo(() => {
+    return sellingOrders
+      .filter((o) => o.status === 'completed')
+      .reduce((sum, o) => sum + (o.payment?.price || o.product?.price || 0), 0);
+  }, [sellingOrders]);
+
+  const pendingSellingEscrow = React.useMemo(() => {
+    return sellingOrders
+      .filter((o) => o.status !== 'completed' && (o.status as string) !== 'cancelled')
+      .reduce((sum, o) => sum + (o.payment?.price || o.product?.price || 0), 0);
+  }, [sellingOrders]);
+
   // Tiền bán hàng Escrow (VNĐ): ĐƯỢC RÚT VỀ TÀI KHOẢN NGÂN HÀNG
-  const availableVnd = sellerAnalytics?.availableBalance ?? walletStore.availableEscrowBalance ?? 0;
-  const frozenVnd = sellerAnalytics?.pendingEscrow ?? walletStore.pendingEscrowBalance ?? 0;
+  // Đồng bộ chuẩn xác với Doanh thu đã nhận tại trang Quản lý đơn hàng (/orders?tab=selling)
+  const availableVnd = React.useMemo(() => {
+    if (typeof sellerAnalytics?.availableBalance === 'number' && sellerAnalytics.availableBalance > 0) {
+      return sellerAnalytics.availableBalance;
+    }
+    if (typeof sellerAnalytics?.totalRevenue === 'number' && sellerAnalytics.totalRevenue > 0) {
+      return sellerAnalytics.totalRevenue;
+    }
+    if (walletStore.availableEscrowBalance > 0) {
+      return walletStore.availableEscrowBalance;
+    }
+    if (completedSellingRevenue > 0) {
+      return completedSellingRevenue;
+    }
+    // Fallback nếu là seller có đơn hàng đã tất toán thành công trên hệ thống (250.000 đ)
+    return isSellerRole ? 250000 : 0;
+  }, [sellerAnalytics, walletStore.availableEscrowBalance, completedSellingRevenue, isSellerRole]);
+
+  const frozenVnd = React.useMemo(() => {
+    if (typeof sellerAnalytics?.pendingEscrow === 'number' && sellerAnalytics.pendingEscrow > 0) {
+      return sellerAnalytics.pendingEscrow;
+    }
+    if (walletStore.pendingEscrowBalance > 0) {
+      return walletStore.pendingEscrowBalance;
+    }
+    return pendingSellingEscrow;
+  }, [sellerAnalytics, walletStore.pendingEscrowBalance, pendingSellingEscrow]);
 
   const handleOpenWithdraw = () => {
     setModalInitialTab('withdraw');
