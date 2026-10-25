@@ -43,8 +43,8 @@ export const CreateDisputeSchema = z.object({
     .min(5, 'Lý do khiếu nại tối thiểu 5 ký tự')
     .max(500, 'Lý do khiếu nại tối đa 500 ký tự'),
   proofVideoUrl: z
-    .string({ required_error: 'Bằng chứng mở hộp/test đồ là bắt buộc' })
-    .min(1, 'Đường dẫn bằng chứng không hợp lệ'),
+    .string({ required_error: 'Link video bằng chứng mở hộp/test đồ là bắt buộc' })
+    .url('Đường dẫn video bằng chứng không hợp lệ'),
 });
 
 // 5. Admin phân xử khiếu nại Dispute
