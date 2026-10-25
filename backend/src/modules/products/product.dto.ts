@@ -101,3 +101,14 @@ export type QueryProductInput = z.infer<typeof queryProductSchema>;
 export type BoostProductInput = z.infer<typeof boostProductSchema>;
 export type RejectProductInput = z.infer<typeof rejectProductSchema>;
 
+export const appealProductSchema = z.object({
+  reason: z.string().trim().min(5, 'Lý do kháng nghị phải có ít nhất 5 ký tự').max(1000, 'Lý do kháng nghị tối đa 1000 ký tự'),
+});
+
+export const rejectAppealSchema = z.object({
+  reason: z.string().trim().min(5, 'Lý do bác bỏ kháng nghị phải có ít nhất 5 ký tự').max(1000, 'Lý do tối đa 1000 ký tự'),
+  expectedUpdatedAt: z.string().datetime(),
+});
+
+export type AppealProductInput = z.infer<typeof appealProductSchema>;
+export type RejectAppealInput = z.infer<typeof rejectAppealSchema>;

@@ -303,6 +303,9 @@ model Product {
   rejectionReason String?
   approvedAt      DateTime?
   moderatedBy     String?         @db.ObjectId
+  appealReason    String?
+  appealStatus    String?         // 'PENDING' | 'APPROVED' | 'REJECTED'
+  appealedAt      DateTime?
 
   hashtags       String[]        // VD: ["quạt", "điện tử", "hòa lạc", "giá rẻ"]
 

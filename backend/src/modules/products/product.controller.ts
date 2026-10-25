@@ -10,6 +10,8 @@ import {
   boostProductSchema,
   approveProductSchema,
   rejectProductSchema,
+  appealProductSchema,
+  rejectAppealSchema,
 } from './product.dto';
 import { sendSuccess } from '../../utils/response';
 
@@ -275,6 +277,30 @@ export class ProductController {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { reason, expectedUpdatedAt } = rejectProductSchema.parse(req.body);
       const result = await productService.rejectProduct(req.user!.userId, id, reason, expectedUpdatedAt);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Người bán gửi kháng nghị (POST /api/products/:id/appeal)
+  async appealProduct(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const { reason } = appealProductSchema.parse(req.body);
+      const result = await productService.appealProduct(req.user!.userId, id, reason);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Quản trị viên bác bỏ kháng nghị (PATCH /api/products/admin/:id/reject-appeal)
+  async rejectAppeal(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const { reason, expectedUpdatedAt } = rejectAppealSchema.parse(req.body);
+      const result = await productService.rejectAppeal(req.user!.userId, id, reason, expectedUpdatedAt);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

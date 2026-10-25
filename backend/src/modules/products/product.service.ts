@@ -923,6 +923,16 @@ export class ProductService {
       );
     }
 
+    // Phương án 2: Tin đăng đã được duyệt không cho phép Người bán tự xóa để bảo toàn dữ liệu và lịch sử kiểm duyệt.
+    // Người bán chỉ có thể hủy tin khi đang chờ duyệt (PENDING_APPROVAL) hoặc xóa tin bị từ chối (REJECTED).
+    if (userRole !== 'ADMIN' && product.status !== 'PENDING_APPROVAL' && product.status !== 'REJECTED') {
+      throw new AppError(
+        'Tin đăng đã được duyệt không thể xóa để bảo toàn dữ liệu và lịch sử giao dịch. Bạn có thể chọn "Tạm ẩn" bài đăng nếu không muốn tiếp tục hiển thị.',
+        400,
+        'CANNOT_DELETE_APPROVED_PRODUCT'
+      );
+    }
+
     await prisma.product.update({
       where: { id: productId },
       data: { status: 'HIDDEN' },
@@ -1056,6 +1066,10 @@ export class ProductService {
       where.campus = query.campus;
     }
 
+    if ((query as any).appealOnly === 'true' || (query as any).appealOnly === true) {
+      where.appealStatus = 'PENDING';
+    }
+
     if (query.search && query.search.trim().length > 0) {
       const q = query.search.trim();
       where.OR = [
@@ -1066,7 +1080,7 @@ export class ProductService {
       ];
     }
 
-    const [total, products, totalPending, totalLive, totalRejected, totalAll] = await Promise.all([
+    const [total, products, totalPending, totalLive, totalRejected, totalAppeals, totalAll] = await Promise.all([
       prisma.product.count({ where }),
       prisma.product.findMany({
         where,
@@ -1105,6 +1119,7 @@ export class ProductService {
       prisma.product.count({ where: { status: 'PENDING_APPROVAL' } }),
       prisma.product.count({ where: { status: 'AVAILABLE' } }),
       prisma.product.count({ where: { status: 'REJECTED' } }),
+      prisma.product.count({ where: { appealStatus: 'PENDING' } }),
       prisma.product.count(),
     ]);
 
@@ -1121,19 +1136,32 @@ export class ProductService {
         pending: totalPending,
         live: totalLive,
         rejected: totalRejected,
+        appeals: totalAppeals,
       },
     };
   }
 
-  // 15. Quản trị viên duyệt tin đăng
+  // 15. Quản trị viên duyệt tin đăng hoặc chấp thuận kháng nghị khôi phục tin
   async approveProduct(adminId: string, productId: string, expectedUpdatedAt: string) {
+    const existing = await prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    const wasAppealed = existing.appealStatus === 'PENDING';
+
     const persistApproval = () => prisma.product.update({
-      where: { id: productId, status: 'PENDING_APPROVAL', updatedAt: new Date(expectedUpdatedAt) },
+      where: {
+        id: productId,
+        status: { in: ['PENDING_APPROVAL', 'REJECTED'] },
+        updatedAt: new Date(expectedUpdatedAt),
+      },
       data: {
         status: 'AVAILABLE',
         approvedAt: new Date(),
         moderatedBy: adminId,
         rejectionReason: null,
+        ...(wasAppealed && { appealStatus: 'APPROVED' }),
       },
       include: {
         seller: publicSellerSelect,
@@ -1163,14 +1191,21 @@ export class ProductService {
       broadcastEvent('product:created', sanitizeProductSeller(updated));
     } catch {}
 
-    // Gửi thông báo thời gian thực cho Người bán
+    // Gửi thông báo thời gian thực & Email cho Người bán
     try {
+      const seller = await prisma.user.findUnique({
+        where: { id: updated.sellerId },
+        select: { email: true },
+      });
       await notificationService.sendNotification({
         userId: updated.sellerId,
-        title: 'Tin đăng đã được phê duyệt! 🎉',
-        body: `Tin đăng "${updated.title}" của bạn đã được kiểm duyệt thành công và hiện đang hiển thị công khai trên chợ.`,
+        title: wasAppealed ? 'Kháng nghị được chấp thuận! 🎉' : 'Tin đăng đã được phê duyệt! 🎉',
+        body: wasAppealed
+          ? `Kháng nghị cho tin đăng "${updated.title}" của bạn đã được BQT chấp thuận. Tin đăng đã hiển thị trở lại trên sàn.`
+          : `Tin đăng "${updated.title}" của bạn đã được kiểm duyệt thành công và hiện đang hiển thị công khai trên chợ.`,
         type: 'SYSTEM',
         targetUrl: `/posts/${updated.id}`,
+        email: seller?.email ? { to: seller.email } : undefined,
       });
     } catch (notifErr) {
       console.warn('Failed to send approval notification:', notifErr);
@@ -1179,14 +1214,28 @@ export class ProductService {
     return updated;
   }
 
-  // 16. Quản trị viên từ chối duyệt tin đăng
+  // 16. Quản trị viên từ chối duyệt hoặc gỡ tin đăng vi phạm
   async rejectProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt: string) {
+    const existing = await prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    const wasLive = existing.status === 'AVAILABLE';
+
     const persistRejection = () => prisma.product.update({
-      where: { id: productId, status: 'PENDING_APPROVAL', updatedAt: new Date(expectedUpdatedAt) },
+      where: {
+        id: productId,
+        status: { in: ['PENDING_APPROVAL', 'AVAILABLE'] },
+        updatedAt: new Date(expectedUpdatedAt),
+      },
       data: {
         status: 'REJECTED',
         rejectionReason: reason,
         moderatedBy: adminId,
+        appealStatus: null,
+        appealReason: null,
+        appealedAt: null,
       },
       include: {
         seller: publicSellerSelect,
@@ -1207,22 +1256,130 @@ export class ProductService {
     // Xóa khỏi Meilisearch nếu có
     await deleteProductFromMeili(productId);
 
+    // Xóa cache danh mục và sản phẩm
+    await delCachePattern('categories:*').catch(() => {});
+    await delCachePattern('products:*').catch(() => {});
+
     // Broadcast sự kiện cập nhật trạng thái tới Web và Mobile
     try {
       broadcastEvent('product:updated', sanitizeProductSeller(updated));
     } catch {}
 
-    // Gửi thông báo cho Người bán kèm lý do từ chối
+    // Gửi thông báo & Email cho Người bán kèm lý do từ chối/gỡ tin
     try {
+      const seller = await prisma.user.findUnique({
+        where: { id: updated.sellerId },
+        select: { email: true },
+      });
       await notificationService.sendNotification({
         userId: updated.sellerId,
-        title: 'Tin đăng bị từ chối duyệt ⚠️',
-        body: `Tin đăng "${updated.title}" của bạn không được duyệt. Lý do: ${reason}`,
+        title: wasLive ? 'Tin đăng đã bị gỡ khỏi sàn ⚠️' : 'Tin đăng bị từ chối duyệt ⚠️',
+        body: wasLive
+          ? `Tin đăng "${updated.title}" của bạn đã bị BQT gỡ do vi phạm chính sách: ${reason}. Bạn có thể gửi giải trình kháng nghị tại trang cá nhân.`
+          : `Tin đăng "${updated.title}" của bạn không được duyệt. Lý do: ${reason}`,
         type: 'SYSTEM',
         targetUrl: `/profile`,
+        email: seller?.email ? { to: seller.email } : undefined,
       });
     } catch (notifErr) {
       console.warn('Failed to send rejection notification:', notifErr);
+    }
+
+    return updated;
+  }
+
+  // 17. Người bán gửi kháng nghị cho tin đăng bị từ chối / gỡ bỏ
+  async appealProduct(sellerId: string, productId: string, reason: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    if (product.sellerId !== sellerId) {
+      throw new AppError('Bạn không có quyền kháng nghị tin đăng của người khác', 403, 'FORBIDDEN');
+    }
+
+    if (product.status !== 'REJECTED') {
+      throw new AppError('Chỉ có thể gửi kháng nghị cho tin đăng đang bị từ chối hoặc bị gỡ bỏ', 400, 'PRODUCT_NOT_REJECTED');
+    }
+
+    if (product.appealStatus === 'PENDING') {
+      throw new AppError('Tin đăng đã có đơn kháng nghị đang chờ Ban Quản Trị xem xét', 400, 'APPEAL_ALREADY_PENDING');
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        appealStatus: 'PENDING',
+        appealReason: reason,
+        appealedAt: new Date(),
+      },
+      include: {
+        seller: publicSellerSelect,
+        category: true,
+      },
+    });
+
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch {}
+
+    return updated;
+  }
+
+  // 18. Quản trị viên bác bỏ kháng nghị của người bán
+  async rejectAppeal(adminId: string, productId: string, reason: string, expectedUpdatedAt: string) {
+    const persistAppealRejection = () => prisma.product.update({
+      where: {
+        id: productId,
+        status: 'REJECTED',
+        appealStatus: 'PENDING',
+        updatedAt: new Date(expectedUpdatedAt),
+      },
+      data: {
+        appealStatus: 'REJECTED',
+        rejectionReason: reason,
+        moderatedBy: adminId,
+      },
+      include: {
+        seller: publicSellerSelect,
+        category: true,
+      },
+    });
+
+    let updated: Awaited<ReturnType<typeof persistAppealRejection>>;
+    try {
+      updated = await persistAppealRejection();
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2025') {
+        throw new AppError('Trạng thái kháng nghị đã thay đổi. Vui lòng tải lại trang.', 409, 'APPEAL_STALE');
+      }
+      console.error('Could not reject appeal', { productId, adminId, error });
+      throw error;
+    }
+
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch {}
+
+    try {
+      const seller = await prisma.user.findUnique({
+        where: { id: updated.sellerId },
+        select: { email: true },
+      });
+      await notificationService.sendNotification({
+        userId: updated.sellerId,
+        title: 'Kháng nghị không được chấp thuận ❌',
+        body: `Kháng nghị cho tin đăng "${updated.title}" của bạn đã bị từ chối. Lý do: ${reason}`,
+        type: 'SYSTEM',
+        targetUrl: `/profile`,
+        email: seller?.email ? { to: seller.email } : undefined,
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send appeal rejection notification:', notifErr);
     }
 
     return updated;

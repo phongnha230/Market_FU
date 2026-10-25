@@ -12,6 +12,7 @@ router.get('/', productController.getProducts);
 router.get('/admin/moderation', authenticate, authorize('ADMIN'), productController.getAdminProducts);
 router.patch('/admin/:id/approve', authenticate, authorize('ADMIN'), productController.approveProduct);
 router.patch('/admin/:id/reject', authenticate, authorize('ADMIN'), productController.rejectProduct);
+router.patch('/admin/:id/reject-appeal', authenticate, authorize('ADMIN'), productController.rejectAppeal);
 
 // Protected routes (Xem danh sách yêu thích) - đặt trước :id
 router.get('/favorites/me', authenticate, productController.getMyFavorites);
@@ -31,6 +32,7 @@ router.get('/:id', authenticateOptional, productController.getProductById);
 // Protected routes (Đăng bán, cập nhật, đổi trạng thái, xóa món đồ)
 router.post('/', authenticate, productUploadMiddleware, productController.createProduct);
 router.patch('/:id/status', authenticate, productController.updateProductStatus);
+router.post('/:id/appeal', authenticate, productController.appealProduct);
 router.patch('/:id', authenticate, productUploadMiddleware, productController.updateProduct);
 router.delete('/:id', authenticate, productController.deleteProduct);
 
