@@ -117,8 +117,15 @@ function CheckoutContent() {
   // Safe-Handoff Appointment & Meetup location state
   const [availableHubs, setAvailableHubs] = useState<SafeHandoffHubItem[]>([]);
   const [selectedHub, setSelectedHub] = useState<string>('Sảnh Tòa Alpha (Trạm camera 24/7 & bàn test)');
-  const [appointmentDate, setAppointmentDate] = useState<'today' | 'tomorrow'>('today');
-  const [appointmentSlot, setAppointmentSlot] = useState<string>('16:30 - 17:15 (Sau ca 4)');
+  const [appointmentDate, setAppointmentDate] = useState<string>('today');
+  const [appointmentSlot, setAppointmentSlot] = useState<string>('16:30 - 17:15 (Chiều ca 4)');
+
+  const getDisplayDateText = (dateVal: string) => {
+    if (dateVal === 'today') return 'Hôm nay';
+    if (dateVal === 'tomorrow') return 'Ngày mai';
+    const parts = dateVal.split('-');
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateVal;
+  };
 
   // Delivery notes state
   const [deliveryNote, setDeliveryNote] = useState('Giao tại sảnh Dom B vào buổi chiều sau giờ học Capstone.');
@@ -227,7 +234,7 @@ function CheckoutContent() {
     let isMounted = true;
     if (isMeetup) {
       setShippingFee(0);
-      setEstimatedDays(`${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`);
+      setEstimatedDays(`${appointmentSlot} • ${getDisplayDateText(appointmentDate)}`);
       setTransitHub(`Safe-Point ${CAMPUS_NAMES[originCode] || originCode}`);
       return;
     }
@@ -309,6 +316,9 @@ function CheckoutContent() {
         const targetDate = new Date();
         if (appointmentDate === 'tomorrow') {
           targetDate.setDate(targetDate.getDate() + 1);
+        } else if (appointmentDate !== 'today') {
+          const p = appointmentDate.split('-').map(Number);
+          if (p.length === 3) targetDate.setFullYear(p[0], p[1] - 1, p[2]);
         }
         const hourMatch = appointmentSlot.match(/(\d{1,2}):(\d{2})/);
         if (hourMatch) {
@@ -718,7 +728,7 @@ function CheckoutContent() {
                       <label className="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase tracking-wider">
                         2. Chọn ngày gặp mặt:
                       </label>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => setAppointmentDate('today')}
@@ -728,23 +738,35 @@ function CheckoutContent() {
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          Hôm nay ({new Date().toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })})
+                          Hôm nay
                         </button>
                         <button
                           type="button"
                           onClick={() => setAppointmentDate('tomorrow')}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                          className={`flex-1 py-2 px-1.5 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
                             appointmentDate === 'tomorrow'
                               ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          Ngày mai ({(() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + 1);
-                            return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                          })()})
+                          Ngày mai
                         </button>
+                        <div
+                          className={`relative py-2 px-1.5 rounded-xl text-xs font-bold border transition cursor-pointer text-center flex items-center justify-center gap-1 ${
+                            appointmentDate !== 'today' && appointmentDate !== 'tomorrow'
+                              ? 'border-fpt-orange bg-orange-50 text-fpt-orange shadow-2xs'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{appointmentDate !== 'today' && appointmentDate !== 'tomorrow' ? getDisplayDateText(appointmentDate) : '📅 Chọn ngày'}</span>
+                          <input
+                            type="date"
+                            min={new Date().toISOString().split('T')[0]}
+                            value={appointmentDate !== 'today' && appointmentDate !== 'tomorrow' ? appointmentDate : ''}
+                            onChange={(e) => e.target.value && setAppointmentDate(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -778,18 +800,17 @@ function CheckoutContent() {
                   </div>
 
                   {/* Tóm tắt Cuộc hẹn */}
-                  <div className="rounded-xl bg-amber-50/80 border border-amber-200/80 p-3.5 flex items-start gap-3 text-xs text-amber-900">
-                    <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-extrabold text-amber-950">
-                        Lịch hẹn dự kiến: {appointmentSlot} • {appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}
+                  <div className="rounded-xl bg-orange-50/80 border border-orange-200/80 p-3 flex items-center justify-between text-xs text-orange-950">
+                    <div className="flex items-center gap-2.5">
+                      <Clock className="h-4 w-4 text-fpt-orange shrink-0" />
+                      <div>
+                        <div className="font-extrabold text-slate-900">
+                          Lịch hẹn Safe-Handoff: <span className="text-fpt-orange">{appointmentSlot} • {getDisplayDateText(appointmentDate)}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          📍 {selectedHub}
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-amber-800">
-                        📍 <strong>Địa điểm:</strong> {selectedHub}
-                      </div>
-                      <p className="text-[11px] text-amber-700 mt-1">
-                        Sau khi bấm <strong>Xác nhận đặt đơn</strong>, hệ thống tự động lưu lịch hẹn này vào đơn hàng và phát hành <strong>Mã QR Handshake + OTP 4 số</strong> để bạn mang đến trạm gặp người bán.
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -991,7 +1012,7 @@ function CheckoutContent() {
               </div>
 
               <div className="mt-4 space-y-4">
-                {/* OPTION 1: VIETQR NAPAS247 (PAYOS GATEWAY) - KHUYÊN DÙNG */}
+                {/* OPTION 1: THANH TOÁN BẰNG PAYOS */}
                 <div
                   onClick={() => setPaymentMethod('payos')}
                   className={`rounded-2xl border p-4 sm:p-5 transition-all cursor-pointer ${
@@ -1012,7 +1033,7 @@ function CheckoutContent() {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs sm:text-sm font-extrabold text-slate-900">
-                            Quét mã QR Ngân hàng (VietQR Napas 24/7 • Tự động khớp lệnh)
+                            Thanh toán bằng PayOS
                           </span>
                           <span className="rounded bg-fpt-orange px-2 py-0.5 text-[10px] font-bold text-white">
                             KHUYÊN DÙNG
@@ -1021,8 +1042,8 @@ function CheckoutContent() {
                             ESCROW BẢO HỘ 100%
                           </span>
                         </div>
-                        <p className="text-[11px] text-emerald-700 mt-1 font-medium">
-                          ⚡ Mở App Ngân hàng bất kỳ (VCB, MB, Techcom, BIDV,...) để quét • Khớp lệnh tự động trong 1-2 giây.
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                          Mở App Ngân hàng bất kỳ (VCB, MB, Techcom, BIDV,...) để quét mã VietQR Napas 24/7 • Tự động khớp lệnh trong 1-2 giây.
                         </p>
                       </div>
                     </div>
@@ -1036,41 +1057,6 @@ function CheckoutContent() {
                       ? 'Tiền chuyển vào tài khoản Escrow trung gian của Sàn FPT. Người bán chỉ được giải ngân sau khi xác thực mã QR Handshake hoặc OTP tại điểm hẹn.'
                       : 'Tiền chuyển đến tài khoản Escrow trung gian của Sàn FPT 5Campus Marketplace. Chỉ giải ngân cho người bán sau 48h kể từ khi sinh viên nhận hàng thành công và bấm "Đã kiểm tra OK".'}
                   </p>
-
-                  {/* PAYOS VIETQR INFO BOX */}
-                  {paymentMethod === 'payos' && (
-                    <div className="mt-3.5 ml-7 rounded-xl border border-orange-200/80 bg-orange-50/60 p-3.5 sm:p-4 text-xs space-y-2.5 animate-in fade-in duration-150">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-fpt-orange">
-                          <Sparkles className="h-4 w-4" />
-                        </div>
-                        <div className="space-y-1 flex-1">
-                          <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">
-                            Đối soát tự động qua Cổng thanh toán bảo mật PayOS (Napas 24/7):
-                          </h4>
-                          <p className="text-slate-600 text-xs leading-relaxed">
-                            Khi bạn bấm <strong className="text-fpt-orange">&quot;Xác nhận đặt đơn&quot;</strong>, hệ thống sẽ kết nối với PayOS để hiển thị mã VietQR động chính thức. Khi bạn chuyển khoản xong, máy chủ sẽ tự động nhận Webhook và chuyển trạng thái thành công ngay lập tức mà không cần chụp lại ảnh biên lai.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-orange-200/60 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-600">
-                        <span className="font-medium flex items-center gap-1.5 text-emerald-800">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                          </span>
-                          Tự động kích hoạt bảo chứng Escrow ngay khi tiền tới
-                        </span>
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold">
-                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">MB Bank</span>
-                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Vietcombank</span>
-                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Techcombank</span>
-                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Napas247</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* OPTION 2: COD / CASH */}
