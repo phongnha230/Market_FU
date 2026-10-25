@@ -1976,10 +1976,11 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     asChild
                     variant="outline"
                     className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
+                    title="Yêu cầu trả hàng & hoàn tiền"
                   >
                     <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
                       <AlertTriangle className="h-4 w-4 text-rose-600" />
-                      <span>Khiếu nại</span>
+                      <span>{isInterCampusShipping ? 'Trả hàng & Hoàn tiền' : 'Trả hàng'}</span>
                     </Link>
                   </Button>
                 </div>
@@ -1999,10 +2000,11 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       asChild
                       variant="outline"
                       className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
+                      title="Yêu cầu trả hàng & hoàn tiền"
                     >
                       <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
                         <AlertTriangle className="h-4 w-4 text-rose-600" />
-                        <span>Khiếu nại</span>
+                        <span>{isInterCampusShipping ? 'Trả hàng' : 'Khiếu nại'}</span>
                       </Link>
                     </Button>
                   </div>
@@ -2021,10 +2023,11 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       asChild
                       variant="outline"
                       className="h-11 px-3 border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs shrink-0 flex items-center gap-1"
+                      title="Yêu cầu trả hàng & hoàn tiền"
                     >
                       <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
                         <AlertTriangle className="h-4 w-4 text-rose-600" />
-                        <span>Khiếu nại</span>
+                        <span>{isInterCampusShipping ? 'Trả hàng' : 'Khiếu nại'}</span>
                       </Link>
                     </Button>
                   </div>

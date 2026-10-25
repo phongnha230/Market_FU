@@ -52,6 +52,12 @@ function DisputeContent() {
   }, [orderCodeParam]);
 
   const matchedOrder = storeOrder || backendOrder;
+  const isInterCampus =
+    matchedOrder?.type === 'inter-campus' ||
+    (matchedOrder as any)?.orderType === 'SHIP_COD' ||
+    Boolean(matchedOrder?.shipping?.shippingPartner);
+  const buyerAddress = matchedOrder?.shipping?.shippingAddress || (matchedOrder as any)?.shippingAddress || '';
+  const sellerCampus = (matchedOrder as any)?.product?.campus || (matchedOrder as any)?.seller?.profile?.campus || 'Cần Thơ';
   const sellerName = matchedOrder?.product?.seller?.name || matchedOrder?.seller?.profile?.fullName || matchedOrder?.seller?.email || 'Người bán';
   const productTitle = matchedOrder?.product?.title || 'Sản phẩm';
 
@@ -93,7 +99,7 @@ function DisputeContent() {
     }
   }, [selectedReason, productTitle, sellerName, isCodOrder]);
 
-  const [dropoffPoint, setDropoffPoint] = useState<'library' | 'meet'>('library');
+  const [dropoffPoint, setDropoffPoint] = useState<string>('library');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedProofVideoUrl, setUploadedProofVideoUrl] = useState<string>('');
 
@@ -207,7 +213,9 @@ function DisputeContent() {
             Đơn #{orderCodeParam.replace('#', '')}
           </span>
           <span>&gt;</span>
-          <span className="font-bold text-fpt-orange">Khiếu nại & Yêu cầu Trả hàng</span>
+          <span className="font-bold text-fpt-orange">
+            {isInterCampus ? 'Yêu cầu Trả hàng & Hoàn tiền Liên Campus' : 'Khiếu nại & Yêu cầu Trả hàng'}
+          </span>
         </nav>
 
         {/* 2. EMERGENCY ESCROW HOLD BANNER */}
@@ -397,10 +405,14 @@ function DisputeContent() {
                   dropoffPoint={dropoffPoint}
                   onDropoffPointChange={setDropoffPoint}
                   isSubmitting={isSubmitting}
-                  sellerName={matchedOrder?.product.seller.name || 'NguyenVanAn'}
+                  sellerName={sellerName}
                   onShowToast={(msg) => showToast(msg, 'info')}
                   uploadedProofVideoUrl={uploadedProofVideoUrl}
                   onUploadedProofVideoUrlChange={setUploadedProofVideoUrl}
+                  isInterCampus={isInterCampus}
+                  buyerAddress={buyerAddress}
+                  sellerCampus={sellerCampus}
+                  orderCode={cleanCode}
                 />
               </form>
             )}

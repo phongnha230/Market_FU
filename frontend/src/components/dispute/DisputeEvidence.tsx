@@ -17,13 +17,17 @@ import { reportService } from '@/services/reportService';
 interface DisputeEvidenceProps {
   description: string;
   onDescriptionChange: (val: string) => void;
-  dropoffPoint: 'library' | 'meet';
-  onDropoffPointChange: (val: 'library' | 'meet') => void;
+  dropoffPoint: string;
+  onDropoffPointChange: (val: string) => void;
   isSubmitting: boolean;
   sellerName: string;
   onShowToast: (msg: string) => void;
   uploadedProofVideoUrl?: string;
   onUploadedProofVideoUrlChange?: (url: string) => void;
+  isInterCampus?: boolean;
+  buyerAddress?: string;
+  sellerCampus?: string;
+  orderCode?: string;
 }
 
 export default function DisputeEvidence({
@@ -36,6 +40,10 @@ export default function DisputeEvidence({
   onShowToast,
   uploadedProofVideoUrl,
   onUploadedProofVideoUrlChange,
+  isInterCampus,
+  buyerAddress,
+  sellerCampus = 'Cần Thơ',
+  orderCode = '',
 }: DisputeEvidenceProps) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
@@ -239,76 +247,150 @@ export default function DisputeEvidence({
       <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
         <div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900">
-            5. Lựa chọn địa điểm hoàn trả thiết bị
+            {isInterCampus
+              ? `5. Phương thức bưu tá lấy hàng chuyển hoàn về Campus ${sellerCampus}`
+              : '5. Lựa chọn địa điểm hoàn trả thiết bị'}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Sinh viên FPT được miễn 100% chi phí chuyển hoàn khi sử dụng trạm Safe-Handoff chính thức.
+            {isInterCampus
+              ? 'Miễn phí 100% cước chuyển hoàn bưu cục. Bưu tá GHN sẽ tiếp nhận và hoàn trả tận tay cho Người bán.'
+              : 'Sinh viên FPT được miễn 100% chi phí chuyển hoàn khi sử dụng trạm Safe-Handoff chính thức.'}
           </p>
         </div>
 
-        <div className="space-y-2.5 pt-1">
-          {/* Location 1 */}
-          <label
-            onClick={() => onDropoffPointChange('library')}
-            className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
-              dropoffPoint === 'library'
-                ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
-          >
-            <input
-              type="radio"
-              name="dropoffPoint"
-              checked={dropoffPoint === 'library'}
-              onChange={() => onDropoffPointChange('library')}
-              className="mt-1 text-fpt-orange focus:ring-fpt-orange"
-            />
-            <div className="flex-1">
-              <div className="flex items-center justify-between flex-wrap gap-1">
-                <span className="font-bold text-xs sm:text-sm text-slate-900">
-                  Trạm Safe-Handoff Point - Sảnh Thư viện Hòa Lạc
-                </span>
-                <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 border-none hover:bg-emerald-100">
-                  Mở cửa đến 21:00
-                </Badge>
+        {isInterCampus ? (
+          <div className="space-y-2.5 pt-1">
+            {/* Courier Pickup Option */}
+            <label
+              onClick={() => onDropoffPointChange('courier_pickup')}
+              className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+                dropoffPoint === 'courier_pickup' || dropoffPoint === 'library'
+                  ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="dropoffPoint"
+                checked={dropoffPoint === 'courier_pickup' || dropoffPoint === 'library'}
+                onChange={() => onDropoffPointChange('courier_pickup')}
+                className="mt-1 text-fpt-orange focus:ring-fpt-orange"
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    BƯU TÁ GHN ĐẾN LẤY HÀNG TẬN NƠI (MIỄN PHÍ 100%)
+                  </span>
+                  <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 border-none hover:bg-emerald-100">
+                    Được đề xuất
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Shipper GHN sẽ mang phiếu gửi đến lấy hàng tại:
+                  <span className="font-semibold text-slate-800 block mt-0.5">
+                    📍 {buyerAddress || 'Phòng 402, Dom B, KTX FPT Hòa Lạc (Hà Nội)'}
+                  </span>
+                  Mã vận đơn chuyển hoàn tự động: <strong className="font-mono text-fpt-orange">GHN-RETURN-{orderCode.replace(/^#/, '') || '568722'}</strong>
+                </p>
               </div>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Nhân viên CampusShip trực quầy sẽ in phiếu gửi, niêm phong hộp và điều phối bưu tá chuyển hoàn về cơ sở FPT TP.HCM hoàn toàn miễn phí.
-              </p>
-            </div>
-          </label>
+            </label>
 
-          {/* Location 2 */}
-          <label
-            onClick={() => onDropoffPointChange('meet')}
-            className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
-              dropoffPoint === 'meet'
-                ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            }`}
-          >
-            <input
-              type="radio"
-              name="dropoffPoint"
-              checked={dropoffPoint === 'meet'}
-              onChange={() => onDropoffPointChange('meet')}
-              className="mt-1 text-fpt-orange focus:ring-fpt-orange"
-            />
-            <div className="flex-1">
-              <div className="flex items-center justify-between flex-wrap gap-1">
-                <span className="font-bold text-xs sm:text-sm text-slate-900">
-                  Hẹn đối chất trực tuyến có Điều phối viên CTSV giám sát
-                </span>
-                <Badge className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 border-none hover:bg-blue-100">
-                  Google Meet FPT
-                </Badge>
+            {/* Post Office Dropoff Option */}
+            <label
+              onClick={() => onDropoffPointChange('post_office')}
+              className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+                dropoffPoint === 'post_office' || dropoffPoint === 'meet'
+                  ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="dropoffPoint"
+                checked={dropoffPoint === 'post_office' || dropoffPoint === 'meet'}
+                onChange={() => onDropoffPointChange('post_office')}
+                className="mt-1 text-fpt-orange focus:ring-fpt-orange"
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    TỰ MANG GỬI TẠI BƯU CỤC GHN GẦN NHẤT
+                  </span>
+                  <Badge className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 border-none hover:bg-blue-100">
+                    Chủ động thời gian
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Bạn mang kiện hàng ra bưu cục GHN Campus và xuất trình mã gửi hàng miễn cước để bưu cục điều phối chuyển hoàn về Campus {sellerCampus}.
+                </p>
               </div>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Phù hợp nếu bạn muốn thương lượng giữ màn hình và nhận bồi hoàn một phần tiền trực tiếp từ người bán.
-              </p>
-            </div>
-          </label>
-        </div>
+            </label>
+          </div>
+        ) : (
+          <div className="space-y-2.5 pt-1">
+            {/* Location 1 */}
+            <label
+              onClick={() => onDropoffPointChange('library')}
+              className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+                dropoffPoint === 'library'
+                  ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="dropoffPoint"
+                checked={dropoffPoint === 'library'}
+                onChange={() => onDropoffPointChange('library')}
+                className="mt-1 text-fpt-orange focus:ring-fpt-orange"
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    Trạm Safe-Handoff Point - Sảnh Thư viện Hòa Lạc
+                  </span>
+                  <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 border-none hover:bg-emerald-100">
+                    Mở cửa đến 21:00
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Nhân viên CampusShip trực quầy sẽ in phiếu gửi, niêm phong hộp và điều phối bưu tá chuyển hoàn về cơ sở FPT TP.HCM hoàn toàn miễn phí.
+                </p>
+              </div>
+            </label>
+
+            {/* Location 2 */}
+            <label
+              onClick={() => onDropoffPointChange('meet')}
+              className={`rounded-2xl border p-3.5 cursor-pointer transition flex items-start gap-3 ${
+                dropoffPoint === 'meet'
+                  ? 'border-fpt-orange bg-orange-50/50 ring-2 ring-orange-200'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="dropoffPoint"
+                checked={dropoffPoint === 'meet'}
+                onChange={() => onDropoffPointChange('meet')}
+                className="mt-1 text-fpt-orange focus:ring-fpt-orange"
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    Hẹn đối chất trực tuyến có Điều phối viên CTSV giám sát
+                  </span>
+                  <Badge className="rounded bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 border-none hover:bg-blue-100">
+                    Google Meet FPT
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Phù hợp nếu bạn muốn thương lượng giữ màn hình và nhận bồi hoàn một phần tiền trực tiếp từ người bán.
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
       </Card>
 
       {/* ACTION BUTTONS ROW */}
@@ -334,7 +416,11 @@ export default function DisputeEvidence({
             disabled={isSubmitting}
             className="h-auto rounded-xl bg-gradient-to-r from-orange-600 to-fpt-orange px-5 py-3 text-xs sm:text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:shadow-lg transition active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            {isSubmitting ? 'Đang gửi hồ sơ...' : 'Gửi yêu cầu Khiếu nại & Khóa Escrow'}
+            {isSubmitting
+              ? 'Đang gửi hồ sơ...'
+              : isInterCampus
+              ? 'Gửi yêu cầu Trả hàng & Khóa Escrow'
+              : 'Gửi yêu cầu Khiếu nại & Khóa Escrow'}
           </Button>
         </div>
       </Card>

@@ -477,10 +477,11 @@ export default function OrderCard({
                       asChild
                       variant="outline"
                       className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Yêu cầu trả hàng & hoàn tiền"
                     >
                       <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
                         <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Khiếu nại</span>
+                        <span>Yêu cầu trả hàng & hoàn tiền</span>
                       </Link>
                     </Button>
                   </>
@@ -499,10 +500,11 @@ export default function OrderCard({
                       asChild
                       variant="outline"
                       className="h-auto rounded-xl border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      title="Yêu cầu trả hàng & hoàn tiền"
                     >
                       <Link href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}>
                         <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Khiếu nại</span>
+                        <span>Yêu cầu trả hàng & hoàn tiền</span>
                       </Link>
                     </Button>
                   </>
