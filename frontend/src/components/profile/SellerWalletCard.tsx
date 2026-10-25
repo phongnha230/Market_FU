@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
 import { useWalletStore } from '@/stores/walletStore';
+import { useOrderStore } from '@/stores/orderStore';
 import { orderService } from '@/services/orderService';
 import WithdrawalModal from '@/components/modals/WithdrawalModal';
 

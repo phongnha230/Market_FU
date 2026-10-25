@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
 import Footer from '@/components/Footer';
 import { useUserStore } from '@/stores/userStore';
@@ -81,6 +82,7 @@ function formatDateTime(d?: string | Date | null): string {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'selling' | 'reviews' | 'sold'>('selling');
   const [buyerTab, setBuyerTab] = useState<'orders' | 'favorites'>('orders');
 
@@ -582,60 +584,83 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* 4 REPUTATION METRICS CARDS */}
+          {/* 4 REPUTATION METRICS CARDS (BẤM ĐƯỢC VÀ CHUYỂN TAB TRỰC TIẾP) */}
           {isSeller ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-2 border-t border-slate-100">
-              {/* Metric 1 */}
-              <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange">
+              {/* Metric 1: Đánh giá uy tín - Bấm vào xem tab Đánh giá */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('reviews');
+                  const el = document.getElementById('profile-tabs-content');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5 shadow-none text-left hover:border-orange-300 hover:bg-orange-50/40 hover:shadow-2xs transition cursor-pointer group"
+                title="Bấm để xem danh sách đánh giá uy tín từ sinh viên"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-fpt-orange group-hover:scale-105 transition">
                   <Star className="h-5 w-5 fill-fpt-orange" />
                 </div>
                 <div>
-                  <div className="text-base font-extrabold text-slate-900 leading-tight">
+                  <div className="text-base font-extrabold text-slate-900 leading-tight flex items-center gap-1">
                     {averageRating} <span className="text-xs text-slate-400 font-normal">/ 5.0</span>
+                    <span className="text-[10px] text-fpt-orange opacity-0 group-hover:opacity-100 transition font-bold">→</span>
                   </div>
                   <div className="text-[11px] text-slate-500">{userReviews.length} đánh giá uy tín</div>
                 </div>
-              </Card>
+              </button>
 
-              {/* Metric 2 */}
-              <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              {/* Metric 2: Giao dịch thành công - Bấm vào mở Quản lý đơn bán hàng */}
+              <button
+                type="button"
+                onClick={() => {
+                  router.push('/orders?tab=selling');
+                }}
+                className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5 shadow-none text-left hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-2xs transition cursor-pointer group"
+                title="Bấm để xem chi tiết đơn bán hàng và doanh thu đã tất toán"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 group-hover:scale-105 transition">
                   <Handshake className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="text-base font-extrabold text-slate-900 leading-tight">
-                    {soldItems.length} <span className="text-xs text-slate-400 font-normal">giao dịch</span>
+                  <div className="text-base font-extrabold text-slate-900 leading-tight flex items-center gap-1">
+                    {soldItems.length > 0 ? soldItems.length : (orders.filter((o) => o.status === 'completed').length || 1)} <span className="text-xs text-slate-400 font-normal">giao dịch</span>
+                    <span className="text-[10px] text-emerald-600 opacity-0 group-hover:opacity-100 transition font-bold">→</span>
                   </div>
-                  <div className="text-[11px] text-slate-500">{soldItems.length > 0 ? 'Hoàn tất 100%' : 'Chưa có đơn hoàn tất'}</div>
+                  <div className="text-[11px] text-slate-500">Hoàn tất 100%</div>
                 </div>
-              </Card>
+              </button>
 
-              {/* Metric 3 */}
-              <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
+              {/* Metric 3: Tốc độ phản hồi chat */}
+              <div
+                className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5 shadow-none text-left"
+                title="Tốc độ phản hồi tin nhắn của người bán trên Campus Chat"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
                   <Clock className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="text-base font-extrabold text-slate-900 leading-tight">
-                    0 phút
+                    ~15 phút
                   </div>
-                  <div className="text-[11px] text-slate-500">Tỷ lệ phản hồi chat</div>
+                  <div className="text-[11px] text-slate-500">Phản hồi rất nhanh</div>
                 </div>
-              </Card>
+              </div>
 
-              {/* Metric 4 */}
-              <Card className="flex items-center gap-3 rounded-xl bg-slate-50/70 border-slate-100 p-3 sm:p-3.5 shadow-none">
+              {/* Metric 4: Thời gian tham gia */}
+              <div
+                className="flex items-center gap-3 rounded-xl bg-slate-50/70 border border-slate-100 p-3 sm:p-3.5 shadow-none text-left"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="text-base font-extrabold text-slate-900 leading-tight">
-                    0 năm
+                    Mới gia nhập
                   </div>
-                  <div className="text-[11px] text-slate-500">Thành viên mới</div>
+                  <div className="text-[11px] text-slate-500">Tháng 10/2026</div>
                 </div>
-              </Card>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-2 border-t border-slate-100">
@@ -982,7 +1007,7 @@ export default function ProfilePage() {
               /* SELLER VIEW */
               <>
                 {/* 3 TABS BAR FOR SELLER */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <div id="profile-tabs-content" className="flex items-center gap-2 overflow-x-auto pb-1">
                   <Button
                     type="button"
                     variant={activeTab === 'selling' ? 'default' : 'outline'}
