@@ -102,7 +102,7 @@ export default function ChatSidebar({
   }, [tabs, filterTab, onFilterChange]);
 
   return (
-    <div className={`border-r border-slate-200 flex flex-col h-full min-h-0 bg-white ${className || 'lg:col-span-4'}`}>
+    <div className={`border-r border-slate-200 flex flex-col h-full min-h-0 bg-white ${className || ''}`}>
 
       {/* Header */}
       <div className="shrink-0 p-3.5 sm:p-4 border-b border-slate-100">

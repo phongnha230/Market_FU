@@ -683,10 +683,10 @@ function ChatContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[640px]">
+        <div className="flex rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[580px] w-full">
           {/* LEFT COLUMN: INBOX & THREADS (4 COLS) */}
           <ChatSidebar
-            className={`lg:col-span-4 ${showMobileChat ? 'hidden lg:flex' : 'flex'} w-full`}
+            className={`w-full lg:w-96 lg:shrink-0 h-full ${showMobileChat ? 'hidden lg:flex' : 'flex'}`}
             conversations={conversations}
             selectedConvId={selectedConvId}
             onSelectConv={(id) => {
@@ -714,7 +714,7 @@ function ChatContent() {
           />
 
           {/* RIGHT COLUMN: ACTIVE CHAT ROOM (8 COLS) */}
-          <div className={`lg:col-span-8 ${showMobileChat ? 'flex' : 'hidden lg:flex'} flex-col h-full min-h-0 bg-[#FAFAFC] overflow-hidden w-full`}>
+          <div className={`flex-1 h-full min-w-0 bg-[#FAFAFC] ${showMobileChat ? 'flex' : 'hidden lg:flex'} flex-col overflow-hidden`}>
             {activeConv ? (
               <>
                 {/* Header User Bar */}

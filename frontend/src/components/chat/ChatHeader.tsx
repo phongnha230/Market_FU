@@ -32,10 +32,11 @@ export default function ChatHeader({
           <button
             type="button"
             onClick={onBack}
-            className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
-            title="Quay lại danh sách tin nhắn"
+            className="lg:hidden flex items-center gap-1 -ml-1 mr-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-orange-50 hover:text-fpt-orange hover:border-orange-200 font-bold text-xs transition cursor-pointer shrink-0 shadow-2xs active:scale-95"
+            title="Quay lại danh sách hội thoại"
           >
-            <ArrowLeft className="h-5 w-5 text-slate-700" />
+            <ArrowLeft className="h-4 w-4" />
+            <span>Quay lại</span>
           </button>
         )}
         <div className="relative h-10 w-10 shrink-0">
