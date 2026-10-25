@@ -162,7 +162,7 @@ export const InterCampusTransactionScreen: React.FC = () => {
 
   const activeSealCode = trackingData?.sealCode || 'FPT-88921';
   const shippingPartner = trackingData?.shippingPartner || 'FPT Bus Express';
-  const trackingCode = trackingData?.trackingCode || orderId;
+  const trackingCode = trackingData?.trackingCode || undefined;
   const ghnLogs = trackingData?.ghnLogs || [];
 
   const handleConfirmReceived = () => {
@@ -230,7 +230,9 @@ export const InterCampusTransactionScreen: React.FC = () => {
 
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Hành Trình Vận Đơn Liên Campus</Text>
-          <Text style={styles.headerSub}>Mã vận đơn: {trackingCode}</Text>
+          <Text style={styles.headerSub}>
+            Mã vận đơn: {trackingCode ? trackingCode : 'Chưa tạo mã (Chờ bàn giao)'}
+          </Text>
         </View>
 
         <TouchableOpacity

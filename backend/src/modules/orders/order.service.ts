@@ -1600,7 +1600,8 @@ export class OrderService {
       toCampus,
     });
 
-    const isShipped = order.status === 'SHIPPING' || order.status === 'DELIVERED' || order.status === 'COMPLETED';
+    const hasDispatchedToShipping = Boolean(order.shipping?.trackingCode && order.shipping.trackingCode.trim().length > 0);
+    const isShipped = hasDispatchedToShipping && (order.status === 'SHIPPING' || order.status === 'DELIVERED' || order.status === 'COMPLETED');
     const isDelivered = order.status === 'DELIVERED' || order.status === 'COMPLETED';
 
     const isMeetup =
@@ -1680,16 +1681,16 @@ export class OrderService {
             title: 'Đóng gói & Bưu tá nhận',
             desc: isShipped
               ? `Đã bàn giao bưu cục (${partner})`
-              : isProcessing
+              : (order.status === 'SHIPPING' || isProcessing || isPaid)
               ? 'Người bán đã nhận đơn & đang đóng gói kiện hàng'
               : 'Chờ người bán xác nhận và đóng gói',
-            status: isShipped ? 'completed' : isProcessing ? 'current' : 'pending',
+            status: isShipped ? 'completed' : (order.status === 'SHIPPING' || isProcessing || isPaid) ? 'current' : 'pending',
             time: isShipped && order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
           },
           {
             title: 'Trung chuyển liên Campus',
             desc: isShipped ? (ghnData?.currentLocation || matrixInfo.transitHub) : `Tuyến ${matrixInfo.routeTitle}`,
-            status: order.status === 'SHIPPING' ? 'current' : isDelivered ? 'completed' : 'pending',
+            status: isDelivered ? 'completed' : isShipped ? 'current' : 'pending',
           },
           {
             title: 'Giao hàng tới KTX',
@@ -1707,7 +1708,7 @@ export class OrderService {
       shippingPartner: isMeetup ? 'Safe-Point FPT (Giao dịch trực tiếp)' : partner,
       trackingCode: isMeetup
         ? (order.handshake?.handshakeOtp ? `OTP-${order.handshake.handshakeOtp}` : order.orderCode)
-        : trackingCode,
+        : (order.shipping?.trackingCode || undefined),
       shippingAddress: isMeetup ? safePointName : (order.shipping?.shippingAddress || (order.shipping as any)?.meetupLocation),
       receiverName: order.shipping?.receiverName,
       receiverPhone: order.shipping?.receiverPhone,
