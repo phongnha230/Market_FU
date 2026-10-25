@@ -93,6 +93,16 @@ function ChatContent() {
   const [inputText, setInputText] = useState('');
   const [isTypingOther, setIsTypingOther] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
   const processedUrlParamRef = useRef<string | null>(null);
@@ -684,138 +694,252 @@ function ChatContent() {
         )}
 
         <div className="flex rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[580px] w-full">
-          {/* LEFT COLUMN: INBOX & THREADS (4 COLS) */}
-          <ChatSidebar
-            className={`w-full lg:w-96 lg:shrink-0 h-full ${showMobileChat ? 'hidden lg:flex' : 'flex'}`}
-            conversations={conversations}
-            selectedConvId={selectedConvId}
-            onSelectConv={(id) => {
-              setSelectedConvId(id);
-              setShowMobileChat(true);
-              chatStore.setActiveConversation(id);
-              setConversations((prev) =>
-                prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
-              );
-            }}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            filterTab={filterTab}
-            onFilterChange={setFilterTab}
-            onMarkAllRead={() => {
-              chatStore.markAllAsRead();
-              setConversations((prev) =>
-                prev.map((c) => ({ ...c, unreadCount: 0 }))
-              );
-              showToast('Đã đánh dấu tất cả cuộc trò chuyện là đã đọc.', 'success');
-            }}
-            onShowToast={(msg) => showToast(msg, 'info')}
-            isSeller={isSeller}
-            onDeleteConv={handleDeleteConversation}
-          />
-
-          {/* RIGHT COLUMN: ACTIVE CHAT ROOM (8 COLS) */}
-          <div className={`flex-1 h-full min-w-0 bg-[#FAFAFC] ${showMobileChat ? 'flex' : 'hidden lg:flex'} flex-col overflow-hidden`}>
-            {activeConv ? (
-              <>
-                {/* Header User Bar */}
-                <ChatHeader
-                  conversation={activeConv}
-                  onShowToast={(msg) => showToast(msg, 'info')}
-                  onDeleteConv={handleDeleteConversation}
-                  onBack={() => setShowMobileChat(false)}
-                />
-
-                {/* Pinned Product Bar */}
-                {(() => {
-                  const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
-                    .reverse()
-                    .find((m) => m.isOfferAccepted);
-                  const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
-                    (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
-
-                  const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
-                    .reverse()
-                    .find((m) => m.text?.includes('[ORDER_CREATED]'));
-                  const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
-                    .reverse()
-                    .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
-
-                  const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
-                  const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
-                  const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
-                  const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
-                  const isInterCampusOrder = Boolean(
-                    lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
-                    lastOrderCreatedMsg?.text?.toLowerCase().includes('liên campus') ||
-                    isInterCampusChat
+          {/* 1. MÀN HÌNH DI ĐỘNG / TABLET / CỬA SỔ THU NHỎ (< 1024px): CHUẨN ZALO 100% */}
+          {isMobile ? (
+            !showMobileChat ? (
+              /* MÀN HÌNH 1 (Ảnh 2 Zalo): CHỈ HIỂN THỊ DANH SÁCH TIN NHẮN 100% */
+              <ChatSidebar
+                className="w-full h-full flex flex-col"
+                conversations={conversations}
+                selectedConvId={selectedConvId}
+                onSelectConv={(id) => {
+                  setSelectedConvId(id);
+                  setShowMobileChat(true);
+                  chatStore.setActiveConversation(id);
+                  setConversations((prev) =>
+                    prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
                   );
-
-                  return (
-                    <PinnedProductBar
-                      product={activeConv.pinnedProduct}
-                      partnerName={activeConv.name}
-                      agreedPrice={activeAgreedPrice}
-                      isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
-                      hasActiveOrder={hasActiveOrder}
-                      activeOrderCode={activeOrderCode}
-                      isInterCampus={isInterCampusOrder}
-                      onOfferPrice={(offer) => {
-                        const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
-                        chatStore.sendOfferPrice(activeConv.id, numericPrice);
-                        showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
-                      }}
-                      onScheduleMeeting={() => {
-                        const defaultLocation = 'Sảnh Alpha / Cổng KTX';
-                        chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
-                        showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
-                      }}
-                    />
+                }}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filterTab={filterTab}
+                onFilterChange={setFilterTab}
+                onMarkAllRead={() => {
+                  chatStore.markAllAsRead();
+                  setConversations((prev) =>
+                    prev.map((c) => ({ ...c, unreadCount: 0 }))
                   );
-                })()}
-
-                {/* Messages History */}
-                <MessageHistory
-                  messages={activeConv.messages}
-                  partnerName={activeConv.name}
-                  partnerAvatar={activeConv.avatar}
-                  isTyping={isTypingOther}
-                  containerRef={chatMessagesContainerRef}
-                  productId={activeConv.pinnedProduct?.id}
-                  productStatus={activeConv.pinnedProduct?.status}
-                  isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
-                  onAcceptOffer={handleAcceptOffer}
-                  onRejectOffer={handleRejectOffer}
-                />
-
-                {/* Chat Input Bar with Quick Chips */}
-                <ChatInputBar
-                  inputText={inputText}
-                  onInputChange={setInputText}
-                  onSendMessage={handleSendMessage}
-                  onSendImage={handleSendImage}
-                  quickChips={quickChips}
-                  partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
-                  onShowToast={(msg) => showToast(msg, 'info')}
-                />
-              </>
+                  showToast('Đã đánh dấu tất cả cuộc trò chuyện là đã đọc.', 'success');
+                }}
+                onShowToast={(msg) => showToast(msg, 'info')}
+                isSeller={isSeller}
+                onDeleteConv={handleDeleteConversation}
+              />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
-                <div className="h-16 w-16 rounded-full bg-orange-100 flex items-center justify-center text-fpt-orange mb-4">
-                  <MessageSquare className="h-8 w-8" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-1">Chưa có cuộc trò chuyện nào</h3>
-                <p className="text-sm max-w-sm text-slate-500 mb-6">
-                  Tìm kiếm món đồ bạn thích trên sàn và bấm &quot;Nhắn tin&quot; với Người bán để thương lượng hoặc hẹn điểm gặp tại campus.
-                </p>
-                <Link
-                  href="/posts"
-                  className="rounded-xl bg-fpt-orange px-5 py-2.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-xs"
-                >
-                  Khám phá tin đăng
-                </Link>
+              /* MÀN HÌNH 2 (Ảnh 3 Zalo): CHỈ HIỂN THỊ KHUNG CHAT CHI TIẾT 100% KÈM NÚT QUAY LẠI */
+              <div className="w-full h-full flex flex-col bg-[#FAFAFC] overflow-hidden">
+                {activeConv ? (
+                  <>
+                    <ChatHeader
+                      conversation={activeConv}
+                      onShowToast={(msg) => showToast(msg, 'info')}
+                      onDeleteConv={handleDeleteConversation}
+                      onBack={() => setShowMobileChat(false)}
+                    />
+
+                    {(() => {
+                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferAccepted);
+                      const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
+                        (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
+
+                      const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.text?.includes('[ORDER_CREATED]'));
+                      const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
+
+                      const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
+                      const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
+                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
+                      const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
+                      const isInterCampusOrder = Boolean(
+                        lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
+                        lastOrderCreatedMsg?.text?.toLowerCase().includes('liên campus') ||
+                        isInterCampusChat
+                      );
+
+                      return (
+                        <PinnedProductBar
+                          product={activeConv.pinnedProduct}
+                          partnerName={activeConv.name}
+                          agreedPrice={activeAgreedPrice}
+                          isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
+                          hasActiveOrder={hasActiveOrder}
+                          activeOrderCode={activeOrderCode}
+                          isInterCampus={isInterCampusOrder}
+                          onOfferPrice={(offer) => {
+                            const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
+                            chatStore.sendOfferPrice(activeConv.id, numericPrice);
+                            showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
+                          }}
+                          onScheduleMeeting={() => {
+                            const defaultLocation = 'Sảnh Alpha / Cổng KTX';
+                            chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
+                            showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
+                          }}
+                        />
+                      );
+                    })()}
+
+                    <MessageHistory
+                      messages={activeConv.messages}
+                      partnerName={activeConv.name}
+                      partnerAvatar={activeConv.avatar}
+                      isTyping={isTypingOther}
+                      containerRef={chatMessagesContainerRef}
+                      productId={activeConv.pinnedProduct?.id}
+                      productStatus={activeConv.pinnedProduct?.status}
+                      isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
+                      onAcceptOffer={handleAcceptOffer}
+                      onRejectOffer={handleRejectOffer}
+                    />
+
+                    <ChatInputBar
+                      inputText={inputText}
+                      onInputChange={setInputText}
+                      onSendMessage={handleSendMessage}
+                      onSendImage={handleSendImage}
+                      quickChips={quickChips}
+                      partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
+                      onShowToast={(msg) => showToast(msg, 'info')}
+                    />
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400">
+                    <p className="text-sm font-semibold">Chưa chọn cuộc trò chuyện nào</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileChat(false)}
+                      className="mt-3 px-4 py-2 bg-fpt-orange text-white rounded-xl text-xs font-bold"
+                    >
+                      Quay lại danh sách
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          ) : (
+            /* 2. MÀN HÌNH MÁY TÍNH LỚN (DESKTOP ≥ 1024px): 2 CỘT SONG SONG */
+            <>
+              {/* LEFT COLUMN: INBOX & THREADS (w-96) */}
+              <ChatSidebar
+                className="w-96 shrink-0 h-full border-r border-slate-200 flex flex-col"
+                conversations={conversations}
+                selectedConvId={selectedConvId}
+                onSelectConv={(id) => {
+                  setSelectedConvId(id);
+                  chatStore.setActiveConversation(id);
+                  setConversations((prev) =>
+                    prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
+                  );
+                }}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filterTab={filterTab}
+                onFilterChange={setFilterTab}
+                onMarkAllRead={() => {
+                  chatStore.markAllAsRead();
+                  setConversations((prev) =>
+                    prev.map((c) => ({ ...c, unreadCount: 0 }))
+                  );
+                  showToast('Đã đánh dấu tất cả cuộc trò chuyện là đã đọc.', 'success');
+                }}
+                onShowToast={(msg) => showToast(msg, 'info')}
+                isSeller={isSeller}
+                onDeleteConv={handleDeleteConversation}
+              />
+
+              {/* RIGHT COLUMN: ACTIVE CHAT ROOM (flex-1) */}
+              <div className="flex-1 h-full min-w-0 bg-[#FAFAFC] flex flex-col overflow-hidden">
+                {activeConv ? (
+                  <>
+                    <ChatHeader
+                      conversation={activeConv}
+                      onShowToast={(msg) => showToast(msg, 'info')}
+                      onDeleteConv={handleDeleteConversation}
+                    />
+
+                    {(() => {
+                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferAccepted);
+                      const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
+                        (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
+
+                      const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.text?.includes('[ORDER_CREATED]'));
+                      const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
+
+                      const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
+                      const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
+                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
+                      const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
+                      const isInterCampusOrder = Boolean(
+                        lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
+                        lastOrderCreatedMsg?.text?.toLowerCase().includes('liên campus') ||
+                        isInterCampusChat
+                      );
+
+                      return (
+                        <PinnedProductBar
+                          product={activeConv.pinnedProduct}
+                          partnerName={activeConv.name}
+                          agreedPrice={activeAgreedPrice}
+                          isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
+                          hasActiveOrder={hasActiveOrder}
+                          activeOrderCode={activeOrderCode}
+                          isInterCampus={isInterCampusOrder}
+                          onOfferPrice={(offer) => {
+                            const numericPrice = parseInt(offer.replace(/[^0-9]/g, ''), 10) || 0;
+                            chatStore.sendOfferPrice(activeConv.id, numericPrice);
+                            showToast(`Đã gửi đề nghị giá ${offer} tới ${activeConv.name}`, 'success');
+                          }}
+                          onScheduleMeeting={() => {
+                            const defaultLocation = 'Sảnh Alpha / Cổng KTX';
+                            chatStore.proposeMeetupLocation(activeConv.id, defaultLocation);
+                            showToast('Đã gửi lời hẹn điểm nhận đồ trực tiếp tại khuôn viên campus.', 'info');
+                          }}
+                        />
+                      );
+                    })()}
+
+                    <MessageHistory
+                      messages={activeConv.messages}
+                      partnerName={activeConv.name}
+                      partnerAvatar={activeConv.avatar}
+                      isTyping={isTypingOther}
+                      containerRef={chatMessagesContainerRef}
+                      productId={activeConv.pinnedProduct?.id}
+                      productStatus={activeConv.pinnedProduct?.status}
+                      isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
+                      onAcceptOffer={handleAcceptOffer}
+                      onRejectOffer={handleRejectOffer}
+                    />
+
+                    <ChatInputBar
+                      inputText={inputText}
+                      onInputChange={setInputText}
+                      onSendMessage={handleSendMessage}
+                      onSendImage={handleSendImage}
+                      quickChips={quickChips}
+                      partnerFirstName={activeConv.name.split(' ').slice(-1)[0]}
+                      onShowToast={(msg) => showToast(msg, 'info')}
+                    />
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400">
+                    <p className="text-sm font-semibold">Chọn một cuộc trò chuyện để bắt đầu nhắn tin</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </main>
       </div>
