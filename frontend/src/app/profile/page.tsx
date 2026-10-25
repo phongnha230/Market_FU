@@ -1309,6 +1309,12 @@ export default function ProfilePage() {
                                 </p>
                               )}
 
+                              {rev.proofVideoUrl && (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
+                                  <span>🎥 Đã đính kèm video kiểm tra đồ (+200 Xu)</span>
+                                </div>
+                              )}
+
                               {rev.replyComment && (
                                 <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 space-y-1 ml-2 border-l-4 border-l-fpt-orange">
                                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900">
@@ -1322,12 +1328,6 @@ export default function ProfilePage() {
                                   <p className="text-xs text-slate-800 italic bg-white/80 p-2 rounded-lg border border-orange-100">
                                     &quot;{rev.replyComment}&quot;
                                   </p>
-                                </div>
-                              )}
-
-                              {rev.proofVideoUrl && (
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
-                                  <span>🎥 Đã đính kèm video kiểm tra đồ (+200 Xu)</span>
                                 </div>
                               )}
 

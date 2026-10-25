@@ -113,7 +113,7 @@ const OrderCardItem: React.FC<{
           <Text style={styles.partnerText}>
             {isSaleForCurrent
               ? `Người mua: ${item.buyerName || 'Sinh viên FPT'}`
-              : `Người bán: ${item.sellerName} (${item.sellerCampus || 'Hòa Lạc'})`}
+              : `👤 Người bán: ${item.sellerName} (${item.sellerCampus || 'Hòa Lạc'}) • Chạm xem Shop`}
           </Text>
           <View style={styles.safePointRow}>
             <Ionicons name="location-outline" size={12} color="#059669" />

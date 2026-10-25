@@ -18,8 +18,8 @@ export const SellerProductsGrid: React.FC<SellerProductsGridProps> = ({
     return (
       <View style={styles.emptyState}>
         <Ionicons name="cube-outline" size={48} color="#94A3B8" />
-        <Text style={styles.emptyTitle}>Chưa có món đồ nào đang bán</Text>
-        <Text style={styles.emptySub}>Người bán này hiện đã bán hết các món đồ đăng tải.</Text>
+        <Text style={styles.emptyTitle}>Shop hiện đang tạm hết hàng</Text>
+        <Text style={styles.emptySub}>Người bán này hiện đã bán hết các món đồ đăng tải. Lịch sử giao dịch Safe-Point và đánh giá uy tín vẫn được bảo lưu 100% bên dưới!</Text>
       </View>
     );
   }

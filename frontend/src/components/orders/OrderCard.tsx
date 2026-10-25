@@ -16,6 +16,7 @@ import {
   QrCode,
   XCircle,
   ShieldCheck,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 
@@ -206,8 +207,17 @@ export default function OrderCard({
                 👤 Khách mua: <strong>{(order as any).buyer?.fullName || (order as any).buyer?.profile?.fullName || (order as any).buyer?.email || 'Sinh viên FPT'}</strong>
               </span>
             ) : (
-              <span>
-                👤 Người bán: <strong>{(order as any).seller?.fullName || order.product.seller.name}</strong> ({order.product.seller.cohortCampus})
+              <span className="inline-flex items-center gap-1 flex-wrap">
+                <span>👤 Người bán:</span>
+                <Link
+                  href={`/sellers/${(order as any).sellerId || (order.product?.seller as any)?.id || ''}`}
+                  className="font-bold text-slate-900 hover:text-fpt-orange hover:underline inline-flex items-center gap-0.5 transition"
+                  title="Ghé thăm hồ sơ & đánh giá của Người bán"
+                >
+                  {(order as any).seller?.fullName || order.product.seller.name}
+                  <ExternalLink className="h-3 w-3 text-slate-400" />
+                </Link>
+                <span className="text-slate-500">({order.product.seller.cohortCampus})</span>
               </span>
             )}
             <span className="text-emerald-600 flex items-center gap-1 font-medium">

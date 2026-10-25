@@ -520,6 +520,37 @@ export class ReviewService {
       },
     });
 
+    // Gửi thông báo tới Người mua khi Người bán phản hồi
+    const buyerId = order?.buyerId || (review.reviewerId !== sellerId ? review.reviewerId : null);
+    if (buyerId) {
+      prisma.user
+        .findUnique({
+          where: { id: sellerId },
+          select: { profile: { select: { fullName: true } }, email: true },
+        })
+        .then((sellerUser) => {
+          const sellerName = sellerUser?.profile?.fullName || sellerUser?.email?.split('@')[0] || 'Người bán';
+          const snippet =
+            replyComment.trim().length > 60
+              ? `${replyComment.trim().slice(0, 57)}...`
+              : replyComment.trim();
+
+          const targetSellerId = effectiveSellerId || sellerId;
+          const targetUrl = `/sellers/${targetSellerId}?tab=reviews&highlightReview=${review.id}`;
+
+          return notificationService.sendNotification({
+            userId: buyerId,
+            title: `💬 ${sellerName} đã phản hồi đánh giá của bạn`,
+            body: `"${snippet}"`,
+            type: 'ORDER',
+            targetUrl,
+          });
+        })
+        .catch((err) => {
+          console.warn('⚠️ [Review Reply Notification Error]:', err?.message);
+        });
+    }
+
     return updated;
   }
 }

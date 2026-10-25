@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
@@ -37,6 +37,7 @@ import {
   Lock,
   Unlock,
   Edit3,
+  Bell,
 } from 'lucide-react';
 import { Badge, Button, Card } from '@/components/ui';
 
@@ -80,6 +81,9 @@ function formatDateTime(d?: string | Date | null): string {
 export default function SellerProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightReviewParam = searchParams?.get('highlightReview') || searchParams?.get('reviewId') || '';
+  const tabParam = searchParams?.get('tab') || '';
   const rawId = (params?.id as string) || '';
   const decodedId = decodeURIComponent(rawId);
 
@@ -95,7 +99,6 @@ export default function SellerProfilePage() {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [onlyHasImages, setOnlyHasImages] = useState(false);
   const [selectedProofImage, setSelectedProofImage] = useState<string | null>(null);
-
   const [sellerData, setSellerData] = useState<{
     id: string;
     name: string;
@@ -126,6 +129,67 @@ export default function SellerProfilePage() {
     joinedDate: 'Tháng 10/2026',
     bio: 'Sinh viên Đại học FPT giao lưu pass đồ tử tế, hỗ trợ test máy trực tiếp tại Safe-Point campus.',
   });
+
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  // Tự động chuyển sang tab Đánh giá khi có link highlight từ thông báo
+  useEffect(() => {
+    if (tabParam === 'reviews' || highlightReviewParam) {
+      setActiveTab('reviews');
+    }
+  }, [tabParam, highlightReviewParam]);
+
+  // Cuộn mượt đến review được highlight từ thông báo
+  useEffect(() => {
+    if (highlightReviewParam && activeTab === 'reviews') {
+      const t = setTimeout(() => {
+        const el = document.getElementById(`review-${highlightReviewParam}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [highlightReviewParam, activeTab]);
+
+  // Khôi phục trạng thái theo dõi người bán từ localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sellerData.id) {
+      try {
+        const saved = localStorage.getItem('followed_sellers');
+        if (saved) {
+          const list = JSON.parse(saved);
+          setIsFollowing(Array.isArray(list) && list.includes(sellerData.id));
+        }
+      } catch {}
+    }
+  }, [sellerData.id]);
+
+  const handleToggleFollow = () => {
+    if (!isLoggedIn) {
+      showToast('🔒 Vui lòng đăng nhập để theo dõi người bán!', 'warning');
+      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    if (typeof window !== 'undefined' && sellerData.id) {
+      try {
+        const saved = localStorage.getItem('followed_sellers');
+        let list = saved ? JSON.parse(saved) : [];
+        if (!Array.isArray(list)) list = [];
+        if (isFollowing) {
+          list = list.filter((id: string) => id !== sellerData.id);
+          setIsFollowing(false);
+          showToast(`Đã hủy theo dõi shop ${sellerData.name}`);
+        } else {
+          if (!list.includes(sellerData.id)) list.push(sellerData.id);
+          setIsFollowing(true);
+          showToast(`🎉 Đã theo dõi shop ${sellerData.name}! Bạn sẽ nhận thông báo khi shop có đồ mới.`);
+        }
+        localStorage.setItem('followed_sellers', JSON.stringify(list));
+      } catch {}
+    }
+  };
+
 
   const [sellerProducts, setSellerProducts] = useState<ProductItem[]>([]);
   const [sellerReviews, setSellerReviews] = useState<SellerReviewItem[]>([]);
@@ -679,18 +743,32 @@ export default function SellerProfilePage() {
                   <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
                     <Package className="w-6 h-6" />
                   </div>
-                  <h3 className="text-base font-bold text-slate-800 mb-1">
-                    Hiện chưa có sản phẩm nào đang rao bán
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 mb-1">
+                    Shop hiện đang tạm hết hàng
                   </h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
-                    Người bán này chưa đăng món đồ mới hoặc các món đồ trước đó đã được giao dịch thành công.
+                  <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-5 leading-relaxed">
+                    Người bán này đã bán hết các món đồ đăng tải. Toàn bộ lịch sử giao dịch và đánh giá uy tín vẫn được bảo lưu công khai 100%. Hãy bấm <strong>Theo dõi</strong> hoặc <strong>Nhắn tin</strong> để đặt trước khi shop có hàng mới nhé!
                   </p>
-                  <Link
-                    href="/posts"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
-                  >
-                    Khám phá sản phẩm khác trên sàn
-                  </Link>
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    {!isOwnProfile && (
+                      <Button
+                        type="button"
+                        onClick={handleToggleFollow}
+                        className="rounded-xl bg-fpt-orange text-white hover:bg-fpt-orange-hover text-xs font-bold px-4 py-2 flex items-center gap-1.5"
+                      >
+                        <Bell className="h-4 w-4" />
+                        <span>{isFollowing ? 'Đang theo dõi shop' : 'Theo dõi shop này'}</span>
+                      </Button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('reviews')}
+                      className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold px-4 py-2 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Star className="h-4 w-4 text-amber-500 fill-amber-400" />
+                      <span>Xem lịch sử đánh giá</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -850,7 +928,12 @@ export default function SellerProfilePage() {
                   {displayedReviews.map((rev) => (
                     <div
                       key={rev.id}
-                      className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-3"
+                      id={`review-${rev.id}`}
+                      className={`rounded-2xl border bg-white p-5 sm:p-6 shadow-xs space-y-3 transition-all duration-500 ${
+                        highlightReviewParam && (rev.id === highlightReviewParam || rev.orderCode === highlightReviewParam || rev.orderId === highlightReviewParam)
+                          ? 'border-fpt-orange ring-2 ring-orange-300 bg-orange-50/20 shadow-md'
+                          : 'border-slate-200/80'
+                      }`}
                     >
                       {/* Top: Reviewer Info + Rating */}
                       <div className="flex items-start justify-between gap-4">
@@ -893,12 +976,36 @@ export default function SellerProfilePage() {
                         </div>
                       )}
 
-                      {/* Comment text */}
-                      <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                      {/* 1. Comment text */}
+                      <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal">
                         {rev.comment}
                       </p>
 
-                      {/* Phản hồi từ Người Bán (nếu có) */}
+                      {/* 2. Proof Images if attached (Ảnh đính kèm của người mua đi liền với lời đánh giá) */}
+                      {rev.images && rev.images.length > 0 && (
+                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                          {rev.images.map((imgUrl, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setSelectedProofImage(imgUrl)}
+                              className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden border border-slate-200 group/img focus:outline-none focus:ring-2 focus:ring-fpt-orange shadow-2xs cursor-pointer"
+                              title="Bấm để phóng to ảnh"
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Ảnh test ${idx + 1}`}
+                                className="h-full w-full object-cover group-hover/img:scale-105 transition"
+                              />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center">
+                                <ExternalLink className="h-4 w-4 text-white" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 3. Lời cảm ơn & Phản hồi từ Người Bán (Nằm ở dưới cùng của lời đánh giá và ảnh) */}
                       {rev.replyComment && (
                         <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-3.5 space-y-1.5 ml-2 sm:ml-4 border-l-4 border-l-fpt-orange">
                           <div className="flex items-center gap-2">
@@ -913,29 +1020,6 @@ export default function SellerProfilePage() {
                           <p className="text-xs text-slate-800 leading-relaxed italic bg-white/80 p-2.5 rounded-lg border border-orange-100/80">
                             &ldquo;{rev.replyComment}&rdquo;
                           </p>
-                        </div>
-                      )}
-
-                      {/* Proof Images if attached */}
-                      {rev.images && rev.images.length > 0 && (
-                        <div className="flex items-center gap-2 pt-1 flex-wrap">
-                          {rev.images.map((imgUrl, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setSelectedProofImage(imgUrl)}
-                              className="relative h-16 w-16 rounded-xl overflow-hidden border border-slate-200 group/img focus:outline-none focus:ring-2 focus:ring-fpt-orange"
-                            >
-                              <img
-                                src={imgUrl}
-                                alt={`Ảnh test ${idx + 1}`}
-                                className="h-full w-full object-cover group-hover/img:scale-105 transition"
-                              />
-                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center">
-                                <ExternalLink className="h-4 w-4 text-white" />
-                              </div>
-                            </button>
-                          ))}
                         </div>
                       )}
 
