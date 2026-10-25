@@ -11,7 +11,7 @@ interface ManageListingsCardProps {
   onBoost: (id: string, title: string) => void;
   onRenew: (id: string, title: string) => void;
   onToggleHide: (id: string, title: string, isCurrentlyHidden?: boolean) => void;
-  onMarkSold: (id: string, title: string) => void;
+  onMarkSold?: (id: string, title: string) => void;
   onDelete: (id: string, title: string) => void;
   onAppeal?: (item: ListingItemData) => void;
 }
@@ -265,17 +265,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               </View>
             )}
 
-            {/* Đã bán (cho active / scheduled) */}
-            {item.status !== 'sold' && (
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.actionBtnGreen]}
-                activeOpacity={0.75}
-                onPress={() => onMarkSold(item.id, item.title)}
-              >
-                <Ionicons name="checkmark-circle-outline" size={13} color="#065F46" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnGreenText}>Đã bán</Text>
-              </TouchableOpacity>
-            )}
+
 
 
           </>

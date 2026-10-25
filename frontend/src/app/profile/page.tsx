@@ -315,19 +315,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleMarkSoldProduct = async (id: string, title: string) => {
-    if (!window.confirm(`Xác nhận đánh dấu món đồ "${title}" đã bán thành công?`)) return;
-    try {
-      await ProductService.updateProductStatus(id, 'SOLD');
-      setMyProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, status: 'SOLD' } : p))
-      );
-      showToast(`🎉 Đã đánh dấu "${title}" là Đã bán thành công!`);
-    } catch (err: any) {
-      showToast(err?.response?.data?.message || err?.message || 'Không thể cập nhật trạng thái đã bán');
-    }
-  };
-
   const formatVND = (amount: number) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
   };
@@ -1215,21 +1202,7 @@ export default function ProfilePage() {
                                       </button>
                                     )}
 
-                                    {/* Nút Đánh dấu Đã bán (cho bài AVAILABLE hoặc HIDDEN) */}
-                                    {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          handleMarkSoldProduct(prod.id, prod.title);
-                                        }}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                        title="Đánh dấu đã giao dịch thành công"
-                                      >
-                                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                        <span>Đã bán</span>
-                                      </button>
-                                    )}
+
                                   </>
                                 ) : (
                                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
