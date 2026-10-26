@@ -9,6 +9,7 @@ interface FavoriteState {
   activeUserId: string | null;
   favoriteIds: string[];
   savedProductsMap: Record<string, any>;
+  followedSellerIds: string[];
 
   // Actions
   setActiveUser: (userId: string | null) => void;
@@ -18,6 +19,8 @@ interface FavoriteState {
   clearSoldFavorites: (soldIds: string[]) => number;
   isFavorite: (productId: string) => boolean;
   getFavorites: () => string[];
+  isSellerFollowed: (sellerId: string) => boolean;
+  toggleFollowSeller: (sellerId: string) => boolean;
 }
 
 const INITIAL_FAVORITES: Record<string, string[]> = {};
@@ -31,6 +34,7 @@ export const useFavoriteStore = create<FavoriteState>()(
       activeUserId: null,
       favoriteIds: [],
       savedProductsMap: {},
+      followedSellerIds: [],
 
       setActiveUser: (userId) => {
         const { favoritesByUser } = get();
@@ -202,6 +206,20 @@ export const useFavoriteStore = create<FavoriteState>()(
         const { favoritesByUser, activeUserId } = get();
         const currentId = activeUserId || 'anonymous';
         return favoritesByUser[currentId] || [];
+      },
+
+      isSellerFollowed: (sellerId: string) => {
+        const { followedSellerIds } = get();
+        return (followedSellerIds || []).includes(sellerId);
+      },
+
+      toggleFollowSeller: (sellerId: string) => {
+        const { followedSellerIds } = get();
+        const list = followedSellerIds || [];
+        const exists = list.includes(sellerId);
+        const updated = exists ? list.filter((id) => id !== sellerId) : [...list, sellerId];
+        set({ followedSellerIds: updated });
+        return !exists;
       },
     }),
     {

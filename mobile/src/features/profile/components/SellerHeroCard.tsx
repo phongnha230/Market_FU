@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { resolveAvatarImage } from '../../../lib/imageResolver';
@@ -10,6 +10,11 @@ interface SellerHeroCardProps {
   productsCount: number;
   reviewsCount: number;
   averageRating?: number | null;
+  onPressListings?: () => void;
+  onPressReviews?: () => void;
+  isFollowing?: boolean;
+  onToggleFollow?: () => void;
+  canFollow?: boolean;
 }
 
 export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
@@ -18,6 +23,11 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
   productsCount,
   reviewsCount,
   averageRating,
+  onPressListings,
+  onPressReviews,
+  isFollowing = false,
+  onToggleFollow,
+  canFollow = true,
 }) => {
   const sellerName = profile?.fullName || paramSellerName || 'Sinh viên FPT';
   const dealCount = typeof profile?.dealCount === 'number' ? profile.dealCount : (reviewsCount > 0 ? reviewsCount : 0);
@@ -108,19 +118,27 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
 
         <View style={styles.statDivider} />
 
-        {/* Box 2: Đang rao bán */}
-        <View style={styles.statBox}>
+        {/* Box 2: Đang rao bán (Clickable -> Tab Listings) */}
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={onPressListings}
+        >
           <View style={styles.statHeaderRow}>
             <Ionicons name="pricetags-outline" size={12} color="#475569" />
             <Text style={styles.statLabel}>Đang bán</Text>
           </View>
           <Text style={styles.statNum}>{productsCount}</Text>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.statDivider} />
 
-        {/* Box 3: Đã giao dịch (THẬT TỪ DB) */}
-        <View style={styles.statBox}>
+        {/* Box 3: Đã giao dịch (Clickable -> Tab Listings) */}
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={onPressListings}
+        >
           <View style={styles.statHeaderRow}>
             <Ionicons name="cube-outline" size={12} color="#EA580C" />
             <Text style={styles.statLabel}>Đã bán</Text>
@@ -129,12 +147,16 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
             {dealCount}
             <Text style={styles.statSub}> đơn</Text>
           </Text>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.statDivider} />
 
-        {/* Box 4: Đánh giá sao (THẬT TỪ DB) */}
-        <View style={styles.statBox}>
+        {/* Box 4: Đánh giá sao (Clickable -> Tab Reviews) */}
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={onPressReviews}
+        >
           <View style={styles.statHeaderRow}>
             <Ionicons name="star" size={12} color="#D97706" />
             <Text style={styles.statLabel}>Đánh giá</Text>
@@ -149,7 +171,7 @@ export const SellerHeroCard: React.FC<SellerHeroCardProps> = ({
               Chưa có
             </Text>
           )}
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* 3. Safety Guarantees Pill Bar */}
@@ -292,6 +314,30 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#64748B',
     lineHeight: 16,
+  },
+  followBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  followingBtn: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#D1FAE5',
+  },
+  followBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  followingBtnText: {
+    color: '#059669',
   },
   statsGrid: {
     flexDirection: 'row',

@@ -18,6 +18,7 @@ import { productMobileService } from '../../../services/productMobileService';
 import { reviewMobileService } from '../../../services/reviewMobileService';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
+import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { SellerHeroCard } from '../components/SellerHeroCard';
 import { SellerTabBar } from '../components/SellerTabBar';
 import { SellerProductsGrid } from '../components/SellerProductsGrid';
@@ -41,6 +42,9 @@ export const PublicSellerProfileScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'listings' | 'reviews' | 'guarantee'>('listings');
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  const isSellerFollowed = useFavoriteStore((s) => s.isSellerFollowed);
+  const toggleFollowSeller = useFavoriteStore((s) => s.toggleFollowSeller);
   const [products, setProducts] = useState<any[]>([]);
 
   // Reviews filtering state
@@ -153,6 +157,41 @@ export const PublicSellerProfileScreen: React.FC = () => {
 
   const handleCloseReport = useCallback(() => {
     setIsReportModalVisible(false);
+  }, []);
+
+  const sellerIdForFollow = useMemo(() => {
+    return profile?.userId || profile?.id || targetIdOrName;
+  }, [profile, targetIdOrName]);
+
+  const isFollowing = useMemo(() => {
+    return isSellerFollowed(sellerIdForFollow);
+  }, [isSellerFollowed, sellerIdForFollow]);
+
+  const handleToggleFollow = useCallback(() => {
+    const nextState = toggleFollowSeller(sellerIdForFollow);
+    const sName = profile?.fullName || paramSellerName || 'người bán này';
+    if (nextState) {
+      Alert.alert(
+        '🔔 Đã theo dõi Shop!',
+        `Bạn sẽ nhận được thông báo ngay khi shop ${sName} đăng bán món đồ mới.`
+      );
+    } else {
+      Alert.alert('Đã hủy theo dõi', `Đã bỏ theo dõi shop ${sName}.`);
+    }
+  }, [toggleFollowSeller, sellerIdForFollow, profile?.fullName, paramSellerName]);
+
+  const handlePressListings = useCallback(() => {
+    setActiveTab('listings');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+    }, 50);
+  }, []);
+
+  const handlePressReviews = useCallback(() => {
+    setActiveTab('reviews');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+    }, 50);
   }, []);
 
   const isOtherUser = useMemo(() => {
@@ -315,6 +354,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
         </View>
       ) : (
         <ScrollView
+          ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
@@ -329,6 +369,11 @@ export const PublicSellerProfileScreen: React.FC = () => {
               productsCount={products.length}
               reviewsCount={displayedStats.totalReceived}
               averageRating={displayedStats.averageRating}
+              onPressListings={handlePressListings}
+              onPressReviews={handlePressReviews}
+              isFollowing={isFollowing}
+              onToggleFollow={handleToggleFollow}
+              canFollow={isOtherUser}
             />
 
             {/* 2. Tab Bar: Đang bán / Đánh giá / FPT Care */}
@@ -346,6 +391,9 @@ export const PublicSellerProfileScreen: React.FC = () => {
                 <SellerProductsGrid
                   products={products}
                   onSelectProduct={(id) => navigation.navigate('ProductDetail', { productId: id })}
+                  isFollowing={isFollowing}
+                  onToggleFollow={handleToggleFollow}
+                  canFollow={isOtherUser}
                 />
               )}
 
