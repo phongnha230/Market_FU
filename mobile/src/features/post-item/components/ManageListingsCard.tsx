@@ -65,9 +65,9 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               name={item.locationIcon}
               size={13}
               color="#C2410C"
-              style={{ marginRight: 4 }}
+              style={{ marginRight: 4, flexShrink: 0 }}
             />
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
               {item.location}
             </Text>
           </View>
@@ -326,6 +326,7 @@ const styles = StyleSheet.create({
   },
   cardInfoCol: {
     flex: 1,
+    minWidth: 0,
   },
   priceTimeRow: {
     flexDirection: 'row',
@@ -352,10 +353,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
+    minWidth: 0,
   },
   locationText: {
     fontSize: 11.5,
     color: '#64748B',
+    flex: 1,
+    minWidth: 0,
   },
   tagsRow: {
     flexDirection: 'row',

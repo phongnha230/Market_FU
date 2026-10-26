@@ -4,10 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface OrderStatusTimelineProps {
   orderStatus: string;
+  isInterCampus?: boolean;
 }
 
 export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.memo(({
   orderStatus,
+  isInterCampus = false,
 }) => {
   const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
   const isHolding = orderStatus === 'escrow_holding' || orderStatus === 'ESCROW_PAID' || orderStatus === 'delivered' || orderStatus === 'DELIVERED';
@@ -17,8 +19,8 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
   const getStatusText = () => {
     if (isCancelled) return 'Đã hủy đơn hàng';
     if (isCompleted) return 'Đã hoàn tất & Giải ngân';
-    if (isPending) return '⏳ Chờ người bán chốt lịch hẹn';
-    if (isHolding) return '🛡️ Đã chốt hẹn - Chờ bàn giao';
+    if (isPending) return isInterCampus ? '📦 Chờ người bán gửi hàng' : '⏳ Chờ người bán chốt lịch hẹn';
+    if (isHolding) return isInterCampus ? '🚚 Đang luân chuyển liên Campus' : '🛡️ Đã chốt hẹn - Chờ bàn giao';
     return 'Đang giải quyết khiếu nại';
   };
 
@@ -71,7 +73,7 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
               <Ionicons name="checkmark" size={12} color="#94A3B8" />
             )}
           </View>
-          <Text style={styles.stepLabel}>Chốt hẹn</Text>
+          <Text style={styles.stepLabel}>{isInterCampus ? 'Gửi hàng' : 'Chốt hẹn'}</Text>
         </View>
         <View style={[styles.stepLine, (isHolding || isCompleted) && styles.stepLineDone]} />
 
@@ -93,7 +95,7 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
               <Ionicons name="location" size={12} color="#94A3B8" />
             )}
           </View>
-          <Text style={styles.stepLabel}>Safe-Point</Text>
+          <Text style={styles.stepLabel}>{isInterCampus ? 'Vận chuyển' : 'Safe-Point'}</Text>
         </View>
         <View style={[styles.stepLine, isCompleted && styles.stepLineDone]} />
 
@@ -111,7 +113,7 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
               color={isCompleted ? '#FFFFFF' : '#94A3B8'}
             />
           </View>
-          <Text style={styles.stepLabel}>Giải ngân</Text>
+          <Text style={styles.stepLabel}>{isInterCampus ? 'Giao KTX' : 'Giải ngân'}</Text>
         </View>
       </View>
     </View>

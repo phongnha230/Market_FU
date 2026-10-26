@@ -190,6 +190,7 @@ export const SellerDashboardScreen: React.FC = () => {
           pendingEscrowAmount={pendingEscrowAmount}
           totalRevenue={totalRevenue}
           onOpenWithdrawModal={() => setShowWithdrawModal(true)}
+          onOpenWithdrawHistory={() => navigation.navigate('WithdrawalHistory')}
         />
 
         <SellerKpiGrid

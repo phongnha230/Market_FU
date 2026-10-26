@@ -60,8 +60,11 @@ const OrderCardItem: React.FC<{
   const isSaleForCurrent = item.sellerId === currentUserId;
   const isBuyer = !isSaleForCurrent;
   const isCompleted = item.status === 'COMPLETED';
+  const dispute = item.dispute;
+  const disputeStatus = dispute?.status;
+  const hasDispute = Boolean(dispute);
   const canBuyerDispute =
-    isBuyer && (item.status === 'COMPLETED' || item.status === 'DELIVERED');
+    isBuyer && (item.status === 'COMPLETED' || item.status === 'DELIVERED') && !hasDispute;
   const canBuyerReview = isBuyer && isCompleted && !item.isReviewed;
 
   const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
@@ -72,7 +75,7 @@ const OrderCardItem: React.FC<{
   return (
     <View style={styles.orderCard}>
       {/* Order Header */}
-      <View style={styles.cardHeader}>
+      <TouchableOpacity style={styles.cardHeader} activeOpacity={0.85} onPress={handlePress}>
         <View style={styles.orderCodeRow}>
           <Ionicons name="receipt-outline" size={15} color="#64748B" />
           <Text style={styles.orderCode}>#{item.orderNumber || item.id}</Text>
@@ -91,7 +94,7 @@ const OrderCardItem: React.FC<{
             {item.statusLabel}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Product Row */}
       <TouchableOpacity
@@ -133,16 +136,66 @@ const OrderCardItem: React.FC<{
         </View>
       </TouchableOpacity>
 
+      {/* Banner kết quả trả hàng & hoàn tiền (Chuẩn Web Ảnh 4) */}
+      {(item.status === 'CANCELLED' || disputeStatus === 'REFUNDED') && (
+        <TouchableOpacity
+          style={styles.refundBannerCard}
+          activeOpacity={0.85}
+          onPress={handleDispute}
+        >
+          <Ionicons name="close-circle" size={14} color="#DC2626" style={{ marginRight: 6 }} />
+          <Text style={styles.refundBannerText} numberOfLines={1}>
+            Yêu cầu trả hàng đã được BQT chấp thuận • Tiền Escrow & Xu đã được xử lý hoàn trả
+          </Text>
+          <Text style={styles.refundBannerLink}>Xem hồ sơ →</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Card Footer */}
       <View style={styles.cardFooter}>
         <Text style={styles.dateText}>{item.createdAt}</Text>
 
+        <View style={styles.cardFooterRight}>
           {/* OTP Handshake CHỈ hiện cho Người mua trên đơn hẹn gặp trực tiếp MEETUP (không hiện cho người bán hoặc đơn GHN liên campus) */}
           {isBuyer && item.orderType !== 'SHIP_COD' && item.handshakeOtp && !isCompleted && (
             <View style={styles.otpBadge}>
               <Ionicons name="key-outline" size={12} color="#64748B" />
               <Text style={styles.otpBadgeText}>OTP: {item.handshakeOtp}</Text>
             </View>
+          )}
+
+          {/* Dispute Buttons chuẩn Web 100% */}
+          {disputeStatus === 'REJECTED' && (
+            <TouchableOpacity
+              style={styles.disputeRejectedBtn}
+              activeOpacity={0.8}
+              onPress={handleDispute}
+            >
+              <Ionicons name="document-text-outline" size={12} color="#475569" style={{ marginRight: 3 }} />
+              <Text style={styles.disputeRejectedBtnText}>Xem kết quả khiếu nại</Text>
+            </TouchableOpacity>
+          )}
+
+          {(disputeStatus === 'REFUNDED' || disputeStatus === 'RESOLVED') && (
+            <TouchableOpacity
+              style={styles.disputeRefundedBtn}
+              activeOpacity={0.8}
+              onPress={handleDispute}
+            >
+              <Ionicons name="checkmark-circle-outline" size={12} color="#059669" style={{ marginRight: 3 }} />
+              <Text style={styles.disputeRefundedBtnText}>Hồ sơ hoàn tiền</Text>
+            </TouchableOpacity>
+          )}
+
+          {(disputeStatus === 'PENDING' || item.status === 'DISPUTED') && (
+            <TouchableOpacity
+              style={styles.disputePendingBtn}
+              activeOpacity={0.8}
+              onPress={handleDispute}
+            >
+              <Ionicons name="alert-circle-outline" size={12} color="#D97706" style={{ marginRight: 3 }} />
+              <Text style={styles.disputePendingBtnText}>Đang khiếu nại</Text>
+            </TouchableOpacity>
           )}
 
           {canBuyerDispute && (
@@ -154,17 +207,6 @@ const OrderCardItem: React.FC<{
               <Text style={styles.disputeBtnText}>
                 {item.status === 'DELIVERED' ? 'Trả hàng' : 'Khiếu nại'}
               </Text>
-            </TouchableOpacity>
-          )}
-
-          {item.status === 'DISPUTED' && (
-            <TouchableOpacity
-              style={styles.disputeActiveBadge}
-              activeOpacity={0.8}
-              onPress={handlePress}
-            >
-              <Ionicons name="warning" size={11} color="#DC2626" style={{ marginRight: 2 }} />
-              <Text style={styles.disputeActiveBadgeText}>Đang khiếu nại</Text>
             </TouchableOpacity>
           )}
 
@@ -190,19 +232,11 @@ const OrderCardItem: React.FC<{
               <Ionicons name="chevron-forward" size={10} color="#059669" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={styles.detailBtn}
-            onPress={handlePress}
-          >
-            <Text style={styles.detailBtnText}>Chi tiết</Text>
-            <Ionicons name="chevron-forward" size={13} color="#94A3B8" />
-          </TouchableOpacity>
         </View>
       </View>
-    );
-  }
-);
+    </View>
+  );
+});
 
 const OrderListEmptyState: React.FC<{ activeTab: string; onExplore: () => void }> = React.memo(
   ({ activeTab, onExplore }) => (
@@ -342,10 +376,12 @@ export const OrderListScreen: React.FC = () => {
   const handleDispute = React.useCallback((item: OrderItem) => {
     navigation.navigate('Dispute', {
       orderId: item.orderNumber || item.id,
+      dispute: item.dispute,
       productTitle: item.productTitle,
       sellerName: item.sellerName,
       price: formatPrice(item.totalAmount || item.price),
-      isCod: false,
+      isCod: item.orderType === 'SHIP_COD',
+      order: item,
     });
   }, [navigation]);
 
@@ -645,10 +681,20 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+    gap: 8,
+  },
+  cardFooterRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 6,
+    flexShrink: 1,
   },
   dateText: {
     fontSize: 11,
     color: '#94A3B8',
+    flexShrink: 0,
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -681,6 +727,76 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     color: '#64748B',
+  },
+  disputeRejectedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  disputeRejectedBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  disputeRefundedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  disputeRefundedBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  disputePendingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  disputePendingBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  refundBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  refundBannerText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#991B1B',
+    fontWeight: '500',
+  },
+  refundBannerLink: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '800',
+    marginLeft: 6,
+    flexShrink: 0,
   },
   reviewBtn: {
     flexDirection: 'row',

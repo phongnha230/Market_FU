@@ -20,6 +20,19 @@ export interface OrderReviewData {
   repliedAt?: string;
 }
 
+export interface OrderDisputeData {
+  id: string;
+  orderId?: string;
+  claimantId?: string;
+  reason: string;
+  details?: string;
+  proofVideoUrl?: string;
+  status: 'PENDING' | 'REJECTED' | 'REFUNDED' | 'RESOLVED';
+  adminNote?: string;
+  createdAt?: string;
+  resolvedAt?: string;
+}
+
 export interface OrderItem {
   id: string;
   orderNumber?: string;
@@ -53,6 +66,7 @@ export interface OrderItem {
   paymentCheckoutUrl?: string;
   isReviewed?: boolean;
   reviewData?: OrderReviewData;
+  dispute?: OrderDisputeData;
   handshakeOtp?: string;
   orderType?: 'MEETUP' | 'SHIP_COD';
   createdAt: string;

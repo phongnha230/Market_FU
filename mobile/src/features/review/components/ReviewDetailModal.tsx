@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { reviewMobileService } from '../../../services/reviewMobileService';
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   StyleSheet,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,13 +50,67 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
   const [isReplying, setIsReplying] = useState(false);
   const replyOrderReview = useOrderStore((s) => s.replyOrderReview);
 
+  const [fetchedReview, setFetchedReview] = useState<OrderReviewData | null>(null);
+  const [buyerInfo, setBuyerInfo] = useState<{ name?: string; campus?: string } | null>(null);
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !order) {
+      setFetchedReview(null);
+      setBuyerInfo(null);
+      return;
+    }
+
+    if (order.reviewData && (order.reviewData.comment !== undefined || order.reviewData.rating !== undefined)) {
+      setFetchedReview(order.reviewData);
+    }
+
+    const orderIdToFetch = (order.id || order.orderNumber || '').replace(/^#/, '');
+    if (orderIdToFetch) {
+      setIsLoadingReview(true);
+      reviewMobileService
+        .getOrderReviews(orderIdToFetch)
+        .then((reviews: any[]) => {
+          if (Array.isArray(reviews) && reviews.length > 0) {
+            const rev = reviews[0];
+            const freshRev: OrderReviewData = {
+              rating: Number(rev.rating) || 5,
+              comment: rev.comment || '',
+              tags: Array.isArray(rev.tags) ? rev.tags : [],
+              images: Array.isArray(rev.images) ? rev.images : [],
+              proofVideoUrl: rev.proofVideoUrl,
+              reviewedAt: rev.createdAt || new Date().toISOString(),
+              isPublic: rev.isPublic ?? true,
+              canEdit: true,
+              replyComment: rev.replyComment,
+              repliedAt: rev.repliedAt || rev.replyCreatedAt,
+            };
+            setFetchedReview(freshRev);
+            if (rev.reviewer) {
+              setBuyerInfo({
+                name: rev.reviewer.profile?.fullName || rev.reviewer.fullName || rev.reviewer.name || 'Người mua FPT',
+                campus: rev.reviewer.profile?.campus || 'Hòa Lạc',
+              });
+            }
+            useOrderStore.getState().markOrderReviewed(order.orderNumber || order.id, freshRev);
+          }
+        })
+        .catch((err) => {
+          console.warn('[ReviewDetailModal] fetch review err:', err);
+        })
+        .finally(() => {
+          setIsLoadingReview(false);
+        });
+    }
+  }, [visible, order?.id, order?.orderNumber]);
+
   if (!order) return null;
 
-  const review: OrderReviewData | undefined = order.reviewData;
+  const review: OrderReviewData | undefined = fetchedReview || order.reviewData;
   const hasReview = Boolean(review && (review.rating || review.comment));
   const buyerDisplayName = review?.isAnonymous
     ? 'Sinh viên FPT (Ẩn danh)'
-    : (order.buyerName || 'Người mua FPT');
+    : (buyerInfo?.name || order.buyerName || 'Người mua FPT');
 
   const ratingLabels: { [key: number]: string } = {
     1: 'Rất tệ 😡',
@@ -64,12 +120,20 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
     5: 'Rất hài lòng & Uy tín ⭐',
   };
 
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
     if (!replyText.trim()) {
       Alert.alert('Chưa nhập phản hồi', 'Vui lòng nhập lời cảm ơn hoặc phản hồi gửi đến người mua.');
       return;
     }
-    replyOrderReview(order.orderNumber || order.id, replyText.trim());
+    const cleanReply = replyText.trim();
+    const orderIdentifier = (order.id || order.orderNumber || '').replace(/^#/, '');
+    try {
+      await reviewMobileService.replyReview(orderIdentifier, cleanReply);
+    } catch (e) {
+      console.warn('Backend reply err, saved locally:', e);
+    }
+    replyOrderReview(order.orderNumber || order.id, cleanReply);
+    setFetchedReview((prev) => (prev ? { ...prev, replyComment: cleanReply, repliedAt: 'Vừa xong' } : prev));
     setIsReplying(false);
     setReplyText('');
     Alert.alert('🎉 Phản hồi thành công', 'Phản hồi của bạn đã được công khai cùng với đánh giá của người mua!');
@@ -107,7 +171,14 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
           )}
         </View>
 
-        {!hasReview || !review ? (
+        {isLoadingReview && !hasReview ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+            <ActivityIndicator size="large" color="#EA580C" />
+            <Text style={{ marginTop: 14, fontSize: 13, color: '#64748B', fontWeight: '600' }}>
+              Đang tải chi tiết đánh giá từ hệ thống...
+            </Text>
+          </View>
+        ) : !hasReview || !review ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
             {/* Thẻ tóm tắt sản phẩm & Đối tác */}
             <View style={styles.productCard}>
@@ -273,7 +344,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                       activeOpacity={0.8}
                       onPress={() => setSelectedFullImage(imgUri)}
                     >
-                      <Image source={{ uri: imgUri }} style={styles.mediaThumb} contentFit="cover" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
+                      <Image source={{ uri: imgUri }} style={styles.mediaThumb} contentFit="cover" />
                       <View style={styles.zoomHint}>
                         <Ionicons name="search" size={10} color="#FFFFFF" />
                       </View>
@@ -282,7 +353,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
                   {review.proofVideoUrl && (
                     <View style={styles.mediaBox}>
-                      <Image source={{ uri: review.proofVideoUrl }} style={styles.mediaThumb} contentFit="cover" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
+                      <Image source={{ uri: review.proofVideoUrl }} style={styles.mediaThumb} contentFit="cover" />
                       <View style={styles.videoBadge}>
                         <Ionicons name="play" size={12} color="#FFFFFF" />
                         <Text style={styles.videoText}>Video unbox</Text>
@@ -410,7 +481,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                   }}
                 >
                   <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.editBtnText}>Chỉnh sửa đánh giá (Đổi sao / bình luận / ảnh)</Text>
+                  <Text style={styles.editBtnText}>Chỉnh sửa đánh giá</Text>
                 </TouchableOpacity>
               )}
 
@@ -437,7 +508,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
               onPress={() => setSelectedFullImage(null)}
             >
               <View style={styles.fullModalContent}>
-                <Image source={{ uri: selectedFullImage }} style={styles.fullModalImage} contentFit="contain" placeholder={{ uri: resolveProductImage(order?.productImage) }} />
+                <Image source={{ uri: selectedFullImage }} style={styles.fullModalImage} contentFit="contain" />
                 <TouchableOpacity
                   style={styles.closeFullBtn}
                   onPress={() => setSelectedFullImage(null)}
@@ -752,15 +823,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: '#EA580C',
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    width: '100%',
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
   },
   editBtnText: {
-    fontSize: 13.5,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   policyCard: {
     flexDirection: 'row',
@@ -943,11 +1022,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   closeEmptyBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
+    marginTop: 10,
+    paddingVertical: 11,
     paddingHorizontal: 24,
     borderRadius: 10,
     backgroundColor: '#F1F5F9',
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeEmptyBtnText: {
     fontSize: 13,

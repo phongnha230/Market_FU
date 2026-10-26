@@ -69,6 +69,37 @@ export const reviewMobileService = {
   },
 
   /**
+   * Lấy danh sách đánh giá của 1 đơn hàng (gồm cả phản hồi người bán & avatar người mua)
+   */
+  async getOrderReviews(orderId: string): Promise<any[]> {
+    try {
+      const cleanOrderId = orderId.replace(/^#/, '');
+      const res = await apiClient.get<ApiResponse<any[]>>(`/reviews/order/${encodeURIComponent(cleanOrderId)}`);
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch (error) {
+      console.warn('[reviewMobileService] getOrderReviews error:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Người bán phản hồi đánh giá của người mua
+   */
+  async replyReview(orderId: string, replyComment: string): Promise<any> {
+    try {
+      const cleanOrderId = orderId.replace(/^#/, '');
+      const res = await apiClient.post<ApiResponse<any>>(
+        `/reviews/order/${encodeURIComponent(cleanOrderId)}/reply`,
+        { replyComment }
+      );
+      return res.data?.data;
+    } catch (error) {
+      console.error('[reviewMobileService] replyReview error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Lấy danh sách đánh giá của 1 sinh viên/người bán (kèm thống kê sao)
    */
   async getUserReviews(

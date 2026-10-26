@@ -4,16 +4,20 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface CheckoutPaymentMethodsProps {
   selectedPayment: 'vietqr' | 'fptpay' | 'cash';
+  isMeetup?: boolean;
   onSelectPayment: (method: 'vietqr' | 'fptpay' | 'cash') => void;
 }
 
 export const CheckoutPaymentMethods: React.FC<CheckoutPaymentMethodsProps> = ({
   selectedPayment,
+  isMeetup = true,
   onSelectPayment,
 }) => {
   return (
     <>
-      <Text style={styles.sectionHeader}>PHƯƠNG THỨC THANH TOÁN</Text>
+      <Text style={styles.sectionHeader}>
+        {isMeetup ? 'PHƯƠNG THỨC THANH TOÁN SAFE-HANDOFF' : 'PHƯƠNG THỨC THANH TOÁN LIÊN CAMPUS'}
+      </Text>
       <View style={styles.cardGroup}>
         {/* VietQR */}
         <TouchableOpacity
@@ -69,7 +73,7 @@ export const CheckoutPaymentMethods: React.FC<CheckoutPaymentMethodsProps> = ({
 
         <View style={styles.divider} />
 
-        {/* Cash */}
+        {/* Cash / COD */}
         <TouchableOpacity
           style={[styles.payRow, selectedPayment === 'cash' && styles.selectedPayRow]}
           activeOpacity={0.7}
@@ -79,8 +83,14 @@ export const CheckoutPaymentMethods: React.FC<CheckoutPaymentMethodsProps> = ({
             <Ionicons name="cash-outline" size={20} color="#059669" />
           </View>
           <View style={styles.payDetails}>
-            <Text style={styles.payTitle}>Thanh toán tiền mặt tại Safe-Point</Text>
-            <Text style={styles.paySub}>Gặp mặt kiểm tra đồ trực tiếp tại trạm có camera an toàn</Text>
+            <Text style={styles.payTitle}>
+              {isMeetup ? 'Thanh toán tiền mặt tại Safe-Point' : 'Thanh toán khi nhận hàng (COD KTX FPT)'}
+            </Text>
+            <Text style={styles.paySub}>
+              {isMeetup
+                ? 'Gặp mặt kiểm tra đồ trực tiếp tại trạm có camera an toàn'
+                : 'Đồng kiểm bưu kiện tại sảnh KTX trước khi thanh toán cho bưu tá'}
+            </Text>
           </View>
           <Ionicons
             name={selectedPayment === 'cash' ? 'checkmark-circle' : 'ellipse-outline'}
@@ -142,23 +152,23 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     flexShrink: 1,
   },
+  recBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  recBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#15803D',
+  },
   paySub: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,
-  },
-  recBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 6,
-    flexShrink: 0,
-  },
-  recBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#059669',
+    lineHeight: 15,
   },
   divider: {
     height: 1,
@@ -166,3 +176,5 @@ const styles = StyleSheet.create({
     marginLeft: 64,
   },
 });
+
+export default CheckoutPaymentMethods;

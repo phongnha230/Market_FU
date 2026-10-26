@@ -131,6 +131,7 @@ export const CheckoutScreen: React.FC = () => {
       <CheckoutBottomBar
         totalAmount={ctrl.totalAmount}
         selectedPayment={ctrl.selectedPayment}
+        isMeetup={ctrl.isMeetup}
         onConfirmPayment={ctrl.handleConfirmPayment}
         formatCurrency={ctrl.formatCurrency}
         isSubmitting={ctrl.isSubmitting}

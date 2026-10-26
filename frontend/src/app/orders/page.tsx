@@ -61,14 +61,12 @@ function OrdersPageInner() {
     userData?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() ||
     'Chưa cập nhật';
 
-  // Lịch hẹn Safe-Handoff còn hiệu lực (chỉ lấy đơn đang tiến hành, loại bỏ đơn đã hủy hoặc khiếu nại)
+  // Lịch hẹn Safe-Handoff còn hiệu lực (chỉ lấy đơn đang giao/gặp mặt 'shipping' sau khi Seller đã đồng ý)
   const urgentHandoffOrder = React.useMemo(() => {
     return orders.find(
       (o) =>
         o.type === 'safe-handoff' &&
-        o.status !== 'completed' &&
-        o.status !== 'cancelled' &&
-        o.status !== 'disputed'
+        o.status === 'shipping'
     );
   }, [orders]);
 

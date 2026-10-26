@@ -30,38 +30,7 @@ export const WithdrawalHistoryScreen: React.FC = () => {
   const loadWithdrawals = useCallback(async () => {
     try {
       const data = await profileMobileService.getWithdrawals();
-      if (data && data.requests && data.requests.length > 0) {
-        setRequests(data.requests);
-      } else {
-        // Fallback sample data if empty
-        setRequests([
-          {
-            id: 'wd_1',
-            amount: 250000,
-            status: 'APPROVED',
-            bankAccount: {
-              bankName: 'MB Bank',
-              accountNo: '0987654321',
-              accountName: user?.name || 'HOANG TUAN ANH',
-            },
-            adminNote: 'Mã GD Napas: FT2410029812 - Giải ngân tiền cọc Escrow',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            processedAt: new Date(Date.now() - 82800000).toISOString(),
-          },
-          {
-            id: 'wd_2',
-            amount: 100000,
-            status: 'PENDING',
-            bankAccount: {
-              bankName: 'Vietcombank',
-              accountNo: '1012345678',
-              accountName: user?.name || 'HOANG TUAN ANH',
-            },
-            adminNote: 'Đang chờ Ban Tài chính kiểm tra đối soát',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      }
+      setRequests(data?.requests || []);
     } catch {
       // ignored
     } finally {

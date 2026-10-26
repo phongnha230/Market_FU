@@ -357,9 +357,12 @@ export const useOrderStore = create<OrderState>()(
           timeLabel: 'Vừa tạo xong',
           appointmentTime,
           meetupLocation,
-          status: 'shipping',
-          statusText: type === 'inter-campus' ? 'Đang chuẩn bị đóng thùng KTX' : 'Chờ gặp tại điểm hẹn',
-          statusColor: 'text-fpt-orange',
+          status: 'pending',
+          statusText:
+            type === 'inter-campus'
+              ? 'Chờ người bán xác nhận đơn'
+              : 'Chờ người bán xác nhận lịch hẹn',
+          statusColor: 'text-amber-600',
           payment: {
             price: product.price,
             shippingFee: type === 'inter-campus' ? 25000 : 0,

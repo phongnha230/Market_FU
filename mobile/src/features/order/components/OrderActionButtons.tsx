@@ -156,9 +156,13 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
       <View style={styles.waitingSellerBanner}>
         <Ionicons name="hourglass-outline" size={22} color="#D97706" style={styles.mr6} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.waitingSellerTitle}>Đang chờ người bán xác nhận hẹn gặp</Text>
+          <Text style={styles.waitingSellerTitle}>
+            {isInterCampus ? 'Đang chờ người bán xác nhận gửi hàng' : 'Đang chờ người bán xác nhận hẹn gặp'}
+          </Text>
           <Text style={styles.waitingSellerSub}>
-            Sau khi người bán đồng ý chốt giờ hẹn, mã QR nhận hàng sẽ kích hoạt tại Safe-Point.
+            {isInterCampus
+              ? 'Sau khi người bán đồng ý, kiện hàng sẽ được đóng gói và bàn giao cho đơn vị vận chuyển GHN / FPT Bus.'
+              : 'Sau khi người bán đồng ý chốt giờ hẹn, mã QR nhận hàng sẽ kích hoạt tại Safe-Point.'}
           </Text>
         </View>
       </View>
@@ -247,7 +251,9 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
           <View style={{ flex: 1 }}>
             <Text style={styles.sellerCompletedTitle}>Giao dịch thành công & Đã giải ngân!</Text>
             <Text style={styles.sellerCompletedSub}>
-              Đã bàn giao đồ tại Safe-Point và khớp mã Handshake. Tiền bán đã được cộng vào số dư ví của bạn (+5 Điểm Uy Tín).
+              {isInterCampus
+                ? 'Người mua đã nhận hàng an toàn tại KTX/Cơ sở đích. Toàn bộ tiền bán đã được quyết toán vào số dư ví của bạn (+5 Điểm Uy Tín).'
+                : 'Đã bàn giao đồ tại Safe-Point và khớp mã Handshake. Tiền bán đã được cộng vào số dư ví của bạn (+5 Điểm Uy Tín).'}
             </Text>
           </View>
         </View>
@@ -505,15 +511,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#A7F3D0',
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewReviewMainText: {
     color: '#059669',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   subActionRow: {
     flexDirection: 'row',

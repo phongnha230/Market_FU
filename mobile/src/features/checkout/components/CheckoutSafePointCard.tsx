@@ -121,7 +121,9 @@ export const CheckoutSafePointCard: React.FC<CheckoutSafePointCardProps> = ({
                 <Text style={styles.editActionText}>{isEditingNote ? 'Xong' : 'Sửa phòng'}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.destSub}>{selectedSafePoint}</Text>
+            <Text style={styles.destSub}>
+              Sảnh KTX Dom B (Cơ sở {buyerCampus}) • Trạm bưu cục FPT
+            </Text>
 
             {isEditingNote ? (
               <TextInput

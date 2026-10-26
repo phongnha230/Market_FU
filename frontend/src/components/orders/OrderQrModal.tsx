@@ -12,6 +12,7 @@ import {
   MapPin,
   KeyRound,
   Sparkles,
+  Clock,
 } from 'lucide-react';
 import { Button, Badge, Card } from '@/components/ui';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
@@ -234,64 +235,85 @@ export default function OrderQrModal({
           </div>
         ) : activeTab === 'buyer' ? (
           /* BUYER MODE: DISPLAY QR & OTP */
-          <div className="text-center">
-            <p className="text-xs text-slate-600">
-              Khi gặp người bán tại điểm hẹn, đưa mã QR này hoặc đọc mã OTP 4 số để người bán xác nhận bàn giao.
-            </p>
-
-            {/* QR Box */}
-            <div className="my-4 mx-auto w-48 h-48 bg-white rounded-2xl p-2 border-2 border-dashed border-orange-300 flex items-center justify-center shadow-xs">
-              <div className="relative w-44 h-44">
-                <Image
-                  src={qrImageUrl}
-                  alt="Mã QR Handshake Bàn giao"
-                  fill
-                  className="object-contain rounded-lg"
-                  unoptimized
-                />
+          (order?.status === 'pending' || order?.status === 'processing') ? (
+            <div className="text-center py-6 px-4 space-y-3">
+              <div className="mx-auto h-12 w-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                <Clock className="h-6 w-6 animate-pulse" />
               </div>
+              <h4 className="font-bold text-sm text-amber-950">
+                Chờ Người bán đồng ý lịch hẹn Safe-Point
+              </h4>
+              <p className="text-xs text-amber-800 leading-relaxed max-w-xs mx-auto">
+                Mã QR Handshake và mã OTP 4 số bàn giao được bảo mật và chỉ xuất hiện sau khi Người bán xác nhận đồng ý lịch hẹn này.
+              </p>
+              <Button
+                type="button"
+                onClick={onClose}
+                className="mt-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs px-4 py-2 font-bold cursor-pointer"
+              >
+                Đã hiểu
+              </Button>
             </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-xs text-slate-600">
+                Khi gặp người bán tại điểm hẹn, đưa mã QR này hoặc đọc mã OTP 4 số để người bán xác nhận bàn giao.
+              </p>
 
-            {/* OTP Code Box */}
-            <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 mb-3 flex items-center justify-between">
-              <div className="text-left">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1">
-                  <KeyRound className="h-3 w-3" /> Mã OTP Bàn giao (4 số)
-                </span>
-                <div className="text-xl font-mono font-black tracking-widest text-slate-900 mt-0.5">
-                  {effectiveOtp}
+              {/* QR Box */}
+              <div className="my-4 mx-auto w-48 h-48 bg-white rounded-2xl p-2 border-2 border-dashed border-orange-300 flex items-center justify-center shadow-xs">
+                <div className="relative w-44 h-44">
+                  <Image
+                    src={qrImageUrl}
+                    alt="Mã QR Handshake Bàn giao"
+                    fill
+                    className="object-contain rounded-lg"
+                    unoptimized
+                  />
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCopyOtp}
-                className="h-auto bg-white rounded-lg border border-orange-200 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100 cursor-pointer flex items-center gap-1"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copied ? 'Đã chép' : 'Sao chép'}</span>
-              </Button>
-            </div>
+              {/* OTP Code Box */}
+              <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 mb-3 flex items-center justify-between">
+                <div className="text-left">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1">
+                    <KeyRound className="h-3 w-3" /> Mã OTP Bàn giao (4 số)
+                  </span>
+                  <div className="text-xl font-mono font-black tracking-widest text-slate-900 mt-0.5">
+                    {effectiveOtp}
+                  </div>
+                </div>
 
-            <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-500 text-left border border-slate-100 flex items-start gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>
-                <strong>Khuyên nghị:</strong> Chỉ chia sẻ mã OTP sau khi bạn đã kiểm tra trực tiếp đồ và đảm bảo đúng tình trạng như thỏa thuận.
-              </span>
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCopyOtp}
+                  className="h-auto bg-white rounded-lg border border-orange-200 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100 cursor-pointer flex items-center gap-1"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>{copied ? 'Đã chép' : 'Sao chép'}</span>
+                </Button>
+              </div>
 
-            <div className="mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Đóng cửa sổ
-              </Button>
+              <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-500 text-left border border-slate-100 flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Khuyến nghị:</strong> Chỉ chia sẻ mã OTP sau khi bạn đã kiểm tra trực tiếp đồ và đảm bảo đúng tình trạng như thỏa thuận.
+                </span>
+              </div>
+
+              <div className="mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Đóng cửa sổ
+                </Button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           /* SELLER MODE: INPUT OTP TO CONFIRM */
           <div>

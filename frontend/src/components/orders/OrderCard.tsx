@@ -370,6 +370,17 @@ export default function OrderCard({
           {/* Seller Actions */}
           {isSellerViewer ? (
             <>
+              {(order.status === 'pending' || order.status === 'processing') && (
+                <Button
+                  asChild
+                  className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 animate-pulse"
+                >
+                  <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                    <span>Đồng ý & Chốt hẹn</span>
+                  </Link>
+                </Button>
+              )}
               {order.status === 'shipping' && order.type === 'safe-handoff' && (
                 onOpenQrModal && (
                   <Button
@@ -419,7 +430,13 @@ export default function OrderCard({
           ) : (
             <>
               {/* Buyer Actions */}
-              {!canShowImmediatePayment && order.type === 'safe-handoff' && (order.status === 'pending' || order.status === 'processing') && onOpenQrModal && (
+              {!canShowImmediatePayment && order.type === 'safe-handoff' && (order.status === 'pending' || order.status === 'processing') && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Chờ người bán đồng ý hẹn</span>
+                </div>
+              )}
+              {!canShowImmediatePayment && order.type === 'safe-handoff' && order.status === 'shipping' && onOpenQrModal && (
                 <Button
                   type="button"
                   onClick={() => onOpenQrModal(order)}

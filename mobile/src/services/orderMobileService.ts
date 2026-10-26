@@ -245,6 +245,40 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     handshakeOtp: resolvedOrderType === 'SHIP_COD' ? undefined : validOtp,
     createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay',
     isReviewed: Boolean(item.isReviewed || (Array.isArray(item.reviews) && item.reviews.length > 0)),
+    dispute: item.dispute
+      ? {
+          id: item.dispute.id || item.dispute._id || '',
+          orderId: item.dispute.orderId || item.id,
+          claimantId: item.dispute.claimantId,
+          reason: item.dispute.reason || 'Hàng lỗi kỹ thuật/hỏng hóc khi test thực tế',
+          details: item.dispute.details || item.dispute.reason,
+          proofVideoUrl: item.dispute.proofVideoUrl,
+          status: item.dispute.status || 'PENDING',
+          adminNote: item.dispute.adminNote,
+          createdAt: item.dispute.createdAt
+            ? new Date(item.dispute.createdAt).toLocaleString('vi-VN')
+            : 'Gần đây',
+          resolvedAt: item.dispute.resolvedAt
+            ? new Date(item.dispute.resolvedAt).toLocaleString('vi-VN')
+            : undefined,
+        }
+      : undefined,
+    reviewData: Array.isArray(item.reviews) && item.reviews.length > 0
+      ? {
+          rating: Number(item.reviews[0].rating) || 5,
+          comment: item.reviews[0].comment || '',
+          tags: Array.isArray(item.reviews[0].tags) ? item.reviews[0].tags : [],
+          images: Array.isArray(item.reviews[0].images) ? item.reviews[0].images : [],
+          proofVideoUrl: item.reviews[0].proofVideoUrl,
+          reviewedAt: item.reviews[0].createdAt
+            ? new Date(item.reviews[0].createdAt).toLocaleDateString('vi-VN')
+            : 'Gần đây',
+          isPublic: item.reviews[0].isPublic ?? true,
+          canEdit: true,
+          replyComment: item.reviews[0].replyComment,
+          repliedAt: item.reviews[0].repliedAt || item.reviews[0].replyCreatedAt,
+        }
+      : undefined,
   };
 }
 

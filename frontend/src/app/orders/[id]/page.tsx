@@ -370,6 +370,8 @@ export default function OrderDetailPage() {
   const isCodOrder =
     order.payment?.paymentMethod === 'CASH' ||
     Boolean(order.payment?.paymentMethod?.toLowerCase().includes('cod')) ||
+    Boolean(order.payment?.paymentMethod?.toLowerCase().includes('tiền mặt')) ||
+    Boolean(order.payment?.paymentMethod?.toLowerCase().includes('điểm hẹn')) ||
     (!order.payment?.isPaid &&
       order.type === 'inter-campus' &&
       !order.payment?.paymentMethod?.toLowerCase().includes('vietqr') &&
@@ -925,10 +927,17 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       <Calendar className="h-4 w-4 text-emerald-700" />
                       <span>LỊCH HẸN BÀN GIAO TẠI SẢNH</span>
                     </div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold">
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span>Đã chốt hẹn</span>
-                    </span>
+                    {isOrderPending ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-2 py-0.5 text-[10px] font-bold">
+                        <Clock className="h-3 w-3 animate-pulse" />
+                        <span>Chờ người bán đồng ý</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>Đã chốt hẹn</span>
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-sm sm:text-base font-black text-slate-900">
@@ -1414,7 +1423,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
               {/* SELLER SPECIFIC ACTIONS */}
               {isSellerViewer ? (
                 <div className="space-y-2.5">
-                  {!isCodOrder && !order.payment?.isPaid && (
+                  {!isCodOrder && !order.payment?.isPaid && order.type !== 'safe-handoff' && (
                     <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
                       <p className="font-bold flex items-center gap-1.5 text-xs text-amber-900">
                         <Clock className="h-4 w-4 text-amber-600" />
@@ -1426,7 +1435,7 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     </div>
                   )}
 
-                  {(isCodOrder || order.payment?.isPaid) && (isOrderPending || isOrderProcessing) && (
+                  {(isCodOrder || order.payment?.isPaid || order.type === 'safe-handoff') && (isOrderPending || isOrderProcessing) && (
                     <div className="space-y-2">
                       {order.type === 'safe-handoff' ? (
                         <Button
@@ -1935,15 +1944,6 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     ✅ Đơn hoàn tất • Chờ người mua đánh giá
                   </div>
                 )
-              ) : order.type === 'safe-handoff' ? (
-                <Button
-                  type="button"
-                  onClick={() => setIsQrModalOpen(true)}
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs active:scale-95 shadow-xs"
-                >
-                  <QrCode className="h-4 w-4 mr-1.5" />
-                  <span>Mã QR Handshake</span>
-                </Button>
               ) : (
                 <div className="h-11 rounded-xl bg-slate-100 px-3 flex items-center justify-center text-center text-[11px] font-bold text-slate-600">
                   {order.statusText}

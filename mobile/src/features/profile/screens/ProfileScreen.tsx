@@ -102,7 +102,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const isSeller = user?.role === 'SELLER';
-  const orderSectionTitle = isSeller ? 'Đơn hàng & Giao dịch của tôi' : 'Đơn mua của tôi';
+  const orderSectionTitle = 'Đơn mua của tôi';
 
   const handleOpenOrderList = (statusId?: string) => {
     let initialTab = 'all';
@@ -171,61 +171,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onTrustScorePress={() => setShowTrustScoreModal(true)}
             />
 
-            {/* Kho hàng & Tin đăng của tôi - CHỈ DÀNH CHO SELLER */}
-            {isSeller && (
-              <TouchableOpacity
-                style={styles.khoCard}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('ManageListings')}
-              >
-                <View style={styles.khoCardHeader}>
-                  <View style={styles.khoCardLeft}>
-                    <View style={styles.khoIconBox}>
-                      <Ionicons name="file-tray-full" size={22} color="#EA580C" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={styles.khoCardTitle}>Kho hàng & Tin đăng của tôi</Text>
-                        {inventoryStats.rejected > 0 && (
-                          <View style={styles.khoAlertBadge}>
-                            <Text style={styles.khoAlertBadgeText}>{inventoryStats.rejected} cần sửa</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.khoCardSub} numberOfLines={1}>
-                        {inventoryStats.total > 0
-                          ? `Tổng ${inventoryStats.total} món đồ • ${inventoryStats.active} đang hiển thị`
-                          : 'Quản lý tin đăng bán, đơn chờ duyệt & kho đồ'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.khoCardRight}>
-                    <Text style={styles.khoCardActionText}>Vào kho</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#EA580C" />
-                  </View>
-                </View>
-
-                {/* Status Chips Row */}
-                <View style={styles.khoStatusRow}>
-                  <View style={[styles.khoStatusChip, { backgroundColor: '#F0FDF4' }]}>
-                    <Text style={[styles.khoStatusChipNum, { color: '#16A34A' }]}>{inventoryStats.active}</Text>
-                    <Text style={styles.khoStatusChipLabel}>Đang bán</Text>
-                  </View>
-                  <View style={[styles.khoStatusChip, { backgroundColor: '#FFFBEB' }]}>
-                    <Text style={[styles.khoStatusChipNum, { color: '#D97706' }]}>{inventoryStats.pending}</Text>
-                    <Text style={styles.khoStatusChipLabel}>Chờ duyệt</Text>
-                  </View>
-                  <View style={[styles.khoStatusChip, { backgroundColor: inventoryStats.rejected > 0 ? '#FEF2F2' : '#F8FAFC' }]}>
-                    <Text style={[styles.khoStatusChipNum, { color: inventoryStats.rejected > 0 ? '#DC2626' : '#64748B' }]}>{inventoryStats.rejected}</Text>
-                    <Text style={[styles.khoStatusChipLabel, inventoryStats.rejected > 0 && { color: '#DC2626', fontWeight: '700' }]}>Bị từ chối</Text>
-                  </View>
-                  <View style={[styles.khoStatusChip, { backgroundColor: '#F8FAFC' }]}>
-                    <Text style={[styles.khoStatusChipNum, { color: '#475569' }]}>{inventoryStats.sold}</Text>
-                    <Text style={styles.khoStatusChipLabel}>Đã bán</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
+            
 
             <CampusWalletCard
               onWithdrawPress={() => setShowWithdrawModal(true)}
@@ -251,12 +197,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
                   <Ionicons name="shield-half" size={20} color="#E11D48" />
                 </View>
-                <View>
+                <View style={styles.settingsBarTextCol}>
                   <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
-                  <Text style={styles.settingsBarSub}>Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
+                  <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#E11D48" />
+              <Ionicons name="chevron-forward" size={18} color="#E11D48" style={{ marginLeft: 6, flexShrink: 0 }} />
             </TouchableOpacity>
 
             <OrdersOverviewSection
@@ -503,7 +449,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginHorizontal: 16,
   },
-  settingsBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  settingsBarLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginRight: 8,
+    minWidth: 0,
+  },
+  settingsBarTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
   settingsBarIconBox: {
     width: 36,
     height: 36,

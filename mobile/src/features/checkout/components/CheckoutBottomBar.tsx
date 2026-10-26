@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 interface CheckoutBottomBarProps {
   totalAmount: number;
   selectedPayment: 'vietqr' | 'fptpay' | 'cash';
+  isMeetup?: boolean;
   onConfirmPayment: () => void;
   formatCurrency: (val: number) => string;
   isSubmitting?: boolean;
@@ -13,10 +14,25 @@ interface CheckoutBottomBarProps {
 export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
   totalAmount,
   selectedPayment,
+  isMeetup = true,
   onConfirmPayment,
   formatCurrency,
   isSubmitting = false,
 }) => {
+  const getButtonText = () => {
+    if (isSubmitting) return 'Đang kết nối Escrow...';
+    if (selectedPayment === 'vietqr') return 'Quét mã VietQR Escrow';
+    if (selectedPayment === 'fptpay') return 'Thanh toán Cổng PayOS';
+    return isMeetup ? 'Đặt hẹn Safe-Point' : 'Xác nhận đặt đơn';
+  };
+
+  const getButtonIcon = () => {
+    if (selectedPayment === 'cash') {
+      return isMeetup ? 'calendar-outline' : 'checkmark-done-circle-outline';
+    }
+    return 'shield-checkmark';
+  };
+
   return (
     <View style={styles.bottomBar}>
       <View style={styles.bottomPriceCol}>
@@ -33,21 +49,13 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
           <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
         ) : (
           <Ionicons
-            name={selectedPayment === 'cash' ? 'calendar-outline' : 'shield-checkmark'}
+            name={getButtonIcon() as any}
             size={18}
             color="#FFFFFF"
             style={{ marginRight: 6 }}
           />
         )}
-        <Text style={styles.payBtnText}>
-          {isSubmitting
-            ? 'Đang kết nối Escrow...'
-            : selectedPayment === 'vietqr'
-            ? 'Quét mã VietQR Escrow'
-            : selectedPayment === 'fptpay'
-            ? 'Thanh toán Cổng PayOS'
-            : 'Đặt hẹn Safe-Point'}
-        </Text>
+        <Text style={styles.payBtnText}>{getButtonText()}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -68,7 +76,11 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    boxShadow: '0 -3px 6px rgba(0, 0, 0, 0.05)',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
   bottomPriceCol: {
     justifyContent: 'center',
@@ -90,7 +102,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 4px 6px rgba(234, 88, 12, 0.3)',
+    elevation: 4,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   payBtnText: {
     color: '#FFFFFF',
@@ -98,3 +114,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+export default CheckoutBottomBar;

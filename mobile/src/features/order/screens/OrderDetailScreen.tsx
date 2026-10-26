@@ -165,7 +165,9 @@ export const OrderDetailScreen: React.FC = () => {
   const handleConfirmReceived = useCallback(() => {
     Alert.alert(
       'Xác nhận đã nhận hàng',
-      'Bạn đã kiểm tra hàng tại Safe-Point và đồng ý giải ngân tiền cho người bán?',
+      isInterCampus
+        ? 'Bạn xác nhận đã nhận được kiện hàng nguyên vẹn và đồng ý giải ngân tiền cọc cho người bán?'
+        : 'Bạn đã kiểm tra hàng tại Safe-Point và đồng ý giải ngân tiền cho người bán?',
       [
         { text: 'Kiểm tra thêm', style: 'cancel' },
         {
@@ -204,18 +206,27 @@ export const OrderDetailScreen: React.FC = () => {
         },
       ]
     );
-  }, [orderId, updateOrderStatus, navigation, product]);
+  }, [orderId, updateOrderStatus, navigation, product, isInterCampus]);
 
   const handleConfirmOrder = useCallback(async () => {
     try {
       setIsSubmitting(true);
       await orderMobileService.confirmOrder(orderId);
-      setOrderStatus('escrow_holding');
-      updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point', '#059669', '#ECFDF5');
-      Alert.alert(
-        '🎉 Đã chốt lịch hẹn!',
-        'Bạn đã đồng ý đơn hàng và xác nhận lịch hẹn gặp người mua tại bàn Safe-Point. Vui lòng có mặt đúng giờ để hoàn tất bàn giao.'
-      );
+      if (isInterCampus) {
+        setOrderStatus('shipping');
+        updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '📦 Đang chuẩn bị hàng & Gửi GHN', '#2563EB', '#EFF6FF');
+        Alert.alert(
+          '🎉 Đã tiếp nhận đơn hàng!',
+          'Bạn đã đồng ý đơn liên campus. Vui lòng đóng gói sản phẩm cẩn thận và mang tới bưu cục GHN hoặc trạm xe buýt FPT Bus để gửi.'
+        );
+      } else {
+        setOrderStatus('escrow_holding');
+        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point', '#059669', '#ECFDF5');
+        Alert.alert(
+          '🎉 Đã chốt lịch hẹn!',
+          'Bạn đã đồng ý đơn hàng và xác nhận lịch hẹn gặp người mua tại bàn Safe-Point. Vui lòng có mặt đúng giờ để hoàn tất bàn giao.'
+        );
+      }
     } catch (err: any) {
       Alert.alert(
         'Lỗi xác nhận',
@@ -224,7 +235,7 @@ export const OrderDetailScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [orderId, updateOrderStatus]);
+  }, [orderId, updateOrderStatus, isInterCampus]);
 
   const handleCancelSuccess = useCallback((reason: string) => {
     updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã hủy', '#64748B', '#F1F5F9');
@@ -316,7 +327,7 @@ export const OrderDetailScreen: React.FC = () => {
   );
 
   const currentOrderForReviewModal = useMemo(() => {
-    if (matchedOrder) return matchedOrder;
+    if (activeOrder) return activeOrder;
     return {
       id: orderId,
       orderNumber: orderId,
@@ -327,10 +338,10 @@ export const OrderDetailScreen: React.FC = () => {
       buyerCampus: 'Hòa Lạc',
       productImage: product.image,
       safePoint: safePoint,
-      isReviewed: true,
+      isReviewed: isReviewed,
       status: 'COMPLETED',
     } as unknown as OrderItem;
-  }, [matchedOrder, orderId, product, isSeller, user, safePoint]);
+  }, [activeOrder, orderId, product, isSeller, user, safePoint, isReviewed]);
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -357,7 +368,7 @@ export const OrderDetailScreen: React.FC = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-        <OrderStatusTimeline orderStatus={orderStatus} />
+        <OrderStatusTimeline orderStatus={orderStatus} isInterCampus={isInterCampus} />
         <OrderProductSummaryCard product={product} />
 
         {!isSeller && orderStatus === 'pending' && !!payosCheckoutUrl && (
@@ -367,8 +378,8 @@ export const OrderDetailScreen: React.FC = () => {
           </TouchableOpacity>
         )}
 
-        {/* Chỉ hiện banner liên campus khi 2 campus khác nhau */}
-        {matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus && (
+        {/* Chỉ hiện banner liên campus khi là đơn luân chuyển liên campus */}
+        {isInterCampus && (
           <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
         )}
 

@@ -34,22 +34,21 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
     );
   };
 
-  // DÀNH CHO SELLER: Hiển thị ví doanh thu khả dụng rút tiền ATM
+  // DÀNH CHO SELLER: Chỉ hiển thị thẻ ví Xu FPT & bảo lãnh thanh toán
   if (isSeller) {
     return (
       <View style={styles.card}>
         <View style={styles.walletRow}>
           <View style={styles.walletBox}>
-            <Text style={styles.label} numberOfLines={1}>Ví Người Bán (Rút ATM)</Text>
-            <Text style={styles.amount}>
-              {availableBalance.toLocaleString('vi-VN')}
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>đ</Text>
-            </Text>
-            {escrowBalance > 0 && (
-              <Text style={styles.subEscrow}>
-                🔒 {escrowBalance.toLocaleString('vi-VN')}đ đang giữ bảo hộ
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Ionicons name="shield-checkmark" size={14} color="#059669" />
+              <Text style={[styles.label, { color: '#059669', fontWeight: '800' }]}>
+                Bảo lãnh giao dịch Escrow
               </Text>
-            )}
+            </View>
+            <Text style={styles.buyerNoticeText}>
+              Doanh thu bán hàng và rút tiền được quản lý tập trung an toàn tại Kênh Người Bán.
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -58,49 +57,14 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
             onPress={() => navigation.navigate('CoinHistory')}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Text style={styles.label}>Xu tích lũy</Text>
+              <Text style={styles.label}>Ví FPT Xu</Text>
               <Ionicons name="chevron-forward" size={12} color="#94A3B8" />
             </View>
             <View style={styles.coinRow}>
-              <Ionicons name="sparkles" size={13} color="#F59E0B" style={{ marginRight: 3 }} />
-              <Text style={styles.coinText}>{displayCoins} Xu</Text>
+              <Ionicons name="sparkles" size={14} color="#F59E0B" style={{ marginRight: 3 }} />
+              <Text style={[styles.coinText, { fontSize: 17 }]}>{displayCoins} Xu</Text>
             </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={handleDeposit}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add-circle-outline" size={15} color="#EA580C" style={{ marginRight: 4 }} />
-            <Text style={styles.actionText}>Nạp ví</Text>
-          </TouchableOpacity>
-
-          <View style={styles.btnDivider} />
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => {
-              if (onWithdrawPress) onWithdrawPress();
-              else Alert.alert('Rút tiền', 'Tính năng rút tiền về ngân hàng');
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="card-outline" size={15} color="#059669" style={{ marginRight: 4 }} />
-            <Text style={[styles.actionText, { color: '#059669' }]}>Rút ATM</Text>
-          </TouchableOpacity>
-
-          <View style={styles.btnDivider} />
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('WithdrawalHistory')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="receipt-outline" size={15} color="#2563EB" style={{ marginRight: 4 }} />
-            <Text style={[styles.actionText, { color: '#2563EB' }]}>Lịch sử rút</Text>
+            <Text style={styles.coinSubHint}>Điểm danh & Thưởng</Text>
           </TouchableOpacity>
         </View>
       </View>
