@@ -266,32 +266,39 @@ const ChatOrderTicketBubble: React.FC<ChatOrderTicketBubbleProps> = ({ item, isM
   const orderCodeMatch = text.match(/#(ORD-[A-Za-z0-9_-]+)/i);
   const orderCode = item.orderData?.orderCode || (orderCodeMatch ? orderCodeMatch[1] : '');
   const cleanText = text.replace(/^\[ORDER_CREATED\]\s*/i, '');
+  const isCod = text.includes('Ship COD') || text.includes('tiền mặt') || item.orderData?.orderType === 'SHIP_COD';
 
   return (
     <View style={[styles.msgWrapper, isMe ? styles.myMsgWrapper : styles.theirMsgWrapper]}>
       <View style={styles.orderTicketCard}>
         {/* Header Tag + Time */}
         <View style={styles.orderHeaderRow}>
-          <View style={styles.orderTicketPill}>
-            <Ionicons name="shield-checkmark" size={11} color="#059669" />
-            <Text style={styles.orderTicketPillText}>Đơn Hàng Escrow</Text>
+          <View style={[styles.orderTicketPill, isCod && { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+            <Ionicons name={isCod ? 'cube-outline' : 'shield-checkmark'} size={11} color={isCod ? '#2563EB' : '#059669'} />
+            <Text style={[styles.orderTicketPillText, isCod && { color: '#2563EB' }]}>
+              {isCod ? 'Đơn Hàng COD (Thu Hộ)' : 'Đơn Hàng Escrow'}
+            </Text>
           </View>
           <Text style={styles.orderTimeText}>{item.time}</Text>
         </View>
 
         {/* Order Main Title */}
         <View style={styles.orderTitleRow}>
-          <Ionicons name="bag-check" size={18} color="#EA580C" style={{ marginRight: 6 }} />
-          <Text style={styles.orderMainTitle}>Đã Đặt Mua Thành Công!</Text>
+          <Ionicons name={isCod ? 'cube' : 'bag-check'} size={18} color={isCod ? '#2563EB' : '#EA580C'} style={{ marginRight: 6 }} />
+          <Text style={styles.orderMainTitle}>
+            {isCod ? 'Đã Tạo Đơn Giao Hàng (COD)' : 'Đã Đặt Mua Thành Công!'}
+          </Text>
         </View>
 
         {/* Order Description / Details */}
         <View style={styles.orderContentBox}>
           <Text style={styles.orderBodyText}>{cleanText}</Text>
           <View style={styles.escrowNoticeRow}>
-            <Ionicons name="lock-closed" size={10} color="#0284C7" style={{ marginRight: 4 }} />
+            <Ionicons name={isCod ? 'information-circle' : 'lock-closed'} size={12} color="#0284C7" style={{ marginRight: 4 }} />
             <Text style={styles.escrowNoticeText}>
-              Tiền cọc được sàn FPT giữ bảo chứng, chỉ thanh toán khi hai bên quét mã bàn giao.
+              {isCod
+                ? 'Thanh toán tiền mặt cho bưu tá khi nhận và đồng kiểm hàng 48h tại sảnh KTX.'
+                : 'Tiền cọc được sàn FPT giữ bảo chứng, chỉ thanh toán khi hai bên quét mã bàn giao.'}
             </Text>
           </View>
         </View>

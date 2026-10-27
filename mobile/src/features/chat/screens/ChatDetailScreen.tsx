@@ -8,6 +8,8 @@ import {
   Platform,
   StyleSheet,
   Alert,
+  Keyboard,
+  Vibration,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -104,6 +106,28 @@ export const ChatDetailScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 80);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const [isBuyer, setIsBuyer] = useState<boolean>(() => {
     if (route.params?.isBuyer !== undefined) return Boolean(route.params.isBuyer);
     if (route.params?.initialOffer) return true;
@@ -379,11 +403,24 @@ export const ChatDetailScreen: React.FC = () => {
 
         return [...prev, incoming];
       });
+
+      if (!isMe) {
+        setIsTyping(false);
+        try {
+          Vibration.vibrate(30);
+        } catch (_) {}
+      }
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     });
 
     const unsubTyping = socketMobileService.onUserTyping((data) => {
       if (data.conversationId === conversationId && data.userId !== currentUserId) {
         setIsTyping(true);
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 80);
       }
     });
 
@@ -445,6 +482,12 @@ export const ChatDetailScreen: React.FC = () => {
                   }
                 });
                 if (newItems.length > 0) {
+                  try {
+                    Vibration.vibrate(30);
+                  } catch (_) {}
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
                   return [...prev, ...newItems];
                 }
                 return prev;
@@ -722,6 +765,22 @@ export const ChatDetailScreen: React.FC = () => {
     [handleSendMessage]
   );
 
+  const renderTypingFooter = useCallback(() => {
+    if (!isTyping) return null;
+    return (
+      <View style={styles.typingFooter}>
+        <View style={styles.typingBubble}>
+          <Text style={styles.typingText}>{partner.name} đang soạn tin</Text>
+          <View style={styles.typingDotsRow}>
+            <View style={[styles.typingDot, styles.typingDot1]} />
+            <View style={[styles.typingDot, styles.typingDot2]} />
+            <View style={[styles.typingDot, styles.typingDot3]} />
+          </View>
+        </View>
+      </View>
+    );
+  }, [isTyping, partner.name]);
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <ChatDetailTopBar
@@ -738,16 +797,11 @@ export const ChatDetailScreen: React.FC = () => {
         onViewProduct={() => navigation.navigate('ProductDetail', { productId: product.id })}
       />
 
-      {isTyping && (
-        <View style={styles.typingNotice}>
-          <Text style={styles.typingText}>{partner.name} đang soạn tin nhắn...</Text>
-        </View>
-      )}
-
-      {/* Messages List */}
+      {/* Messages List & Input */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top > 0 ? insets.top + 20 : 64) : 0}
       >
         <FlatList
           ref={flatListRef}
@@ -757,6 +811,8 @@ export const ChatDetailScreen: React.FC = () => {
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListFooterComponent={renderTypingFooter}
           ListEmptyComponent={
             <View style={styles.emptyMessages}>
               <Text style={styles.emptyMessagesText}>Chưa có tin nhắn nào. Hãy gửi lời chào để bắt đầu giao dịch!</Text>
@@ -788,7 +844,7 @@ export const ChatDetailScreen: React.FC = () => {
           onSend={() => handleSendMessage()}
           onAttachPhoto={handleAttachPhoto}
           onPickSafePoint={handlePickSafePoint}
-          insetsBottom={insets.bottom}
+          insetsBottom={isKeyboardVisible ? 6 : insets.bottom}
         />
       </KeyboardAvoidingView>
     </View>
@@ -798,16 +854,42 @@ export const ChatDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   messagesList: { paddingHorizontal: 16, paddingVertical: 14 },
-  typingNotice: {
+  typingFooter: {
     paddingHorizontal: 16,
-    paddingVertical: 4,
-    backgroundColor: '#EFF6FF',
+    paddingVertical: 6,
+    alignItems: 'flex-start',
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
   },
   typingText: {
-    fontSize: 11,
-    color: '#2563EB',
+    fontSize: 11.5,
+    color: '#64748B',
     fontStyle: 'italic',
   },
+  typingDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  typingDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#EA580C',
+  },
+  typingDot1: { opacity: 0.4 },
+  typingDot2: { opacity: 0.7 },
+  typingDot3: { opacity: 1 },
   emptyMessages: {
     paddingVertical: 40,
     alignItems: 'center',
