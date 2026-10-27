@@ -47,27 +47,56 @@ export class UserService {
               campus: true,
               campusCoins: true,
               reputationScore: true,
+              studentId: true,
+              cohort: true,
             },
+          },
+          _count: {
+            select: {
+              products: true,
+            },
+          },
+          kycVerifications: {
+            select: {
+              id: true,
+              studentId: true,
+              status: true,
+              type: true,
+              campus: true,
+              major: true,
+              cohort: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
           },
         },
       }),
       prisma.user.count({ where }),
     ]);
 
-    const formattedUsers = users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      fullName: u.profile?.fullName,
-      avatarUrl: u.profile?.avatarUrl,
-      avatarBadge: u.profile?.avatarBadge,
-      phoneNumber: u.profile?.phoneNumber,
-      role: u.role,
-      campus: u.profile?.campus,
-      campusCoins: u.profile?.campusCoins,
-      reputationScore: u.profile?.reputationScore,
-      isActive: u.isActive,
-      createdAt: u.createdAt,
-    }));
+    const formattedUsers = users.map((u: any) => {
+      const latestKyc = u.kycVerifications?.[0];
+      const mssv = (latestKyc?.studentId || u.profile?.studentId || '').trim().toUpperCase();
+      return {
+        id: u.id,
+        email: u.email,
+        fullName: u.profile?.fullName,
+        avatarUrl: u.profile?.avatarUrl || null,
+        avatarBadge: u.profile?.avatarBadge || null,
+        phoneNumber: u.profile?.phoneNumber,
+        role: u.role,
+        campus: u.profile?.campus || latestKyc?.campus,
+        campusCoins: u.profile?.campusCoins,
+        reputationScore: u.profile?.reputationScore,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+        postsCount: u._count?.products || 0,
+        studentId: mssv,
+        major: latestKyc?.major || 'Kỹ thuật phần mềm (SE)',
+        cohort: latestKyc?.cohort || u.profile?.cohort,
+        kycStatus: latestKyc?.status || (u.role === 'SELLER' ? 'APPROVED' : 'NONE'),
+      };
+    });
 
     return {
       users: formattedUsers,

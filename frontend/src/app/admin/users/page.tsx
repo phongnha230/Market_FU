@@ -34,6 +34,7 @@ import { userService, BackendUserItem } from '@/services/userService';
 export interface StudentItem {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   mssv: string;
   campus: string;
   major: string;
@@ -99,6 +100,61 @@ function getTrustBadge(trust: number, isLocked: boolean) {
     label: 'Bạc Tiêu Chuẩn',
     color: 'text-slate-600 bg-slate-100 border-slate-200',
   };
+}
+
+function AdminUserAvatar({
+  src,
+  name,
+  size = 'md',
+}: {
+  src?: string | null;
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setError(false);
+  }, [src]);
+
+  const initials =
+    (name || 'SV')
+      .trim()
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || 'SV';
+
+  const sizeClasses = {
+    sm: 'h-9 w-9 text-xs',
+    md: 'h-10 w-10 text-xs',
+    lg: 'h-12 w-12 text-sm',
+  }[size];
+
+  if (!src || error) {
+    return (
+      <div
+        className={`relative ${sizeClasses} rounded-full flex items-center justify-center font-black bg-gradient-to-br from-orange-400 to-amber-500 text-white shrink-0 shadow-2xs select-none`}
+      >
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`relative ${sizeClasses} rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0 shadow-2xs`}
+    >
+      <img
+        src={src}
+        alt={name}
+        className="w-full h-full object-cover"
+        onError={() => setError(true)}
+      />
+    </div>
+  );
 }
 
 export default function AdminUsersPage() {
@@ -195,22 +251,25 @@ export default function AdminUsersPage() {
         const trust = isLocked ? 45 : (u.reputationScore ?? 95);
         const { label: trustLabel, color: trustColor } = getTrustBadge(trust, isLocked);
 
-        const isKycVerified = kycMatch?.status === 'approved' || u.role === 'SELLER';
+        const isKycVerified = kycMatch?.status === 'approved' || u.role === 'SELLER' || u.kycStatus === 'APPROVED';
+        const actualPosts = typeof u.postsCount === 'number' ? u.postsCount : postsCount;
+        const actualAvatar = u.avatarUrl || kycMatch?.avatarUrl || null;
 
         combinedList.push({
           id: u.id,
           name: u.fullName || u.email.split('@')[0],
-          mssv,
+          avatarUrl: actualAvatar,
+          mssv: u.studentId || mssv,
           campus,
           major,
           email: u.email,
           role: u.role,
           kyc: isKycVerified ? 'verified' : (kycMatch?.status === 'rejected' ? 'rejected' : 'pending'),
           sso: 'ok',
-          posts: postsCount,
+          posts: actualPosts,
           done: doneCount,
-          responseTime: postsCount > 0 ? '~5 phút' : 'Chưa có tin',
-          responseRate: postsCount > 0 ? 95 : 100,
+          responseTime: actualPosts > 0 ? '~5 phút' : 'Chưa có tin',
+          responseRate: actualPosts > 0 ? 95 : 100,
           handoffPlace: `Campus ${campus}`,
           trust,
           trustLabel,
@@ -645,18 +704,8 @@ export default function AdminUsersPage() {
                 >
                   {/* Student Info */}
                   <div className="col-span-3 flex items-start gap-2.5">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black text-white mt-0.5 shadow-2xs ${
-                        sv.trust >= 90
-                          ? 'bg-cyan-500'
-                          : sv.trust >= 80
-                          ? 'bg-yellow-500'
-                          : sv.trust >= 60
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                      }`}
-                    >
-                      {sv.name.charAt(0).toUpperCase()}
+                    <div className="mt-0.5 shrink-0">
+                      <AdminUserAvatar src={sv.avatarUrl} name={sv.name} size="sm" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1030,9 +1079,11 @@ export default function AdminUsersPage() {
             <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500 font-black text-white text-base">
-                    {selectedStudentDetail.name.charAt(0).toUpperCase()}
-                  </div>
+                  <AdminUserAvatar
+                    src={selectedStudentDetail.avatarUrl}
+                    name={selectedStudentDetail.name}
+                    size="md"
+                  />
                   <div>
                     <h3 className="text-base font-black text-slate-900 leading-tight">
                       {selectedStudentDetail.name}

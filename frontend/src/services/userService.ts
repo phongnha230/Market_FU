@@ -13,6 +13,10 @@ export interface BackendUserItem {
   reputationScore?: number;
   isActive: boolean;
   createdAt: string;
+  postsCount?: number;
+  studentId?: string;
+  major?: string;
+  kycStatus?: string;
 }
 
 export interface UserListResponse {
@@ -49,6 +53,10 @@ export const userService = {
       avatarBadge: u.avatarBadge || u.profile?.avatarBadge || null,
       campusCoins: u.campusCoins ?? u.profile?.campusCoins ?? 0,
       reputationScore: u.reputationScore ?? u.profile?.reputationScore ?? 100,
+      postsCount: u.postsCount ?? u._count?.products ?? 0,
+      studentId: u.studentId || u.profile?.studentId || '',
+      major: u.major || '',
+      kycStatus: u.kycStatus || '',
     }));
     return {
       users,

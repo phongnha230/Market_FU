@@ -1262,7 +1262,14 @@ export class ReportService {
         hostname === '[::1]' ||
         /^(127\.|0\.|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
 
-      const allowedHosts = [ENV.R2_PUBLIC_DOMAIN, ENV.R2_PUBLIC_URL, ENV.MEDIA_DOMAIN]
+      const allowedHosts = [
+        ENV.R2_PUBLIC_DOMAIN,
+        ENV.R2_PUBLIC_URL,
+        ENV.MEDIA_DOMAIN,
+        'pub-b66e7d5c59bf40eeac66675f73bb0b18.r2.dev',
+        'images.unsplash.com',
+        'lh3.googleusercontent.com',
+      ]
         .filter(Boolean)
         .map((domain) => {
           try {
@@ -1274,7 +1281,14 @@ export class ReportService {
         })
         .filter(Boolean);
 
-      if (isPrivateOrLoopback || !allowedHosts.includes(hostname)) {
+      const isAllowedHost =
+        allowedHosts.includes(hostname) ||
+        hostname.endsWith('.r2.dev') ||
+        hostname.endsWith('.cloudflarestorage.com') ||
+        hostname.endsWith('unsplash.com') ||
+        hostname.endsWith('googleusercontent.com');
+
+      if (isPrivateOrLoopback || !isAllowedHost) {
         throw new AppError(
           'Từ chối tải ảnh KYC từ máy chủ không thuộc hệ thống lưu trữ được phép (Chống SSRF)',
           400,
