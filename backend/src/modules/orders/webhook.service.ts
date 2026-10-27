@@ -145,8 +145,15 @@ export class ShippingWebhookService {
       },
     };
 
+    const cleanCode = String(orderCode).replace(/^#/, '').trim();
     let order = await prisma.order.findFirst({
-      where: { orderCode: String(orderCode) },
+      where: {
+        OR: [
+          { orderCode: String(orderCode) },
+          { orderCode: cleanCode },
+          { orderCode: `#${cleanCode}` },
+        ],
+      },
       include: orderInclude,
     });
 

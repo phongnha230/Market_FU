@@ -47,7 +47,6 @@ export class UserService {
               campus: true,
               campusCoins: true,
               reputationScore: true,
-              studentId: true,
               cohort: true,
             },
           },

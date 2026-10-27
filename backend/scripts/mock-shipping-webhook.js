@@ -46,7 +46,7 @@ const BASE_URL = IS_LOCAL
 async function sendShippingWebhook(orderCodeOrTracking, action) {
   const isDelivered = action.toLowerCase() === 'delivered' || action === '1';
   const status = isDelivered ? 'DELIVERED' : 'CANCELLED';
-  const cleanCode = orderCodeOrTracking.trim();
+  const cleanCode = orderCodeOrTracking.trim().replace(/^#/, '');
 
   const payload = {
     order_code: cleanCode,
@@ -63,7 +63,7 @@ async function sendShippingWebhook(orderCodeOrTracking, action) {
   console.log('\n============================================================');
   console.log(`🚀 [SHIPPING WEBHOOK] Gửi giả lập sự kiện: ${status}`);
   console.log(`🎯 Endpoint   : ${BASE_URL}`);
-  console.log(`📄 Đơn hàng   : #${orderCode}`);
+  console.log(`📄 Đơn hàng   : #${cleanCode}`);
   console.log(`🔐 Chữ ký HMAC: ${signature}`);
   console.log(`📦 Payload    : ${bodyStr}`);
   console.log('============================================================\n');

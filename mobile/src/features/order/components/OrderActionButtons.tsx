@@ -62,6 +62,7 @@ interface PrimaryActionButtonProps {
   isReviewed: boolean;
   isSubmitting: boolean;
   isDisputed: boolean;
+  onOpenShipModal?: () => void;
   onConfirmOrder?: () => void;
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
@@ -77,6 +78,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   isReviewed,
   isSubmitting,
   isDisputed,
+  onOpenShipModal,
   onConfirmOrder,
   onConfirmReceived,
   onOpenScanner,
@@ -90,6 +92,44 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
     // When pending seller confirmation:
     if (isPending) {
+      if (isInterCampus) {
+        return (
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.confirmReceivedBtn, { backgroundColor: '#EA580C' }]}
+              activeOpacity={0.88}
+              onPress={onOpenShipModal || onConfirmOrder}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
+                  <Text style={styles.confirmReceivedText}>
+                    Bàn giao bưu cục GHN (Tạo mã vận đơn)
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {onCancelOrder && (
+              <TouchableOpacity
+                style={[styles.confirmReceivedBtn, { backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECDD3' }]}
+                activeOpacity={0.88}
+                onPress={onCancelOrder}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#E11D48" style={styles.mr6} />
+                <Text style={[styles.confirmReceivedText, { color: '#E11D48', fontWeight: '700' }]}>
+                  Từ chối đơn (Hoàn cọc 100% cho khách)
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      }
+
       return (
         <View style={{ gap: 8 }}>
           <TouchableOpacity
@@ -104,7 +144,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
               <>
                 <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
                 <Text style={styles.confirmReceivedText}>
-                  {isInterCampus ? 'Đồng ý đơn & Chuẩn bị gửi GHN' : 'Đồng ý đơn & Chốt lịch hẹn'}
+                  Đồng ý đơn & Chốt lịch hẹn
                 </Text>
               </>
             )}
@@ -128,6 +168,37 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     }
 
     if (isInterCampus) {
+      if (orderStatus === 'shipping' || orderStatus === 'SHIPPING' || orderStatus === 'HANDOVER_CONFIRMED') {
+        return (
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.confirmReceivedBtn, { backgroundColor: '#EA580C' }]}
+              activeOpacity={0.88}
+              onPress={onOpenShipModal}
+              disabled={isSubmitting}
+            >
+              <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
+              <Text style={styles.confirmReceivedText}>Sửa mã vận đơn / Hãng vận chuyển</Text>
+            </TouchableOpacity>
+            <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' }]}>
+              <Ionicons name="cube-outline" size={20} color="#2563EB" style={styles.mr6} />
+              <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 13 }]}>
+                Kiện hàng đang được bưu cục luân chuyển
+              </Text>
+            </View>
+          </View>
+        );
+      }
+      if (orderStatus === 'delivered' || orderStatus === 'DELIVERED') {
+        return (
+          <View style={[styles.confirmReceivedBtn, { backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' }]}>
+            <Ionicons name="checkmark-circle" size={20} color="#059669" style={styles.mr6} />
+            <Text style={[styles.confirmReceivedText, { color: '#065F46', fontSize: 13 }]}>
+              Đã phát tới KTX • Người mua đang trong 48h bao test
+            </Text>
+          </View>
+        );
+      }
       return (
         <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
           <Ionicons name="cube-outline" size={20} color="#EA580C" style={styles.mr6} />
@@ -328,6 +399,7 @@ const SubActionButtons: React.FC<SubActionButtonsProps> = React.memo(({
 SubActionButtons.displayName = 'SubActionButtons';
 
 export interface OrderActionButtonsProps {
+  onOpenShipModal?: () => void;
   orderStatus: string;
   isSeller: boolean;
   isInterCampus?: boolean;
@@ -345,6 +417,7 @@ export interface OrderActionButtonsProps {
 }
 
 export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(({
+  onOpenShipModal,
   orderStatus,
   isSeller,
   isInterCampus,
@@ -381,6 +454,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
       )}
 
       <PrimaryActionButton
+        onOpenShipModal={onOpenShipModal}
         orderStatus={orderStatus}
         isSeller={isSeller}
         isInterCampus={isInterCampus}

@@ -71,6 +71,16 @@ export interface OrderItem {
   dispute?: OrderDisputeData;
   handshakeOtp?: string;
   orderType?: 'MEETUP' | 'SHIP_COD';
+  trackingCode?: string;
+  shippingPartner?: string;
+  shipping?: {
+    trackingCode?: string;
+    shippingPartner?: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    shippingAddress?: string;
+    destinationCampus?: string;
+  };
   createdAt: string;
 }
 
@@ -91,6 +101,7 @@ interface OrderState {
     color?: string,
     bg?: string
   ) => void;
+  updateOrderShipping: (orderId: string, trackingCode: string, shippingPartner: string) => void;
   verifyHandshakeOtp: (
     orderId: string,
     inputOtp: string
@@ -200,6 +211,29 @@ export const useOrderStore = create<OrderState>()(
       addOrder: (order: OrderItem) => {
         set((state) => ({
           orders: [order, ...state.orders.filter((o) => o.id !== order.id && o.orderNumber !== order.orderNumber)],
+        }));
+      },
+
+      updateOrderShipping: (orderId, trackingCode, shippingPartner) => {
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId
+              ? {
+                  ...o,
+                  status: 'HANDOVER_CONFIRMED',
+                  statusLabel: '🚚 Đang vận chuyển liên Campus',
+                  statusColor: '#2563EB',
+                  statusBg: '#EFF6FF',
+                  trackingCode,
+                  shippingPartner,
+                  shipping: {
+                    ...o.shipping,
+                    trackingCode,
+                    shippingPartner,
+                  },
+                }
+              : o
+          ),
         }));
       },
 

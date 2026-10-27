@@ -1097,7 +1097,7 @@ export class OrderService {
     }
 
     const updated = await prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: {
         status,
         shipping: {

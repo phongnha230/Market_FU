@@ -214,6 +214,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   }
 
   const resolvedTimeSlot = formatAppointmentSlot(item.appointmentTime, item.timeSlot);
+  const shippingInfo = item.shipping || {};
+  const trackingCode = shippingInfo.trackingCode || shippingInfo.trackingNumber || item.trackingCode;
+  const shippingPartner = shippingInfo.shippingPartner || shippingInfo.partner || item.shippingPartner || 'GHN';
 
   return {
     id: item.id || item._id,
@@ -244,6 +247,16 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     timeSlot: resolvedTimeSlot,
     deliveryNote: resolvedNote,
     orderType: resolvedOrderType,
+    trackingCode: trackingCode || undefined,
+    shippingPartner: shippingPartner || undefined,
+    shipping: item.shipping ? {
+      trackingCode: trackingCode || undefined,
+      shippingPartner: shippingPartner || undefined,
+      receiverName: shippingInfo.receiverName,
+      receiverPhone: shippingInfo.receiverPhone,
+      shippingAddress: shippingInfo.shippingAddress,
+      destinationCampus: shippingInfo.destinationCampus,
+    } : undefined,
     // Handshake OTP CHỈ dùng cho đơn MEETUP (cùng campus hẹn gặp), không gán cho đơn liên campus GHN!
     handshakeOtp: resolvedOrderType === 'SHIP_COD' ? undefined : validOtp,
     createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Hôm nay',
@@ -286,6 +299,18 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
 }
 
 export const orderMobileService = {
+  /**
+   * Cập nhật thông tin vận chuyển và bàn giao cho bưu cục GHN / Xe buýt FPT
+   */
+  async updateShippingStatus(
+    orderId: string,
+    params: { status: 'SHIPPING'; trackingCode?: string; shippingPartner?: string }
+  ): Promise<OrderItem> {
+    const cleanId = orderId.replace(/^#/, '').trim();
+    const res = await apiClient.patch<ApiResponse<any>>('/orders/' + cleanId + '/shipping', params);
+    return adaptBackendOrderToMobile(res.data?.data || res.data);
+  },
+
   /**
    * Tạo đơn hàng mới chuẩn xác 100% với Backend DTO (Zod Schema)
    */

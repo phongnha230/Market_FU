@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { OrderProductSummaryCard } from '../components/OrderProductSummaryCard';
 import { OrderInterCampusBanner } from '../components/OrderInterCampusBanner';
 import { PackageProofRow } from '../components/PackageProofRow';
 import { OrderDetailModals } from '../components/OrderDetailModals';
+import { OrderShipModal } from '../components/OrderShipModal';
 import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
 const HIT_SLOP_8 = { top: 8, bottom: 8, left: 8, right: 8 } as const;
@@ -35,9 +37,10 @@ export const OrderDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useUserStore();
-  const { orders, updateOrderStatus } = useOrderStore();
+  const { orders, updateOrderStatus, updateOrderShipping } = useOrderStore();
 
   const [showProofModal, setShowProofModal] = useState(false);
+  const [showShipModal, setShowShipModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showWithdrawDisputeModal, setShowWithdrawDisputeModal] = useState(false);
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -79,6 +82,8 @@ export const OrderDetailScreen: React.FC = () => {
       ? 'completed'
       : matchedOrder?.status === 'DELIVERED'
       ? 'delivered'
+      : matchedOrder?.status === 'HANDOVER_CONFIRMED'
+      ? 'shipping'
       : matchedOrder?.status === 'CANCELLED'
       ? 'cancelled'
       : matchedOrder?.status === 'DISPUTED'
@@ -100,6 +105,7 @@ export const OrderDetailScreen: React.FC = () => {
           setFetchedOrder(order);
           if (order.status === 'COMPLETED') setOrderStatus('completed');
           else if (order.status === 'DELIVERED') setOrderStatus('delivered');
+          else if (order.status === 'HANDOVER_CONFIRMED') setOrderStatus('shipping');
           else if (order.status === 'CANCELLED') setOrderStatus('cancelled');
           else if (order.status === 'DISPUTED') setOrderStatus('disputed');
           else if (order.status === 'PENDING_SAFEPOINT') setOrderStatus('pending');
@@ -139,12 +145,25 @@ export const OrderDetailScreen: React.FC = () => {
       }
     });
 
+    const unsubShipping = socketMobileService.onOrderShippingUpdated((d) => {
+      if (d.orderId === orderId || d.orderCode === orderId) {
+        if (d.status === 'DELIVERED') {
+          setOrderStatus('delivered');
+          updateOrderStatus(orderId, 'DELIVERED', '🛵 Đã tới KTX', '#10B981', '#ECFDF5');
+        } else if (d.status === 'SHIPPING') {
+          setOrderStatus('shipping');
+          updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '🚚 Đang vận chuyển', '#2563EB', '#EFF6FF');
+        }
+      }
+    });
+
     return () => {
       isMounted = false;
       unsubPaid();
       unsubConfirmed();
       unsubComp();
       unsubCancel();
+      unsubShipping();
     };
   }, [orderId, updateOrderStatus]);
 
@@ -174,6 +193,29 @@ export const OrderDetailScreen: React.FC = () => {
     (matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus) ||
     matchedOrder?.orderType === 'SHIP_COD'
   );
+
+  const handleShipSuccess = useCallback((orderIdParam: string, trackingCode: string, partner: string) => {
+    setOrderStatus('shipping');
+    if (updateOrderShipping) {
+      updateOrderShipping(orderIdParam, trackingCode, partner);
+    }
+    setFetchedOrder((prev) => (prev ? {
+      ...prev,
+      status: 'HANDOVER_CONFIRMED',
+      statusLabel: '🚚 Đang vận chuyển',
+      trackingCode,
+      shippingPartner: partner,
+      shipping: {
+        ...(prev.shipping || {}),
+        trackingCode,
+        shippingPartner: partner,
+      },
+    } : null));
+    Alert.alert(
+      '🎉 Bàn giao bưu cục thành công!',
+      `Đơn hàng #${activeOrder?.orderNumber || orderId} đã được chuyển sang trạng thái Đang vận chuyển.\nĐơn vị: ${partner}\nMã vận đơn: ${trackingCode}`
+    );
+  }, [orderId, activeOrder, updateOrderShipping]);
 
   const handleConfirmReceived = useCallback(() => {
     Alert.alert(
@@ -444,6 +486,43 @@ export const OrderDetailScreen: React.FC = () => {
           <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
         )}
 
+        {/* Thông tin vận đơn / Hành trình liên campus */}
+        {isInterCampus && (orderStatus === 'shipping' || orderStatus === 'delivered' || !!activeOrder?.trackingCode) && (
+          <View style={styles.trackingCard}>
+            <View style={styles.trackingCardHeader}>
+              <View style={styles.trackingCardIconBox}>
+                <Ionicons name="bus" size={18} color="#2563EB" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.trackingCardTitle}>
+                  Vận đơn • {activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner || 'GHN Express'}
+                </Text>
+                <Text style={styles.trackingCodeValue}>
+                  Mã: {activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode || 'Đang cập nhật'}
+                </Text>
+              </View>
+              {isSeller && (
+                <TouchableOpacity
+                  style={styles.trackingEditBtn}
+                  onPress={() => setShowShipModal(true)}
+                  hitSlop={HIT_SLOP_8}
+                >
+                  <Ionicons name="create-outline" size={15} color="#EA580C" />
+                  <Text style={styles.trackingEditText}>Sửa mã</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.trackingCardFooter}>
+              <Ionicons name="information-circle-outline" size={14} color="#64748B" />
+              <Text style={styles.trackingFooterText}>
+                {orderStatus === 'delivered'
+                  ? 'Kiện hàng đã phát tới KTX. Người mua đang có 48h kiểm tra hàng.'
+                  : 'Kiện hàng đang được bưu cục chuyển phát tới KTX điểm đến.'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Chỉ hiện mã QR đồng kiểm khi đơn MEETUP (cùng campus hẹn gặp) đang trong quá trình bàn giao/chờ nhận */}
         {orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isInterCampus && (
           <>
@@ -462,6 +541,7 @@ export const OrderDetailScreen: React.FC = () => {
         <OrderActionButtons
           orderStatus={orderStatus}
           isSeller={Boolean(isSeller)}
+          onOpenShipModal={() => setShowShipModal(true)}
           isInterCampus={isInterCampus}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}
@@ -495,6 +575,20 @@ export const OrderDetailScreen: React.FC = () => {
         onCancelSuccess={handleCancelSuccess}
         onWithdrawDisputeSuccess={handleWithdrawDisputeSuccess}
         onReportDispute={handleOpenDispute}
+      />
+
+      <OrderShipModal
+        visible={showShipModal}
+        orderId={activeOrder?.id || orderId}
+        orderCode={activeOrder?.orderNumber || orderId}
+        productTitle={product.title}
+        sellerName={product.sellerName}
+        campus={product.sellerCampus}
+        initialPartner={activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner || 'GHN'}
+        initialTrackingCode={activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode || ''}
+        isAlreadyShipping={orderStatus === 'shipping'}
+        onClose={() => setShowShipModal(false)}
+        onSuccess={handleShipSuccess}
       />
 
       <ReviewDetailModal
@@ -543,6 +637,68 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '700',
+  },
+  trackingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackingCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trackingCardIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackingCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  trackingCodeValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 2,
+  },
+  trackingEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFF7ED',
+  },
+  trackingEditText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#EA580C',
+  },
+  trackingCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  trackingFooterText: {
+    fontSize: 11,
+    color: '#64748B',
+    flex: 1,
+    fontWeight: '500',
   },
   scrollBody: {
     paddingHorizontal: 16,
