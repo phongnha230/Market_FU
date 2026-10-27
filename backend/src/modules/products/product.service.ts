@@ -1112,7 +1112,7 @@ export class ProductService {
       ];
     }
 
-    const [total, products, totalPending, totalLive, totalRejected, totalAppeals, totalAll] = await Promise.all([
+    const [total, products, totalPending, totalLive, totalSold, totalHidden, totalRejected, totalAppeals, totalAll] = await Promise.all([
       prisma.product.count({ where }),
       prisma.product.findMany({
         where,
@@ -1150,6 +1150,8 @@ export class ProductService {
       }),
       prisma.product.count({ where: { status: 'PENDING_APPROVAL' } }),
       prisma.product.count({ where: { status: 'AVAILABLE' } }),
+      prisma.product.count({ where: { status: 'SOLD' } }),
+      prisma.product.count({ where: { status: 'HIDDEN' } }),
       prisma.product.count({ where: { status: 'REJECTED' } }),
       prisma.product.count({ where: { appealStatus: 'PENDING' } }),
       prisma.product.count(),
@@ -1167,6 +1169,8 @@ export class ProductService {
         all: totalAll,
         pending: totalPending,
         live: totalLive,
+        sold: totalSold,
+        hidden: totalHidden,
         rejected: totalRejected,
         appeals: totalAppeals,
       },

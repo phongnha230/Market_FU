@@ -353,6 +353,12 @@ export const ProductService = {
     });
     return response.data.data;
   },
+
+  // 18. [Admin/Seller] Xóa tin đăng sản phẩm
+  async deleteProduct(id: string): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>(`/products/${id}`);
+    return response.data.data;
+  },
 };
 
 export const productService = ProductService;

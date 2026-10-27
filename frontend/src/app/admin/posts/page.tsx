@@ -35,7 +35,7 @@ import {
 import { ProductService } from '@/services/productService';
 import { formatCampusTag, extractImageUrl } from '@/lib/adapters';
 
-type TabType = 'all' | 'pending' | 'appeals' | 'risk' | 'live' | 'rejected';
+type TabType = 'all' | 'pending' | 'appeals' | 'risk' | 'live' | 'sold' | 'hidden' | 'rejected';
 
 export interface AdminPostItem {
   id: string;
@@ -221,8 +221,14 @@ export default function AdminPostsPage() {
     pending: 0,
     appeals: 0,
     live: 0,
+    sold: 0,
+    hidden: 0,
     rejected: 0,
   });
+
+  // Modal Xóa tin
+  const [deleteModalTarget, setDeleteModalTarget] = useState<AdminPostItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Modal Bác bỏ kháng nghị
   const [rejectAppealModalTarget, setRejectAppealModalTarget] = useState<AdminPostItem | null>(null);
@@ -261,6 +267,8 @@ export default function AdminPostsPage() {
       const pendingNum = mapped.filter((p) => p.status === 'PENDING_APPROVAL').length;
       const appealsNum = mapped.filter((p) => p.appealStatus === 'PENDING').length;
       const liveNum = mapped.filter((p) => p.status === 'AVAILABLE').length;
+      const soldNum = mapped.filter((p) => p.status === 'SOLD').length;
+      const hiddenNum = mapped.filter((p) => p.status === 'HIDDEN').length;
       const rejectedNum = mapped.filter((p) => p.status === 'REJECTED').length;
 
       setCounts({
@@ -268,6 +276,8 @@ export default function AdminPostsPage() {
         pending: res.counts?.pending ?? pendingNum,
         appeals: res.counts?.appeals ?? appealsNum,
         live: res.counts?.live ?? liveNum,
+        sold: (res.counts as any)?.sold ?? soldNum,
+        hidden: (res.counts as any)?.hidden ?? hiddenNum,
         rejected: res.counts?.rejected ?? rejectedNum,
       });
 
@@ -285,6 +295,34 @@ export default function AdminPostsPage() {
   useEffect(() => {
     fetchProducts();
   }, [selectedCampus]);
+
+  // Xóa vĩnh viễn 1 tin đăng (Admin Delete)
+  const handleDeletePost = async () => {
+    if (!deleteModalTarget) return;
+    try {
+      setIsDeleting(true);
+      await ProductService.deleteProduct(deleteModalTarget.rawId);
+      setPosts((prev) => prev.filter((p) => p.rawId !== deleteModalTarget.rawId));
+      setCounts((prev) => ({
+        ...prev,
+        all: Math.max(0, prev.all - 1),
+        live: deleteModalTarget.status === 'AVAILABLE' ? Math.max(0, prev.live - 1) : prev.live,
+        sold: deleteModalTarget.status === 'SOLD' ? Math.max(0, prev.sold - 1) : prev.sold,
+        hidden: deleteModalTarget.status === 'HIDDEN' ? Math.max(0, prev.hidden - 1) : prev.hidden,
+        rejected: deleteModalTarget.status === 'REJECTED' ? Math.max(0, prev.rejected - 1) : prev.rejected,
+        pending: deleteModalTarget.status === 'PENDING_APPROVAL' ? Math.max(0, prev.pending - 1) : prev.pending,
+      }));
+      if (selectedDetail?.rawId === deleteModalTarget.rawId) {
+        setSelectedDetail(null);
+      }
+      showToast(`🗑️ Đã xóa vĩnh viễn tin đăng "${deleteModalTarget.title}"!`);
+      setDeleteModalTarget(null);
+    } catch (err: any) {
+      showToast(err?.message || 'Không thể xóa tin đăng', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Phê duyệt 1 tin đăng (gọi API thật)
   const handleApprove = async (rawId: string) => {
@@ -499,6 +537,8 @@ export default function AdminPostsPage() {
       if (activeTab === 'appeals' && p.appealStatus !== 'PENDING') return false;
       if (activeTab === 'risk' && p.riskLevel !== 'high' && p.riskLevel !== 'pccc') return false;
       if (activeTab === 'live' && p.status !== 'AVAILABLE') return false;
+      if (activeTab === 'sold' && p.status !== 'SOLD') return false;
+      if (activeTab === 'hidden' && p.status !== 'HIDDEN') return false;
       if (activeTab === 'rejected' && p.status !== 'REJECTED') return false;
 
       if (searchTerm.trim()) {
@@ -517,8 +557,11 @@ export default function AdminPostsPage() {
   const TABS: { key: TabType; label: string; count: number }[] = [
     { key: 'all', label: 'Tất cả', count: counts.all },
     { key: 'pending', label: 'Chờ duyệt', count: counts.pending },
+    { key: 'appeals', label: 'Đơn kháng nghị', count: counts.appeals || 0 },
     { key: 'risk', label: 'Nguy cơ vi phạm', count: riskCount },
     { key: 'live', label: 'Đang hiển thị', count: counts.live },
+    { key: 'sold', label: 'Đã bán', count: counts.sold || 0 },
+    { key: 'hidden', label: 'Đã ẩn', count: counts.hidden || 0 },
     { key: 'rejected', label: 'Bị từ chối', count: counts.rejected },
   ];
 
@@ -751,7 +794,34 @@ export default function AdminPostsPage() {
                           </div>
                         )}
 
-                        {post.status === 'REJECTED' && (
+                        {post.appealStatus === 'PENDING' ? (
+                          <div className="mt-2.5 rounded-lg border border-purple-200 bg-purple-50/70 p-2 text-[11px] space-y-1.5">
+                            <div className="font-bold text-purple-900 flex items-center gap-1">
+                              <span>📩 Seller khiếu nại kháng nghị:</span>
+                            </div>
+                            <p className="text-purple-800 italic text-[11px]">"{post.appealReason || 'Yêu cầu xem xét lại tin đăng'}"</p>
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApprove(post.rawId);
+                                }}
+                                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 cursor-pointer shadow-2xs"
+                              >
+                                ✓ Chấp thuận & Khôi phục
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRejectAppealModalTarget(post);
+                                }}
+                                className="rounded-lg border border-purple-300 bg-white px-2.5 py-1 text-[10px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer shadow-2xs"
+                              >
+                                ✕ Bác bỏ kháng nghị
+                              </button>
+                            </div>
+                          </div>
+                        ) : post.status === 'REJECTED' ? (
                           <div className="mt-2 flex items-center gap-2">
                             <button
                               onClick={(e) => {
@@ -760,10 +830,10 @@ export default function AdminPostsPage() {
                               }}
                               className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 cursor-pointer hover:bg-emerald-100"
                             >
-                              Duyệt ngoại lệ lại
+                              ✓ Duyệt ngoại lệ (Khôi phục)
                             </button>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="text-right shrink-0">

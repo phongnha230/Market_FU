@@ -51,6 +51,10 @@ import {
   EyeOff,
   LayoutGrid,
   List,
+  ShieldAlert,
+  Send,
+  FileText,
+  X,
 } from 'lucide-react';
 import EditProfileModal, { UserProfileData } from '@/components/modals/EditProfileModal';
 import EditProductModal from '@/components/modals/EditProductModal';
@@ -100,9 +104,14 @@ export default function ProfilePage() {
   // Edit product
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [listingViewMode, setListingViewMode] = useState<'grid' | 'list'>('grid');
-  const [listingFilter, setListingFilter] = useState<'ALL' | 'AVAILABLE' | 'PENDING_APPROVAL' | 'HIDDEN'>('ALL');
+  const [listingFilter, setListingFilter] = useState<'ALL' | 'AVAILABLE' | 'PENDING_APPROVAL' | 'HIDDEN' | 'REJECTED'>('ALL');
   const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
   const [isLoadingMyProducts, setIsLoadingMyProducts] = useState(false);
+
+  // Appeal modal state
+  const [appealModalTarget, setAppealModalTarget] = useState<ProductItem | null>(null);
+  const [appealReasonInput, setAppealReasonInput] = useState('');
+  const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
 
   // Real user reviews from backend
   const [userReviews, setUserReviews] = useState<any[]>([]);
@@ -304,12 +313,41 @@ export default function ProfilePage() {
       available: sellingItems.filter((p) => p.status === 'AVAILABLE').length,
       pending: sellingItems.filter((p) => p.status === 'PENDING_APPROVAL').length,
       hidden: sellingItems.filter((p) => p.status === 'HIDDEN').length,
+      rejected: sellingItems.filter((p) => p.status === 'REJECTED').length,
     };
   }, [sellingItems]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleSendAppeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appealModalTarget) return;
+    if (!appealReasonInput.trim()) {
+      showToast('⚠️ Vui lòng nhập lý do giải trình hoặc khiếu nại!');
+      return;
+    }
+
+    try {
+      setIsSubmittingAppeal(true);
+      await ProductService.appealProduct(appealModalTarget.id, appealReasonInput.trim());
+      setMyProducts((prev) =>
+        prev.map((p) =>
+          p.id === appealModalTarget.id
+            ? { ...p, appealStatus: 'PENDING', appealReason: appealReasonInput.trim() }
+            : p
+        )
+      );
+      showToast('✅ Đã gửi đơn kháng nghị tới Ban Quản Trị thành công!');
+      setAppealModalTarget(null);
+      setAppealReasonInput('');
+    } catch (err: any) {
+      showToast(err?.response?.data?.error?.message || err?.message || 'Không thể gửi kháng nghị. Vui lòng thử lại sau.');
+    } finally {
+      setIsSubmittingAppeal(false);
+    }
   };
 
 
@@ -1167,6 +1205,19 @@ export default function ProfilePage() {
                               Đã ẩn ({sellingCounts.hidden})
                             </button>
                           )}
+                          {sellingCounts.rejected > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setListingFilter('REJECTED')}
+                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                                listingFilter === 'REJECTED'
+                                  ? 'bg-white text-rose-700 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              Bị từ chối ({sellingCounts.rejected})
+                            </button>
+                          )}
                         </div>
 
                         {/* View Mode Toggle: Grid vs List */}
@@ -1306,6 +1357,18 @@ export default function ProfilePage() {
                                 <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">
                                   {prod.description}
                                 </p>
+
+                                {prod.status === 'REJECTED' && (
+                                  <div className="mt-1.5 rounded-lg border border-rose-200 bg-rose-50/90 p-2 text-[10px] text-rose-800 space-y-0.5">
+                                    <div className="font-bold flex items-center gap-1 text-rose-700">
+                                      <ShieldAlert className="h-3 w-3 shrink-0" />
+                                      <span>Lý do BQT từ chối:</span>
+                                    </div>
+                                    <p className="line-clamp-2 text-[10px] leading-relaxed text-rose-900">
+                                      {prod._raw.rejectionReason || 'Nội dung hoặc ảnh chưa đạt tiêu chuẩn kiểm duyệt.'}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -1326,18 +1389,46 @@ export default function ProfilePage() {
                                   <span>Sửa tin</span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleBoostProduct(prod.id, prod.title);
-                                  }}
-                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Đẩy tin lên đầu trang (-100 FPT Coin)"
-                                >
-                                  <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
-                                  <span>Đẩy tin (-100)</span>
-                                </button>
+                                {prod.status === 'REJECTED' ? (
+                                  prod._raw.appealStatus === 'PENDING' ? (
+                                    <span className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800 shadow-2xs">
+                                      <Clock className="h-3 w-3 text-amber-600" />
+                                      <span>Chờ duyệt đơn</span>
+                                    </span>
+                                  ) : prod._raw.appealStatus === 'REJECTED' ? (
+                                    <span className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 shadow-2xs">
+                                      <ShieldAlert className="h-3 w-3 text-rose-600" />
+                                      <span>Bị bác đơn</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setAppealModalTarget(prod._raw);
+                                        setAppealReasonInput('');
+                                      }}
+                                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                      title="Gửi đơn khiếu nại tới BQT"
+                                    >
+                                      <Send className="h-3 w-3 text-purple-600" />
+                                      <span>Kháng nghị</span>
+                                    </button>
+                                  )
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleBoostProduct(prod.id, prod.title);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                    title="Đẩy tin lên đầu trang (-100 FPT Coin)"
+                                  >
+                                    <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                    <span>Đẩy tin (-100)</span>
+                                  </button>
+                                )}
                               </div>
 
                               {/* Secondary Actions: Renew + Hide/Show + Detail Link */}
@@ -1475,15 +1566,41 @@ export default function ProfilePage() {
                                 <span>Sửa tin</span>
                               </button>
 
-                              <button
-                                type="button"
-                                onClick={() => handleBoostProduct(prod.id, prod.title)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition active:scale-95 shadow-2xs"
-                                title="Đẩy tin (-100 FPT Coin)"
-                              >
-                                <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
-                                <span>Đẩy tin</span>
-                              </button>
+                              {prod.status === 'REJECTED' ? (
+                                prod._raw.appealStatus === 'PENDING' ? (
+                                  <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800 shadow-2xs">
+                                    <Clock className="h-3 w-3 text-amber-600" />
+                                    <span>Chờ duyệt đơn</span>
+                                  </span>
+                                ) : prod._raw.appealStatus === 'REJECTED' ? (
+                                  <span className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 shadow-2xs">
+                                    <ShieldAlert className="h-3 w-3 text-rose-600" />
+                                    <span>Bị bác đơn</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAppealModalTarget(prod._raw);
+                                      setAppealReasonInput('');
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-100 transition active:scale-95 shadow-2xs"
+                                  >
+                                    <Send className="h-3 w-3 text-purple-600" />
+                                    <span>Kháng nghị</span>
+                                  </button>
+                                )
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBoostProduct(prod.id, prod.title)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition active:scale-95 shadow-2xs"
+                                  title="Đẩy tin (-100 FPT Coin)"
+                                >
+                                  <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                  <span>Đẩy tin</span>
+                                </button>
+                              )}
 
                               <button
                                 type="button"
@@ -2216,6 +2333,75 @@ export default function ProfilePage() {
             setEditingProduct(null);
           }}
         />
+      )}
+
+      {/* APPEAL MODAL */}
+      {appealModalTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200/80 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                  <Send className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Gửi đơn kháng nghị tin đăng</h3>
+                  <p className="text-xs text-slate-500 line-clamp-1">{appealModalTarget.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAppealModalTarget(null)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {appealModalTarget.rejectionReason && (
+              <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 space-y-1">
+                <span className="font-bold flex items-center gap-1 text-rose-700">
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Lý do bị từ chối trước đó:
+                </span>
+                <p>{appealModalTarget.rejectionReason}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSendAppeal} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Nội dung giải trình / Kháng nghị <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={appealReasonInput}
+                  onChange={(e) => setAppealReasonInput(e.target.value)}
+                  placeholder="Ví dụ: Món đồ này là giáo trình bản quyền sinh viên FPT chính hãng, ảnh chụp thực tế rõ nét không có thông tin vi phạm..."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs focus:border-purple-500 focus:outline-hidden"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAppealModalTarget(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAppeal || !appealReasonInput.trim()}
+                  className="rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingAppeal ? 'Đang gửi...' : 'Gửi kháng nghị'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* 7. FOOTER */}
