@@ -196,12 +196,27 @@ function LoginFormContent() {
         'Quy Nhơn': 'QN',
         'Cần Thơ': 'CT',
       };
+      let recaptchaToken: string | undefined = undefined;
+      const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+      const grecaptcha = typeof window !== 'undefined' ? (window as any).grecaptcha : undefined;
+      if (recaptchaSiteKey && grecaptcha?.execute) {
+        try {
+          recaptchaToken = await new Promise<string>((resolve, reject) => {
+            grecaptcha.ready(() => {
+              grecaptcha.execute(recaptchaSiteKey, { action: 'register' }).then(resolve).catch(reject);
+            });
+          });
+        } catch (rcErr) {
+          console.warn('reCAPTCHA execute fallback:', rcErr);
+        }
+      }
       await authService.sendRegisterOtp({
         fullName: data.fullName,
         email: data.email,
         password: data.password,
         studentId: data.studentId,
         campus: campusMap[data.campus] || 'HOL',
+        recaptchaToken,
       });
       setPendingRegisterData(data);
       setRegisterStep('otp');
@@ -547,6 +562,12 @@ function LoginFormContent() {
         strategy="afterInteractive"
         onLoad={initGoogleAuth}
       />
+      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+          strategy="afterInteractive"
+        />
+      )}
 
       {/* 3. BOTTOM FOOTER */}
       <footer className="w-full bg-white border-t border-slate-100 py-4 text-center text-xs text-slate-400">

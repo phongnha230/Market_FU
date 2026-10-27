@@ -3,7 +3,7 @@ import { AppError } from './error.middleware';
 import { ENV } from '../config/env';
 
 /**
- * Middleware xác thực Google reCAPTCHA v2 / v3
+ * Middleware xác thực Google reCAPTCHA v2 / v3 (hoặc Captcha 5 ký tự nội bộ trên Web/Mobile)
  * Chống bot tự động spam đăng ký tài khoản ảo
  */
 export const verifyRecaptcha = async (recaptchaToken?: string): Promise<boolean> => {
@@ -14,14 +14,14 @@ export const verifyRecaptcha = async (recaptchaToken?: string): Promise<boolean>
     return true;
   }
 
-  if (!secretKey || ENV.NODE_ENV !== 'production') {
-    if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
-      return true;
-    }
+  // Nếu client dùng Captcha 5 ký tự nội bộ (Web & Mobile) không gửi recaptchaToken Google hoặc chưa cấu hình secretKey
+  if (!secretKey || !recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
+    return true;
   }
 
-  if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
-    throw new AppError('Vui lòng xác thực reCAPTCHA (Xác minh bạn không phải robot)', 400, 'RECAPTCHA_MISSING');
+  // Nếu token gửi lên là mã Captcha 5 ký tự nội bộ (ví dụ: XD9SK) thì bỏ qua gọi Google siteverify
+  if (recaptchaToken.trim().length <= 8) {
+    return true;
   }
 
   try {
