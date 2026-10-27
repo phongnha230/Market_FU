@@ -33,12 +33,12 @@ export const ReviewScreen: React.FC = () => {
 
   const { user } = useUserStore();
   const orderId = route.params?.orderId || '';
-  const productTitle = route.params?.productTitle || 'Bàn phím cơ Gaming LED RGB';
-  const sellerName = route.params?.sellerName || 'Nhã Trần CT';
-  const sellerCampus = route.params?.sellerCampus || 'Cần Thơ';
+  const productTitle = route.params?.productTitle || 'Sản phẩm giao dịch';
+  const sellerName = route.params?.sellerName || 'Người bán FPT';
+  const sellerCampus = route.params?.sellerCampus || 'Campus FPT';
   const productImage =
     route.params?.productImage ||
-    require('../../../../assets/products/keyboard-akko.jpg');
+    undefined;
 
   const isEditing = !!route.params?.isEditing;
   const initialData = route.params?.initialReviewData;

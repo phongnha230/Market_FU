@@ -11,24 +11,19 @@ import { useUserStore } from '@/stores/userStore';
 import { orderService } from '@/services/orderService';
 import { reportService } from '@/services/reportService';
 import {
-  ChevronRight,
-  ShieldCheck,
   Star,
   Coins,
-  Ticket,
   Truck,
+  MapPin,
   CheckCircle2,
   Camera,
-  Video,
-  Info,
   Lock,
-  ArrowRight,
-  Upload,
-  AlertTriangle,
   Edit3,
   Loader2,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
-import { Card, Badge, Button, Avatar, AvatarFallback, AvatarImage, Progress } from '@/components/ui';
+import { Card, Badge, Button, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
 
 function ReviewContent() {
   const router = useRouter();
@@ -45,7 +40,6 @@ function ReviewContent() {
   const storeOrder = orderCode ? getOrder(orderCode) : undefined;
 
   const [backendOrder, setBackendOrder] = useState<any>(null);
-  const [isLoadingOrder, setIsLoadingOrder] = useState<boolean>(!storeOrder && Boolean(orderCode));
 
   useEffect(() => {
     if (orderCode) {
@@ -55,18 +49,21 @@ function ReviewContent() {
         .then((data) => {
           if (data) setBackendOrder(data);
         })
-        .catch(() => {})
-        .finally(() => setIsLoadingOrder(false));
+        .catch(() => {});
     }
   }, [orderCode]);
 
   const currentOrder = storeOrder || backendOrder;
 
+  const isInterCampus =
+    currentOrder?.type === 'inter-campus' ||
+    (currentOrder as any)?.orderType === 'SHIP_COD' ||
+    Boolean(currentOrder?.shipping?.shippingPartner);
+
   const [rating, setRating] = useState<number>(5);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comment, setComment] = useState<string>('');
   const [proofVideoUrl, setProofVideoUrl] = useState<string>('');
-  const [giveBonusTrust, setGiveBonusTrust] = useState<boolean>(true);
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -96,17 +93,15 @@ function ReviewContent() {
       const isVideo = file.type.startsWith('video/');
       if (isVideo) hasVideo = true;
 
-      // 1. Tạo data URL Base64 tức thì để hiển thị ngay và bền vững trên mọi trình duyệt/tài khoản (không bị chết như blob:)
       let finalUrl = await readFileAsDataUrl(file);
 
-      // 2. Thử upload lên Backend Storage (Cloudflare R2 / /uploads/) để lấy URL thật công khai
       try {
         const uploadRes = await reportService.uploadDisputeEvidence(file);
         if (uploadRes && uploadRes.url) {
           finalUrl = uploadRes.url;
         }
       } catch {
-        // Giữ base64 fallback nếu backend offline hoặc mock
+        // Fallback Base64 offline
       }
 
       if (finalUrl) {
@@ -123,7 +118,7 @@ function ReviewContent() {
     if (hasVideo) {
       setProofVideoUrl('uploaded-local-video');
     }
-    showToast(`✅ Đã tải lên ${newItems.length} hình ảnh / video bóc hộp thực tế!`);
+    showToast(`Đã tải lên ${newItems.length} tệp hình ảnh / video thực tế!`);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsUploadingMedia(false);
   };
@@ -139,16 +134,16 @@ function ReviewContent() {
     showToast('Đã gỡ tệp khỏi danh sách đánh giá.');
   };
 
-  // Lấy thông tin người bán và sản phẩm thực tế từ order
+  // Product & Seller Info
   const productTitle = currentOrder?.product?.title || 'Sản phẩm giao dịch';
   const productPrice = currentOrder?.product?.price || currentOrder?.payment?.price || 0;
   const productImage = typeof currentOrder?.product?.imageUrl === 'string' && currentOrder?.product?.imageUrl
     ? currentOrder.product.imageUrl
-    : currentOrder?.product?.images?.[0]?.imageUrl || '/products/keyboard-akko.jpg';
-  
+    : currentOrder?.product?.images?.[0]?.imageUrl || '/products/monitor-dell-24.jpg';
+
   const sellerName = currentOrder?.product?.seller?.name || currentOrder?.seller?.profile?.fullName || currentOrder?.seller?.email || 'Người bán FPT';
   const sellerCampus = currentOrder?.product?.seller?.cohortCampus || currentOrder?.seller?.profile?.campus || 'Campus FPT';
-  const sellerStudentId = currentOrder?.seller?.profile?.studentId || currentOrder?.seller?.studentId || '';
+  const buyerCampus = userData?.campus || (currentOrder as any)?.buyer?.campus || (currentOrder as any)?.buyer?.profile?.campus || 'Campus FPT';
   const sellerInitial = (sellerName || 'N').trim()[0].toUpperCase();
   const sellerAvatarUrl =
     currentOrder?.seller?.profile?.avatarUrl ||
@@ -156,70 +151,39 @@ function ReviewContent() {
     (currentOrder as any)?.product?.seller?.avatarUrl ||
     '';
 
-  // Lấy số liệu uy tín người bán từ data thực tế của backend
-  const sellerTrustScore: number = (() => {
-    const score =
-      currentOrder?.seller?.trustScore ??
-      currentOrder?.seller?.profile?.trustScore ??
-      currentOrder?.seller?.sellerStats?.trustScore ??
-      null;
-    if (score !== null && score !== undefined) return Math.min(100, Math.max(0, Number(score)));
-    return null as unknown as number;
-  })();
-
-  const sellerAvgRating: number = (() => {
-    const r =
-      currentOrder?.seller?.avgRating ??
-      currentOrder?.seller?.profile?.avgRating ??
-      currentOrder?.seller?.sellerStats?.avgRating ??
-      currentOrder?.seller?.rating ??
-      null;
-    if (r !== null && r !== undefined) return Math.min(5, Math.max(0, Number(r)));
-    return null as unknown as number;
-  })();
-
-  const sellerTotalReviews: number = (() => {
-    return (
-      currentOrder?.seller?.totalReviews ??
-      currentOrder?.seller?.sellerStats?.totalReviews ??
-      currentOrder?.seller?.reviewCount ??
-      0
-    );
-  })();
-
   const sellerIsKyc: boolean =
     currentOrder?.seller?.kycStatus === 'approved_seller' ||
     currentOrder?.seller?.kycStatus === 'approved' ||
     Boolean(currentOrder?.seller?.isKyc) ||
     Boolean(currentOrder?.seller?.profile?.isKycVerified);
 
-  const ratingLabel = (r: number) => {
-    if (r >= 4.8) return 'Xuất sắc';
-    if (r >= 4.5) return 'Rất uy tín';
-    if (r >= 4.0) return 'Uy tín';
-    if (r >= 3.0) return 'Bình thường';
-    return 'Cần cải thiện';
-  };
-
-  // Mã số sinh viên của người mua đang review
   const buyerStudentId =
     userData?.studentId ||
     userData?.email?.match(/([a-zA-Z]{2}\d{6})/i)?.[1]?.toUpperCase() ||
     (userData?.email ? userData.email.split('@')[0].toUpperCase() : '') ||
-    (userData?.id ? `SV${userData.id.slice(0, 6).toUpperCase()}` : 'SV_FPT');
-  const anonymousCode = buyerStudentId.length > 4 ? `${buyerStudentId.slice(0, 4)}**** (${userData?.campus || 'HL'})` : `${buyerStudentId}****`;
+    'SV_FPT';
+  const anonymousCode = buyerStudentId.length > 4 ? `${buyerStudentId.slice(0, 4)}**** (${buyerCampus})` : `${buyerStudentId}****`;
 
-  const TAG_OPTIONS = [
-    { id: 'mota', label: 'Đúng mô tả bài đăng (+1)' },
-    { id: 'donggoi', label: 'Đóng gói chống sốc kỹ (+1)' },
-    { id: 'huongdan', label: 'Hỗ trợ hướng dẫn test cổng chu đáo (+1)' },
-    { id: 'giaonhanh', label: 'Giao liên campus thần tốc (+1)' },
-    { id: 'phukien', label: 'Tặng kèm phụ kiện cáp HDMI mini' },
-  ];
+  // Dynamic tags according to order type
+  const TAG_OPTIONS = isInterCampus
+    ? [
+        { id: 'mota', label: 'Đúng mô tả bài đăng' },
+        { id: 'donggoi', label: 'Đóng gói chống sốc kỹ' },
+        { id: 'giaonhanh', label: 'Giao hàng nhanh' },
+        { id: 'phukien', label: 'Đầy đủ phụ kiện' },
+        { id: 'thanthien', label: 'Người bán nhiệt tình' },
+      ]
+    : [
+        { id: 'mota', label: 'Đúng mô tả bài đăng' },
+        { id: 'hangmoi', label: 'Hàng còn rất mới' },
+        { id: 'dunggio', label: 'Đúng giờ hẹn Safe-Point' },
+        { id: 'huongdan', label: 'Hỗ trợ test đồ chu đáo' },
+        { id: 'thanthien', label: 'Người bán thân thiện' },
+      ];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleToggleTag = (tagId: string) => {
@@ -249,6 +213,9 @@ function ReviewContent() {
     }
   }, [storeOrder?.reviewData]);
 
+  const hasMedia = reviewMediaList.length > 0;
+  const earnedCoins = hasMedia ? 200 : 100;
+
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderCode) {
@@ -258,7 +225,6 @@ function ReviewContent() {
     setIsSubmitting(true);
     try {
       const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
-      const earnedCoins = proofVideoUrl.trim() ? 200 : 100;
 
       if (isEditMode) {
         const partialData: Partial<OrderReviewData> = {
@@ -276,7 +242,7 @@ function ReviewContent() {
           proofVideoUrl: proofVideoUrl.trim() || null,
         });
         updateOrderReview(orderCode, partialData);
-        showToast('✅ Đã cập nhật thành công đánh giá đơn hàng!');
+        showToast('✅ Đã cập nhật đánh giá thành công!');
         setTimeout(() => {
           router.push('/orders');
         }, 1200);
@@ -314,7 +280,7 @@ function ReviewContent() {
 
       markOrderReviewed(orderCode, fullReviewData);
       addCoins(earnedCoins);
-      showToast(`🎉 Cảm ơn bạn! Đã đăng đánh giá công khai và cộng +${earnedCoins} Xu vào tài khoản.`);
+      showToast(`🎉 Cảm ơn bạn! Đã gửi đánh giá và nhận +${earnedCoins} Xu.`);
       setTimeout(() => {
         router.push('/orders');
       }, 1200);
@@ -326,10 +292,25 @@ function ReviewContent() {
     }
   };
 
+  const ratingDesc = (r: number) => {
+    switch (r) {
+      case 5:
+        return 'Rất hài lòng (5 sao)';
+      case 4:
+        return 'Hài lòng (4 sao)';
+      case 3:
+        return 'Bình thường (3 sao)';
+      case 2:
+        return 'Chưa hài lòng (2 sao)';
+      default:
+        return 'Thất vọng (1 sao)';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans py-4 sm:py-6">
-      <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-4">
-        {/* Compact in-container Header with Back button */}
+      <main className="mx-auto max-w-6xl w-full px-4 sm:px-6 space-y-4">
+        {/* Navigation Breadcrumb */}
         <CompactHeader
           showBackButton={true}
           backHref="/orders"
@@ -340,73 +321,78 @@ function ReviewContent() {
           ]}
         />
 
-        {/* 2. CELEBRATION TOP BANNER (Khớp 100% Image 3) */}
-        <Card className="mb-6 rounded-2xl bg-gradient-to-r from-orange-700 via-fpt-orange to-amber-700 p-6 sm:p-7 text-white shadow-md border-none">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-            <div>
-              <Badge className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-bold uppercase tracking-wider text-white border border-white/30 hover:bg-white/20">
-                {isEditMode ? (
-                  <>
-                    <Edit3 className="h-3.5 w-3.5" /> CHỈNH SỬA ĐÁNH GIÁ ĐÃ GỬI
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5" /> GIAO DỊCH LIÊN CAMPUS HOÀN TẤT
-                  </>
-                )}
-              </Badge>
-              <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
+        {/* 1. COMPACT HERO HEADER */}
+        <Card className="rounded-2xl border border-orange-200/80 bg-gradient-to-r from-orange-50 via-white to-amber-50/50 p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-orange-100 text-orange-900 border border-orange-200 text-xs font-bold px-2.5 py-0.5 hover:bg-orange-100">
+                  {isEditMode ? (
+                    <span className="flex items-center gap-1">
+                      <Edit3 className="h-3 w-3" /> Chỉnh sửa đánh giá
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-fpt-orange" /> Giao dịch hoàn tất
+                    </span>
+                  )}
+                </Badge>
+
+                <Badge variant="outline" className={`rounded-full text-[11px] font-bold px-2.5 py-0.5 border ${
+                  isInterCampus ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  {isInterCampus ? (
+                    <span className="flex items-center gap-1">
+                      <Truck className="h-3 w-3" /> Vận chuyển Liên Campus
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> Giao dịch Safe-Point
+                    </span>
+                  )}
+                </Badge>
+              </div>
+
+              <h1 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
                 {isEditMode
-                  ? 'Chỉnh sửa nội dung đánh giá của bạn'
-                  : currentOrder?.type === 'inter-campus'
-                  ? `Bạn vừa hoàn tất đơn hàng liên campus (${sellerCampus} ➔ ${userData?.campus || 'Hòa Lạc'})`
-                  : 'Bạn vừa hoàn tất giao dịch sản phẩm an toàn'}
+                  ? 'Cập nhật nhận xét cho đơn hàng'
+                  : isInterCampus
+                  ? `Đánh giá trải nghiệm nhận hàng từ Campus ${sellerCampus}`
+                  : 'Đánh giá trải nghiệm nhận hàng trực tiếp tại Safe-Point'}
               </h1>
-              <p className="mt-1 text-xs sm:text-sm text-orange-100 max-w-2xl leading-relaxed">
-                {isEditMode
-                  ? 'Bạn có thể cập nhật lại số sao, nhận xét hoặc tải thêm hình ảnh/video test thiết bị thực tế.'
-                  : 'Mỗi đánh giá minh bạch từ bạn giúp xây dựng cộng đồng FPT 5Campus đáng tin cậy và an tâm giao dịch xa.'}
+              <p className="text-xs text-slate-500 leading-normal">
+                Nhận xét thực tế của bạn giúp cộng đồng sinh viên FPT yên tâm hơn khi trao đổi đồ cũ.
               </p>
             </div>
 
-            {/* REWARD CHIPS */}
-            <div className="flex items-center gap-3 shrink-0 flex-wrap">
-              <Card className="flex flex-row items-center gap-2.5 rounded-xl bg-white/15 backdrop-blur-md p-3 px-4 border border-white/20 shadow-none">
-                <div className="rounded-lg bg-emerald-400 p-2 text-slate-900 font-black">
-                  <Coins className="h-5 w-5" />
+            {/* Coin Reward Chip */}
+            <div className="rounded-xl border border-orange-200/90 bg-white p-3 px-3.5 shadow-xs shrink-0 flex items-center gap-2.5 self-start sm:self-auto">
+              <div className="rounded-lg bg-orange-100 text-fpt-orange p-2">
+                <Coins className="h-4 w-4" />
+              </div>
+              <div className="text-xs">
+                <div className="font-extrabold text-slate-900">
+                  +{hasMedia ? '200 Xu' : '100 Xu'} thưởng
                 </div>
-                <div>
-                  <div className="text-sm font-black text-white">+100 Xu</div>
-                  <div className="text-[10px] text-orange-200">+200 Xu nếu kèm video test</div>
+                <div className="text-[10px] text-slate-500">
+                  {hasMedia ? '✓ Đã có ảnh/video thực tế' : 'Đính kèm ảnh/video để nhận +200 Xu'}
                 </div>
-              </Card>
-
-              <Card className="flex flex-row items-center gap-2.5 rounded-xl bg-white/15 backdrop-blur-md p-3 px-4 border border-white/20 shadow-none">
-                <div className="rounded-lg bg-white/90 p-2 text-fpt-orange">
-                  <Ticket className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-black text-white">-20.000đ</div>
-                  <div className="text-[10px] text-orange-200">Voucher ship đơn kế</div>
-                </div>
-              </Card>
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* 3. MAIN CONTENT: 2 COLUMNS */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: ORDER INFO & SELLER (4 COLS) */}
+        {/* 2. MAIN GRID (ORDER INFO 4 COLS / REVIEW FORM 8 COLS) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* LEFT COLUMN: ORDER SUMMARY (4 COLS) */}
           <div className="lg:col-span-4 space-y-4">
-            {/* PRODUCT CARD */}
-            <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
-              <div className="flex items-center justify-between text-xs mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  THÔNG TIN BƯU PHẨM
+            {/* Product Card */}
+            <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-100">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Món hàng đã giao
                 </span>
-                <Badge variant="outline" className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 border border-emerald-200 hover:bg-emerald-50">
-                  Giao thành công
-                </Badge>
+                <span className="font-mono text-slate-500 text-[11px] font-semibold">{orderCode}</span>
               </div>
 
               <div className="flex items-start gap-3">
@@ -418,190 +404,86 @@ function ReviewContent() {
                     className="object-cover"
                   />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 space-y-0.5">
                   <h3 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-2 leading-snug">
                     {productTitle}
                   </h3>
-                  <div className="mt-1 text-sm font-black text-slate-900">
+                  <div className="text-sm font-black text-fpt-orange">
                     {productPrice.toLocaleString('vi-VN')}đ
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Nhận tại KTX {userData?.campus || 'Hòa Lạc'}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Truck className="h-3.5 w-3.5 text-slate-400" /> Tuyến: {sellerCampus} ➔ {userData?.campus || 'Hòa Lạc'}
-                </span>
-                <Badge variant="outline" className="rounded bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 border border-emerald-200 hover:bg-emerald-50">
-                  An toàn 100%
-                </Badge>
-              </div>
-            </Card>
-
-            {/* SELLER CARD */}
-            <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
-              <div className="flex items-center justify-between text-xs mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  NGƯỜI BÁN LIÊN CAMPUS
-                </span>
-                <Info className="h-3.5 w-3.5 text-slate-400" />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 shrink-0 border border-slate-200">
-                  {sellerAvatarUrl && (
-                    <AvatarImage src={sellerAvatarUrl} alt={sellerName} />
-                  )}
-                  <AvatarFallback className="bg-gradient-to-br from-orange-500 to-amber-500 text-white font-black text-sm">
+              {/* Seller details */}
+              <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2.5">
+                <Avatar className="h-8 w-8 shrink-0 border border-slate-200">
+                  {sellerAvatarUrl && <AvatarImage src={sellerAvatarUrl} alt={sellerName} />}
+                  <AvatarFallback className="bg-slate-800 text-white font-bold text-xs">
                     {sellerInitial}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-sm text-slate-900">{sellerName}</span>
-                    {sellerStudentId && (
-                      <Badge className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 border-none hover:bg-emerald-100">
-                        {sellerStudentId}
-                      </Badge>
+                <div className="min-w-0 flex-1 text-xs">
+                  <div className="font-bold text-slate-900 truncate flex items-center gap-1.5">
+                    <span>{sellerName}</span>
+                    {sellerIsKyc && (
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium shrink-0">
+                        SV FPT
+                      </span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500">Campus FPT {sellerCampus}</div>
-                  {sellerIsKyc ? (
-                    <div className="text-[10px] text-emerald-700 font-medium">🪪 Thẻ SV & KYC FPT chính quy</div>
-                  ) : (
-                    <div className="text-[10px] text-slate-400 font-medium">Sinh viên FPT</div>
-                  )}
+                  <div className="text-[11px] text-slate-500 truncate">Campus {sellerCampus}</div>
                 </div>
               </div>
-
-              {/* Trust Score Bar */}
-              <div className="mt-4 rounded-xl bg-slate-50 p-3 border border-slate-200/60">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-600 font-medium">Chỉ số uy tín người bán</span>
-                  {sellerTrustScore !== null ? (
-                    <span className="font-black text-slate-900 text-sm">{sellerTrustScore}/100</span>
-                  ) : (
-                    <span className="text-slate-400 text-xs font-medium">Chưa có dữ liệu</span>
-                  )}
-                </div>
-                {sellerTrustScore !== null ? (
-                  <Progress value={sellerTrustScore} className="mt-1.5 h-1.5 w-full bg-slate-200" />
-                ) : (
-                  <div className="mt-1.5 h-1.5 w-full bg-slate-200 rounded-full" />
-                )}
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {sellerTotalReviews > 0
-                    ? `Dựa trên ${sellerTotalReviews} giao dịch đã hoàn tất`
-                    : 'Đây là giao dịch đầu tiên của người bán này'}
-                </div>
-              </div>
-
-              {/* Service Rating */}
-              <div className="mt-3 text-xs">
-                <div className="text-slate-600 mb-1">Đánh giá dịch vụ của người bán:</div>
-                {sellerAvgRating !== null ? (
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`h-4 w-4 ${s <= Math.round(sellerAvgRating) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}`}
-                      />
-                    ))}
-                    <span className="text-xs font-bold text-slate-700 ml-1">
-                      {sellerAvgRating.toFixed(1)} ({ratingLabel(sellerAvgRating)})
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="h-4 w-4 text-slate-200 fill-slate-200" />
-                    ))}
-                    <span className="text-[11px] text-slate-400 ml-1">Chưa có đánh giá</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Give Bonus Trust Checkbox */}
-              <label className="mt-4 flex items-start gap-2.5 p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={giveBonusTrust}
-                  onChange={(e) => setGiveBonusTrust(e.target.checked)}
-                  className="h-4 w-4 mt-0.5 text-fpt-orange rounded border-slate-300 focus:ring-fpt-orange"
-                />
-                <div>
-                  <span className="font-bold text-slate-900">Tặng điểm Campus Trust Score (+2 điểm)</span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Cộng điểm tín nhiệm chính thức giúp {sellerName} đạt danh hiệu "Người bán FPT Tin cậy".
-                  </p>
-                </div>
-              </label>
             </Card>
 
-            {/* ESCROW PROTECTION BOX */}
-            <Card className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 text-xs text-slate-600 shadow-xs">
-              <div className="flex items-center gap-2 text-slate-900 font-bold mb-1">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span>Bảo vệ giao dịch 48h</span>
+            {/* Community Contribution Box */}
+            <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-2.5 text-xs text-slate-600">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <Sparkles className="h-3.5 w-3.5 text-fpt-orange" />
+                <span>Đóng góp cho cộng đồng</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Sau khi bạn gửi đánh giá, tiền trong FPT CampusShip Escrow sẽ được chuyển cho người bán. Bạn hoàn toàn an tâm khi thiết bị đã được kiểm tra cẩn thận.
+                Đánh giá khách quan giúp ghi nhận uy tín thực tế của bạn bè trong trường và hạn chế tối đa các trường hợp gian lận thương mại.
               </p>
-            </Card>
-
-            {/* DISPUTE EMERGENCY BOX */}
-            <Card className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 text-xs text-rose-900 shadow-xs space-y-2">
-              <div className="flex items-center gap-2 font-bold text-rose-800">
-                <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
-                <span>Hàng bị lỗi hoặc không đúng mô tả?</span>
+              <div className="pt-1 border-t border-slate-100 flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span>Bạn luôn có thể bật chế độ Ẩn danh</span>
               </div>
-              <p className="text-[11px] text-rose-700 leading-relaxed">
-                Đừng xác nhận đánh giá! Bạn có quyền mở khiếu nại để tạm khóa tiền ví Escrow và yêu cầu hoàn trả 100%.
-              </p>
-              <Link
-                href={`/orders/dispute?code=${encodeURIComponent(orderCode.replace('#', ''))}`}
-                className="inline-flex items-center gap-1 font-bold text-xs text-rose-700 hover:text-rose-900 underline"
-              >
-                <span>Mở Khiếu nại & Khóa Escrow ngay</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
             </Card>
           </div>
 
           {/* RIGHT COLUMN: REVIEW FORM (8 COLS) */}
           <div className="lg:col-span-8">
-            <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs">
-              <form onSubmit={handleSubmitReview} className="space-y-6">
-                {/* SECTION 1: STAR RATING */}
+            <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-xs">
+              <form onSubmit={handleSubmitReview} className="space-y-5">
+                {/* 1. STAR RATING */}
                 <div>
                   <div className="flex items-baseline justify-between flex-wrap gap-2">
-                    <h2 className="text-base sm:text-lg font-black text-slate-900">
-                      Chất lượng sản phẩm & đóng gói
+                    <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      1. Mức độ hài lòng chung
                     </h2>
-                    <Badge variant="outline" className="rounded-full bg-orange-50 text-fpt-orange font-bold text-xs px-3 py-1 border border-orange-200 hover:bg-orange-50">
-                      {rating}/5 sao - Rất hài lòng
-                    </Badge>
+                    <span className="text-xs font-bold text-fpt-orange bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                      {ratingDesc(rating)}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Hãy cho biết mức độ hài lòng chung của bạn về món đồ nhận được
+                    Chạm vào số sao để xếp hạng trải nghiệm đơn hàng
                   </p>
 
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-2.5 flex items-center gap-1.5">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
                         type="button"
                         onClick={() => setRating(star)}
                         className="p-1 hover:scale-110 transition cursor-pointer"
+                        title={`${star} sao`}
                       >
                         <Star
-                          className={`h-8 w-8 sm:h-9 sm:w-9 ${
+                          className={`h-7 w-7 sm:h-8 sm:w-8 transition ${
                             star <= rating
                               ? 'text-fpt-orange fill-fpt-orange'
-                              : 'text-slate-300'
+                              : 'text-slate-200 fill-slate-100 hover:text-slate-300'
                           }`}
                         />
                       </button>
@@ -609,13 +491,16 @@ function ReviewContent() {
                   </div>
                 </div>
 
-                {/* SECTION 2: HIGHLIGHT TAGS */}
+                {/* 2. HIGHLIGHT TAGS */}
                 <div className="pt-4 border-t border-slate-100">
                   <h3 className="text-xs sm:text-sm font-bold text-slate-900 mb-1">
-                    Điểm nổi bật của đơn hàng (Chọn nhiều tag để người bán được cộng thưởng):
+                    2. Điểm nổi bật bạn muốn khen ngợi
                   </h3>
+                  <p className="text-xs text-slate-500 mb-2.5">
+                    Chọn một hoặc nhiều tiêu chí bạn cảm thấy ưng ý nhất
+                  </p>
 
-                  <div className="mt-2.5 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {TAG_OPTIONS.map((tag) => {
                       const isSelected = selectedTags.includes(tag.id);
                       return (
@@ -623,10 +508,10 @@ function ReviewContent() {
                           key={tag.id}
                           type="button"
                           onClick={() => handleToggleTag(tag.id)}
-                          className={`h-auto rounded-full px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                          className={`h-auto rounded-full px-3 py-1.5 text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
                             isSelected
-                              ? 'bg-fpt-orange text-white shadow-xs hover:bg-fpt-orange/90'
-                              : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 shadow-none'
+                              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+                              : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 shadow-none'
                           }`}
                         >
                           <span>{isSelected ? '✓' : '+'}</span>
@@ -637,42 +522,47 @@ function ReviewContent() {
                   </div>
                 </div>
 
-                {/* SECTION 3: COMMENT TEXTAREA */}
+                {/* 3. COMMENT TEXTAREA */}
                 <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <label className="font-bold text-slate-900">Nhận xét chi tiết sản phẩm:</label>
-                    <span className="text-slate-400 font-mono">{comment.length}/500 ký tự</span>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <label className="font-bold text-slate-900">
+                      3. Nhận xét chi tiết về sản phẩm
+                    </label>
+                    <span className="text-slate-400 font-mono text-[11px]">{comment.length} / 500 ký tự</span>
                   </div>
 
                   <textarea
                     rows={4}
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="Chia sẻ trải nghiệm mở hộp, kiểm tra máy tại KTX..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 text-xs sm:text-sm text-slate-800 outline-none focus:bg-white focus:border-fpt-orange focus:ring-2 focus:ring-fpt-orange/15 transition leading-relaxed"
+                    placeholder={
+                      isInterCampus
+                        ? 'Chia sẻ tình trạng khi bóc hộp, độ nguyên vẹn của linh kiện, cách người bán đóng gói...'
+                        : 'Chia sẻ độ đúng hẹn, tình trạng kiểm tra máy khi gặp mặt tại trường...'
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/40 p-3 text-xs sm:text-sm text-slate-800 outline-none focus:bg-white focus:border-fpt-orange focus:ring-1 focus:ring-fpt-orange transition leading-relaxed placeholder:text-slate-400"
                   />
-
-                  <div className="mt-2 text-[11px] text-emerald-700 flex items-center gap-1.5 font-medium">
-                    <Coins className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span>Đánh giá trên 50 ký tự kèm ảnh thực tế sẽ đủ điều kiện nhận trọn bộ 50 Campus Coins.</span>
-                  </div>
                 </div>
 
-                {/* SECTION 4: PHOTO & VIDEO UNBOXING UPLOAD */}
-                <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Hình ảnh & Video bóc hộp tại KTX
-                    </h3>
-                    <Badge variant="outline" className="rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 border border-emerald-200 hover:bg-emerald-50">
-                      BẢO CHỨNG THỰC TẾ
+                {/* 4. PHOTO & VIDEO UPLOAD */}
+                <div className="pt-4 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                        4. Hình ảnh / Video thực tế
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Đính kèm ảnh hoặc video mở hộp để nhận trọn bộ +200 Xu vào ví
+                      </p>
+                    </div>
+
+                    <Badge variant="outline" className="rounded-full bg-orange-50 text-orange-900 border border-orange-200 text-[10px] font-bold px-2 py-0.5">
+                      +100 Xu thêm khi có ảnh/video
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-slate-500 mb-3">
-                    Đã tải {reviewMediaList.length} tệp • Tải ảnh và video mở hộp trực tiếp từ máy để nhận thưởng tối đa +200 Xu
-                  </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Thumbnail Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                     {reviewMediaList.map((item) => (
                       <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group shadow-xs">
                         {item.isVideo ? (
@@ -687,13 +577,13 @@ function ReviewContent() {
                         <button
                           type="button"
                           onClick={() => handleRemoveMedia(item.id)}
-                          className="absolute top-1.5 right-1.5 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white w-6 h-6 flex items-center justify-center text-xs transition z-10"
+                          className="absolute top-1.5 right-1.5 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white w-6 h-6 flex items-center justify-center text-xs transition z-10 cursor-pointer"
                           title="Xóa tệp"
                         >
                           ✕
                         </button>
-                        <span className="absolute bottom-1.5 left-1.5 right-1.5 rounded bg-slate-900/85 py-0.5 text-center text-[10px] font-bold text-white truncate px-1">
-                          {item.isVideo ? '🎥 Video unbox' : item.name}
+                        <span className="absolute bottom-1 left-1 right-1 rounded bg-slate-900/80 py-0.5 text-center text-[10px] font-bold text-white truncate px-1">
+                          {item.isVideo ? '🎥 Video test' : item.name}
                         </span>
                       </div>
                     ))}
@@ -708,42 +598,38 @@ function ReviewContent() {
                       className="hidden"
                     />
 
-                    {/* Slot: Add Media (Image or Video) */}
-                    <Button
+                    {/* Add Media Button */}
+                    <button
                       type="button"
-                      variant="outline"
                       disabled={isUploadingMedia}
                       onClick={() => fileInputRef.current?.click()}
-                      className="h-auto aspect-square flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer"
+                      className="aspect-square flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-3 text-center text-slate-500 hover:border-fpt-orange hover:bg-orange-50/30 transition cursor-pointer disabled:opacity-60"
                     >
-                      <Camera className="h-6 w-6 text-fpt-orange mb-1" />
-                      <span className="text-xs font-bold text-slate-800">Thêm Ảnh / Video</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Tải từ thiết bị</span>
-                    </Button>
+                      {isUploadingMedia ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-fpt-orange mb-1" />
+                          <span className="text-[11px] font-bold text-slate-700">Đang tải...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="h-5 w-5 text-fpt-orange mb-1" />
+                          <span className="text-xs font-bold text-slate-800">Thêm ảnh / video</span>
+                          <span className="text-[10px] text-slate-400">Từ thiết bị</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-
-                  {reviewMediaList.some((item) => item.isVideo) && (
-                    <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-medium flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        Đã đính kèm video bóc hộp test máy thực tế!
-                      </span>
-                      <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
-                        +200 Xu Độc Quyền
-                      </Badge>
-                    </div>
-                  )}
                 </div>
 
-                {/* SECTION 5: ANONYMOUS TOGGLE */}
+                {/* 5. ANONYMOUS TOGGLE */}
                 <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/60">
-                    <div className="flex items-start gap-2.5">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                    <div className="flex items-start gap-2.5 pr-2">
                       <Lock className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                       <div>
-                        <span className="text-xs font-bold text-slate-900">Đánh giá ẩn danh danh tính</span>
+                        <span className="text-xs font-bold text-slate-900">Đánh giá ẩn danh</span>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Tên của bạn sẽ hiển thị công khai dưới dạng <strong>{anonymousCode}</strong> để bảo vệ quyền riêng tư cá nhân tại campus.
+                          Tên của bạn sẽ hiển thị công khai dưới dạng <strong>{anonymousCode}</strong> để bảo vệ quyền riêng tư cá nhân.
                         </p>
                       </div>
                     </div>
@@ -751,12 +637,12 @@ function ReviewContent() {
                     <button
                       type="button"
                       onClick={() => setIsAnonymous(!isAnonymous)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                         isAnonymous ? 'bg-fpt-orange' : 'bg-slate-300'
                       }`}
                     >
                       <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                           isAnonymous ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
@@ -764,40 +650,41 @@ function ReviewContent() {
                   </div>
                 </div>
 
-                {/* SECTION 6: SUBMIT BUTTONS */}
-                <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                {/* 6. SUBMIT BUTTONS */}
+                <div className="pt-3 flex flex-col sm:flex-row items-center gap-3">
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="h-auto w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange py-3.5 text-sm font-extrabold text-white shadow-md shadow-orange-500/25 hover:bg-fpt-orange-hover hover:shadow-lg transition active:scale-98 cursor-pointer disabled:opacity-50"
+                    className="h-auto w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover py-3 text-xs sm:text-sm font-bold text-white shadow-xs transition active:scale-98 cursor-pointer disabled:opacity-50"
                   >
-                    {isEditMode ? (
-                      <>
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Đang xử lý...</span>
+                      </span>
+                    ) : isEditMode ? (
+                      <span className="flex items-center gap-1.5">
                         <Edit3 className="h-4 w-4" />
-                        <span>{isSubmitting ? 'Đang lưu thay đổi...' : 'Lưu cập nhật đánh giá'}</span>
-                      </>
+                        <span>Lưu cập nhật đánh giá</span>
+                      </span>
                     ) : (
-                      <>
+                      <span className="flex items-center gap-1.5">
                         <Coins className="h-4 w-4" />
-                        <span>{isSubmitting ? 'Đang gửi đánh giá...' : proofVideoUrl.trim() ? 'Gửi đánh giá & Nhận ngay +200 Xu (Kèm video test)' : 'Gửi đánh giá & Nhận ngay +100 Xu'}</span>
-                      </>
+                        <span>Gửi đánh giá & Nhận ngay +{earnedCoins} Xu</span>
+                      </span>
                     )}
                   </Button>
 
                   <Button
                     asChild
                     variant="ghost"
-                    className="h-auto w-full sm:w-auto text-center px-4 py-3 text-xs font-bold text-slate-500 hover:text-slate-800 transition"
+                    className="h-auto w-full sm:w-auto text-center px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition"
                   >
                     <Link href="/orders">
                       Để sau
                     </Link>
                   </Button>
                 </div>
-
-                <p className="text-[11px] text-slate-400 text-center leading-tight">
-                  🛡️ Bằng việc gửi đánh giá, bạn xác nhận đã kiểm tra thiết bị và đồng thuận tuân thủ Quy chuẩn Văn minh Thương mại FPT 5Campus.
-                </p>
               </form>
             </Card>
           </div>
@@ -806,7 +693,7 @@ function ReviewContent() {
 
       {/* FLOATING TOAST NOTIFICATION */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 text-white px-5 py-3 shadow-xl backdrop-blur-md text-xs sm:text-sm font-semibold animate-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900/95 text-white px-4 py-2.5 shadow-xl backdrop-blur-md text-xs font-semibold animate-in slide-in-from-bottom-3 duration-200">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -830,4 +717,3 @@ export default function OrderReviewPage() {
     </Suspense>
   );
 }
-

@@ -35,11 +35,14 @@ interface ReviewDetailModalProps {
 }
 
 const TAG_LABELS: Record<string, string> = {
-  mota: 'Đúng mô tả bài đăng (+1)',
-  donggoi: 'Đóng gói chống sốc kỹ (+1)',
-  huongdan: 'Hỗ trợ hướng dẫn test cổng chu đáo (+1)',
-  giaonhanh: 'Giao liên campus thần tốc (+1)',
-  phukien: 'Tặng kèm phụ kiện cáp HDMI mini',
+  mota: 'Đúng mô tả bài đăng',
+  donggoi: 'Đóng gói chống sốc kỹ',
+  huongdan: 'Hỗ trợ test đồ chu đáo',
+  giaonhanh: 'Giao hàng nhanh',
+  phukien: 'Đầy đủ phụ kiện',
+  hangmoi: 'Hàng còn rất mới',
+  dunggio: 'Đúng giờ hẹn Safe-Point',
+  thanthien: 'Người bán thân thiện, nhiệt tình',
 };
 
 function formatDateTime(d?: string | Date | null): string {
