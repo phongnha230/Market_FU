@@ -212,18 +212,18 @@ export default function AdminUsersPage() {
             (k.email && k.email.toLowerCase() === u.email.toLowerCase())
         );
 
-        // Deduce MSSV: prioritize KYC studentId
-        let mssv = kycMatch?.studentId?.trim().toUpperCase();
+        // Deduce MSSV: prioritize backend u.studentId, then KYC studentId
+        let mssv = (u.studentId || kycMatch?.studentId || '').trim().toUpperCase();
         if (!mssv) {
-          // Only check standard student code prefix for FPT edu emails
+          // Check standard student code prefix for FPT edu emails
           if (u.email.includes('@fpt.edu.vn') || u.email.includes('@fe.edu.vn')) {
             const prefixPart = u.email.split('@')[0];
-            const eduMatch = prefixPart.match(/^[a-zA-Z]{2}\d{4,6}/i)?.[0]?.toUpperCase();
+            const eduMatch = prefixPart.match(/[a-zA-Z]{2}\d{4,6}/i)?.[0]?.toUpperCase();
             if (eduMatch) mssv = eduMatch;
           }
         }
         if (!mssv) {
-          mssv = `FU${u.id.slice(-6).toUpperCase()}`;
+          mssv = u.role === 'ADMIN' ? 'BQT FPT' : `FU${u.id.slice(-6).toUpperCase()}`;
         }
 
         // Deduce major based on MSSV prefix

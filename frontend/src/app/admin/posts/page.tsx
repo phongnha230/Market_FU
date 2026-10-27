@@ -43,7 +43,7 @@ export interface AdminPostItem {
   campus: string;
   category: string;
   status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REJECTED';
-  riskLevel: 'high' | 'pccc' | 'clean' | 'rejected' | 'pending';
+  riskLevel: 'high' | 'pccc' | 'clean' | 'rejected' | 'pending' | 'sold' | 'hidden' | 'reserved';
   riskBadge: string;
   title: string;
   description?: string;
@@ -58,6 +58,7 @@ export interface AdminPostItem {
   videoUrl?: string;
   seller: string;
   sellerId?: string;
+  sellerAvatar?: string | null;
   mssv: string;
   aiNote: string;
   aiScore: number;
@@ -89,6 +90,15 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
   if (status === 'REJECTED') {
     riskLevel = 'rejected';
     riskBadge = '🚫 Đã từ chối';
+  } else if (status === 'SOLD') {
+    riskLevel = 'sold';
+    riskBadge = '📦 Đã bán';
+  } else if (status === 'HIDDEN') {
+    riskLevel = 'hidden';
+    riskBadge = '👁️ Đã ẩn';
+  } else if (status === 'RESERVED') {
+    riskLevel = 'reserved';
+    riskBadge = '🔒 Đang giữ chỗ';
   } else if (status === 'PENDING_APPROVAL') {
     if (isHighRisk) {
       riskLevel = 'high';
@@ -130,12 +140,38 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
     p.seller?.profile?.fullName || p.seller?.fullName || p.seller?.name || 'Sinh viên FPT';
   const studentId =
     p.seller?.profile?.kyc?.studentId ||
+    p.seller?.studentId ||
     p.seller?.profile?.cohort ||
     p.seller?.cohort ||
     'SV FPT';
   const phone =
     p.seller?.profile?.phoneNumber || p.seller?.phoneNumber || 'Chưa cung cấp';
   const email = p.seller?.email || 'student@fpt.edu.vn';
+
+  const sellerAvatar =
+    p.seller?.avatarUrl ||
+    p.seller?.profile?.avatarUrl ||
+    p.seller?.profile?.kyc?.selfieCardUrl ||
+    (sellerName
+      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(sellerName)}&background=ea580c&color=fff&bold=true`
+      : null);
+
+  let aiNoteText = '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.';
+  if (p.rejectionReason) {
+    aiNoteText = `🚫 Lý do từ chối: ${p.rejectionReason}`;
+  } else if (status === 'SOLD') {
+    aiNoteText = '📦 Sản phẩm đã bán thành công và hoàn tất bàn giao cho người mua.';
+  } else if (status === 'HIDDEN') {
+    aiNoteText = '👁️ Tin đăng đã được ẩn: Không còn hiển thị công khai trên chợ.';
+  } else if (status === 'RESERVED') {
+    aiNoteText = '🔒 Đang giữ chỗ: Đang trong quá trình tiến hành giao dịch / cọc.';
+  } else if (isHighRisk) {
+    aiNoteText = '⚠️ CẢNH BÁO GIÁ TRỊ CAO: Đề xuất giao dịch tại điểm Safe-Handoff có camera giám sát và ký quỹ Escrow bảo hộ 48h.';
+  } else if (isPccc) {
+    aiNoteText = '⚠️ Cảnh báo quy chế KTX: Thiết bị điện cần kiểm tra công suất phù hợp định mức điện an toàn PCCC KTX FPT.';
+  } else if (status === 'PENDING_APPROVAL') {
+    aiNoteText = '⏳ Hồ sơ mới đăng: Đang đợi Ban Quản Trị xem xét duyệt nội dung trước khi xuất bản ra thị trường.';
+  }
 
   return {
     id: `#POST-${(p.id || '').slice(-4).toUpperCase()}`,
@@ -158,17 +194,10 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
     videoUrl,
     seller: sellerName,
     sellerId: p.sellerId || p.seller?.id,
+    sellerAvatar,
     mssv: studentId,
-    aiNote: p.rejectionReason
-      ? `🚫 Lý do từ chối: ${p.rejectionReason}`
-      : isHighRisk
-      ? '⚠️ CẢNH BÁO GIÁ TRỊ CAO: Đề xuất giao dịch tại điểm Safe-Handoff có camera giám sát và ký quỹ Escrow bảo hộ 48h.'
-      : isPccc
-      ? '⚠️ Cảnh báo quy chế KTX: Thiết bị điện cần kiểm tra công suất phù hợp định mức điện an toàn PCCC KTX FPT.'
-      : status === 'PENDING_APPROVAL'
-      ? '⏳ Hồ sơ mới đăng: Đang đợi Ban Quản Trị xem xét duyệt nội dung trước khi xuất bản ra thị trường.'
-      : '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.',
-    aiScore: status === 'REJECTED' ? 10 : isHighRisk ? 45 : isPccc ? 65 : 95,
+    aiNote: aiNoteText,
+    aiScore: status === 'REJECTED' ? 10 : status === 'SOLD' ? 100 : isHighRisk ? 45 : isPccc ? 65 : 95,
     time: p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
     isCritical: isHighRisk && status === 'PENDING_APPROVAL',
     imageUrl: primaryImg,
@@ -187,6 +216,9 @@ const RISK_COLORS: Record<string, string> = {
   pccc: 'border-l-4 border-amber-500 bg-amber-50/30',
   clean: 'border-l-4 border-emerald-400',
   rejected: 'border-l-4 border-slate-400 bg-slate-100/60 opacity-80',
+  sold: 'border-l-4 border-blue-500 bg-blue-50/30',
+  hidden: 'border-l-4 border-slate-300 bg-slate-50 opacity-70',
+  reserved: 'border-l-4 border-purple-500 bg-purple-50/30',
 };
 
 const RISK_BADGE_COLORS: Record<string, string> = {
@@ -195,6 +227,9 @@ const RISK_BADGE_COLORS: Record<string, string> = {
   pccc: 'bg-amber-100 text-amber-700 border-amber-200',
   clean: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   rejected: 'bg-slate-200 text-slate-700 border-slate-300',
+  sold: 'bg-blue-100 text-blue-800 border-blue-200',
+  hidden: 'bg-slate-100 text-slate-600 border-slate-200',
+  reserved: 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 const QUICK_REJECT_REASONS = [
@@ -780,6 +815,27 @@ export default function AdminPostsPage() {
                           </div>
                         )}
 
+                        {post.status === 'SOLD' && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                              📦 Đã bán thành công
+                            </span>
+                          </div>
+                        )}
+                        {post.status === 'HIDDEN' && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
+                              👁️ Tin đã ẩn
+                            </span>
+                          </div>
+                        )}
+                        {post.status === 'RESERVED' && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                              🔒 Đang giữ chỗ
+                            </span>
+                          </div>
+                        )}
                         {post.status === 'AVAILABLE' && (
                           <div className="mt-2 flex items-center gap-2">
                             <button
@@ -1030,8 +1086,19 @@ export default function AdminPostsPage() {
                   <div className="text-[11px] font-bold text-slate-600">Thông tin Người bán:</div>
                   <div className="rounded-xl border border-slate-100 p-3 space-y-1.5 bg-white shadow-2xs">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-fpt-orange text-xs font-bold text-white shrink-0">
-                        {selectedDetail.seller.charAt(0)}
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-amber-500 text-xs font-bold text-white shrink-0 overflow-hidden border border-slate-200">
+                        {selectedDetail.sellerAvatar ? (
+                          <img
+                            src={selectedDetail.sellerAvatar}
+                            alt={selectedDetail.seller}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          selectedDetail.seller.charAt(0)
+                        )}
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900">{selectedDetail.seller}</div>
@@ -1079,6 +1146,16 @@ export default function AdminPostsPage() {
                       <XCircle className="h-4 w-4" />
                       🚫 Khóa tin / Gỡ khỏi trang chủ
                     </button>
+                  ) : selectedDetail.status === 'SOLD' ? (
+                    <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-center space-y-1">
+                      <div className="text-xs font-bold text-blue-800 flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                        Đơn hàng đã bán & Giao dịch hoàn tất
+                      </div>
+                      <div className="text-[11px] text-blue-600">
+                        Sản phẩm này đã được người mua nhận và xác nhận hoàn tất thành công.
+                      </div>
+                    </div>
                   ) : (
                     <button
                       onClick={() => handleApprove(selectedDetail.rawId)}
@@ -1088,6 +1165,13 @@ export default function AdminPostsPage() {
                       ✓ Duyệt ngoại lệ (Khôi phục hiển thị)
                     </button>
                   )}
+
+                  <button
+                    onClick={() => setDeleteModalTarget(selectedDetail)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 cursor-pointer active:scale-95 transition flex items-center justify-center gap-1.5"
+                  >
+                    🗑️ Xóa vĩnh viễn tin này
+                  </button>
                 </div>
               </div>
             </div>

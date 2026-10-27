@@ -48,6 +48,8 @@ export class UserService {
               campusCoins: true,
               reputationScore: true,
               cohort: true,
+              major: true,
+              kyc: true,
             },
           },
           _count: {
@@ -64,6 +66,8 @@ export class UserService {
               campus: true,
               major: true,
               cohort: true,
+              cardImageUrl: true,
+              selfieCardUrl: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -75,25 +79,45 @@ export class UserService {
 
     const formattedUsers = users.map((u: any) => {
       const latestKyc = u.kycVerifications?.[0];
-      const mssv = (latestKyc?.studentId || u.profile?.studentId || '').trim().toUpperCase();
+      const emailPrefixMatch = (u.email.includes('@fpt.edu.vn') || u.email.includes('@fe.edu.vn'))
+        ? u.email.split('@')[0].match(/^[a-zA-Z]{2}\d{4,6}/i)?.[0]?.toUpperCase()
+        : '';
+      const mssv = (
+        latestKyc?.studentId ||
+        u.profile?.kyc?.studentId ||
+        emailPrefixMatch ||
+        ''
+      ).trim().toUpperCase();
+
+      const effectiveName = u.profile?.fullName || u.email.split('@')[0] || 'Sinh Viên';
+      let avatarUrl = u.profile?.avatarUrl?.trim() || null;
+      if (!avatarUrl) {
+        avatarUrl =
+          u.profile?.kyc?.selfieCardUrl?.trim() ||
+          latestKyc?.selfieCardUrl?.trim() ||
+          u.profile?.kyc?.cardImageUrl?.trim() ||
+          latestKyc?.cardImageUrl?.trim() ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(effectiveName)}&background=ea580c&color=fff&bold=true`;
+      }
+
       return {
         id: u.id,
         email: u.email,
-        fullName: u.profile?.fullName,
-        avatarUrl: u.profile?.avatarUrl || null,
+        fullName: u.profile?.fullName || effectiveName,
+        avatarUrl,
         avatarBadge: u.profile?.avatarBadge || null,
         phoneNumber: u.profile?.phoneNumber,
         role: u.role,
-        campus: u.profile?.campus || latestKyc?.campus,
-        campusCoins: u.profile?.campusCoins,
-        reputationScore: u.profile?.reputationScore,
+        campus: u.profile?.campus || latestKyc?.campus || 'HOL',
+        campusCoins: u.profile?.campusCoins ?? 0,
+        reputationScore: u.profile?.reputationScore ?? 100,
         isActive: u.isActive,
         createdAt: u.createdAt,
         postsCount: u._count?.products || 0,
         studentId: mssv,
-        major: latestKyc?.major || 'Kỹ thuật phần mềm (SE)',
+        major: latestKyc?.major || u.profile?.major || 'Kỹ thuật phần mềm (SE)',
         cohort: latestKyc?.cohort || u.profile?.cohort,
-        kycStatus: latestKyc?.status || (u.role === 'SELLER' ? 'APPROVED' : 'NONE'),
+        kycStatus: latestKyc?.status || u.profile?.kyc?.status || (u.role === 'SELLER' ? 'APPROVED' : 'NONE'),
       };
     });
 
@@ -127,6 +151,7 @@ export class UserService {
             avatarBadge: true,
             campus: true,
             reputationScore: true,
+            kyc: true,
           },
         },
       },
@@ -162,10 +187,18 @@ export class UserService {
     const reviewCount = reviewAgg._count.id;
     const rating = reviewAgg._avg.rating ? Number(reviewAgg._avg.rating.toFixed(1)) : null;
 
+    const effectiveAvatar =
+      user.profile?.avatarUrl?.trim() ||
+      user.profile?.kyc?.selfieCardUrl?.trim() ||
+      user.profile?.kyc?.cardImageUrl?.trim() ||
+      (user.profile?.fullName
+        ? `https://ui-avatars.com/api/?name=${encodeURIComponent(user.profile.fullName)}&background=ea580c&color=fff&bold=true`
+        : null);
+
     return {
       id: user.id,
       fullName: user.profile?.fullName,
-      avatarUrl: user.profile?.avatarUrl,
+      avatarUrl: effectiveAvatar,
       campus: user.profile?.campus,
       avatarBadge: user.profile?.avatarBadge,
       reputationScore: user.profile?.reputationScore ?? 100,

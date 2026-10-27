@@ -40,10 +40,18 @@ export function sanitizeProductSeller<T extends { seller?: any } | undefined | n
   const kycStatus = seller.profile?.kyc?.status || (seller.role === 'SELLER' ? 'APPROVED' : 'NONE');
   const isKycVerified = kycStatus === 'APPROVED' || seller.role === 'SELLER';
 
+  const effectiveAvatar =
+    seller.profile?.avatarUrl?.trim() ||
+    seller.profile?.kyc?.selfieCardUrl?.trim() ||
+    seller.profile?.kyc?.cardImageUrl?.trim() ||
+    (seller.profile?.fullName
+      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(seller.profile.fullName)}&background=ea580c&color=fff&bold=true`
+      : null);
+
   const sanitizedProfile = seller.profile
     ? {
         fullName: seller.profile.fullName,
-        avatarUrl: seller.profile.avatarUrl,
+        avatarUrl: effectiveAvatar,
         avatarBadge: seller.profile.avatarBadge,
         campus: seller.profile.campus,
         reputationScore: seller.profile.reputationScore,
@@ -58,7 +66,7 @@ export function sanitizeProductSeller<T extends { seller?: any } | undefined | n
       id: seller.id,
       role: seller.role,
       createdAt: seller.createdAt,
-      avatarUrl: sanitizedProfile?.avatarUrl,
+      avatarUrl: effectiveAvatar,
       profile: sanitizedProfile,
     },
   };
@@ -1157,8 +1165,35 @@ export class ProductService {
       prisma.product.count(),
     ]);
 
+    const sanitizedProducts = products.map((p) => {
+      const sellerProfile = p.seller?.profile;
+      const effectiveAvatar =
+        sellerProfile?.avatarUrl?.trim() ||
+        sellerProfile?.kyc?.selfieCardUrl?.trim() ||
+        sellerProfile?.kyc?.cardImageUrl?.trim() ||
+        (sellerProfile?.fullName
+          ? `https://ui-avatars.com/api/?name=${encodeURIComponent(sellerProfile.fullName)}&background=ea580c&color=fff&bold=true`
+          : null);
+
+      return {
+        ...p,
+        seller: p.seller
+          ? {
+              ...p.seller,
+              avatarUrl: effectiveAvatar,
+              profile: sellerProfile
+                ? {
+                    ...sellerProfile,
+                    avatarUrl: effectiveAvatar,
+                  }
+                : null,
+            }
+          : null,
+      };
+    });
+
     return {
-      products,
+      products: sanitizedProducts,
       pagination: {
         total,
         page,
