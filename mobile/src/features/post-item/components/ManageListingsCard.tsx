@@ -148,14 +148,14 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               onPress={() => onEdit(item)}
             >
               <Ionicons name="create-outline" size={14} color="#C2410C" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnOrangeText}>Sửa tin</Text>
+              <Text style={styles.actionBtnOrangeText} numberOfLines={1} ellipsizeMode="tail">Sửa tin</Text>
             </TouchableOpacity>
 
             {/* Kháng nghị */}
             {item.appealStatus === 'PENDING' ? (
               <View style={[styles.actionBtn, styles.actionBtnDisabled]}>
                 <Ionicons name="time-outline" size={14} color="#7C3AED" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnPurpleText}>Chờ duyệt KN</Text>
+                <Text style={styles.actionBtnPurpleText} numberOfLines={1} ellipsizeMode="tail">Chờ duyệt KN</Text>
               </View>
             ) : (
               <TouchableOpacity
@@ -164,7 +164,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                 onPress={() => onAppeal && onAppeal(item)}
               >
                 <Ionicons name="shield-checkmark-outline" size={14} color="#7C3AED" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnPurpleText}>Kháng nghị</Text>
+                <Text style={styles.actionBtnPurpleText} numberOfLines={1} ellipsizeMode="tail">Kháng nghị</Text>
               </TouchableOpacity>
             )}
 
@@ -175,7 +175,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               onPress={() => onDelete(item.id, item.title)}
             >
               <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnRedText}>Xóa tin</Text>
+              <Text style={styles.actionBtnRedText} numberOfLines={1} ellipsizeMode="tail">Xóa tin</Text>
             </TouchableOpacity>
           </>
         ) : item.status === 'pending' ? (
@@ -187,7 +187,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               onPress={() => onEdit(item)}
             >
               <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnBlueText}>Chỉnh sửa tin</Text>
+              <Text style={styles.actionBtnBlueText} numberOfLines={1} ellipsizeMode="tail">Chỉnh sửa tin</Text>
             </TouchableOpacity>
 
             {/* Hủy đăng tin */}
@@ -197,7 +197,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               onPress={() => onDelete(item.id, item.title)}
             >
               <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBtnRedText}>Hủy tin</Text>
+              <Text style={styles.actionBtnRedText} numberOfLines={1} ellipsizeMode="tail">Hủy tin</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -210,7 +210,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                 onPress={() => onEdit(item)}
               >
                 <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnBlueText}>Sửa tin</Text>
+                <Text style={styles.actionBtnBlueText} numberOfLines={1} ellipsizeMode="tail">Sửa tin</Text>
               </TouchableOpacity>
             )}
 
@@ -222,7 +222,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                 onPress={() => onBoost(item.id, item.title)}
               >
                 <Ionicons name="rocket-outline" size={13} color="#C2410C" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnOrangeText}>Đẩy tin</Text>
+                <Text style={styles.actionBtnOrangeText} numberOfLines={1} ellipsizeMode="tail">Đẩy tin</Text>
               </TouchableOpacity>
             )}
 
@@ -234,7 +234,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                 onPress={() => onRenew(item.id, item.title)}
               >
                 <Ionicons name="refresh-outline" size={13} color="#475569" style={{ marginRight: 4 }} />
-                <Text style={styles.actionBtnGrayText}>Gia hạn</Text>
+                <Text style={styles.actionBtnGrayText} numberOfLines={1} ellipsizeMode="tail">Gia hạn</Text>
               </TouchableOpacity>
             )}
 
@@ -475,6 +475,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#92400E',
     lineHeight: 16,
+    flexShrink: 1,
   },
   rejectedBanner: {
     backgroundColor: '#FEF2F2',

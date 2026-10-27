@@ -40,6 +40,9 @@ export interface ProductDetailData {
   sellerCohort?: string;
   status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
   isSoldOrReserved?: boolean;
+  rejectionReason?: string;
+  appealStatus?: string | null;
+  appealReason?: string | null;
   safePointInfo: {
     name: string;
     desc: string;

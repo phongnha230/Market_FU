@@ -28,6 +28,7 @@ export const useProfile = () => {
    * Đồng bộ hồ sơ mới nhất từ Backend (bao gồm kết quả phê duyệt từ Admin)
    */
   const syncProfileFromBackend = useCallback(async () => {
+    if (!user || !user.id) return;
     try {
       const latestProfile = await profileMobileService.getMyProfile();
       if (latestProfile) {
@@ -42,7 +43,7 @@ export const useProfile = () => {
       // Offline fallback: giữ nguyên trạng thái local store hiện có
       console.log('ℹ️ [Mobile Profile]: Không thể tải profile từ backend (chế độ offline):', err?.message);
     }
-  }, [updateUserProfile]);
+  }, [user, updateUserProfile]);
 
   /**
    * Kéo xuống để làm mới (Pull-to-refresh) với cơ chế timeout an toàn
@@ -70,6 +71,7 @@ export const useProfile = () => {
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
    */
   useEffect(() => {
+    if (!user || !user.id) return;
     // 1. Tự động đồng bộ 1 lần khi màn hình khởi tạo
     syncProfileFromBackend();
     fetchOrders().catch(() => {});

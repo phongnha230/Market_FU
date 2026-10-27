@@ -116,6 +116,9 @@ export const useProductDetail = (productId?: string) => {
       sellerCohort: found.sellerCohort,
       status: found.status,
       isSoldOrReserved: found.status !== 'AVAILABLE',
+      rejectionReason: found.rejectionReason,
+      appealStatus: found.appealStatus,
+      appealReason: found.appealReason,
       seller: {
         id: found.sellerId,
         name: found.sellerName || 'Sinh viên FPT',

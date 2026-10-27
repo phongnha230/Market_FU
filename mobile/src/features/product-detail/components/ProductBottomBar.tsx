@@ -36,7 +36,40 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
 
   return (
     <View style={styles.container}>
-      {isSoldOrReserved ? (
+      {isOwnProduct ? (
+        // SELLER XEM BÀI CỦA CHÍNH MÌNH: Cảnh báo chống gian lận & Quản lý bài đăng
+        <View style={styles.ownProductBox}>
+          <View style={styles.ownHeaderRow}>
+            <View style={styles.ownIconBox}>
+              <Ionicons name="shield-checkmark" size={16} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.ownTitle} numberOfLines={1} ellipsizeMode="tail">
+                Bài đăng của chính bạn
+              </Text>
+              <Text style={styles.ownSubtitle} numberOfLines={2} ellipsizeMode="tail">
+                {status === 'REJECTED'
+                  ? 'Tin đăng này đã bị BQT từ chối / gỡ bỏ. Bấm để sửa hoặc kháng nghị.'
+                  : status === 'PENDING_APPROVAL'
+                  ? 'Tin đang chờ Ban Quản Trị duyệt an toàn.'
+                  : status === 'SOLD'
+                  ? 'Món đồ này đã bán thành công.'
+                  : 'Theo quy chế, bạn không thể tự đặt mua bài của mình'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.manageOwnBtn}
+            activeOpacity={0.88}
+            onPress={onManageOwnProduct}
+          >
+            <Ionicons name="create-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.manageOwnBtnText} numberOfLines={1} ellipsizeMode="tail">
+              Quản lý & Chỉnh sửa bài đăng
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : isSoldOrReserved ? (
         // SẢN PHẨM ĐÃ BÁN / ĐÃ ĐÓNG / ĐANG HẸN CỌC: Vô hiệu hóa mua & chat
         <View style={styles.soldProductBox}>
           <View style={styles.soldHeaderRow}>
@@ -47,40 +80,19 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
                 color={status === 'SOLD' ? '#DC2626' : '#D97706'}
               />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.soldNoticeTitle}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.soldNoticeTitle} numberOfLines={1} ellipsizeMode="tail">
                 {status === 'SOLD' ? 'Món đồ này đã được bán thành công'
                   : status === 'RESERVED' ? 'Món đồ này đang có bạn hẹn cọc'
                   : 'Tin đăng này chưa thể giao dịch'}
               </Text>
-              <Text style={styles.soldNoticeSub}>
+              <Text style={styles.soldNoticeSub} numberOfLines={2} ellipsizeMode="tail">
                 {status === 'SOLD'
                   ? 'Giao dịch đã hoàn tất. Bạn không cần nhắn tin cho người bán nữa.'
                   : 'Sản phẩm tạm thời khóa giao dịch để chờ bàn giao.'}
               </Text>
             </View>
           </View>
-        </View>
-      ) : isOwnProduct ? (
-        // SELLER XEM BÀI CỦA CHÍNH MÌNH: Cảnh báo chống gian lận & Quản lý bài đăng
-        <View style={styles.ownProductBox}>
-          <View style={styles.ownHeaderRow}>
-            <View style={styles.ownIconBox}>
-              <Ionicons name="shield-checkmark" size={16} color="#2563EB" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.ownTitle}>Bài đăng của chính bạn</Text>
-              <Text style={styles.ownSubtitle}>Theo quy chế, bạn không thể tự đặt mua bài của mình</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.manageOwnBtn}
-            activeOpacity={0.88}
-            onPress={onManageOwnProduct}
-          >
-            <Ionicons name="create-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.manageOwnBtnText}>Quản lý & Chỉnh sửa bài đăng</Text>
-          </TouchableOpacity>
         </View>
       ) : (
         // KHUÔN 3 NÚT GỌN GÀNG 1 HÀNG CHUẨN TIKTOK / SHOPEE
