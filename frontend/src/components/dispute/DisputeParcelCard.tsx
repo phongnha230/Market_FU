@@ -4,6 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import { OrderItem } from '@/stores/orderStore';
 import { Card, Badge, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
+import { Truck, MapPin } from 'lucide-react';
 
 interface DisputeParcelCardProps {
   order?: OrderItem | null;
@@ -14,7 +15,12 @@ export default function DisputeParcelCard({
   order,
   orderCode,
 }: DisputeParcelCardProps) {
-  const isInterCampus = order?.type === 'inter-campus';
+  const isInterCampus =
+    order?.type === 'inter-campus' ||
+    (order as any)?.orderType === 'SHIP_COD' ||
+    Boolean((order as any)?.shipping?.shippingPartner);
+  const isSafeHandoff = !isInterCampus;
+
   const displayTitle = order?.product?.title || 'Sản phẩm giao dịch';
   const displayImage =
     (typeof order?.product?.imageUrl === 'string' && order.product.imageUrl) ||
@@ -22,8 +28,11 @@ export default function DisputeParcelCard({
     (order?.product as any)?.images?.[0]?.imageUrl ||
     '/products/monitor-dell-24.jpg';
 
-  const priceVal = order?.product?.price ?? order?.payment?.price ?? 0;
-  const isSafeHandoff = order?.type === 'safe-handoff';
+  const itemPrice = order?.product?.price ?? order?.payment?.price ?? 0;
+  const shippingFee = isInterCampus
+    ? ((order as any)?.shipping?.shippingFee ?? order?.payment?.shippingFee ?? 25000)
+    : 0;
+  const totalAmount = itemPrice + shippingFee;
 
   // Buyer Info
   const buyerName =
@@ -62,22 +71,38 @@ export default function DisputeParcelCard({
     '';
 
   return (
-    <Card className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-          CHI TIẾT BƯU KIỆN KHIẾU NẠI
-        </span>
-        <Badge variant="outline" className="rounded-full bg-blue-50 text-blue-700 text-[11px] font-bold px-2.5 py-0.5 border border-blue-200 hover:bg-blue-50">
-          {isInterCampus
-            ? `Vận chuyển liên Campus (${sellerCampus} ➔ ${buyerCampus})`
-            : isSafeHandoff
-            ? `Giao nhận trực tiếp Safe-Point (${order?.meetupLocation || sellerCampus})`
-            : `Giao dịch nội bộ ${sellerCampus}`}
+    <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-3.5">
+      <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Thông tin sản phẩm khiếu nại
+          </span>
+          <span className="text-slate-400 font-mono text-xs">
+            #{order?.code?.replace('#', '') || orderCode.replace('#', '')}
+          </span>
+        </div>
+
+        <Badge variant="outline" className={`rounded-full text-[11px] font-bold px-2.5 py-0.5 border ${
+          isInterCampus 
+            ? 'bg-blue-50 text-blue-700 border-blue-200' 
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          {isInterCampus ? (
+            <span className="flex items-center gap-1">
+              <Truck className="h-3 w-3" />
+              Liên Campus: {sellerCampus} ➔ {buyerCampus}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              Safe-Point: {order?.meetupLocation || sellerCampus}
+            </span>
+          )}
         </Badge>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-1">
-        <div className="relative h-20 w-20 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 pt-0.5">
+        <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
           <Image
             src={displayImage}
             alt={displayTitle}
@@ -86,56 +111,53 @@ export default function DisputeParcelCard({
           />
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap text-xs">
-            <Badge className="rounded bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 border-none hover:bg-rose-100">
-              Phát sinh khiếu nại
-            </Badge>
-            <span className="text-slate-500 font-mono">
-              Mã đơn: {order?.code?.replace('#', '') || orderCode.replace('#', '')}
-            </span>
-          </div>
-
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug mt-1 line-clamp-2">
+        <div className="flex-1 min-w-0 space-y-1">
+          <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug line-clamp-2">
             {displayTitle}
           </h3>
 
-          <div className="text-sm font-extrabold text-slate-900 mt-1">
-            {priceVal.toLocaleString('vi-VN')}đ{' '}
-            <span className="text-xs text-slate-500 font-normal">
-              {isInterCampus ? '(Bao gồm phí bảo hộ CampusShip)' : '(Bảo hộ Escrow sinh viên)'}
+          <div className="flex items-baseline gap-2 flex-wrap text-xs">
+            <span className="text-sm sm:text-base font-extrabold text-slate-900">
+              {itemPrice.toLocaleString('vi-VN')}đ
             </span>
+            {isInterCampus ? (
+              <span className="text-slate-500">
+                + {shippingFee.toLocaleString('vi-VN')}đ ship liên campus = <strong className="text-slate-800">{totalAmount.toLocaleString('vi-VN')}đ</strong>
+              </span>
+            ) : (
+              <span className="text-emerald-600 font-medium">
+                (Miễn phí phí giao dịch Safe-Point)
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Parties row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
-        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
-          <Avatar className="h-7 w-7 shrink-0 border border-slate-200">
+      {/* Parties row (Compact chip style) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 text-xs">
+        <div className="flex items-center gap-2 rounded-xl bg-slate-50/80 px-3 py-2 border border-slate-100">
+          <Avatar className="h-6 w-6 shrink-0 border border-slate-200">
             {buyerAvatarUrl && <AvatarImage src={buyerAvatarUrl} alt={buyerName} />}
             <AvatarFallback className="bg-fpt-orange text-white font-bold text-[10px]">
               {buyerInitial}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] text-slate-400 font-medium">NGƯỜI MUA (KHIẾU NẠI):</span>
-            <div className="font-bold text-slate-800 truncate">{buyerName}</div>
-            <div className="text-[10px] text-slate-500 truncate">{buyerCampus}</div>
+            <span className="text-[10px] text-slate-400 block font-medium">Bên khiếu nại (Bạn):</span>
+            <div className="font-semibold text-slate-800 truncate">{buyerName} • <span className="text-slate-500 font-normal">{buyerCampus}</span></div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
-          <Avatar className="h-7 w-7 shrink-0 border border-slate-200">
+        <div className="flex items-center gap-2 rounded-xl bg-slate-50/80 px-3 py-2 border border-slate-100">
+          <Avatar className="h-6 w-6 shrink-0 border border-slate-200">
             {sellerAvatarUrl && <AvatarImage src={sellerAvatarUrl} alt={sellerName} />}
-            <AvatarFallback className="bg-slate-800 text-white font-bold text-[10px]">
+            <AvatarFallback className="bg-slate-700 text-white font-bold text-[10px]">
               {sellerInitial}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] text-slate-400 font-medium">NGƯỜI BÁN:</span>
-            <div className="font-bold text-slate-800 truncate">{sellerName}</div>
-            <div className="text-[10px] text-slate-500 truncate">{sellerCampus}</div>
+            <span className="text-[10px] text-slate-400 block font-medium">Người bán:</span>
+            <div className="font-semibold text-slate-800 truncate">{sellerName} • <span className="text-slate-500 font-normal">{sellerCampus}</span></div>
           </div>
         </div>
       </div>

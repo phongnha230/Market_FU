@@ -8,22 +8,4 @@ export const DISPUTE_REASONS: DisputeReason[] = [
   { id: 'fake', label: 'Nghi vấn hàng nhái / Không đúng thông số linh kiện cam kết', icon: '⚠️' },
 ];
 
-export const EVIDENCE_ITEMS: EvidenceItem[] = [
-  {
-    id: 'img1',
-    label: 'Ảnh 1',
-    source: require('../../../../assets/products/monitor-dell-24.jpg'),
-  },
-  {
-    id: 'img2',
-    label: 'Ảnh 2',
-    source: require('../../../../assets/products/keyboard-akko.jpg'),
-  },
-  {
-    id: 'vid1',
-    label: 'Video test',
-    source: require('../../../../assets/products/headphones-sony.jpg'),
-    isVideo: true,
-    duration: '0:44',
-  },
-];
+export const EVIDENCE_ITEMS: EvidenceItem[] = [];

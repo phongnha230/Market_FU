@@ -4,11 +4,11 @@ import React from 'react';
 import {
   ShieldCheck,
   CheckCircle2,
-  Bot,
   Truck,
+  MapPin,
   Clock,
-  ShieldAlert,
-  Phone,
+  HelpCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, Button } from '@/components/ui';
 
@@ -16,135 +16,162 @@ interface DisputeSidebarProps {
   itemPrice?: number;
   shippingFee?: number;
   totalEscrow?: number;
-  aiConfidenceScore?: number;
-  sellerCohort?: string;
   onShowToast: (msg: string) => void;
+  isSeller?: boolean;
+  isInterCampus?: boolean;
+  resolutionPlan?: 'return' | 'partial';
+  partialRefundAmount?: number;
 }
 
 export default function DisputeSidebar({
   itemPrice = 0,
   shippingFee = 0,
   totalEscrow = 0,
-  aiConfidenceScore = 0,
-  sellerCohort,
   onShowToast,
+  isSeller = false,
+  isInterCampus = false,
+  resolutionPlan = 'return',
+  partialRefundAmount,
 }: DisputeSidebarProps) {
+  const actualShipping = isInterCampus ? shippingFee : 0;
+  const isPartial = resolutionPlan === 'partial';
+  const refundAmountDisplay = isPartial
+    ? (partialRefundAmount ?? Math.round(itemPrice * 0.3))
+    : itemPrice + actualShipping;
+
   return (
-    <div className="lg:col-span-4 space-y-5">
-      {/* CARD 1: BẢO CHỨNG QUỸ SINH VIÊN */}
-      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-            BẢO CHỨNG QUỸ SINH VIÊN
+    <div className="space-y-4">
+      {/* CARD 1: CHI TIẾT SỐ TIỀN HOÀN TRẢ */}
+      <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-100">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Chi tiết số tiền bảo lưu
           </span>
           <ShieldCheck className="h-4 w-4 text-emerald-600" />
         </div>
 
-        <div className="space-y-2 text-xs text-slate-600 divide-y divide-slate-100">
-          <div className="flex items-center justify-between pt-1">
-            <span>Giá trị món đồ đăng ký:</span>
-            <span className="font-bold text-slate-800">
+        <div className="space-y-2 text-xs text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Giá trị sản phẩm:</span>
+            <span className="font-semibold text-slate-800">
               {itemPrice.toLocaleString('vi-VN')}đ
             </span>
           </div>
-          <div className="flex items-center justify-between pt-2">
-            <span>Phí ship Liên Campus bảo lưu:</span>
-            <span className="font-bold text-slate-800">
-              {shippingFee.toLocaleString('vi-VN')}đ
+
+          <div className="flex items-center justify-between">
+            <span>Phí vận chuyển:</span>
+            {isInterCampus ? (
+              <span className="font-semibold text-slate-800">
+                {actualShipping.toLocaleString('vi-VN')}đ
+              </span>
+            ) : (
+              <span className="text-emerald-600 font-semibold">0đ (Safe-Point)</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span>Phương án yêu cầu:</span>
+            <span className="font-medium text-slate-700">
+              {isPartial ? 'Bồi hoàn một phần' : 'Trả hàng hoàn 100%'}
             </span>
           </div>
-          <div className="flex items-center justify-between pt-2 text-sm font-black text-slate-900">
-            <span>Tổng tiền Escrow đóng băng:</span>
-            <span className="text-base text-rose-600 font-black">
-              {totalEscrow.toLocaleString('vi-VN')}đ
+
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-sm font-bold text-slate-900">
+            <span>{isSeller ? 'Khoản Escrow đang giữ:' : 'Dự kiến hoàn lại:'}</span>
+            <span className="text-base font-black text-fpt-orange">
+              {refundAmountDisplay.toLocaleString('vi-VN')}đ
             </span>
           </div>
         </div>
 
-        <div className="pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5">
+        <div className="pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-          <span>100% tiền được đảm bảo trong tài khoản chuyên thu FPT</span>
+          <span>Tiền hoàn sẽ chuyển trực tiếp vào Ví FPT Marketplace</span>
         </div>
       </Card>
 
-      {/* CARD 2: TRỢ LÝ AI THẨM TRA KHIẾU NẠI */}
-      <Card className="rounded-2xl border border-orange-100 bg-white p-5 shadow-xs space-y-3.5">
+      {/* CARD 2: QUY TRÌNH XỬ LÝ MINH BẠCH */}
+      <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs space-y-3">
         <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
-          <Bot className="h-4 w-4 text-fpt-orange" />
-          <span>Trợ lý AI Thẩm tra Khiếu nại</span>
-        </div>
-
-        <div className="flex items-center gap-4 bg-orange-50/50 p-3.5 rounded-xl border border-orange-100">
-          {/* Gauge Circle */}
-          <div className={`relative h-14 w-14 rounded-full border-4 ${aiConfidenceScore > 70 ? 'border-emerald-500' : aiConfidenceScore > 0 ? 'border-amber-500' : 'border-slate-300'} flex items-center justify-center font-black text-slate-900 text-sm shrink-0 bg-white`}>
-            {aiConfidenceScore}%
-          </div>
-          <div>
-            <div className="font-extrabold text-xs sm:text-sm text-slate-900">
-              {aiConfidenceScore > 70 ? 'Độ tin cậy hồ sơ hợp lệ' : aiConfidenceScore > 0 ? 'Đang phân tích đối chiếu' : 'Chờ đính kèm bằng chứng'}
-            </div>
-            <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
-              {aiConfidenceScore > 0
-                ? 'Hệ thống tự động đối chiếu thời gian bàn giao và video bằng chứng để bảo vệ quyền lợi đôi bên.'
-                : 'Vui lòng đính kèm video bóc hộp hoặc ảnh chi tiết lỗi để kích hoạt AI thẩm tra tự động.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-1.5 text-xs text-slate-600">
-          <div className="flex items-start gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <span>Xác thực danh tính sinh viên thông qua tài khoản SSO FPT.</span>
-          </div>
-          <div className="flex items-start gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <span>Tiền Escrow được phong tỏa tạm thời 100% trong thời gian xem xét.</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* CARD 3: CHÍNH SÁCH BẢO VỆ SINH VIÊN FPT */}
-      <Card className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-        <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" />
-          <span>Chính sách Bảo vệ Sinh viên FPT</span>
+          {isInterCampus ? (
+            <Truck className="h-4 w-4 text-blue-600" />
+          ) : (
+            <MapPin className="h-4 w-4 text-emerald-600" />
+          )}
+          <span>
+            {isInterCampus ? 'Quy trình Trả hàng Liên Campus' : 'Quy trình Trả hàng Safe-Point'}
+          </span>
         </div>
 
         <div className="space-y-2.5 text-xs text-slate-600">
-          <div className="flex items-start gap-2">
-            <Truck className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-            <p className="leading-relaxed text-[11px]">
-              <strong>Miễn 100% phí gửi trả:</strong> Hỗ trợ hoàn trả thiết bị thông qua các Safe-Handoff Hub tại sảnh campus mà không phát sinh thêm phí.
-            </p>
-          </div>
+          {isInterCampus ? (
+            <>
+              <div className="flex items-start gap-2">
+                <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Thời hạn phản hồi 24h:</strong> Người bán có 24h để đồng ý hoặc thương lượng giải pháp với bạn.
+                </p>
+              </div>
 
-          <div className="flex items-start gap-2">
-            <Clock className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-            <p className="leading-relaxed text-[11px]">
-              <strong>Hạn phản hồi 24 giờ:</strong> Nếu sinh viên bán không phản hồi phương án trong 24h, hệ thống tự động xử lý theo đề xuất của người mua.
-            </p>
-          </div>
+              <div className="flex items-start gap-2">
+                <Truck className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Chuyển hoàn miễn phí:</strong> Bưu tá GHN nhận kiện hàng tận nơi hoặc gửi tại bưu cục mà không tốn thêm cước.
+                </p>
+              </div>
 
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-            <p className="leading-relaxed text-[11px]">
-              <strong>Kỷ luật CTSV nghiêm ngặt:</strong> Trường hợp cố ý tráo hàng hoặc gian lận sẽ bị xử lý kỷ luật theo quy chế công tác sinh viên.
-            </p>
-          </div>
+              <div className="flex items-start gap-2">
+                <RotateCcw className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Hoàn tiền tự động:</strong> Ngay khi bưu tá quét mã nhận hàng hoàn trả, khoản tiền sẽ được hoàn về ví của bạn.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-2">
+                <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Hẹn gặp tại trường:</strong> Hai bên hẹn gặp tại trạm Safe-Point (Sảnh thư viện/Căn tin) để trao lại món đồ.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Kiểm tra trực tiếp:</strong> Người bán nhận lại sản phẩm và bấm xác nhận hoàn trả trên ứng dụng.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <RotateCcw className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed text-[11px]">
+                  <strong>Hoàn tiền tức thì:</strong> Tiền trong Escrow lập tức được chuyển hoàn về ví của người mua.
+                </p>
+              </div>
+            </>
+          )}
         </div>
+      </Card>
 
+      {/* CARD 3: HỖ TRỢ KHI CẦN */}
+      <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-2.5 text-xs">
+        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+          <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+          <span>Cần trợ giúp thêm?</span>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Nếu hai bên không đạt được thỏa thuận chung, Ban Quản Trị Sàn sẽ hỗ trợ xem xét bằng chứng và đưa ra phán quyết công bằng trong vòng 24 giờ.
+        </p>
         <Button
           type="button"
           variant="outline"
           onClick={() =>
-            onShowToast(
-              '📞 Tổng đài Hỗ trợ Sinh viên FPT Market: 1900.636.009 (Ext: 888)'
-            )
+            onShowToast('Bộ phận hỗ trợ sinh viên FPT Market luôn sẵn sàng hỗ trợ trực tuyến qua mục Trợ giúp.')
           }
-          className="h-auto w-full mt-2 rounded-xl bg-rose-50 border border-rose-200 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-none"
+          className="h-auto w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer shadow-none"
         >
-          <Phone className="h-3.5 w-3.5" />
-          <span>Hỗ trợ Ban Quản Trị Campus</span>
+          Liên hệ Hỗ trợ Sàn 5Campus
         </Button>
       </Card>
     </div>

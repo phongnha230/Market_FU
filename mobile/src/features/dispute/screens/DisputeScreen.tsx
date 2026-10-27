@@ -10,6 +10,7 @@ import DisputeEvidenceSection from '../components/DisputeEvidenceSection';
 import DisputeSubmitBar from '../components/DisputeSubmitBar';
 import useDispute from '../hooks/useDispute';
 import { DisputeScreenProps } from '../types/dispute.types';
+import { useAuth } from '../../../hooks/useAuth';
 
 export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
   const insets = useSafeAreaInsets();
@@ -22,6 +23,15 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
   const price = route.params?.price;
   const isCod = route.params?.isCod ?? false;
   const passedDispute = route.params?.dispute;
+
+  const { user } = useAuth();
+  const routeIsSeller = route.params?.isSeller;
+  const isSeller = Boolean(
+    routeIsSeller ||
+    (user?.id && (route.params?.order?.sellerId === user.id || route.params?.sellerId === user.id)) ||
+    (user?.name && (sellerName === user.name || route.params?.order?.sellerName === user.name)) ||
+    (user?.email && route.params?.order?.sellerEmail === user.email)
+  );
 
   const handleBack = () => {
     if (onGoBack) {
@@ -47,6 +57,34 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
     handleSubmit,
   } = useDispute(handleBack, orderId, productTitle, sellerName, isCod);
 
+  // Nếu Seller mở đơn chưa có khiếu nại -> Không hiển thị form tạo khiếu nại
+  if (isSeller && !passedDispute) {
+    return (
+      <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
+        <DisputeHeader onGoBack={handleBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+            <Ionicons name="shield-checkmark" size={32} color="#2563EB" />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+            Đơn hàng không có khiếu nại
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+            Bạn là Người bán của đơn hàng này. Chỉ Người mua mới có quyền tạo yêu cầu khiếu nại & trả hàng trong thời gian bao test 24h.
+          </Text>
+          <TouchableOpacity
+            style={[styles.backToListBtn, { alignSelf: 'stretch' }]}
+            activeOpacity={0.85}
+            onPress={handleBack}
+          >
+            <Ionicons name="arrow-back" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.backToListBtnText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   // Nếu đơn hàng ĐÃ CÓ khiếu nại (như Ảnh 4 & Ảnh 5), hiển thị màn hình Hồ Sơ Khiếu Nại chi tiết!
   if (passedDispute) {
     const isRejected = passedDispute.status === 'REJECTED';
@@ -65,7 +103,9 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
                 <Ionicons name="document-text" size={22} color="#EA580C" />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.detailMainTitle}>Hồ sơ Khiếu nại & Yêu cầu Trả hàng</Text>
+                <Text style={styles.detailMainTitle}>
+                  {isSeller ? 'Hồ sơ Thẩm tra Khiếu nại (Chế độ Người bán)' : 'Hồ sơ Khiếu nại & Yêu cầu Trả hàng'}
+                </Text>
                 <Text style={styles.detailSubInfo} numberOfLines={1}>
                   Mã hồ sơ: {passedDispute.id || 'DSP-RECORD'} • {passedDispute.createdAt || 'Gần đây'}
                 </Text>
@@ -105,6 +145,14 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
                   : '⏳ ĐANG CHỜ BQT & NGƯỜI BÁN XỬ LÝ'}
               </Text>
             </View>
+
+            {isSeller && (
+              <View style={{ backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 10, padding: 10, marginTop: 10 }}>
+                <Text style={{ fontSize: 11, color: '#92400E', lineHeight: 16 }}>
+                  🔒 <Text style={{ fontWeight: '700' }}>Chế độ Người bán (Chỉ xem):</Text> Bạn chỉ theo dõi tiến trình và phán quyết từ BQT Campus. Người bán không có quyền chỉnh sửa hay rút đơn khiếu nại.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* 2. Thẻ Thông Tin Sản Phẩm */}
@@ -163,27 +211,37 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
             )}
           </View>
 
-          {/* 4. Các kịch bản xử lý & Quyền lợi sinh viên (Chuẩn Web Ảnh 5) */}
+          {/* 4. Các kịch bản xử lý */}
           <View style={styles.scenarioCard}>
-            <Text style={styles.scenarioCardHeader}>CÁC KỊCH BẢN XỬ LÝ KHIẾU NẠI & QUYỀN LỢI CỦA BẠN</Text>
+            <Text style={styles.scenarioCardHeader}>
+              {isSeller ? 'QUY TRÌNH BẢO VỆ QUYỀN LỢI NGƯỜI BÁN' : 'CÁC KỊCH BẢN XỬ LÝ KHIẾU NẠI & QUYỀN LỢI CỦA BẠN'}
+            </Text>
 
             <View style={styles.scenarioItemGreen}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                 <Ionicons name="checkmark-circle" size={15} color="#059669" style={{ marginRight: 4 }} />
-                <Text style={styles.scenarioTitleGreen}>Khi BQT duyệt thành công</Text>
+                <Text style={styles.scenarioTitleGreen}>
+                  {isSeller ? 'Khi BQT Bác bỏ khiếu nại' : 'Khi BQT duyệt thành công'}
+                </Text>
               </View>
               <Text style={styles.scenarioTextGreen}>
-                Bạn sẽ nhận mã gửi trả hàng miễn phí tại Safe-Point CLB IT hoặc GHN Campus. Sau khi bưu cục nhận đồ, 100% tiền Escrow và Xu giảm giá sẽ được hoàn trả tự động vào ví của bạn.
+                {isSeller
+                  ? 'Nếu bằng chứng không thuyết phục hoặc lỗi do người mua tự gây ra, BQT sẽ bác đơn và tiến hành giải ngân 100% tiền đơn hàng vào ví của bạn.'
+                  : 'Bạn sẽ nhận mã gửi trả hàng miễn phí tại Safe-Point CLB IT hoặc GHN Campus. Sau khi bưu cục nhận đồ, 100% tiền Escrow và Xu giảm giá sẽ được hoàn trả tự động vào ví của bạn.'}
               </Text>
             </View>
 
             <View style={styles.scenarioItemAmber}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                 <Ionicons name="alert-circle" size={15} color="#D97706" style={{ marginRight: 4 }} />
-                <Text style={styles.scenarioTitleAmber}>Khi BQT từ chối khiếu nại</Text>
+                <Text style={styles.scenarioTitleAmber}>
+                  {isSeller ? 'Khi BQT Duyệt trả hàng' : 'Khi BQT từ chối khiếu nại'}
+                </Text>
               </View>
               <Text style={styles.scenarioTextAmber}>
-                Nếu bằng chứng không hợp lệ hoặc món đồ lỗi do người dùng tự làm hỏng, BQT sẽ gửi văn bản giải thích chi tiết và tiến hành giải ngân tiền cho Người bán.
+                {isSeller
+                  ? 'Người mua phải gửi trả hàng nguyên vẹn về Safe-Point của bạn trước khi được hoàn tiền. Bạn được quyền kiểm tra hàng khi nhận lại.'
+                  : 'Nếu bằng chứng không hợp lệ hoặc món đồ lỗi do người dùng tự làm hỏng, BQT sẽ gửi văn bản giải thích chi tiết và tiến hành giải ngân tiền cho Người bán.'}
               </Text>
             </View>
           </View>

@@ -11,6 +11,7 @@ import DisputeParcelCard from '@/components/dispute/DisputeParcelCard';
 import DisputeResolution from '@/components/dispute/DisputeResolution';
 import DisputeEvidence from '@/components/dispute/DisputeEvidence';
 import DisputeSidebar from '@/components/dispute/DisputeSidebar';
+import DisputeSellerInspectionView from '@/components/dispute/DisputeSellerInspectionView';
 import { Card, Badge, Button } from '@/components/ui';
 import {
   AlertTriangle,
@@ -20,6 +21,7 @@ import {
   ArrowLeft,
   FileText,
   XCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useDisputeStore } from '@/stores/disputeStore';
@@ -58,59 +60,99 @@ function DisputeContent() {
     Boolean(matchedOrder?.shipping?.shippingPartner);
   const buyerAddress = matchedOrder?.shipping?.shippingAddress || (matchedOrder as any)?.shippingAddress || '';
   const sellerCampus = (matchedOrder as any)?.product?.campus || (matchedOrder as any)?.seller?.profile?.campus || 'Cần Thơ';
-  const sellerName = matchedOrder?.product?.seller?.name || matchedOrder?.seller?.profile?.fullName || matchedOrder?.seller?.email || 'Người bán';
+  const buyerCampus = (matchedOrder as any)?.buyer?.campus || (matchedOrder as any)?.buyer?.profile?.campus || 'Hòa Lạc';
+  const rawSellerName = matchedOrder?.product?.seller?.name || matchedOrder?.seller?.profile?.fullName || matchedOrder?.seller?.email || 'Người bán';
+  const rawBuyerName = (matchedOrder as any)?.buyer?.fullName || (matchedOrder as any)?.buyer?.profile?.fullName || (matchedOrder as any)?.buyer?.name || (matchedOrder as any)?.buyerName || 'Người mua';
   const productTitle = matchedOrder?.product?.title || 'Sản phẩm';
 
-  // Form states
+  // Role detection (Seller vs Buyer vs Admin)
+  const currentUserId = userData?.id?.trim();
+  const currentUserEmail = userData?.email?.toLowerCase().trim();
+  const currentUserName = userData?.name?.toLowerCase().trim();
+
+  const orderSellerId = (matchedOrder?.sellerId || (matchedOrder as any)?.seller?.id || (matchedOrder as any)?.product?.seller?.id)?.trim();
+  const orderSellerEmail = ((matchedOrder as any)?.seller?.email || (matchedOrder as any)?.product?.seller?.email || '')?.toLowerCase().trim();
+  const sellerNameLower = rawSellerName.toLowerCase().trim();
+
+  const orderBuyerId = (matchedOrder?.buyerId || (matchedOrder as any)?.buyer?.id)?.trim();
+  const orderBuyerEmail = ((matchedOrder as any)?.buyer?.email || '')?.toLowerCase().trim();
+  const buyerNameLower = rawBuyerName.toLowerCase().trim();
+
+  const roleParam = searchParams.get('as') || searchParams.get('role');
+
+  const isSeller = Boolean(
+    roleParam === 'seller' ||
+    (currentUserId && orderSellerId && currentUserId === orderSellerId) ||
+    (currentUserEmail && orderSellerEmail && (currentUserEmail === orderSellerEmail || currentUserEmail.split('@')[0] === orderSellerEmail.split('@')[0])) ||
+    (currentUserName && sellerNameLower && (
+      currentUserName === sellerNameLower ||
+      sellerNameLower.includes(currentUserName) ||
+      currentUserName.includes(sellerNameLower)
+    ))
+  );
+
+  const isBuyer = Boolean(
+    !isSeller && (
+      roleParam === 'buyer' ||
+      (currentUserId && orderBuyerId && currentUserId === orderBuyerId) ||
+      (currentUserEmail && orderBuyerEmail && (currentUserEmail === orderBuyerEmail || currentUserEmail.split('@')[0] === orderBuyerEmail.split('@')[0])) ||
+      (currentUserName && buyerNameLower && (
+        currentUserName === buyerNameLower ||
+        buyerNameLower.includes(currentUserName) ||
+        currentUserName.includes(buyerNameLower)
+      ))
+    )
+  );
+
+  // Form states (for buyer creation)
   const [resolutionPlan, setResolutionPlan] = useState<'return' | 'partial'>('return');
   const [selectedReason, setSelectedReason] = useState<string>('defect');
   const [description, setDescription] = useState<string>('');
+  const [partialRefundAmount, setPartialRefundAmount] = useState<number>(0);
 
-  const isCodOrder =
-    matchedOrder?.payment?.paymentMethod === 'CASH' ||
-    Boolean(matchedOrder?.payment?.paymentMethod?.toLowerCase().includes('cod')) ||
-    (!matchedOrder?.payment?.isPaid && matchedOrder?.type === 'inter-campus');
+  const productPrice = matchedOrder?.product?.price ?? 0;
+  const shippingFeeVal = isInterCampus ? (matchedOrder?.shipping?.shippingFee ?? 25000) : 0;
 
   useEffect(() => {
-    if (!productTitle) return;
-
-    const refundText = isCodOrder
-      ? 'Kính mong Sàn giữ đối soát COD và hỗ trợ hoàn tiền về STK Ngân hàng / Ví của em.'
-      : 'Kính mong Sàn tạm khóa Escrow và hỗ trợ hoàn tiền bảo hộ.';
-
-    switch (selectedReason) {
-      case 'defect':
-        setDescription(`Món hàng ${productTitle} nhận từ bạn ${sellerName} khi bóc hộp cắm test thực tế tại KTX thì không hoạt động bình thường, bị lỗi chức năng so với cam kết. ${refundText}`);
-        break;
-      case 'wrong-item':
-        setDescription(`Sản phẩm ${productTitle} nhận được khác hoàn toàn với hình ảnh, model và tình trạng mô tả trong bài đăng của bạn ${sellerName}. ${refundText}`);
-        break;
-      case 'damaged':
-        setDescription(`Kiện hàng ${productTitle} bị va đập, nứt vỡ/trầy xước nặng trong khâu vận chuyển khi nhận tại sảnh KTX. ${refundText}`);
-        break;
-      case 'missing':
-        setDescription(`Kiện hàng ${productTitle} bị thiếu các phụ kiện đi kèm/quà tặng theo thỏa thuận với người bán ${sellerName}. ${refundText}`);
-        break;
-      case 'fake':
-        setDescription(`Sau khi kiểm tra linh kiện và serial, em phát hiện món đồ không đúng chuẩn cam kết của bạn ${sellerName}. ${refundText}`);
-        break;
-      default:
-        setDescription(`Phát sinh vấn đề với sản phẩm ${productTitle} nhận từ bạn ${sellerName}. ${refundText}`);
+    if (productPrice > 0 && partialRefundAmount === 0) {
+      setPartialRefundAmount(Math.round(productPrice * 0.3));
     }
-  }, [selectedReason, productTitle, sellerName, isCodOrder]);
+  }, [productPrice, partialRefundAmount]);
 
-  const [dropoffPoint, setDropoffPoint] = useState<string>('library');
+  const [dropoffPoint, setDropoffPoint] = useState<string>(isInterCampus ? 'courier_pickup' : 'safe_point');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedProofVideoUrl, setUploadedProofVideoUrl] = useState<string>('');
 
   const handleSubmitDispute = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    if (isSeller) {
+      showToast('Người bán không thể tạo khiếu nại với đơn hàng của chính mình.', 'error');
+      return;
+    }
 
+    if (!description.trim()) {
+      showToast('Vui lòng nhập mô tả chi tiết lý do bạn muốn trả hàng.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const orderId = backendOrder?.id || matchedOrder?.id || cleanCode.replace('#', '');
-      const proofVideoUrl = uploadedProofVideoUrl || 'https://storage.marketfu.com/disputes/video-unbox-test.mp4';
-      const reasonLabel = selectedReason === 'defect' ? 'Hàng lỗi kỹ thuật/hỏng hóc khi test' : 'Hàng không đúng như mô tả trên sàn';
+      const proofVideoUrl = uploadedProofVideoUrl || '';
+      
+      const reasonMap: Record<string, string> = {
+        defect: 'Thiết bị lỗi chức năng / Không hoạt động khi cắm test',
+        damaged_shipping: 'Hàng bị cấn móp / Bể vỡ do khâu vận chuyển GHN',
+        'wrong-item': 'Giao sai sản phẩm / Khác xa hình ảnh và mô tả',
+        missing: 'Thiếu phụ kiện / Thiếu linh kiện kèm theo',
+        fake: 'Nghi vấn thông số không đúng cam kết',
+        other: 'Lý do khác',
+      };
+      const reasonLabel = reasonMap[selectedReason] || 'Yêu cầu trả hàng & hoàn tiền';
+      const calculatedRefund =
+        resolutionPlan === 'partial'
+          ? partialRefundAmount
+          : productPrice + shippingFeeVal;
 
       const res = await useDisputeStore.getState().createDispute({
         orderId,
@@ -118,7 +160,7 @@ function DisputeContent() {
         reason: reasonLabel,
         details: description,
         proofVideoUrl,
-        refundAmount: matchedOrder?.product.price,
+        refundAmount: calculatedRefund,
       });
 
       if (res.success) {
@@ -167,7 +209,10 @@ function DisputeContent() {
     matchedOrder?.status === 'cancelled' ||
     Boolean(activeDispute);
 
+  // STRICT RULE: Only BUYER can withdraw their own dispute when PENDING. SELLER NEVER CAN.
   const canWithdrawDispute =
+    !isSeller &&
+    isBuyer &&
     isAlreadyDisputed &&
     activeDispute?.status === 'PENDING' &&
     matchedOrder?.status !== 'cancelled' &&
@@ -176,6 +221,11 @@ function DisputeContent() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const handleWithdrawDispute = async () => {
+    if (isSeller) {
+      showToast('Người bán không có quyền rút khiếu nại của người mua.', 'error');
+      return;
+    }
+
     const confirmed = window.confirm(
       'Bạn có chắc chắn muốn rút đơn khiếu nại này?\n\nSau khi rút đơn, giao dịch sẽ được chuyển sang hoàn tất và tiền cọc Escrow sẽ được giải ngân cho Người bán.'
     );
@@ -207,9 +257,78 @@ function DisputeContent() {
   const currentStepperStep = (() => {
     if (!isAlreadyDisputed) return 1;
     if (activeDispute?.status === 'REFUNDED' || matchedOrder?.status === 'cancelled') return 4;
-    if (activeDispute?.status === 'REJECTED') return 3;
+    if (activeDispute?.status === 'REJECTED') return 4;
+    if (activeDispute?.status === 'CANCELLED') return 4;
+    if (activeDispute?.status === 'INVESTIGATING') return 3;
     return 2;
   })();
+
+  // Case: Seller visits an order that has NO active dispute
+  if (isSeller && !isAlreadyDisputed) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800">
+        <Navbar />
+
+        <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-6 py-5 sm:py-8 space-y-6">
+          <nav className="flex items-center gap-2 text-xs text-slate-500">
+            <Link href="/" className="hover:text-fpt-orange transition">
+              Trang chủ
+            </Link>
+            <span>&gt;</span>
+            <Link href="/orders" className="hover:text-fpt-orange transition">
+              Quản lý đơn hàng
+            </Link>
+            <span>&gt;</span>
+            <span className="font-semibold text-slate-700">
+              Đơn #{orderCodeParam.replace('#', '')}
+            </span>
+            <span>&gt;</span>
+            <span className="font-bold text-fpt-orange">
+              Hồ sơ Khiếu nại (Chế độ Người bán)
+            </span>
+          </nav>
+
+          <Card className="rounded-2xl border border-slate-200/90 bg-white p-8 text-center space-y-4 max-w-xl mx-auto shadow-xs mt-8">
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Đơn hàng hiện không có khiếu nại
+              </h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Bạn là <strong>Người bán ({rawSellerName})</strong> của đơn hàng này. 
+                Hiện tại Người mua chưa gửi yêu cầu khiếu nại nào đối với sản phẩm. Chỉ Người mua mới có quyền tạo hồ sơ khiếu nại & trả hàng trong thời gian bao test 24h.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                asChild
+                className="w-full sm:w-auto rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white text-xs font-bold px-4 py-2 cursor-pointer shadow-xs"
+              >
+                <Link href={`/orders/${encodeURIComponent(cleanCode.replace('#', ''))}`}>
+                  <span>Xem chi tiết đơn hàng</span>
+                  <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full sm:w-auto rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold px-4 py-2 cursor-pointer"
+              >
+                <Link href="/orders">
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Quay lại Quản lý đơn hàng</span>
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800">
@@ -231,21 +350,43 @@ function DisputeContent() {
           </span>
           <span>&gt;</span>
           <span className="font-bold text-fpt-orange">
-            {isInterCampus ? 'Yêu cầu Trả hàng & Hoàn tiền Liên Campus' : 'Khiếu nại & Yêu cầu Trả hàng'}
+            {isSeller
+              ? 'Hồ sơ Thẩm tra Khiếu nại (Chế độ Người bán)'
+              : isInterCampus
+              ? 'Yêu cầu Trả hàng & Hoàn tiền Liên Campus'
+              : 'Khiếu nại & Yêu cầu Trả hàng'}
           </span>
         </nav>
 
-        {/* 2. EMERGENCY ESCROW HOLD BANNER */}
-        <DisputeEscrowBanner />
+        {/* 2. ESCROW HOLD BANNER */}
+        <DisputeEscrowBanner
+          isSeller={isSeller}
+          isInterCampus={isInterCampus}
+          sellerCampus={sellerCampus}
+          buyerCampus={buyerCampus}
+        />
 
-        {/* 3. 4-STEP PROGRESS INDICATOR */}
-        <DisputeStepper currentStep={currentStepperStep} />
+        {/* 3. PROGRESS INDICATOR */}
+        <DisputeStepper
+          currentStep={currentStepperStep}
+          isSeller={isSeller}
+          isInterCampus={isInterCampus}
+        />
 
         {/* 4. MAIN DISPUTE FORM GRID (8 COLS / 4 COLS) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: DISPUTE FORM OR TRACKING (8 COLS) */}
+          {/* LEFT COLUMN: 8 COLS */}
           <div className="lg:col-span-8 space-y-5">
-            {isAlreadyDisputed ? (
+            {isSeller ? (
+              /* SELLER VIEW: Strictly Read-Only Admin-Like Inspection View */
+              <DisputeSellerInspectionView
+                order={matchedOrder}
+                orderCode={cleanCode}
+                dispute={activeDispute}
+                onShowToast={(msg) => showToast(msg, 'info')}
+              />
+            ) : isAlreadyDisputed ? (
+              /* BUYER VIEW: Already Disputed */
               <div className="space-y-5">
                 {/* Parcel Details */}
                 <DisputeParcelCard order={matchedOrder} orderCode={cleanCode} />
@@ -320,10 +461,10 @@ function DisputeContent() {
                   </div>
                 </Card>
 
-                {/* Scenario Guide Card */}
+                {/* Scenario Guide Card (For Buyer) */}
                 <Card className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-3 text-xs">
                   <h4 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-slate-500">
-                    CÁC KỊCH BẢN XỬ LÝ KHIẾU NẠI & QUYỀN LỢI CỦA BẠN
+                    CÁC KỊCH BẢN XỬ LÝ KHIẾU NẠI & QUYỀN LỢI CỦA BẠN (NGƯỜI MUA)
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -401,6 +542,7 @@ function DisputeContent() {
                 </Card>
               </div>
             ) : (
+              /* BUYER VIEW: Create Dispute Form */
               <form onSubmit={handleSubmitDispute} className="space-y-5">
                 {/* Parcel Details */}
                 <DisputeParcelCard order={matchedOrder} orderCode={cleanCode} />
@@ -412,7 +554,11 @@ function DisputeContent() {
                   selectedReason={selectedReason}
                   onReasonChange={setSelectedReason}
                   productTitle={matchedOrder?.product?.title || 'sản phẩm'}
-                  refundAmount={matchedOrder?.product?.price ?? 0}
+                  refundAmount={productPrice}
+                  shippingFee={shippingFeeVal}
+                  isInterCampus={isInterCampus}
+                  partialRefundAmount={partialRefundAmount}
+                  onPartialRefundAmountChange={setPartialRefundAmount}
                 />
 
                 {/* Evidence, Description, Dropoff Location & Submit */}
@@ -422,7 +568,7 @@ function DisputeContent() {
                   dropoffPoint={dropoffPoint}
                   onDropoffPointChange={setDropoffPoint}
                   isSubmitting={isSubmitting}
-                  sellerName={sellerName}
+                  sellerName={rawSellerName}
                   onShowToast={(msg) => showToast(msg, 'info')}
                   uploadedProofVideoUrl={uploadedProofVideoUrl}
                   onUploadedProofVideoUrlChange={setUploadedProofVideoUrl}
@@ -435,14 +581,19 @@ function DisputeContent() {
             )}
           </div>
 
-          {/* RIGHT COLUMN: SIDEBAR ESCROW & AI REVIEW (4 COLS) */}
-          <DisputeSidebar
-            itemPrice={matchedOrder ? Math.max(0, matchedOrder.product.price - (matchedOrder.type === 'inter-campus' ? 25000 : 0)) : 0}
-            shippingFee={matchedOrder?.type === 'inter-campus' ? 25000 : 0}
-            totalEscrow={matchedOrder ? matchedOrder.product.price : 0}
-            aiConfidenceScore={matchedOrder ? 94 : 0}
-            onShowToast={(msg) => showToast(msg, 'info')}
-          />
+          {/* RIGHT COLUMN: SIDEBAR ESCROW SUMMARY (4 COLS) */}
+          <div className="lg:col-span-4">
+            <DisputeSidebar
+              itemPrice={productPrice}
+              shippingFee={shippingFeeVal}
+              totalEscrow={productPrice + shippingFeeVal}
+              onShowToast={(msg) => showToast(msg, 'info')}
+              isSeller={isSeller}
+              isInterCampus={isInterCampus}
+              resolutionPlan={resolutionPlan}
+              partialRefundAmount={partialRefundAmount}
+            />
+          </div>
         </div>
       </main>
 

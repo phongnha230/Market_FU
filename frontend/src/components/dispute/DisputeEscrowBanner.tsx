@@ -1,49 +1,83 @@
 'use client';
 
 import React from 'react';
-import { ShieldAlert } from 'lucide-react';
-import { useCountdown } from '@/hooks/useCountdown';
+import { ShieldCheck, Clock, Truck, MapPin } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 
 interface DisputeEscrowBannerProps {
-  initialSeconds?: number;
+  isSeller?: boolean;
+  isInterCampus?: boolean;
+  sellerCampus?: string;
+  buyerCampus?: string;
 }
 
 export default function DisputeEscrowBanner({
-  initialSeconds = 38 * 3600 + 14 * 60 + 39,
+  isSeller = false,
+  isInterCampus = false,
+  sellerCampus = 'Campus FPT',
+  buyerCampus = 'Campus FPT',
 }: DisputeEscrowBannerProps) {
-  const { formattedHours, formattedMinutes, formattedSeconds } = useCountdown(initialSeconds);
-
   return (
-    <Card className="rounded-3xl bg-gradient-to-r from-[#7B341E] via-[#8B3A1C] to-[#A0451A] p-5 sm:p-7 text-white shadow-lg relative overflow-hidden border-none">
-      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <Card className="rounded-2xl border border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-amber-50/40 p-5 sm:p-6 shadow-xs relative overflow-hidden">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
         <div className="space-y-2 max-w-2xl">
-          <Badge className="inline-flex items-center gap-1.5 rounded-full bg-black/30 backdrop-blur-xs border border-white/20 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-orange-200 hover:bg-black/30">
-            <ShieldAlert className="h-3.5 w-3.5 text-orange-300" />
-            <span>FPT 5CAMPUS SAFE-ESCROW SYSTEM</span>
-          </Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200 px-3 py-0.5 text-xs font-bold hover:bg-orange-100">
+              <ShieldCheck className="h-3.5 w-3.5 text-fpt-orange" />
+              <span>Ví Escrow 5Campus Bảo Hộ</span>
+            </Badge>
 
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight uppercase">
-            TRẠNG THÁI: TIỀN ĐÃ ĐƯỢC TẠM KHÓA TRONG VÍ ESCROW CỦA SÀN 5CAMPUS
+            <Badge variant="outline" className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+              isInterCampus 
+                ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              {isInterCampus ? (
+                <span className="flex items-center gap-1">
+                  <Truck className="h-3 w-3" />
+                  Đơn Vận Chuyển Liên Campus ({sellerCampus} ➔ {buyerCampus})
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Giao dịch Safe-Point Nội bộ ({sellerCampus})
+                </span>
+              )}
+            </Badge>
+          </div>
+
+          <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+            {isSeller
+              ? 'Hồ Sơ Yêu Cầu Trả Hàng & Đối Soát Escrow'
+              : isInterCampus
+              ? 'Yêu Cầu Trả Hàng & Hoàn Tiền Liên Campus'
+              : 'Yêu Cầu Trả Hàng & Hoàn Tiền Trực Tiếp Safe-Point'}
           </h1>
 
-          <p className="text-xs sm:text-sm text-orange-100/90 leading-relaxed">
-            Khoản thanh toán của bạn được đóng băng an toàn trong hệ thống giám sát liên trường. Người bán chỉ được giải ngân khi bạn xác nhận hài lòng hoặc sau khi Ban Công tác Sinh viên (CTSV) hoàn tất đối soát khách quan.
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            {isSeller
+              ? 'Khoản tiền giao dịch đang được giữ an toàn tại ví Escrow. Vui lòng kiểm tra lý do và bằng chứng từ Người mua để cùng thống nhất phương án xử lý công bằng.'
+              : isInterCampus
+              ? 'Khoản thanh toán của bạn (tiền hàng + phí ship) được phong tỏa an toàn trong Escrow. Sau khi bưu tá tiếp nhận kiện hàng hoàn trả, hệ thống sẽ thực hiện hoàn tiền theo quy định.'
+              : 'Khoản thanh toán được bảo lưu an toàn 100% trong Escrow. Hai bên hẹn gặp trao trả lại đồ tại trạm Safe-Point trong trường, người bán bấm xác nhận là tiền về ví ngay.'}
           </p>
         </div>
 
-        {/* Countdown Box */}
-        <Card className="rounded-2xl bg-black/30 backdrop-blur-md border border-white/20 p-4 sm:p-5 text-center shrink-0 self-start lg:self-auto min-w-[240px] shadow-none">
-          <div className="text-[11px] font-bold text-orange-200 uppercase tracking-wider">
-            THỜI GIAN BẢO LƯU CÒN LẠI
+        {/* Right Info Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 text-xs text-slate-600 shrink-0 self-start lg:self-auto min-w-[220px] shadow-xs space-y-2">
+          <div className="flex items-center gap-1.5 font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+            <Clock className="h-3.5 w-3.5 text-fpt-orange" />
+            <span>Thời Hạn Phản Hồi</span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono tracking-widest text-white my-1">
-            {formattedHours} : {formattedMinutes} : {formattedSeconds}
+          <div className="text-base sm:text-lg font-extrabold text-slate-900">
+            Trong vòng 24 giờ
           </div>
-          <div className="text-[10px] text-orange-200/80">
-            Tự động hoàn tiền khi quá hạn
-          </div>
-        </Card>
+          <p className="text-[11px] text-slate-500 leading-normal">
+            {isSeller
+              ? 'Người bán có 24h để đồng ý hoặc thương lượng giải pháp.'
+              : 'Nếu đối tác không phản hồi trong 24h, Sàn sẽ tự động hỗ trợ.'}
+          </p>
+        </div>
       </div>
     </Card>
   );
