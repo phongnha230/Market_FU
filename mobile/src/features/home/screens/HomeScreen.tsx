@@ -254,10 +254,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     handleOpenKho,
   ]);
 
+  // Lọc chỉ lấy các sản phẩm khả dụng (AVAILABLE) trên Trang Chủ
+  const availableProducts = useMemo(() => {
+    return products.filter((p: any) => !p.status || p.status === 'AVAILABLE');
+  }, [products]);
+
   // Thuật toán xác định TIN XU HƯỚNG / NỔI BẬT:
   // Dựa vào độ tương tác (viewsCount + likesCount * 3) hoặc sản phẩm có lượt xem cao
   const trendingProducts = useMemo(() => {
-    return [...products]
+    return [...availableProducts]
       .sort((a: any, b: any) => {
         const scoreA = (a.viewsCount || 0) + (a.likesCount || 0) * 3;
         const scoreB = (b.viewsCount || 0) + (b.likesCount || 0) * 3;
@@ -270,10 +275,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         badgeVariant: 'orange' as const,
         isTrending: true,
       }));
-  }, [products]);
+  }, [availableProducts]);
 
   // Danh sách tin mới tại campus đang chọn
-  const campusProducts = products.slice(0, 8);
+  const campusProducts = useMemo(() => {
+    return availableProducts.slice(0, 8);
+  }, [availableProducts]);
 
   return (
     <View style={styles.screen}>

@@ -240,7 +240,6 @@ export const useUserStore = create<UserState>()(
 
       updateUserProfile: async (partial: Partial<UserProfile>) => {
         try {
-          set({ isLoading: true });
           const currentUser = get().user;
           if (!currentUser) {
             return {
@@ -275,8 +274,6 @@ export const useUserStore = create<UserState>()(
             success: false,
             message: error.message || 'Lỗi khi cập nhật hồ sơ',
           };
-        } finally {
-          set({ isLoading: false });
         }
       },
 
@@ -340,12 +337,21 @@ export const useUserStore = create<UserState>()(
           token: null,
           refreshToken: null,
           isAuthenticated: false,
+          isLoading: false,
         });
       },
     }),
     {
       name: 'fu_auth_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
+        registeredAccounts: state.registeredAccounts,
+        hasCompletedOnboarding: state.hasCompletedOnboarding,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state?.user) {
           const isDummy = (url?: string | null) =>

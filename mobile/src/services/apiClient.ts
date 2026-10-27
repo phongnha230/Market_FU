@@ -170,7 +170,7 @@ apiClient.interceptors.response.use(
         processQueue(refreshErr);
         // Clear auth state cleanly without re-calling logout API endpoint
         if (authStore?.setState) {
-          authStore.setState({ user: null, token: null, isAuthenticated: false });
+          authStore.setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
         }
         return Promise.reject(refreshErr);
       } finally {

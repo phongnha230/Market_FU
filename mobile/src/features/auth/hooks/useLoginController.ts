@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
@@ -58,6 +58,12 @@ export function useLoginController(
   const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsLoggingIn(false);
+    useUserStore.setState({ isLoading: false });
+  }, []);
 
   const currentCampus = useMemo(() => {
     return CAMPUS_LIST.find((c) => c.id === selectedCampusId) || CAMPUS_LIST[0];
@@ -149,11 +155,16 @@ export function useLoginController(
       return;
     }
 
-    const res = await login(loginIdentifier.trim(), loginPassword.trim());
-    if (res.success) {
-      navigateAfterAuth();
-    } else {
-      Alert.alert('Đăng nhập thất bại', res.message);
+    setIsLoggingIn(true);
+    try {
+      const res = await login(loginIdentifier.trim(), loginPassword.trim());
+      if (res.success) {
+        navigateAfterAuth();
+      } else {
+        Alert.alert('Đăng nhập thất bại', res.message);
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   }, [loginIdentifier, loginPassword, login, navigateAfterAuth]);
 
@@ -295,11 +306,16 @@ export function useLoginController(
   }, []);
 
   const handleQuickSwitchRole = useCallback(async (roleType: 'UNVERIFIED_STUDENT' | 'VERIFIED_STUDENT' | 'TOP_SELLER') => {
-    const res = await loginAsRole(roleType);
-    if (res.success) {
-      navigateAfterAuth();
-    } else {
-      Alert.alert('Lỗi', res.message);
+    setIsLoggingIn(true);
+    try {
+      const res = await loginAsRole(roleType);
+      if (res.success) {
+        navigateAfterAuth();
+      } else {
+        Alert.alert('Lỗi', res.message);
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   }, [loginAsRole, navigateAfterAuth]);
 
@@ -342,7 +358,7 @@ export function useLoginController(
     isSendingOtp,
     showGoogleModal,
     isGoogleLoading,
-    isLoading,
+    isLoading: isLoggingIn,
     handleLoginSubmit,
     handleRegisterSubmit,
     handleOtpVerifySuccess,

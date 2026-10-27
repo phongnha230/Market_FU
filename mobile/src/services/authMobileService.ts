@@ -228,7 +228,7 @@ export const authMobileService = {
     }
     const store = getAuthStore();
     if (store && store.setState) {
-      store.setState({ user: null, token: null, isAuthenticated: false });
+      store.setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
     }
   },
 
