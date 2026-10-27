@@ -7,6 +7,7 @@ import { useVoucherStore } from '../../../stores/voucherStore';
 import { useProductStore } from '../../../stores/productStore';
 import { orderMobileService } from '../../../services/orderMobileService';
 import { paymentMobileService } from '../../../services/paymentMobileService';
+import { productMobileService } from '../../../services/productMobileService';
 import { fromBackendCampus, toBackendCampus } from '../../../lib/backendMappers';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -24,40 +25,103 @@ export function useCheckoutController() {
     fetchVouchers().catch(() => {});
   }, [fetchVouchers]);
 
+  const [fetchedProductMeta, setFetchedProductMeta] = useState<any>(null);
+
   // Product passed from ProductDetail or Chat
+  const rawRouteProduct = route.params?.product;
+  useEffect(() => {
+    const prodId = rawRouteProduct?.id;
+    if (!prodId) return;
+    if ((rawRouteProduct?.campus || rawRouteProduct?.sellerCampus) && typeof rawRouteProduct?.originalPrice === 'number') {
+      return;
+    }
+
+    let active = true;
+    productMobileService
+      .getProductById(prodId)
+      .then((item) => {
+        if (active && item) {
+          setFetchedProductMeta(item);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [rawRouteProduct?.id, rawRouteProduct?.campus, rawRouteProduct?.sellerCampus, rawRouteProduct?.originalPrice]);
+
   const product = useMemo(() => {
-    return route.params?.product || {
-      id: 'prod-escrow-1',
-      title: 'Màn hình Dell 24" UltraSharp U2419H',
-      price: 1450000,
-      priceStr: '1.450.000đ',
-      image: require('../../../../assets/products/monitor-dell-24.jpg'),
-      sellerName: 'Nguyễn Văn Nam',
-      sellerMajor: 'K16 - Kỹ thuật phần mềm',
-      sellerCohort: 'K16 - FPT Hola',
+    const base = rawRouteProduct || {
+      id: '',
+      title: 'Sản phẩm giao dịch',
+      price: 0,
+      priceStr: '0đ',
+      image: undefined,
+      sellerName: 'Người bán FPT',
+      sellerMajor: '',
+      sellerCohort: '',
       sellerCampus: 'Hòa Lạc',
       isDifferentCampus: false,
     };
-  }, [route.params?.product]);
+    const mergedSellerCampus =
+      base.sellerCampus || base.campus || fetchedProductMeta?.campus || 'Hòa Lạc';
+    return {
+      ...base,
+      campus: base.campus || mergedSellerCampus,
+      sellerCampus: fromBackendCampus(mergedSellerCampus) || mergedSellerCampus,
+      originalPrice:
+        typeof base.originalPrice === 'number' && base.originalPrice > 0
+          ? base.originalPrice
+          : typeof fetchedProductMeta?.price === 'number' && fetchedProductMeta.price > 0
+          ? fetchedProductMeta.price
+          : undefined,
+    };
+  }, [rawRouteProduct, fetchedProductMeta]);
 
-  const isDifferentCampus = route.params?.isDifferentCampus ?? (product.isDifferentCampus ?? false);
+  const rawSellerCampus = rawRouteProduct?.sellerCampus || rawRouteProduct?.campus || fetchedProductMeta?.campus;
+  const sellerCampusBackend = toBackendCampus(rawSellerCampus || product.sellerCampus || product.campus) || 'HOL';
+  const buyerCampusBackend = toBackendCampus(user?.campus) || 'HOL';
+
+  const isDifferentCampus = Boolean(
+    route.params?.isDifferentCampus ??
+      rawRouteProduct?.isDifferentCampus ??
+      (route.params?.type === 'shipping' ||
+        (rawSellerCampus && user?.campus && sellerCampusBackend !== buyerCampusBackend))
+  );
   const typeParam = route.params?.type; // 'meetup' | 'shipping'
-  const isMeetup = typeParam === 'meetup' || (!typeParam && !isDifferentCampus);
+  const isMeetup = typeParam ? typeParam === 'meetup' && !isDifferentCampus : !isDifferentCampus;
 
   // Negotiated price agreed in Chat P2P
   const rawAgreed = route.params?.agreedPrice || route.params?.offerPrice;
   const agreedPrice = useMemo(() => {
     if (!rawAgreed) return null;
     const num = typeof rawAgreed === 'number' ? rawAgreed : parseInt(String(rawAgreed).replace(/\D/g, ''), 10);
-    return isNaN(num) ? null : num;
+    return isNaN(num) || num <= 0 ? null : num;
   }, [rawAgreed]);
 
-  const basePrice = typeof product.price === 'number' ? product.price : 1450000;
-  const isAgreedPriceApplied = Boolean(agreedPrice && agreedPrice > 0 && agreedPrice < basePrice);
-  const effectiveProductPrice = isAgreedPriceApplied ? (agreedPrice as number) : basePrice;
+  const parsedProductPrice = useMemo(() => {
+    if (typeof product.price === 'number' && product.price > 0) return product.price;
+    if (typeof product.price === 'string') {
+      const parsed = parseInt(product.price.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 1450000;
+  }, [product.price]);
+
+  const basePrice =
+    typeof product.originalPrice === 'number' && product.originalPrice > 0
+      ? product.originalPrice
+      : parsedProductPrice;
+
+  const isAgreedPriceApplied = Boolean(
+    agreedPrice &&
+      agreedPrice > 0 &&
+      (agreedPrice < basePrice || Boolean(route.params?.agreedPrice || route.params?.offerPrice))
+  );
+  const effectiveProductPrice = isAgreedPriceApplied ? (agreedPrice as number) : parsedProductPrice;
 
   // Safe-Point & Appointment States
-  const [selectedSafePoint, setSelectedSafePoint] = useState(
+  const [selectedSafePoint, setSelectedSafePoint] = useState<string>(
     route.params?.safePoint ||
       (isMeetup
         ? 'Sảnh Tòa Alpha (Khu vực có bàn test & Camera 24/7)'
@@ -70,6 +134,22 @@ export function useCheckoutController() {
       ? 'Hẹn gặp test máy trực tiếp tại bàn Safe-Point'
       : 'Phòng 402, Dom B, KTX FPT (Nhận buổi chiều)'
   );
+
+  // Tự động đồng bộ địa chỉ mặc định nếu phát hiện đơn Liên Campus sau khi fetch chi tiết sản phẩm
+  useEffect(() => {
+    if (!isMeetup && !route.params?.safePoint) {
+      setSelectedSafePoint((prev: string) =>
+        prev.includes('Sảnh Tòa Alpha')
+          ? `Sảnh KTX Dom A (Cơ sở ${buyerCampus} - Nhận từ FPT Bus)`
+          : prev
+      );
+      setDeliveryNote((prev: string) =>
+        prev === 'Hẹn gặp test máy trực tiếp tại bàn Safe-Point'
+          ? 'Phòng 402, Dom B, KTX FPT (Nhận buổi chiều)'
+          : prev
+      );
+    }
+  }, [isMeetup, buyerCampus, route.params?.safePoint]);
 
   // Payment method & vouchers
   const [selectedPayment, setSelectedPayment] = useState<'vietqr' | 'fptpay' | 'cash'>('fptpay');
@@ -131,8 +211,6 @@ export function useCheckoutController() {
 
   // Pricing calculations
   // Bảng cước vận chuyển chuẩn hóa 5 campus FPT (đồng bộ 100% với backend/src/modules/orders/shipping-matrix.ts)
-  const sellerCampusBackend = toBackendCampus(product.sellerCampus || product.campus) || 'HOL';
-  const buyerCampusBackend = toBackendCampus(user?.campus) || 'HOL';
   const CAMPUS_RATES: Record<string, Record<string, number>> = {
     HOL: { HOL: 10000, DAD: 30000, QN: 35000, HCM: 40000, CT: 45000 },
     DAD: { HOL: 30000, DAD: 10000, QN: 20000, HCM: 30000, CT: 35000 },
@@ -236,6 +314,11 @@ export function useCheckoutController() {
 
   const handleConfirmPayment = useCallback(async () => {
     if (isSubmitting) return;
+
+    if (!product?.id) {
+      Alert.alert('Không thể đặt đơn', 'Không tìm thấy thông tin sản phẩm cần thanh toán. Vui lòng quay lại.');
+      return;
+    }
 
     if (!isAuthenticated) {
       Alert.alert(
@@ -370,22 +453,40 @@ export function useCheckoutController() {
 
       const formattedSlot = `${appointmentSlot} • ${appointmentDate === 'today' ? 'Hôm nay' : 'Ngày mai'}`;
 
+      const finalItemPrice = finalizedOrder.price || effectiveProductPrice;
+      const finalTotalPayable = finalizedOrder.totalAmount || totalAmount;
+      const resolvedSellerCampusName = fromBackendCampus(sellerCampusBackend) || product.sellerCampus || 'Hòa Lạc';
+
       // Điều hướng tới CheckoutSuccess
       navigation.navigate('CheckoutSuccess', {
         orderCode: finalizedOrder.orderNumber,
         orderId: finalizedOrder.id,
-        totalAmount,
+        totalAmount: finalTotalPayable,
+        itemPrice: finalItemPrice,
+        agreedPrice: isAgreedPriceApplied ? finalItemPrice : undefined,
+        originalPrice: basePrice > finalItemPrice ? basePrice : undefined,
+        shippingFee: effectiveShippingFee,
+        voucherDiscount,
+        coinDiscountAmount,
+        paymentMethod: selectedPayment,
         product: {
+          id: product.id,
           title: product.title,
+          price: finalItemPrice,
+          originalPrice: basePrice > finalItemPrice ? basePrice : undefined,
+          priceStr: `${finalItemPrice.toLocaleString('vi-VN')}đ`,
           sellerName: product.sellerName || finalizedOrder.sellerName,
           sellerCohort: product.sellerCohort || finalizedOrder.sellerCohort,
+          sellerCampus: resolvedSellerCampusName,
           image: product.image || finalizedOrder.productImage,
         },
         safePoint: selectedSafePoint,
-        handshakeOtp: finalizedOrder.handshakeOtp,
-        timeSlot: finalizedOrder.timeSlot || formattedSlot,
-        isDifferentCampus,
-        fromCampus: product.sellerCampus || 'Hòa Lạc',
+        handshakeOtp: !isMeetup ? undefined : finalizedOrder.handshakeOtp,
+        timeSlot: isMeetup
+          ? (finalizedOrder.timeSlot || formattedSlot)
+          : 'Dự kiến: 1 - 2 ngày (Đồng kiểm 48h tại KTX)',
+        isDifferentCampus: !isMeetup || isDifferentCampus,
+        fromCampus: resolvedSellerCampusName,
         toCampus: buyerCampus,
         paymentPending: isPayOsPending,
         paymentCheckoutUrl: finalizedOrder.paymentCheckoutUrl || createdOrder.paymentCheckoutUrl,

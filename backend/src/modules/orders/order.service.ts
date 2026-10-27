@@ -148,12 +148,59 @@ export class OrderService {
       throw new AppError('Sản phẩm không tồn tại', 404, 'PRODUCT_NOT_FOUND');
     }
 
-    if (product.status !== 'AVAILABLE') {
-      throw new AppError('Sản phẩm này đã được bán hoặc đang có người đặt cọc', 400, 'PRODUCT_NOT_AVAILABLE');
-    }
-
     if (product.sellerId === buyerId) {
       throw new AppError('Bạn không thể tự mua sản phẩm do chính bạn đăng bán', 400, 'SELF_BUY_NOT_ALLOWED');
+    }
+
+    if (product.status !== 'AVAILABLE') {
+      // Nếu sản phẩm đang RESERVED bởi chính đơn PENDING chưa thanh toán của cùng người mua -> tự động hủy đơn chờ cũ để tạo đơn mới
+      const existingBuyerPendingOrder = await prisma.order.findFirst({
+        where: {
+          productId,
+          buyerId,
+          status: 'PENDING',
+        },
+      });
+
+      if (existingBuyerPendingOrder && !existingBuyerPendingOrder.payment.isPaid) {
+        if (
+          existingBuyerPendingOrder.payment.paymentMethod === 'PAYOS_WEB' &&
+          existingBuyerPendingOrder.payment.payosOrderCode
+        ) {
+          try {
+            const payos = getPayOsClient();
+            await payos.paymentRequests.cancel(
+              existingBuyerPendingOrder.payment.payosOrderCode,
+              'Người mua đặt lại đơn thanh toán mới'
+            );
+          } catch (cancelErr) {
+            console.warn('PayOS cancel previous pending order warning:', cancelErr);
+          }
+        }
+        await this.cancelPendingOrderInDb(
+          existingBuyerPendingOrder,
+          'Hệ thống tự động hủy đơn chờ thanh toán cũ để khởi tạo phiên thanh toán mới',
+          buyerId
+        );
+        product.status = 'AVAILABLE';
+      } else {
+        const anyActiveOrder = await prisma.order.findFirst({
+          where: {
+            productId,
+            status: { not: 'CANCELLED' },
+          },
+          select: { id: true },
+        });
+        if (!anyActiveOrder && product.status === 'RESERVED') {
+          await prisma.product.update({
+            where: { id: productId },
+            data: { status: 'AVAILABLE' },
+          });
+          product.status = 'AVAILABLE';
+        } else {
+          throw new AppError('Sản phẩm này đã được bán hoặc đang có người đặt cọc', 400, 'PRODUCT_NOT_AVAILABLE');
+        }
+      }
     }
 
     // 2. Kiểm tra định danh sinh viên FPT và hồ sơ người mua
@@ -484,9 +531,9 @@ export class OrderService {
           orderCode: payosOrderCode,
           amount: totalAmount,
           description: `Thanh toan ${orderCode}`.slice(0, 25),
-          cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&cancelled=true${sourceQuery}`,
+          cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&orderType=${encodeURIComponent(orderType)}&agreedPrice=${finalProductPrice}&cancelled=true${sourceQuery}`,
           // PayOS appends its own numeric orderCode; keep our order code in a separate parameter.
-          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&productId=${encodeURIComponent(product.id)}&amount=${totalAmount}${sourceQuery}`,
+          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&orderType=${encodeURIComponent(orderType)}&productId=${encodeURIComponent(product.id)}&amount=${totalAmount}&agreedPrice=${finalProductPrice}${sourceQuery}`,
           items: [{ name: product.title.slice(0, 45), quantity: 1, price: totalAmount }],
           expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // 15 phút thời gian chờ thanh toán
         });

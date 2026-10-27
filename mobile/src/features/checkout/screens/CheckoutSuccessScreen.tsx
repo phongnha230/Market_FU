@@ -27,6 +27,9 @@ export const CheckoutSuccessScreen: React.FC = () => {
     orderId = '',
     orderCode = '',
     totalAmount = 0,
+    itemPrice,
+    agreedPrice,
+    originalPrice,
     product = {
       title: 'Đơn hàng mới',
       sellerName: 'Người bán FPT',
@@ -42,6 +45,22 @@ export const CheckoutSuccessScreen: React.FC = () => {
     paymentPending = false,
     paymentCheckoutUrl = '',
   } = route.params || {};
+
+  const displayItemPrice =
+    typeof agreedPrice === 'number' && agreedPrice > 0
+      ? agreedPrice
+      : typeof itemPrice === 'number' && itemPrice > 0
+      ? itemPrice
+      : typeof product?.price === 'number' && product.price > 0
+      ? product.price
+      : totalAmount;
+
+  const displayOriginalPrice =
+    typeof originalPrice === 'number' && originalPrice > displayItemPrice
+      ? originalPrice
+      : typeof product?.originalPrice === 'number' && product.originalPrice > displayItemPrice
+      ? product.originalPrice
+      : undefined;
 
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(!paymentPending);
@@ -126,14 +145,20 @@ export const CheckoutSuccessScreen: React.FC = () => {
         >
           <Ionicons name="close" size={24} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vé Nhận Hàng Escrow</Text>
-        <TouchableOpacity
-          style={styles.shareBtn}
-          onPress={handleShareTicket}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="share-outline" size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {isDifferentCampus ? 'Vận Đơn Liên Campus' : 'Vé Nhận Hàng Escrow'}
+        </Text>
+        {!isDifferentCampus ? (
+          <TouchableOpacity
+            style={styles.shareBtn}
+            onPress={handleShareTicket}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="share-outline" size={22} color="#0F172A" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
@@ -180,7 +205,9 @@ export const CheckoutSuccessScreen: React.FC = () => {
               <View style={styles.logoBadge}>
                 <Text style={styles.logoText}>FPT</Text>
               </View>
-              <Text style={styles.ticketBrandTitle}>CAMPUS SAFE PASS</Text>
+              <Text style={styles.ticketBrandTitle}>
+                {isDifferentCampus ? 'VẬN ĐƠN CAMPUS SHIP' : 'CAMPUS SAFE PASS'}
+              </Text>
             </View>
             <View style={styles.ticketOrderCodeBox}>
               <Text style={styles.ticketOrderLabel}>MÃ ĐƠN HÀNG</Text>
@@ -273,22 +300,43 @@ export const CheckoutSuccessScreen: React.FC = () => {
                 <Text style={styles.productSeller}>
                   Người bán: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{product.sellerName}</Text>
                 </Text>
-                <Text style={styles.productPrice}>{formatPrice(totalAmount)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+                  <Text style={styles.productPrice}>{formatPrice(displayItemPrice)}</Text>
+                  {displayOriginalPrice ? (
+                    <Text style={{ fontSize: 12, color: '#94A3B8', textDecorationLine: 'line-through', fontWeight: '600' }}>
+                      {formatPrice(displayOriginalPrice)}
+                    </Text>
+                  ) : null}
+                  {displayOriginalPrice ? (
+                    <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#15803D' }}>Giá thương lượng</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {totalAmount > 0 && totalAmount !== displayItemPrice ? (
+                  <Text style={{ fontSize: 11.5, color: '#475569', fontWeight: '600', marginTop: 2 }}>
+                    Tổng thanh toán: <Text style={{ color: '#EA580C', fontWeight: '800' }}>{formatPrice(totalAmount)}</Text>
+                  </Text>
+                ) : null}
               </View>
             </View>
 
-            {/* Safe Point Box */}
+            {/* Safe Point / KTX Receiving Box */}
             <View style={styles.safePointBox}>
               <View style={styles.safePointIconWrap}>
-                <Ionicons name="location" size={20} color="#059669" />
+                <Ionicons name={isDifferentCampus ? 'business' : 'location'} size={20} color="#059669" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.safePointTitle}>Điểm hẹn giao nhận</Text>
+                <Text style={styles.safePointTitle}>
+                  {isDifferentCampus ? 'Địa chỉ KTX nhận hàng' : 'Điểm hẹn giao nhận'}
+                </Text>
                 <Text style={styles.safePointDesc}>{safePoint}</Text>
                 <View style={styles.safePointMeta}>
                   <View style={styles.safeTag}>
-                    <Ionicons name="videocam" size={11} color="#059669" />
-                    <Text style={styles.safeTagText}>Camera an ninh 24/7</Text>
+                    <Ionicons name={isDifferentCampus ? 'shield-checkmark' : 'videocam'} size={11} color="#059669" />
+                    <Text style={styles.safeTagText}>
+                      {isDifferentCampus ? 'Tem Seal niêm phong' : 'Camera an ninh 24/7'}
+                    </Text>
                   </View>
                   <View style={styles.safeTag}>
                     <Ionicons name="time" size={11} color="#059669" />
@@ -298,13 +346,17 @@ export const CheckoutSuccessScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Escrow 24h Assurance Notice */}
+            {/* Escrow Assurance Notice */}
             <View style={styles.assuranceBox}>
               <Ionicons name="shield-checkmark" size={16} color="#0284C7" style={{ marginTop: 1 }} />
               <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.assuranceTitle}>Chính sách bao test 24 Giờ</Text>
+                <Text style={styles.assuranceTitle}>
+                  {isDifferentCampus ? 'Chính sách đồng kiểm 48 Giờ (Liên Campus)' : 'Chính sách bao test 24 Giờ'}
+                </Text>
                 <Text style={styles.assuranceSub}>
-                  Bạn có 24h kể từ khi quét mã nhận đồ để dùng thử. Nếu sản phẩm lỗi hoặc không đúng mô tả, hãy bấm nút "Khiếu nại" để hệ thống hoàn trả 100% tiền cọc.
+                  {isDifferentCampus
+                    ? 'Đơn liên Campus không dùng mã QR/OTP trực tiếp. Bạn có 48h kể từ khi nhận kiện hàng tại KTX để mở hộp kiểm tra và dùng thử trước khi hệ thống giải ngân cho người bán.'
+                    : 'Bạn có 24h kể từ khi quét mã nhận đồ để dùng thử. Nếu sản phẩm lỗi hoặc không đúng mô tả, hãy bấm nút "Khiếu nại" để hệ thống hoàn trả 100% tiền cọc.'}
                 </Text>
               </View>
             </View>
@@ -376,10 +428,16 @@ export const CheckoutSuccessScreen: React.FC = () => {
           style={styles.detailBtn}
           onPress={() =>
             navigation.navigate('OrderDetail', {
-              orderId: orderCode,
-              product,
+              orderId: orderCode || orderId,
+              orderDbId: orderId,
+              product: {
+                ...product,
+                price: displayItemPrice,
+                priceStr: formatPrice(displayItemPrice),
+              },
               status: 'escrow_holding',
               safePoint,
+              isDifferentCampus,
               totalAmount,
             })
           }

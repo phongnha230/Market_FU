@@ -52,6 +52,8 @@ function OrderSuccessContent() {
   const orderCode = searchParams.get('appOrderCode') || searchParams.get('orderCode') || 'ORD-88392-HCM-HL';
   const paymentMethodParam = searchParams.get('paymentMethod') || 'payos';
   const amountParam = searchParams.get('amount');
+  const agreedPriceParam = searchParams.get('agreedPrice');
+  const orderTypeParam = searchParams.get('orderType') || searchParams.get('type');
   const productId = searchParams.get('productId');
   const isMobileSource = searchParams.get('source') === 'mobile';
 
@@ -77,12 +79,38 @@ function OrderSuccessContent() {
   const orders = useOrderStore((state) => state.orders);
 
   // Find local order or fallback
-  const existingOrder = orders.find((o) => o.code === orderCode) || orders[0];
+  const existingOrder = orders.find((o) => o.code === orderCode || o.code === `#${orderCode}`) || orders[0];
+
+  // Determine whether this order is Safe-Handoff (MEETUP) vs Inter-Campus (SHIP_COD)
+  const isSafeHandoff = React.useMemo(() => {
+    if (backendOrder?.orderType) {
+      return backendOrder.orderType === 'MEETUP';
+    }
+    if (orderTypeParam) {
+      const normalized = orderTypeParam.toUpperCase();
+      if (normalized === 'SHIP_COD' || normalized === 'INTER-CAMPUS') return false;
+      if (normalized === 'MEETUP' || normalized === 'SAFE-HANDOFF') return true;
+    }
+    if (paymentMethod === 'cod') {
+      return false;
+    }
+    if (existingOrder?.type) {
+      return existingOrder.type === 'safe-handoff';
+    }
+    return false;
+  }, [backendOrder?.orderType, orderTypeParam, paymentMethod, existingOrder?.type]);
+
+  const initialPrice = agreedPriceParam
+    ? parseInt(agreedPriceParam, 10)
+    : amountParam
+    ? parseInt(amountParam, 10)
+    : existingOrder?.product?.price || 1225000;
 
   const [productData, setProductData] = useState({
     id: productId || 'prod-default',
     title: existingOrder?.product?.title || 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
-    price: amountParam ? parseInt(amountParam, 10) : existingOrder?.product?.price || 1225000,
+    price: initialPrice,
+    originalPrice: existingOrder?.product?.price || initialPrice,
     imageUrl: existingOrder?.product?.imageUrl || '/products/monitor-dell-24.jpg',
     conditionBadge: existingOrder?.product?.conditionBadge || 'Like New 95%',
     sellerName: existingOrder?.product?.seller?.name || 'Nguyễn Văn An',
@@ -124,9 +152,10 @@ function OrderSuccessContent() {
   };
 
   const handleCopyAmount = () => {
-    navigator.clipboard.writeText(productData.price.toString());
+    const amountToCopy = backendOrder?.payment?.totalAmount ?? (amountParam ? parseInt(amountParam, 10) : productData.price);
+    navigator.clipboard.writeText(amountToCopy.toString());
     setCopiedAmount(true);
-    showToast(`Đã sao chép số tiền ${productData.price.toLocaleString('vi-VN')} đ`);
+    showToast(`Đã sao chép số tiền ${amountToCopy.toLocaleString('vi-VN')} đ`);
     setTimeout(() => setCopiedAmount(false), 2000);
   };
 
@@ -159,11 +188,20 @@ function OrderSuccessContent() {
             ? (typeof ord.product.images[0] === 'string' ? ord.product.images[0] : (ord.product.images[0] as any)?.imageUrl)
             : (prodAny.imageUrl || undefined);
 
+          // Ưu tiên giá chốt trong đơn hàng (ord.payment.price) thay vì giá gốc của tin đăng (ord.product.price)
+          const effectiveOrderPrice =
+            ord.payment?.price ??
+            (agreedPriceParam ? parseInt(agreedPriceParam, 10) : undefined) ??
+            ord.payment?.totalAmount ??
+            (amountParam ? parseInt(amountParam, 10) : undefined) ??
+            ord.product?.price;
+
           setProductData((prev) => ({
             ...prev,
             id: ord.product?.id || ord.productId || prev.id,
             title: ord.product?.title || prev.title,
-            price: ord.product?.price || ord.payment?.price || prev.price,
+            price: effectiveOrderPrice || prev.price,
+            originalPrice: ord.product?.price || prev.originalPrice,
             imageUrl: firstImg || prev.imageUrl,
             conditionBadge: prodAny.condition || prev.conditionBadge,
             sellerName,
@@ -179,7 +217,7 @@ function OrderSuccessContent() {
     return () => {
       isMounted = false;
     };
-  }, [orderCode]);
+  }, [orderCode, agreedPriceParam, amountParam]);
 
   // 1b. Tự động hủy đơn hàng và giải phóng sản phẩm khi PayOS redirect về cancelled=true
   useEffect(() => {
@@ -248,31 +286,59 @@ function OrderSuccessContent() {
     };
   }, [orderCode, backendOrder?.id]);
 
+  // Compute accurate payment breakdown from backend order or URL params
+  const itemPrice =
+    backendOrder?.payment?.price ??
+    (agreedPriceParam ? parseInt(agreedPriceParam, 10) : undefined) ??
+    productData.price;
+  const originalItemPrice = backendOrder?.product?.price ?? productData.originalPrice;
+  const isNegotiatedPrice = Boolean(originalItemPrice && itemPrice > 0 && itemPrice < originalItemPrice);
+  const totalPayable =
+    backendOrder?.payment?.totalAmount ??
+    (amountParam ? parseInt(amountParam, 10) : undefined) ??
+    itemPrice;
+  const shippingFeeAmount = backendOrder
+    ? backendOrder.orderType === 'MEETUP'
+      ? 0
+      : backendOrder.payment?.shippingFee ?? 0
+    : isSafeHandoff
+    ? 0
+    : 25000;
+  const coinDiscountAmount = backendOrder?.payment?.coinDiscount ?? 0;
+  const voucherDiscountAmount = Math.max(0, itemPrice + shippingFeeAmount - coinDiscountAmount - totalPayable);
+
   const realVietqrUrl =
     backendOrder?.payment?.vietqrUrl ||
-    `https://img.vietqr.io/image/MB-0348888999-compact2.png?amount=${productData.price}&addInfo=${orderCode}&accountName=SAN%20FPT%205CAMPUS`;
+    `https://img.vietqr.io/image/MB-0348888999-compact2.png?amount=${totalPayable}&addInfo=${orderCode}&accountName=SAN%20FPT%205CAMPUS`;
 
-  // Fetch product data if provided
+  // Fetch product data if provided (only as fallback metadata; never overwrite agreed/order price)
   useEffect(() => {
     let isMounted = true;
     if (productId) {
       ProductService.getPostById(productId).then((post) => {
         if (!isMounted || !post) return;
-        setProductData((prev) => ({
-          ...prev,
-          title: post.title,
-          price: amountParam ? parseInt(amountParam, 10) : post.price,
-          imageUrl: post.imageUrl || prev.imageUrl,
-          conditionBadge: post.badges?.[0] || prev.conditionBadge,
-          sellerName: post.seller?.name || prev.sellerName,
-          sellerCohort: post.seller?.cohort || prev.sellerCohort,
-        }));
+        setProductData((prev) => {
+          const lockedPrice =
+            backendOrder?.payment?.price ??
+            (agreedPriceParam ? parseInt(agreedPriceParam, 10) : undefined) ??
+            (amountParam ? parseInt(amountParam, 10) : undefined);
+          return {
+            ...prev,
+            title: backendOrder?.product?.title || post.title,
+            price: lockedPrice ?? post.price,
+            originalPrice: post.price || prev.originalPrice,
+            imageUrl: post.imageUrl || prev.imageUrl,
+            conditionBadge: post.badges?.[0] || prev.conditionBadge,
+            sellerName: post.seller?.name || prev.sellerName,
+            sellerCohort: post.seller?.cohort || prev.sellerCohort,
+          };
+        });
       });
     }
     return () => {
       isMounted = false;
     };
-  }, [productId, amountParam]);
+  }, [productId, amountParam, agreedPriceParam, backendOrder?.payment?.price, backendOrder?.product?.title]);
 
   // Current formatted timestamp
   const orderTimeFormatted = new Date().toLocaleTimeString('vi-VN', {
@@ -438,6 +504,8 @@ function OrderSuccessContent() {
                 <h1 className="mt-1.5 text-xl sm:text-2xl font-black tracking-tight text-white">
                   {isCancelledByPayos || (payosWasCancelled && !isPaid)
                     ? 'Giao dịch thanh toán PayOS đã bị hủy'
+                    : paymentMethod === 'cod'
+                    ? 'Đặt đơn hàng COD thành công!'
                     : isPaid
                     ? 'Thanh toán & Đặt hàng thành công!'
                     : isOnlinePayment
@@ -448,10 +516,12 @@ function OrderSuccessContent() {
                 <p className="mt-1 text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
                   {isCancelledByPayos || (payosWasCancelled && !isPaid)
                     ? `Bạn đã dừng hoặc hủy thanh toán qua cổng PayOS. Đơn hàng #${orderCode} đã được tự động hủy, Xu và Voucher đã hoàn về tài khoản của bạn. Sản phẩm đã được mở lại cho các bạn sinh viên khác mua.`
+                    : paymentMethod === 'cod'
+                    ? `Đơn hàng #${orderCode} đã được ghi nhận vào hệ thống điều phối bưu tá KTX với mức giá ${totalPayable.toLocaleString('vi-VN')} đ. Bạn sẽ kiểm tra hàng thực tế khi nhận và được bảo vệ 48h bao test.`
                     : isPaid
                     ? 'Khoản thanh toán của bạn đã được đóng băng an toàn trong Ví Escrow của Sàn ĐH FPT. Người bán sẽ chỉ nhận được tiền sau 48h kiểm tra hàng.'
                     : isOnlinePayment
-                    ? `Đơn hàng #${orderCode} đang chờ bạn chuyển khoản ${productData.price.toLocaleString('vi-VN')} đ. Tiền sẽ được sàn bảo hộ an toàn trong ví Escrow ngay khi nhận được giao dịch.`
+                    ? `Đơn hàng #${orderCode} đang chờ bạn chuyển khoản ${totalPayable.toLocaleString('vi-VN')} đ. Tiền sẽ được sàn bảo hộ an toàn trong ví Escrow ngay khi nhận được giao dịch.`
                     : 'Đơn hàng đã được ghi nhận vào hệ thống điều phối bưu tá KTX. Bạn sẽ kiểm tra hàng thực tế trước khi thanh toán tiền mặt/chuyển khoản.'}
                 </p>
               </div>
@@ -681,7 +751,7 @@ function OrderSuccessContent() {
                       <span className="text-slate-500">Số tiền chính xác:</span>
                       <div className="flex items-center gap-2">
                         <span className="font-black text-fpt-orange text-sm sm:text-base">
-                          {productData.price.toLocaleString('vi-VN')} đ
+                          {totalPayable.toLocaleString('vi-VN')} đ
                         </span>
                         <button
                           type="button"
@@ -747,8 +817,8 @@ function OrderSuccessContent() {
                   </div>
                 </div>
               </Card>
-            ) : (
-              /* CARD 2B: MÃ QR NHẬN HÀNG SAFE-HANDOFF PASS */
+            ) : isSafeHandoff ? (
+              /* CARD 2B: MÃ QR NHẬN HÀNG SAFE-HANDOFF PASS (CHỈ DÀNH CHO ĐƠN CÙNG CAMPUS GẶP MẶT SAFE-HANDOFF) */
               <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
                 <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
@@ -786,26 +856,68 @@ function OrderSuccessContent() {
                   {/* Instructions */}
                   <div className="md:col-span-8 space-y-2.5 text-xs text-slate-600">
                     <h4 className="font-bold text-slate-800 text-sm">
-                      Cách thức nhận hàng an toàn tại Campus:
+                      Cách thức nhận hàng an toàn tại Safe-Point Campus:
                     </h4>
                     <ul className="space-y-2 pl-4 list-disc text-slate-600 leading-relaxed">
                       <li>
-                        Khi bưu phẩm tới KTX, bạn sẽ nhận được thông báo đẩy trên App / Telegram bot 5Campus.
+                        Gặp người bán trực tiếp tại điểm hẹn <strong>Safe-Point</strong> có camera giám sát 24/7 trong khuôn viên trường.
                       </li>
                       <li>
-                        Xuất trình mã QR này hoặc cung cấp mã PIN <strong>{backendOrder?.handshake?.handshakeOtp || '8829'}</strong> cho bưu tá / lễ tân Dom B.
+                        Sau khi kiểm tra thiết bị ưng ý, xuất trình mã QR này hoặc đọc mã PIN <strong>{backendOrder?.handshake?.handshakeOtp || '8829'}</strong> cho người bán quét để hoàn tất bàn giao.
                       </li>
                       {isPaid ? (
                         <li>
-                          <strong>Đã thanh toán Escrow:</strong> Bạn không cần trả thêm bất kỳ khoản tiền nào. Nhận đồ về phòng, cắm thử 48h rồi bấm xác nhận giải ngân.
+                          <strong>Đã thanh toán Escrow:</strong> Bạn không cần trả thêm bất kỳ khoản tiền nào. Tiền cọc sẽ giải ngân sau khi xác thực bàn giao.
                         </li>
                       ) : (
                         <li>
-                          <strong>Đơn COD:</strong> Bạn có quyền mở hộp kiểm tra thiết bị hoạt động tốt trước khi thanh toán số tiền <strong>{productData.price.toLocaleString('vi-VN')} đ</strong> cho người giao.
+                          <strong>Thanh toán điểm hẹn:</strong> Kiểm tra kỹ thiết bị hoạt động tốt tại bàn test trước khi thanh toán số tiền <strong>{totalPayable.toLocaleString('vi-VN')} đ</strong>.
                         </li>
                       )}
                     </ul>
                   </div>
+                </div>
+              </Card>
+            ) : (
+              /* CARD 2C: HƯỚNG DẪN ĐỒNG KIỂM & BẢO HỘ ĐƠN LIÊN CAMPUS (KHÔNG DÙNG MÃ QR HANDSHAKE) */
+              <Card className="rounded-2xl border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                    <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Chính sách Giao nhận & Đồng kiểm Liên Campus (FPT CampusShip)
+                    </h2>
+                  </div>
+                  <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                    BẢO HỘ ESCROW 48H
+                  </Badge>
+                </div>
+
+                <div className="mt-4 space-y-2.5 text-xs text-slate-600">
+                  <h4 className="font-bold text-slate-800 text-sm">
+                    Hướng dẫn nhận kiện hàng liên cơ sở tại KTX:
+                  </h4>
+                  <ul className="space-y-2 pl-4 list-disc text-slate-600 leading-relaxed">
+                    <li>
+                      Đơn hàng liên Campus được vận chuyển qua đối tác giao vận <strong>GHN Express / FPT CampusShip</strong> (không sử dụng mã QR gặp mặt Safe-Point).
+                    </li>
+                    <li>
+                      Khi bưu tá phát hàng tới sảnh KTX ({productData.destinationCampus}), bạn sẽ nhận được thông báo và cuộc gọi từ bưu tá.
+                    </li>
+                    {paymentMethod === 'cod' || !isOnlinePayment ? (
+                      <li>
+                        <strong>Đơn thanh toán COD:</strong> Bạn được quyền đồng kiểm ngoại quan kiện hàng trước khi thanh toán số tiền{' '}
+                        <strong className="text-fpt-orange">{totalPayable.toLocaleString('vi-VN')} đ</strong> cho bưu tá.
+                      </li>
+                    ) : (
+                      <li>
+                        <strong>Đã nạp cọc Escrow:</strong> Bạn không cần trả thêm tiền mặt khi nhận hàng. Tiền đang được giữ an toàn trong Quỹ Escrow FPT.
+                      </li>
+                    )}
+                    <li>
+                      Sau khi nhận hàng, bạn có <strong>48 giờ bao test</strong> thiết bị tại phòng. Nếu phát sinh lỗi khác mô tả, bạn có thể bấm <em>Yêu cầu trả hàng / Khiếu nại</em> trong mục Đơn hàng để được bảo vệ hoàn tiền 100%.
+                    </li>
+                  </ul>
                 </div>
               </Card>
             )}
@@ -889,23 +1001,43 @@ function OrderSuccessContent() {
 
               <div className="mt-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>Tiền sản phẩm:</span>
-                  <span className="font-bold text-slate-800">
-                    {productData.price.toLocaleString('vi-VN')} đ
-                  </span>
+                  <span>{isNegotiatedPrice ? 'Tiền sản phẩm (Đã chốt giá Chat):' : 'Tiền sản phẩm:'}</span>
+                  <div className="flex items-center gap-1.5">
+                    {isNegotiatedPrice && (
+                      <span className="text-[11px] text-slate-400 line-through">
+                        {originalItemPrice.toLocaleString('vi-VN')} đ
+                      </span>
+                    )}
+                    <span className="font-bold text-slate-800">
+                      {itemPrice.toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>Phí ship CampusShip:</span>
-                  <span className="text-slate-800">25.000 đ</span>
+                  <span>{isSafeHandoff ? 'Phí bàn giao Safe-Point:' : 'Phí ship CampusShip:'}</span>
+                  <span className="text-slate-800">
+                    {shippingFeeAmount > 0 ? `${shippingFeeAmount.toLocaleString('vi-VN')} đ` : 'Miễn phí 0đ'}
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between text-emerald-700 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Voucher Freeship FPT
-                  </span>
-                  <span>-25.000 đ</span>
-                </div>
+                {voucherDiscountAmount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> Voucher Freeship FPT
+                    </span>
+                    <span>-{voucherDiscountAmount.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                )}
+
+                {coinDiscountAmount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1">
+                      <Coins className="h-3 w-3" /> Ưu đãi FPT Coin
+                    </span>
+                    <span>-{coinDiscountAmount.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-100">
                   <span>Phí bảo chứng Escrow:</span>
@@ -923,7 +1055,7 @@ function OrderSuccessContent() {
                     </div>
                   </div>
                   <div className="text-xl font-black text-fpt-orange">
-                    {productData.price.toLocaleString('vi-VN')}{' '}
+                    {totalPayable.toLocaleString('vi-VN')}{' '}
                     <span className="text-xs font-bold">đ</span>
                   </div>
                 </div>
