@@ -15,6 +15,7 @@ export const createOrderSchema = z
     appointmentTime: z.string().optional(),
     safePointHubId: z.string().optional(),
     voucherCode: z.string().trim().max(100).optional(),
+    platform: z.enum(['web', 'mobile']).optional(),
     shipping: z
       .object({
         receiverName: z.string().min(2, 'Tên người nhận phải có ít nhất 2 ký tự'),

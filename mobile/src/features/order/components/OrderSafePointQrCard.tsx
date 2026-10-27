@@ -48,8 +48,8 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
               size={16}
               color={isConfirmed ? '#059669' : '#D97706'}
             />
-            <Text style={[styles.appointmentTitle, { color: isConfirmed ? '#065F46' : '#92400E' }]}>
-              LỊCH HẸN BÀN GIAO TẠI SẢNH
+            <Text style={[styles.appointmentTitle, { color: isConfirmed ? '#065F46' : '#92400E' }]} numberOfLines={1}>
+              LỊCH HẸN BÀN GIAO
             </Text>
           </View>
           <View style={[styles.statusPill, isConfirmed ? styles.statusPillConfirmed : styles.statusPillPending]}>
@@ -58,8 +58,8 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
               size={12}
               color={isConfirmed ? '#059669' : '#D97706'}
             />
-            <Text style={[styles.statusPillText, { color: isConfirmed ? '#059669' : '#D97706' }]}>
-              {isConfirmed ? 'Đã chốt hẹn' : 'Chờ người bán chốt'}
+            <Text style={[styles.statusPillText, { color: isConfirmed ? '#059669' : '#D97706' }]} numberOfLines={1}>
+              {isConfirmed ? 'Đã chốt hẹn' : 'Chờ xác nhận'}
             </Text>
           </View>
         </View>

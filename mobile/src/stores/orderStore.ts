@@ -44,10 +44,12 @@ export interface OrderItem {
   sellerName: string;
   sellerCohort?: string;
   sellerCampus?: string;
+  sellerAvatar?: string;
   buyerId: string;
   buyerName: string;
   buyerCohort?: string;
   buyerCampus?: string;
+  buyerAvatar?: string;
   status:
     | 'PENDING_SAFEPOINT'
     | 'ESCROW_PAID'

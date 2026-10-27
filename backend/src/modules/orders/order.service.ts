@@ -116,6 +116,7 @@ export class OrderService {
       appointmentTime,
       safePointHubId,
       voucherCode,
+      platform,
     } = input;
 
     // B5-REDIS: Thu thập Distributed Lock trên sản phẩm để ngăn chặn Race Condition (2 người cùng tranh mua 1 món đồ độc bản)
@@ -251,7 +252,7 @@ export class OrderService {
     let appliedUserVoucherId: string | null = null;
     if (voucherCode && voucherCode.trim()) {
       const cleanVoucherCode = voucherCode.trim().toUpperCase();
-      const userVoucher = await prisma.userVoucher.findFirst({
+      let userVoucher = await prisma.userVoucher.findFirst({
         where: {
           userId: buyerId,
           voucherCode: cleanVoucherCode,
@@ -260,6 +261,50 @@ export class OrderService {
         },
         include: { voucher: true },
       });
+
+      // Nếu ví của người dùng chưa có mã này, kiểm tra xem có voucher hệ thống hợp lệ không (Freeship/CampusShip)
+      if (!userVoucher) {
+        const isShipCode = cleanVoucherCode.includes('SHIP') || cleanVoucherCode.includes('FREE');
+        const systemVoucher = await prisma.voucher.findFirst({
+          where: {
+            isActive: true,
+            ...(isShipCode
+              ? {
+                  OR: [
+                    { partner: 'CAMPUS_SHIP' },
+                    { partner: 'OTHER' },
+                    { title: { contains: 'Vận Chuyển', mode: 'insensitive' } },
+                    { title: { contains: 'Ship', mode: 'insensitive' } },
+                  ],
+                }
+              : {
+                  title: { contains: cleanVoucherCode, mode: 'insensitive' },
+                }),
+          },
+        });
+
+        if (systemVoucher && (isShipCode || systemVoucher.title.toUpperCase().includes(cleanVoucherCode))) {
+          const expiredDate = new Date();
+          expiredDate.setDate(expiredDate.getDate() + (systemVoucher.validDays || 30));
+          userVoucher = await prisma.userVoucher.create({
+            data: {
+              userId: buyerId,
+              voucherId: systemVoucher.id,
+              voucherCode: cleanVoucherCode,
+              status: 'UNUSED',
+              expiredAt: expiredDate,
+            },
+            include: { voucher: true },
+          });
+        } else {
+          throw new AppError(
+            `Mã giảm giá "${cleanVoucherCode}" không hợp lệ, không có trong ví của bạn hoặc đã hết hạn sử dụng.`,
+            400,
+            'INVALID_VOUCHER_CODE'
+          );
+        }
+      }
+
       if (userVoucher && userVoucher.voucher) {
         // Kiểm tra điều kiện giá trị đơn hàng tối thiểu (minOrderValue)
         const minOrder = userVoucher.voucher.minOrderValue || 0;
@@ -451,14 +496,16 @@ export class OrderService {
       const payos = getPayOsClient();
       let checkoutUrl: string;
       try {
+        const sourceQuery = platform === 'mobile' ? '&source=mobile' : '';
         const paymentLink = await payos.paymentRequests.create({
           orderCode: payosOrderCode,
           amount: totalAmount,
           description: `Thanh toan ${orderCode}`.slice(0, 25),
-          cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&cancelled=true`,
+          cancelUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&cancelled=true${sourceQuery}`,
           // PayOS appends its own numeric orderCode; keep our order code in a separate parameter.
-          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&productId=${encodeURIComponent(product.id)}&amount=${totalAmount}`,
+          returnUrl: `${ENV.CLIENT_URL}/checkout/success?appOrderCode=${encodeURIComponent(orderCode)}&paymentMethod=payos&productId=${encodeURIComponent(product.id)}&amount=${totalAmount}${sourceQuery}`,
           items: [{ name: product.title.slice(0, 45), quantity: 1, price: totalAmount }],
+          expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // 15 phút thời gian chờ thanh toán
         });
         if (!paymentLink.checkoutUrl) throw new Error('PayOS did not return a checkout URL');
         checkoutUrl = paymentLink.checkoutUrl;
@@ -564,7 +611,11 @@ export class OrderService {
       }
 
       const orderTypeText = orderType === 'MEETUP' ? 'Hẹn gặp Safe-Handoff' : 'Giao hàng Ship COD';
-      const orderMessageText = `[ORDER_CREATED] Đơn hàng #${orderCode} đã được tạo thành công! Tổng tiền: ${totalAmount.toLocaleString('vi-VN')}đ (${orderTypeText}). Tiền cọc Escrow đã được bảo chứng an toàn.`;
+      const isCodOrder = orderType === 'SHIP_COD' && effectivePaymentMethod === 'CASH';
+      const escrowNotice = isCodOrder
+        ? 'Thanh toán tiền mặt cho bưu tá khi nhận và đồng kiểm hàng tại sảnh KTX.'
+        : 'Tiền cọc Escrow đã được bảo chứng an toàn.';
+      const orderMessageText = `[ORDER_CREATED] Đơn hàng #${orderCode} đã được tạo thành công! Tổng tiền: ${totalAmount.toLocaleString('vi-VN')}đ (${orderTypeText}). ${escrowNotice}`;
 
       const savedMessage = await prisma.message.create({
         data: {
@@ -681,16 +732,21 @@ export class OrderService {
    * 3. Lấy chi tiết đơn hàng
    */
   async getOrderDetail(userId: string, orderIdOrCode: string) {
-    // B3-10: id không hợp lệ Mongo ObjectId thì trả 404 thay vì Prisma throw 500
-    if (!isValidObjectId(orderIdOrCode) && !/^ORD-/.test(orderIdOrCode)) {
+    const cleanCode = orderIdOrCode.replace(/^#/, '').trim();
+    const isHex = isValidObjectId(orderIdOrCode) || isValidObjectId(cleanCode);
+    const isOrderCode = /^ORD-/i.test(cleanCode) || /^ORD-/i.test(orderIdOrCode);
+
+    if (!isHex && !isOrderCode) {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
     const order = await prisma.order.findFirst({
       where: {
         OR: [
-          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          ...(isHex ? [{ id: isValidObjectId(orderIdOrCode) ? orderIdOrCode : cleanCode }] : []),
           { orderCode: orderIdOrCode },
+          { orderCode: cleanCode },
+          { orderCode: `#${cleanCode}` },
         ],
       },
       include: {
@@ -969,8 +1025,16 @@ export class OrderService {
   async updateShippingStatus(userId: string, orderId: string, input: UpdateShippingStatusInput) {
     const { status, trackingCode } = input;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const cleanCode = orderId.replace(/^#/, '').trim();
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: { product: true },
     });
 
@@ -1075,8 +1139,16 @@ export class OrderService {
   async cancelOrder(userId: string, orderId: string, input: CancelOrderInput) {
     const { reason = 'Người dùng hủy đơn' } = input;
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const cleanCode = orderId.replace(/^#/, '').trim();
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          ...(isValidObjectId(orderId) ? [{ id: orderId }] : []),
+          { orderCode: orderId },
+          { orderCode: `#${cleanCode}` },
+          { orderCode: cleanCode },
+        ],
+      },
       include: { product: true },
     });
 
@@ -1164,13 +1236,10 @@ export class OrderService {
       }
 
       // Trả lại trạng thái AVAILABLE cho sản phẩm
-      const released = await tx.product.updateMany({
-        where: { id: order.productId, status: 'RESERVED' },
+      await tx.product.updateMany({
+        where: { id: order.productId },
         data: { status: 'AVAILABLE' },
       });
-      if (released.count !== 1) {
-        throw new AppError('Không thể trả trạng thái sản phẩm về AVAILABLE', 409, 'PRODUCT_NOT_RESERVED');
-      }
 
       return tx.order.findUniqueOrThrow({ where: { id: order.id } });
     });
@@ -1219,7 +1288,10 @@ export class OrderService {
       });
 
       if (conversation) {
-        const cancelMessageText = `[ORDER_CANCELLED] Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}. Tiền cọc Escrow và sản phẩm đã được tự động hoàn trả.`;
+        const isCod = order.orderType === 'SHIP_COD' || order.payment.paymentMethod === 'CASH';
+        const cancelMessageText = isCod
+          ? `[ORDER_CANCELLED] Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}. Đơn hàng COD đã được hủy và sản phẩm đã mở lại cho sinh viên khác.`
+          : `[ORDER_CANCELLED] Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}. Tiền cọc Escrow và sản phẩm đã được tự động hoàn trả.`;
         const senderId = actorId === 'SYSTEM' ? order.sellerId : actorId;
 
         const savedCancelMessage = await prisma.message.create({
@@ -1314,15 +1386,21 @@ export class OrderService {
    * 7. Người mua xác nhận đã nhận hàng an toàn & kích hoạt giải ngân Escrow cho Người bán
    */
   async confirmDelivery(userId: string, orderIdOrCode: string) {
-    if (!isValidObjectId(orderIdOrCode) && !/^ORD-/.test(orderIdOrCode)) {
+    const cleanCode = orderIdOrCode.replace(/^#/, '').trim();
+    const isHex = isValidObjectId(orderIdOrCode) || isValidObjectId(cleanCode);
+    const isOrderCode = /^ORD-/i.test(cleanCode) || /^ORD-/i.test(orderIdOrCode);
+
+    if (!isHex && !isOrderCode) {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
     const order = await prisma.order.findFirst({
       where: {
         OR: [
-          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          ...(isHex ? [{ id: isValidObjectId(orderIdOrCode) ? orderIdOrCode : cleanCode }] : []),
           { orderCode: orderIdOrCode },
+          { orderCode: cleanCode },
+          { orderCode: `#${cleanCode}` },
         ],
       },
       include: {
@@ -1854,15 +1932,21 @@ export class OrderService {
    * Người bán xác nhận đồng ý đơn hàng và chốt lịch hẹn gặp Safe-Point
    */
   async sellerConfirmOrder(sellerId: string, orderIdOrCode: string) {
-    if (!isValidObjectId(orderIdOrCode) && !/^ORD-/.test(orderIdOrCode)) {
+    const cleanCode = orderIdOrCode.replace(/^#/, '').trim();
+    const isHex = isValidObjectId(orderIdOrCode) || isValidObjectId(cleanCode);
+    const isOrderCode = /^ORD-/i.test(cleanCode) || /^ORD-/i.test(orderIdOrCode);
+
+    if (!isHex && !isOrderCode) {
       throw new AppError('Đơn hàng không tồn tại', 404, 'ORDER_NOT_FOUND');
     }
 
     const order = await prisma.order.findFirst({
       where: {
         OR: [
-          ...(isValidObjectId(orderIdOrCode) ? [{ id: orderIdOrCode }] : []),
+          ...(isHex ? [{ id: isValidObjectId(orderIdOrCode) ? orderIdOrCode : cleanCode }] : []),
           { orderCode: orderIdOrCode },
+          { orderCode: cleanCode },
+          { orderCode: `#${cleanCode}` },
         ],
       },
       include: {

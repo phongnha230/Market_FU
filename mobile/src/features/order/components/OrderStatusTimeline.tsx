@@ -19,8 +19,8 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
   const getStatusText = () => {
     if (isCancelled) return 'Đã hủy đơn hàng';
     if (isCompleted) return 'Đã hoàn tất & Giải ngân';
-    if (isPending) return isInterCampus ? '📦 Chờ người bán gửi hàng' : '⏳ Chờ người bán chốt lịch hẹn';
-    if (isHolding) return isInterCampus ? '🚚 Đang luân chuyển liên Campus' : '🛡️ Đã chốt hẹn - Chờ bàn giao';
+    if (isPending) return isInterCampus ? '📦 Chờ gửi hàng' : '⏳ Chờ người bán xác nhận';
+    if (isHolding) return isInterCampus ? '🚚 Đang luân chuyển' : '🛡️ Chờ bàn giao Safe-Point';
     return 'Đang giải quyết khiếu nại';
   };
 
@@ -39,6 +39,8 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
             isPending && { color: '#D97706' },
             isHolding && { color: '#059669' },
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {getStatusText()}
         </Text>
@@ -134,6 +136,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    gap: 8,
   },
   escrowTag: {
     flexDirection: 'row',
@@ -143,9 +146,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
     gap: 4,
+    flexShrink: 0,
   },
   escrowTagText: { fontSize: 11, fontWeight: '800', color: '#059669' },
-  statusName: { fontSize: 12, fontWeight: '800', color: '#EA580C' },
+  statusName: { fontSize: 12, fontWeight: '800', color: '#EA580C', flexShrink: 1, textAlign: 'right' },
   stepsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   stepCol: { alignItems: 'center', width: 60 },
   stepDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

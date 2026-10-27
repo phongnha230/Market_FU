@@ -78,7 +78,7 @@ const OrderCardItem: React.FC<{
       <TouchableOpacity style={styles.cardHeader} activeOpacity={0.85} onPress={handlePress}>
         <View style={styles.orderCodeRow}>
           <Ionicons name="receipt-outline" size={15} color="#64748B" />
-          <Text style={styles.orderCode}>#{item.orderNumber || item.id}</Text>
+          <Text style={styles.orderCode} numberOfLines={1} ellipsizeMode="tail">#{item.orderNumber || item.id}</Text>
           {isSaleForCurrent ? (
             <View style={styles.roleTagSeller}>
               <Text style={styles.roleTagTextSeller}>Đơn Bán</Text>
@@ -90,7 +90,7 @@ const OrderCardItem: React.FC<{
           )}
         </View>
         <View style={[styles.statusBadge, { backgroundColor: item.statusBg || '#FFF7ED' }]}>
-          <Text style={[styles.statusBadgeText, { color: item.statusColor || '#EA580C' }]}>
+          <Text style={[styles.statusBadgeText, { color: item.statusColor || '#EA580C' }]} numberOfLines={1} ellipsizeMode="tail">
             {item.statusLabel}
           </Text>
         </View>
@@ -577,16 +577,20 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    gap: 8,
   },
   orderCodeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
   },
   orderCode: {
     fontSize: 12.5,
     fontWeight: '800',
     color: '#334155',
+    flexShrink: 1,
   },
   roleTagSeller: {
     backgroundColor: '#EEF2FF',
@@ -614,6 +618,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
+    maxWidth: '52%',
   },
   statusBadgeText: {
     fontSize: 10.5,
@@ -690,6 +696,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     flexShrink: 1,
+    minWidth: 0,
   },
   dateText: {
     fontSize: 11,

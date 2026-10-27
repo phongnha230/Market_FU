@@ -11,6 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
+import { Image } from 'expo-image';
+import { getSafeAvatar } from '../../../lib/imageResolver';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { orderMobileService } from '../../../services/orderMobileService';
@@ -44,26 +46,36 @@ export const OrderDetailScreen: React.FC = () => {
 
   const orderId = route.params?.orderId || '';
   const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  const [fetchedOrder, setFetchedOrder] = useState<OrderItem | null>(null);
+  const activeOrder = fetchedOrder || matchedOrder;
   const [payosCheckoutUrl, setPayosCheckoutUrl] = useState(matchedOrder?.paymentCheckoutUrl);
   const [sellerId, setSellerId] = useState(matchedOrder?.sellerId);
 
   const product = useMemo(() => {
-    return (
-      route.params?.product || {
-        id: matchedOrder?.productId || '',
-        title: matchedOrder?.productTitle || 'Sản phẩm giao dịch',
-        price: matchedOrder?.price || 0,
-        priceStr: matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + 'đ' : '0đ',
-        image: matchedOrder?.productImage,
-        sellerName: matchedOrder?.sellerName || 'Người bán FPT',
-        sellerCohort: matchedOrder?.sellerCohort || '',
-        sellerCampus: matchedOrder?.sellerCampus || 'Campus FPT',
-      }
-    );
-  }, [route.params?.product, matchedOrder]);
+    const rawProd = route.params?.product;
+    const fallbackTitle = activeOrder?.productTitle || rawProd?.title || 'Sản phẩm giao dịch';
+    const fallbackPrice = activeOrder?.price ?? (typeof rawProd?.price === 'number' ? rawProd.price : (rawProd?.price ? Number(String(rawProd.price).replace(/\D/g, '')) : 0));
+    const fallbackPriceStr = activeOrder?.price 
+      ? activeOrder.price.toLocaleString('vi-VN') + 'đ' 
+      : (rawProd?.priceStr || (rawProd?.price ? (typeof rawProd.price === 'string' ? rawProd.price : rawProd.price.toLocaleString('vi-VN') + 'đ') : '0đ'));
+    const fallbackImage = activeOrder?.productImage || rawProd?.image;
+    const fallbackSellerName = activeOrder?.sellerName || rawProd?.sellerName || 'Người bán FPT';
+    const fallbackSellerCampus = activeOrder?.sellerCampus || rawProd?.sellerCampus || 'Campus FPT';
+
+    return {
+      id: activeOrder?.productId || rawProd?.id || '',
+      title: fallbackTitle,
+      price: fallbackPrice,
+      priceStr: fallbackPriceStr,
+      image: fallbackImage,
+      sellerName: fallbackSellerName,
+      sellerCohort: activeOrder?.sellerCohort || rawProd?.sellerCohort || '',
+      sellerCampus: fallbackSellerCampus,
+    };
+  }, [route.params?.product, activeOrder]);
 
   const initialStatus =
-    matchedOrder?.status === 'COMPLETED'
+    activeOrder?.status === 'COMPLETED'
       ? 'completed'
       : matchedOrder?.status === 'DELIVERED'
       ? 'delivered'
@@ -73,11 +85,10 @@ export const OrderDetailScreen: React.FC = () => {
       ? 'disputed'
       : matchedOrder?.status === 'PENDING_SAFEPOINT'
       ? 'pending'
-      : route.params?.status || 'escrow_holding';
+      : route.params?.status === 'escrow_holding' ? 'escrow_holding' : 'pending';
 
   const [orderStatus, setOrderStatus] = useState<string>(initialStatus);
   const [isReviewed, setIsReviewed] = useState<boolean>(matchedOrder?.isReviewed ?? (route.params?.isReviewed || false));
-  const [fetchedOrder, setFetchedOrder] = useState<OrderItem | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -110,7 +121,7 @@ export const OrderDetailScreen: React.FC = () => {
     const unsubConfirmed = socketMobileService.onOrderConfirmed((d) => {
       if (d.orderId === orderId || d.orderCode === orderId) {
         setOrderStatus('escrow_holding');
-        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point', '#059669', '#ECFDF5');
+        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Chờ bàn giao', '#059669', '#ECFDF5');
       }
     });
 
@@ -137,7 +148,6 @@ export const OrderDetailScreen: React.FC = () => {
     };
   }, [orderId, updateOrderStatus]);
 
-  const activeOrder = fetchedOrder || matchedOrder;
   const safePoint = activeOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
   const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
@@ -158,6 +168,9 @@ export const OrderDetailScreen: React.FC = () => {
     }
   };
   const isInterCampus = Boolean(
+    activeOrder?.orderType === 'SHIP_COD' ||
+    (activeOrder?.sellerCampus && user?.campus && activeOrder.sellerCampus !== user.campus) ||
+    (activeOrder?.buyerCampus && activeOrder?.sellerCampus && activeOrder.buyerCampus !== activeOrder.sellerCampus) ||
     (matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus) ||
     matchedOrder?.orderType === 'SHIP_COD'
   );
@@ -176,7 +189,7 @@ export const OrderDetailScreen: React.FC = () => {
             try {
               setIsSubmitting(true);
               await orderMobileService.confirmDelivery(orderId);
-              updateOrderStatus(orderId, 'COMPLETED', '✅ Giao dịch hoàn tất & Giải ngân Escrow', '#059669', '#DCFCE7');
+              updateOrderStatus(orderId, 'COMPLETED', '✅ Hoàn tất', '#059669', '#DCFCE7');
               setOrderStatus('completed');
               Alert.alert(
                 '🎉 Giao dịch hoàn tất!',
@@ -214,7 +227,7 @@ export const OrderDetailScreen: React.FC = () => {
       await orderMobileService.confirmOrder(orderId);
       if (isInterCampus) {
         setOrderStatus('shipping');
-        updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '📦 Đang chuẩn bị hàng & Gửi GHN', '#2563EB', '#EFF6FF');
+        updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '🚚 Đang vận chuyển', '#2563EB', '#EFF6FF');
         Alert.alert(
           '🎉 Đã tiếp nhận đơn hàng!',
           'Bạn đã đồng ý đơn liên campus. Vui lòng đóng gói sản phẩm cẩn thận và mang tới bưu cục GHN hoặc trạm xe buýt FPT Bus để gửi.'
@@ -238,7 +251,7 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus, isInterCampus]);
 
   const handleCancelSuccess = useCallback((reason: string) => {
-    updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã hủy', '#64748B', '#F1F5F9');
+    updateOrderStatus(orderId, 'CANCELLED', '❌ Đã hủy', '#64748B', '#F1F5F9');
     setOrderStatus('cancelled');
     Alert.alert(
       isSeller ? '🎉 Đã từ chối đơn hàng' : '🎉 Đã hủy đơn hàng an toàn',
@@ -249,7 +262,7 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus, isSeller]);
 
   const handleWithdrawDisputeSuccess = useCallback(() => {
-    updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đang giữ tiền Escrow - Tiếp tục giao dịch', '#2563EB', '#EFF6FF');
+    updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Chờ bàn giao', '#2563EB', '#EFF6FF');
     setOrderStatus('escrow_holding');
   }, [orderId, updateOrderStatus]);
 
@@ -334,8 +347,8 @@ export const OrderDetailScreen: React.FC = () => {
       productTitle: product.title,
       sellerName: product.sellerName,
       sellerCampus: product.sellerCampus,
-      buyerName: isSeller ? 'Gia Huy' : (user?.name || 'Người mua'),
-      buyerCampus: 'Hòa Lạc',
+      buyerName: user?.name || 'Người mua',
+      buyerCampus: user?.campus || 'Campus FPT',
       productImage: product.image,
       safePoint: safePoint,
       isReviewed: isReviewed,
@@ -370,6 +383,54 @@ export const OrderDetailScreen: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
         <OrderStatusTimeline orderStatus={orderStatus} isInterCampus={isInterCampus} />
         <OrderProductSummaryCard product={product} />
+
+        {/* THÔNG TIN ĐỐI TÁC GIAO DỊCH */}
+        <Text style={styles.sectionHeader}>
+          {isSeller ? 'THÔNG TIN NGƯỜI MUA' : 'THÔNG TIN NGƯỜI BÁN'}
+        </Text>
+        <View style={styles.partnerCard}>
+          <Image
+            source={{
+              uri: getSafeAvatar(
+                isSeller ? activeOrder?.buyerAvatar : activeOrder?.sellerAvatar,
+                isSeller
+                  ? (activeOrder?.buyerName || 'Người mua FPT')
+                  : (activeOrder?.sellerName || product.sellerName || 'Người bán FPT')
+              ),
+            }}
+            style={styles.partnerAvatar}
+            contentFit="cover"
+            transition={150}
+          />
+          <View style={styles.partnerInfo}>
+            <View style={styles.partnerNameRow}>
+              <Text style={styles.partnerName} numberOfLines={1}>
+                {isSeller
+                  ? (activeOrder?.buyerName || 'Người mua FPT')
+                  : (activeOrder?.sellerName || product.sellerName || 'Người bán FPT')}
+              </Text>
+              <View style={[styles.partnerBadge, { backgroundColor: isSeller ? '#EFF6FF' : '#FFF7ED' }]}>
+                <Text style={[styles.partnerBadgeText, { color: isSeller ? '#2563EB' : '#EA580C' }]}>
+                  {isSeller ? 'Người mua' : 'Người bán'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.partnerCampus}>
+              Cơ sở: {isSeller ? (activeOrder?.buyerCampus || 'Campus FPT') : (activeOrder?.sellerCampus || product.sellerCampus || 'Campus FPT')}
+              {isSeller
+                ? (activeOrder?.buyerCohort ? ` • ${activeOrder.buyerCohort}` : '')
+                : (activeOrder?.sellerCohort || product.sellerCohort ? ` • ${activeOrder?.sellerCohort || product.sellerCohort}` : '')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.partnerChatBtn}
+            onPress={handleOpenChat}
+            activeOpacity={0.8}
+            hitSlop={HIT_SLOP_8}
+          >
+            <Ionicons name="chatbubble-ellipses" size={18} color="#EA580C" />
+          </TouchableOpacity>
+        </View>
 
         {!isSeller && orderStatus === 'pending' && !!payosCheckoutUrl && (
           <TouchableOpacity style={styles.payosRetryButton} onPress={handleResumePayOs}>
@@ -417,8 +478,8 @@ export const OrderDetailScreen: React.FC = () => {
       </ScrollView>
 
       <OrderDetailModals
-        orderId={orderId}
-        matchedOrder={matchedOrder}
+        orderId={activeOrder?.id || orderId}
+        matchedOrder={activeOrder}
         product={product}
         safePoint={safePoint}
         isSeller={Boolean(isSeller)}
@@ -509,6 +570,61 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
     letterSpacing: 0.5,
+  },
+  partnerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  partnerAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#F1F5F9',
+    marginRight: 12,
+  },
+  partnerInfo: {
+    flex: 1,
+  },
+  partnerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  partnerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  partnerBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  partnerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  partnerCampus: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 3,
+  },
+  partnerChatBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
   },
 });
 

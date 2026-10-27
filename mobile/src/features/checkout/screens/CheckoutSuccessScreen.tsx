@@ -146,11 +146,13 @@ export const CheckoutSuccessScreen: React.FC = () => {
             <Ionicons name={paymentPending && !isPaymentConfirmed ? 'time-outline' : 'checkmark'} size={32} color="#FFFFFF" />
           </View>
           <Text style={styles.successTitle}>
-            {paymentPending && !isPaymentConfirmed ? 'Đơn hàng đang chờ PayOS xác nhận' : 'Đặt Hàng & Cọc Tiền Thành Công!'}
+            {paymentPending && !isPaymentConfirmed ? 'Đơn hàng đang chờ PayOS xác nhận' : isDifferentCampus ? 'Đã Tạo Đơn Hàng Liên Campus!' : 'Đặt Hàng & Cọc Tiền Thành Công!'}
           </Text>
           <Text style={styles.successSub}>
             {paymentPending && !isPaymentConfirmed
               ? 'Thanh toán chỉ được xác nhận sau khi backend nhận webhook hợp lệ từ PayOS. Màn hình sẽ tự cập nhật khi giao dịch hoàn tất.'
+              : isDifferentCampus
+              ? <>Đơn hàng liên Campus đã được khởi tạo thành công. Người bán sẽ chuyển hàng qua xe FPT Bus / GHN và bạn sẽ nhận hàng, đồng kiểm 48h tại sảnh KTX {toCampus}.</>
               : <>Tiền của bạn đã được chuyển vào quỹ ký quỹ <Text style={styles.boldText}>Escrow FPT Market</Text>. Người bán sẽ chỉ nhận được tiền sau khi bạn kiểm tra và xác nhận hàng ưng ý.</>}
           </Text>
         </View>
@@ -186,48 +188,63 @@ export const CheckoutSuccessScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* QR Code Presentation */}
-          <View style={styles.qrSection}>
-            <Text style={styles.qrInstruction}>
-              Đưa mã QR này cho Người bán quét tại Safe-Point
-            </Text>
+          {/* QR Code Presentation - CHỈ HIỂN THỊ KHI GIAO DỊCH CÙNG CAMPUS GẶP TRỰC TIẾP TẠI SAFE-POINT */}
+          {!isDifferentCampus ? (
+            <View style={styles.qrSection}>
+              <Text style={styles.qrInstruction}>
+                Đưa mã QR này cho Người bán quét tại Safe-Point
+              </Text>
 
-            <View style={styles.qrFrame}>
-              {/* Giả lập khung QR sắc nét phong cách vé điện tử */}
-              <View style={styles.qrCorners}>
-                <Ionicons name="qr-code" size={180} color="#0F172A" />
+              <View style={styles.qrFrame}>
+                {/* Giả lập khung QR sắc nét phong cách vé điện tử */}
+                <View style={styles.qrCorners}>
+                  <Ionicons name="qr-code" size={180} color="#0F172A" />
+                </View>
+                <View style={styles.qrShieldBadge}>
+                  <Ionicons name="shield-checkmark" size={24} color="#EA580C" />
+                </View>
               </View>
-              <View style={styles.qrShieldBadge}>
-                <Ionicons name="shield-checkmark" size={24} color="#EA580C" />
+
+              {/* OTP Code Display */}
+              <View style={styles.otpBox}>
+                <Text style={styles.otpLabel}>HOẶC ĐỌC MÃ XÁC THỰC OTP</Text>
+                <View style={styles.otpDigitRow}>
+                  {['slot-1', 'slot-2', 'slot-3', 'slot-4'].map((slotId, slotIdx) => (
+                    <View key={slotId} style={styles.otpDigitBox}>
+                      <Text style={styles.otpDigitText}>{handshakeOtp[slotIdx] || ''}</Text>
+                    </View>
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={styles.copyOtpBtn}
+                  onPress={handleCopyOtp}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={copiedOtp ? 'checkmark-circle' : 'copy-outline'}
+                    size={14}
+                    color={copiedOtp ? '#059669' : '#EA580C'}
+                  />
+                  <Text style={[styles.copyOtpText, copiedOtp && { color: '#059669' }]}>
+                    {copiedOtp ? 'Đã chép OTP' : 'Sao chép mã'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            {/* OTP Code Display */}
-            <View style={styles.otpBox}>
-              <Text style={styles.otpLabel}>HOẶC ĐỌC MÃ XÁC THỰC OTP</Text>
-              <View style={styles.otpDigitRow}>
-                {['slot-1', 'slot-2', 'slot-3', 'slot-4'].map((slotId, slotIdx) => (
-                  <View key={slotId} style={styles.otpDigitBox}>
-                    <Text style={styles.otpDigitText}>{handshakeOtp[slotIdx] || ''}</Text>
-                  </View>
-                ))}
+          ) : (
+            <View style={styles.shippingBusSection}>
+              <View style={styles.shippingBusIconBox}>
+                <Ionicons name="bus" size={44} color="#7C3AED" />
               </View>
-              <TouchableOpacity
-                style={styles.copyOtpBtn}
-                onPress={handleCopyOtp}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={copiedOtp ? 'checkmark-circle' : 'copy-outline'}
-                  size={14}
-                  color={copiedOtp ? '#059669' : '#EA580C'}
-                />
-                <Text style={[styles.copyOtpText, copiedOtp && { color: '#059669' }]}>
-                  {copiedOtp ? 'Đã chép OTP' : 'Sao chép mã'}
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.shippingBusTitle}>Vận Đơn Tuyến Xe FPT Bus</Text>
+              <Text style={styles.shippingBusRoute}>
+                {fromCampus} ➔ {toCampus}
+              </Text>
+              <Text style={styles.shippingBusDesc}>
+                Đơn hàng luân chuyển qua xe bus nội bộ giữa các Campus FPT. Không cần gặp mặt trực tiếp, bưu tá sẽ giao đến sảnh KTX của bạn kèm tem niêm phong an toàn.
+              </Text>
             </View>
-          </View>
+          )}
 
           {/* Perforated Divider */}
           <View style={styles.perforatedLine}>
@@ -843,6 +860,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  shippingBusSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginVertical: 14,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  shippingBusIconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  shippingBusTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#5B21B6',
+    marginBottom: 4,
+  },
+  shippingBusRoute: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7C3AED',
+    marginBottom: 8,
+  },
+  shippingBusDesc: {
+    fontSize: 12,
+    color: '#6D28D9',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

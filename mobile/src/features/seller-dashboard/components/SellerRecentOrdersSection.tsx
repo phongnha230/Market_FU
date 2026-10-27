@@ -143,12 +143,14 @@ export const SellerRecentOrdersSection: React.FC<SellerRecentOrdersSectionProps>
                           ? styles.statusPendingText
                           : null,
                       ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
                       {isDone
-                        ? 'Đã hoàn tất • Đã giải ngân ví'
+                        ? 'Đã hoàn tất • Đã giải ngân'
                         : isInterCampus
-                        ? 'Đang vận chuyển FPT Bus • Đến trạm'
-                        : 'Chờ bàn giao tại Safe-Point'}
+                        ? 'Đang vận chuyển FPT Bus'
+                        : 'Chờ bàn giao Safe-Point'}
                     </Text>
                   </View>
                 </View>

@@ -17,6 +17,7 @@ import { InterCampusTimelineCard, InterCampusStep } from '../components/InterCam
 import { InterCampusNoticeCard } from '../components/InterCampusNoticeCard';
 import { PackageHandoverProofModal } from '../components/PackageHandoverProofModal';
 import orderMobileService from '../../../services/orderMobileService';
+import { useOrderStore } from '../../../stores/orderStore';
 import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 const createInterCampusSteps = (
@@ -90,16 +91,22 @@ export const InterCampusTransactionScreen: React.FC = () => {
   const fromCampus = route.params?.fromCampus || 'Cơ sở gửi';
   const toCampus = route.params?.toCampus || 'Cơ sở nhận';
 
-  const product = route.params?.product || {
-    title: 'Giao dịch liên campus',
-    price: 0,
-    priceStr: '0 đ',
-    image: undefined,
-    sellerName: 'Người bán FPT',
-    buyerName: 'Người mua FPT',
-    fromSafePoint: fromCampus,
-    toSafePoint: toCampus,
-  };
+  const { orders } = useOrderStore();
+  const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+
+  const product = useMemo(() => {
+    const rawProd = route.params?.product;
+    return {
+      title: rawProd?.title || matchedOrder?.productTitle || 'Giao dịch liên campus',
+      price: rawProd?.price || matchedOrder?.price || 0,
+      priceStr: rawProd?.priceStr || (matchedOrder?.price ? matchedOrder.price.toLocaleString('vi-VN') + ' đ' : '0 đ'),
+      image: rawProd?.image || matchedOrder?.productImage,
+      sellerName: rawProd?.sellerName || matchedOrder?.sellerName || 'Người bán FPT',
+      buyerName: rawProd?.buyerName || matchedOrder?.buyerName || 'Người mua FPT',
+      fromSafePoint: rawProd?.fromSafePoint || matchedOrder?.sellerCampus || fromCampus,
+      toSafePoint: rawProd?.toSafePoint || matchedOrder?.buyerCampus || toCampus,
+    };
+  }, [route.params?.product, matchedOrder, fromCampus, toCampus]);
 
   const [currentStep, setCurrentStep] = useState<number>(3); // Bước 3: Đang trung chuyển FPT Bus
   const [trackingData, setTrackingData] = useState<any>(null);

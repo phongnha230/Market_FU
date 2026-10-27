@@ -20,6 +20,7 @@ export interface CreateOrderPayload {
   agreedPrice?: number;
   voucherCode?: string;
   isDifferentCampus?: boolean;
+  platform?: 'web' | 'mobile';
   shipping?: {
     receiverName: string;
     receiverPhone: string;
@@ -144,32 +145,32 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
 
   let statusColor = '#D97706';
   let statusBg = '#FFFBEB';
-  let statusLabel = '⏳ Chờ người bán xác nhận hẹn';
+  let statusLabel = '⏳ Chờ xác nhận';
 
   if (status === 'COMPLETED') {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
-    statusLabel = '✅ Giao dịch hoàn tất';
+    statusLabel = '✅ Hoàn tất';
   } else if (status === 'DELIVERED') {
     statusColor = '#10B981';
     statusBg = '#ECFDF5';
-    statusLabel = '🛵 Đã phát tới sảnh KTX (48h bao test)';
+    statusLabel = '🛵 Đã tới KTX';
   } else if (status === 'ESCROW_PAID') {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
-    statusLabel = '🛡️ Đã chốt hẹn - Chờ bàn giao tại Safe-Point';
+    statusLabel = '🛡️ Chờ bàn giao';
   } else if (status === 'HANDOVER_CONFIRMED') {
     statusColor = '#2563EB';
     statusBg = '#EFF6FF';
-    statusLabel = '🚚 Đang luân chuyển trên tuyến FPT Bus';
+    statusLabel = '🚚 Đang vận chuyển';
   } else if (status === 'CANCELLED') {
     statusColor = '#64748B';
     statusBg = '#F1F5F9';
-    statusLabel = '❌ Đơn hàng đã hủy';
+    statusLabel = '❌ Đã hủy';
   } else if (status === 'DISPUTED') {
     statusColor = '#DC2626';
     statusBg = '#FEF2F2';
-    statusLabel = '⚠️ Đang mở khiếu nại (Bảo lưu Escrow)';
+    statusLabel = '⚠️ Khiếu nại';
   }
 
   // 4-digit OTP fallback
@@ -228,11 +229,13 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
       item.seller?.profile?.fullName || item.seller?.fullName || item.sellerName || 'Người bán FPT',
     sellerCohort: item.seller?.profile?.cohort || '',
     sellerCampus: fromBackendCampus(item.seller?.profile?.campus || 'HOL'),
+    sellerAvatar: item.seller?.profile?.avatarUrl || item.seller?.avatarUrl,
     buyerId: item.buyerId || item.buyer?.id || '',
     buyerName:
       item.buyer?.profile?.fullName || item.buyer?.fullName || item.buyerName || 'Người mua FPT',
     buyerCohort: item.buyer?.profile?.cohort || '',
     buyerCampus: friendlyCampus,
+    buyerAvatar: item.buyer?.profile?.avatarUrl || item.buyer?.avatarUrl,
     status,
     statusLabel: item.statusLabel || statusLabel,
     statusColor: item.statusColor || statusColor,
@@ -301,6 +304,8 @@ export const orderMobileService = {
       meetupLocation: payload.meetupLocation || payload.safePoint,
       appointmentTime: payload.appointmentTime,
       agreedPrice: payload.agreedPrice,
+      voucherCode: payload.voucherCode,
+      platform: 'mobile',
     };
 
     if (orderType === 'SHIP_COD') {

@@ -4,9 +4,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useVoucherStore } from '../../../stores/voucherStore';
+import { useProductStore } from '../../../stores/productStore';
 import { orderMobileService } from '../../../services/orderMobileService';
 import { paymentMobileService } from '../../../services/paymentMobileService';
-import { fromBackendCampus } from '../../../lib/backendMappers';
+import { fromBackendCampus, toBackendCampus } from '../../../lib/backendMappers';
 import * as WebBrowser from 'expo-web-browser';
 
 export function useCheckoutController() {
@@ -129,7 +130,20 @@ export function useCheckoutController() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pricing calculations
-  const shippingFee = isMeetup ? 0 : 30000;
+  // Bảng cước vận chuyển chuẩn hóa 5 campus FPT (đồng bộ 100% với backend/src/modules/orders/shipping-matrix.ts)
+  const sellerCampusBackend = toBackendCampus(product.sellerCampus || product.campus) || 'HOL';
+  const buyerCampusBackend = toBackendCampus(user?.campus) || 'HOL';
+  const CAMPUS_RATES: Record<string, Record<string, number>> = {
+    HOL: { HOL: 10000, DAD: 30000, QN: 35000, HCM: 40000, CT: 45000 },
+    DAD: { HOL: 30000, DAD: 10000, QN: 20000, HCM: 30000, CT: 35000 },
+    QN:  { HOL: 35000, DAD: 20000, QN: 10000, HCM: 25000, CT: 30000 },
+    HCM: { HOL: 40000, DAD: 30000, QN: 25000, HCM: 10000, CT: 20000 },
+    CT:  { HOL: 45000, DAD: 35000, QN: 30000, HCM: 20000, CT: 10000 },
+  };
+
+  const shippingFee = isMeetup
+    ? 0
+    : (CAMPUS_RATES[sellerCampusBackend]?.[buyerCampusBackend] ?? (isDifferentCampus ? 35000 : 10000));
   const isShippingVoucher = Boolean(
     appliedVoucher &&
       (appliedVoucher.title?.toLowerCase().includes('vận chuyển') ||
@@ -305,6 +319,7 @@ export function useCheckoutController() {
       });
 
       let finalizedOrder = createdOrder;
+      let isPayOsPending = false;
 
       if (selectedPayment === 'fptpay') {
         if (!createdOrder.paymentCheckoutUrl) {
@@ -320,30 +335,22 @@ export function useCheckoutController() {
           const payStatus = await paymentMobileService.checkPaymentStatus(createdOrder.orderNumber || createdOrder.id);
 
           if (!payStatus.isPaid && payStatus.status !== 'PAID') {
-            // Người dùng chưa thanh toán hoặc bấm Hủy: tự động hủy đơn nháp để không sinh đơn rác và tin nhắn ảo
-            try {
-              await orderMobileService.cancelOrder(
-                createdOrder.id,
-                'Người mua đóng trình duyệt PayOS khi chưa hoàn tất thanh toán'
-              );
-            } catch (cancelErr) {
-              console.log('Cancel pending draft error:', cancelErr);
-            }
-
-            Alert.alert(
-              'Giao dịch chưa thanh toán',
-              'Bạn vừa đóng cổng PayOS mà chưa hoàn tất chuyển khoản. Đơn hàng chưa được tạo để bảo vệ tài khoản của bạn. Bạn có thể chọn lại phương thức thanh toán hoặc thử lại.',
-              [{ text: 'Đã hiểu' }]
-            );
-            return;
+            // Không tự động hủy đơn nháp nữa!
+            // Đơn hàng được giữ PENDING trong 15 phút để sinh viên có thể chuyển khoản/mở lại bất kỳ lúc nào.
+            isPayOsPending = true;
+            finalizedOrder = {
+              ...createdOrder,
+              status: 'PENDING_SAFEPOINT',
+              statusLabel: '⏳ Chờ thanh toán PayOS (15 phút)',
+            };
+          } else {
+            // Đã thanh toán thành công qua PayOS: Cập nhật đơn sang ESCROW_PAID
+            finalizedOrder = {
+              ...createdOrder,
+              status: 'ESCROW_PAID',
+              statusLabel: '🛡️ Quỹ Escrow FPT đang bảo lãnh',
+            };
           }
-
-          // Đã thanh toán thành công qua PayOS: Cập nhật đơn sang ESCROW_PAID
-          finalizedOrder = {
-            ...createdOrder,
-            status: 'ESCROW_PAID',
-            statusLabel: '🛡️ Quỹ Escrow FPT đang bảo lãnh',
-          };
         } catch (browserError) {
           console.error('Could not open PayOS checkout URL', browserError);
           Alert.alert('Lỗi cổng thanh toán', 'Không thể mở cổng thanh toán PayOS. Vui lòng thử lại sau.');
@@ -353,6 +360,9 @@ export function useCheckoutController() {
 
       // Lưu đơn vào local store sau khi đã thanh toán (hoặc khi chọn tiền mặt)
       addOrder(finalizedOrder);
+      if (product.id) {
+        useProductStore.getState().updateProduct(product.id, { status: 'RESERVED' });
+      }
 
       if (appliedVoucher?.code) {
         applyVoucherCode(appliedVoucher.code).catch(() => {});
@@ -377,8 +387,8 @@ export function useCheckoutController() {
         isDifferentCampus,
         fromCampus: product.sellerCampus || 'Hòa Lạc',
         toCampus: buyerCampus,
-        paymentPending: false,
-        paymentCheckoutUrl: finalizedOrder.paymentCheckoutUrl,
+        paymentPending: isPayOsPending,
+        paymentCheckoutUrl: finalizedOrder.paymentCheckoutUrl || createdOrder.paymentCheckoutUrl,
       });
     } catch (err: any) {
       console.log('⚠️ [createOrder error]:', err?.message);

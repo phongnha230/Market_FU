@@ -9,6 +9,7 @@ interface OrderProductSummaryCardProps {
     image: any;
     sellerName?: string;
     sellerCampus?: string;
+    price?: number;
     priceStr?: string;
   };
 }
@@ -38,9 +39,11 @@ export const OrderProductSummaryCard: React.FC<OrderProductSummaryCardProps> = (
             {product.title}
           </Text>
           <Text style={styles.sellerText} numberOfLines={1}>
-            Người bán: {product.sellerName || 'Trần Quân'} ({product.sellerCampus || 'Hòa Lạc'})
+            Người bán: {product.sellerName || 'Người bán FPT'} ({product.sellerCampus || 'Campus FPT'})
           </Text>
-          <Text style={styles.productPrice}>{product.priceStr || '1.450.000đ'}</Text>
+          <Text style={styles.productPrice}>
+            {product.priceStr || (typeof product.price === 'number' && product.price > 0 ? product.price.toLocaleString('vi-VN') + 'đ' : '0đ')}
+          </Text>
         </View>
       </View>
     </>

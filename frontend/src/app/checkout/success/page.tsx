@@ -53,6 +53,7 @@ function OrderSuccessContent() {
   const paymentMethodParam = searchParams.get('paymentMethod') || 'payos';
   const amountParam = searchParams.get('amount');
   const productId = searchParams.get('productId');
+  const isMobileSource = searchParams.get('source') === 'mobile';
 
   const paymentMethod = paymentMethodParam.toLowerCase();
   const isOnlinePayment = paymentMethod === 'vietqr' || paymentMethod === 'payos';
@@ -281,6 +282,82 @@ function OrderSuccessContent() {
     month: '2-digit',
     year: 'numeric',
   });
+
+  if (isMobileSource) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-5 text-center select-none">
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+          {isCancelledByPayos || (payosWasCancelled && !isPaid) ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-4">
+                <XCircle className="w-9 h-9" />
+              </div>
+              <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-300 font-bold text-xs uppercase px-3 py-1 mb-3">
+                Phiên thanh toán chưa hoàn tất
+              </Badge>
+              <h1 className="text-xl font-black text-white mb-2">Đã đóng cổng PayOS</h1>
+              <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                Bạn vừa đóng hoặc hủy giao dịch PayOS cho đơn hàng{' '}
+                <span className="font-mono font-bold text-orange-400">#{orderCode}</span>.
+                <br />
+                Đơn hàng vẫn được lưu và bảo lưu trong 15 phút. Bạn có thể mở lại ứng dụng để thanh toán lại hoặc xem lại đơn hàng bất kỳ lúc nào.
+              </p>
+            </>
+          ) : isPaid ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 font-bold text-xs uppercase px-3 py-1 mb-3">
+                Thanh toán Escrow thành công
+              </Badge>
+              <h1 className="text-xl font-black text-white mb-2">Đã nhận thanh toán!</h1>
+              <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                Đơn hàng <span className="font-mono font-bold text-orange-400">#{orderCode}</span> đã được ghi nhận vào hệ thống. Số tiền được bảo lãnh an toàn trong Quỹ Escrow FPT.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-9 h-9" />
+              </div>
+              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-300 font-bold text-xs uppercase px-3 py-1 mb-3">
+                Đang chờ thanh toán
+              </Badge>
+              <h1 className="text-xl font-black text-white mb-2">Đang chờ xử lý</h1>
+              <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                Đơn hàng <span className="font-mono font-bold text-orange-400">#{orderCode}</span> đang chờ hoàn tất giao dịch.
+              </p>
+            </>
+          )}
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = `fu-market://order/${orderCode}`;
+                setTimeout(() => {
+                  try { window.close(); } catch {}
+                }, 500);
+              }}
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-sm shadow-lg shadow-orange-500/25 active:scale-95 transition cursor-pointer"
+            >
+              Quay lại ứng dụng Chợ FPT
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try { window.close(); } catch {}
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition cursor-pointer"
+            >
+              Đóng cửa sổ này
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 antialiased flex flex-col justify-between font-sans">
