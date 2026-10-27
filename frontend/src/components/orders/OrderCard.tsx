@@ -63,11 +63,37 @@ export default function OrderCard({
       !order.payment?.paymentMethod?.toLowerCase().includes('vietqr') &&
       !order.payment?.paymentMethod?.toLowerCase().includes('payos'));
 
+  const isDisputeRefund =
+    order.cancelledBy === 'DISPUTE' ||
+    (order as any).dispute?.status === 'RESOLVED' ||
+    (order as any).dispute?.status === 'REFUNDED';
+  const isShipperCancel = order.cancelledBy === 'SHIPPER';
+  const isSellerCancel = order.cancelledBy === 'SELLER';
+  const isSystemCancel = order.cancelledBy === 'SYSTEM';
+
   const getEscrowBadgeMeta = () => {
     if (order.status === 'cancelled') {
+      if (isDisputeRefund) {
+        return {
+          text: 'Đã hoàn tiền Khiếu nại',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      }
+      if (order.payment?.isPaid) {
+        return {
+          text: 'Đã hoàn tiền cọc Escrow',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      }
+      if (isCodOrder) {
+        return {
+          text: 'Đơn COD đã hủy',
+          className: 'bg-slate-100 text-slate-600 border-slate-200',
+        };
+      }
       return {
-        text: 'Đã hoàn tiền Escrow',
-        className: 'bg-rose-50 text-rose-700 border-rose-200',
+        text: 'Đã hủy (Chưa thanh toán)',
+        className: 'bg-slate-100 text-slate-600 border-slate-200',
       };
     }
     if (order.type === 'safe-handoff') {
@@ -192,7 +218,13 @@ export default function OrderCard({
                   {order.status === 'completed'
                     ? 'Đã quyết toán ví'
                     : order.status === 'cancelled'
-                    ? 'Đơn đã hủy / Hoàn tiền'
+                    ? isDisputeRefund
+                      ? 'Hoàn tiền Khiếu nại'
+                      : isShipperCancel
+                      ? 'Shipper hủy / Hoàn hàng'
+                      : isSellerCancel
+                      ? 'Bạn đã từ chối đơn'
+                      : 'Đơn đã hủy'
                     : isCodOrder
                     ? 'Chờ bưu tá thu COD'
                     : 'Đang giữ trong Escrow'}
@@ -335,20 +367,60 @@ export default function OrderCard({
 
       {/* CANCELLED / REFUNDED STATUS STRIP */}
       {order.status === 'cancelled' && (
-        <div className="mx-4 sm:mx-5 mb-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-700">
+        <div
+          className={`mx-4 sm:mx-5 mb-3 px-3 py-2 rounded-xl border flex items-center justify-between text-xs ${
+            isDisputeRefund
+              ? 'bg-rose-50/70 border-rose-200 text-rose-900'
+              : isShipperCancel
+              ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+              : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            {isDisputeRefund ? (
+              <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0" />
+            ) : isShipperCancel ? (
+              <Truck className="h-4 w-4 text-amber-600 shrink-0" />
+            ) : (
+              <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            )}
             <span className="truncate font-medium">
-              {isSellerViewer
-                ? 'Đơn hàng đã được duyệt hoàn tiền cho Người mua • Bài đăng chuyển sang Ẩn'
-                : 'Yêu cầu trả hàng đã được BQT chấp thuận • Tiền Escrow & Xu đã được xử lý hoàn trả'}
+              {isDisputeRefund
+                ? isSellerViewer
+                  ? 'Đơn hàng đã được BQT duyệt hoàn tiền khiếu nại cho Người mua • Bài đăng chuyển sang Ẩn'
+                  : 'Yêu cầu trả hàng đã được BQT chấp thuận • Tiền Escrow & Xu đã được xử lý hoàn trả'
+                : isShipperCancel
+                ? isSellerViewer
+                  ? `Đơn vị vận chuyển (${order.shippingPartner || 'GHN'}) báo hủy giao / hoàn trả kiện hàng • Sản phẩm đã mở bán lại`
+                  : `Đơn vị vận chuyển (${order.shippingPartner || 'GHN'}) đã hủy giao / hoàn trả kiện hàng • ${
+                      order.payment?.isPaid ? 'Đã hoàn tiền cọc Escrow & Xu' : 'Đơn COD chưa phát sinh thu tiền'
+                    }`
+                : isSellerCancel
+                ? isSellerViewer
+                  ? 'Bạn đã từ chối nhận đơn / lịch hẹn này • Sản phẩm đã tự động mở bán lại trên sàn'
+                  : `Người bán đã từ chối nhận đơn / lịch hẹn • ${
+                      order.payment?.isPaid ? 'Tiền cọc Escrow & Xu đã hoàn trả 100%' : 'Đơn đặt hàng đã đóng'
+                    }`
+                : isSystemCancel
+                ? isSellerViewer
+                  ? 'Đơn hàng tự động hủy do Người mua quá hạn thanh toán • Sản phẩm đã mở bán lại'
+                  : `Đơn hàng tự động hủy (${order.cancelReason || 'Quá hạn thanh toán 15 phút'})`
+                : isSellerViewer
+                ? `Người mua đã hủy đơn hàng (${order.cancelReason || 'Đổi ý / Hủy lịch'}) • Sản phẩm đã mở bán lại`
+                : `Bạn đã hủy đơn hàng (${order.cancelReason || 'Theo yêu cầu người mua'}) • ${
+                    order.payment?.isPaid ? 'Đã hoàn tiền cọc Escrow & Xu' : 'Chưa phát sinh thanh toán'
+                  }`}
             </span>
           </div>
           <Link
-            href={`/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`}
+            href={
+              isDisputeRefund
+                ? `/orders/dispute?code=${encodeURIComponent(order.code.replace('#', ''))}`
+                : `/orders/${encodeURIComponent(order.code.replace('#', ''))}`
+            }
             className="text-[11px] font-bold text-fpt-orange hover:underline shrink-0 ml-2"
           >
-            Xem hồ sơ ➔
+            {isDisputeRefund ? 'Xem hồ sơ ➔' : isShipperCancel ? 'Xem vận đơn ➔' : 'Xem chi tiết ➔'}
           </Link>
         </div>
       )}
@@ -370,7 +442,7 @@ export default function OrderCard({
           {/* Seller Actions */}
           {isSellerViewer ? (
             <>
-              {(order.status === 'pending' || order.status === 'processing') && (
+              {order.type === 'safe-handoff' && (order.status === 'pending' || order.status === 'processing') && (
                 <Button
                   asChild
                   className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 animate-pulse"
@@ -378,6 +450,17 @@ export default function OrderCard({
                   <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
                     <CheckCircle2 className="h-3.5 w-3.5 text-white" />
                     <span>Đồng ý & Chốt hẹn</span>
+                  </Link>
+                </Button>
+              )}
+              {order.type !== 'safe-handoff' && (order.status === 'pending' || order.status === 'processing') && (
+                <Button
+                  asChild
+                  className="h-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 animate-pulse"
+                >
+                  <Link href={`/orders/${encodeURIComponent(order.code.replace('#', ''))}`}>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                    <span>Đồng ý nhận đơn</span>
                   </Link>
                 </Button>
               )}

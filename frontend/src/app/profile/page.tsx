@@ -2114,15 +2114,15 @@ export default function ProfilePage() {
                   </Button>
                 </div>
 
-                {/* BUYER TAB 1: RECENT ORDERS */}
+                {/* BUYER TAB 1: RECENT ORDERS (HIỂN THỊ TỐI ĐA 4 ĐƠN MỚI NHẤT) */}
                 {buyerTab === 'orders' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <h3 className="text-sm font-bold text-slate-900">
-                        Đơn hàng của bạn ({orders.length})
+                        Đơn mua gần đây ({Math.min(4, orders.length)}/{orders.length})
                       </h3>
                       <Link href="/orders" className="text-fpt-orange hover:underline font-bold flex items-center gap-1">
-                        <span>Quản lý chi tiết</span>
+                        <span>Xem tất cả ({orders.length})</span>
                         <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
@@ -2141,7 +2141,7 @@ export default function ProfilePage() {
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {orders.map((ord) => (
+                        {orders.slice(0, 4).map((ord) => (
                           <Card key={ord.id} className="rounded-2xl border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <div className="flex items-start gap-3.5">
                               <div className="relative h-16 w-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
@@ -2169,18 +2169,30 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                               <span className="text-sm sm:text-base font-extrabold text-fpt-orange">
-                                {formatVND(ord.product?.price || 0)}
+                                {formatVND(ord.payment?.totalAmount || ord.payment?.price || ord.product?.price || 0)}
                               </span>
                               <Link
-                                href="/orders"
+                                href={ord.code ? `/orders/${encodeURIComponent(ord.code.replace(/^#/, ''))}` : '/orders'}
                                 className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-fpt-orange transition"
                               >
-                                <span>Xem đơn & Handoff</span>
+                                <span>{ord.type === 'safe-handoff' ? 'Xem đơn & Handoff' : 'Xem chi tiết đơn'}</span>
                                 <ArrowRight className="h-3 w-3" />
                               </Link>
                             </div>
                           </Card>
                         ))}
+
+                        {orders.length > 4 && (
+                          <div className="pt-1 flex justify-center">
+                            <Link
+                              href="/orders"
+                              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50/70 hover:bg-orange-100/80 text-fpt-orange px-5 py-2.5 text-xs font-extrabold transition shadow-2xs"
+                            >
+                              <span>Xem tất cả {orders.length} đơn trong Đơn hàng của tôi</span>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

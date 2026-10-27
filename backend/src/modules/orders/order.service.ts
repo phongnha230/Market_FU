@@ -1223,10 +1223,22 @@ export class OrderService {
   }
 
   private async cancelPendingOrderInDb(order: Order, reason: string, actorId: string) {
+    const cancelledByRole =
+      actorId === 'SYSTEM'
+        ? 'SYSTEM'
+        : actorId === order.sellerId
+        ? 'SELLER'
+        : 'BUYER';
+
     const cancelledOrder = await prisma.$transaction(async (tx) => {
       const claimed = await tx.order.updateMany({
         where: { id: order.id, status: { in: ['PENDING', 'PAID', 'SHIPPING'] } },
-        data: { status: 'CANCELLED' },
+        data: {
+          status: 'CANCELLED',
+          cancelledBy: cancelledByRole,
+          cancelReason: reason,
+          cancelledAt: new Date(),
+        },
       });
       if (claimed.count !== 1) {
         throw new AppError('Đơn hàng đã đổi trạng thái, không thể hủy hoặc hoàn xu lần nữa', 409, 'ORDER_NOT_PENDING');
@@ -1259,10 +1271,23 @@ export class OrderService {
       }
 
       if (order.payment.appliedUserVoucherId) {
-        await tx.userVoucher.updateMany({
-          where: { id: order.payment.appliedUserVoucherId, userId: order.buyerId, status: 'USED' },
-          data: { status: 'UNUSED', usedAt: null },
+        // Chỉ hoàn lại voucher nếu không có đơn hàng nào khác đã COMPLETED dùng voucher này
+        const completedOrderWithVoucher = await tx.order.findFirst({
+          where: {
+            id: { not: order.id },
+            buyerId: order.buyerId,
+            status: 'COMPLETED',
+            payment: { is: { appliedUserVoucherId: order.payment.appliedUserVoucherId } },
+          },
+          select: { id: true },
         });
+
+        if (!completedOrderWithVoucher) {
+          await tx.userVoucher.updateMany({
+            where: { id: order.payment.appliedUserVoucherId, userId: order.buyerId, status: 'USED' },
+            data: { status: 'UNUSED', usedAt: null },
+          });
+        }
       }
 
       // Trả lại trạng thái AVAILABLE cho sản phẩm
@@ -1727,6 +1752,28 @@ export class OrderService {
     const isCancelled = order.status === 'CANCELLED';
     const isProcessing = (order.status as any) === 'PROCESSING';
 
+    const cancelActor = (order as any).cancelledBy as string | undefined;
+    const cancelReasonText = (order as any).cancelReason as string | undefined;
+    const cancelStepTitle =
+      cancelActor === 'DISPUTE'
+        ? 'Khiếu nại chấp thuận & Hoàn tiền'
+        : cancelActor === 'SHIPPER'
+        ? `Đơn vị vận chuyển (${partner}) hủy / hoàn trả`
+        : cancelActor === 'SELLER'
+        ? 'Người bán đã từ chối / hủy đơn'
+        : cancelActor === 'SYSTEM'
+        ? 'Tự động hủy do quá hạn thanh toán'
+        : 'Đơn hàng đã hủy';
+
+    const cancelStepDesc =
+      cancelActor === 'DISPUTE'
+        ? 'BQT đã phê duyệt yêu cầu trả hàng & hoàn tiền 100% tiền cọc Escrow và Xu cho Người mua.'
+        : cancelActor === 'SHIPPER'
+        ? `${cancelReasonText || `Đối tác vận chuyển (${partner}) báo hủy giao / hoàn trả kiện hàng`}. ${isPaid ? 'Tiền cọc Escrow và Xu đã hoàn lại 100%.' : 'Đơn COD đã hủy, không phát sinh thu tiền.'}`
+        : cancelActor === 'SELLER'
+        ? `${cancelReasonText || 'Người bán từ chối nhận đơn / lịch hẹn'}. ${isPaid ? 'Tiền cọc Escrow và Xu đã hoàn lại 100%.' : 'Đơn hàng đã đóng và mở bán lại sản phẩm.'}`
+        : `${cancelReasonText || 'Đơn hàng đã dừng xử lý và hủy thành công'}. ${isPaid ? 'Tiền cọc Escrow (nếu có), xu và voucher đã hoàn lại đầy đủ.' : 'Đơn hàng chưa thu tiền đã được đóng.'}`;
+
     const steps = isCancelled
       ? [
           {
@@ -1735,11 +1782,22 @@ export class OrderService {
             status: 'completed',
             time: order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : undefined,
           },
+          ...(hasDispatchedToShipping && cancelActor === 'SHIPPER'
+            ? [
+                {
+                  title: 'Đã bàn giao vận chuyển',
+                  desc: `Mã vận đơn: ${trackingCode} (${partner})`,
+                  status: 'completed',
+                },
+              ]
+            : []),
           {
-            title: 'Đơn hàng đã hủy',
-            desc: 'Đơn hàng đã dừng xử lý và hủy thành công. Tiền cọc Escrow (nếu có), xu và voucher đã hoàn lại đầy đủ.',
+            title: cancelStepTitle,
+            desc: cancelStepDesc,
             status: 'cancelled',
-            time: order.updatedAt ? new Date(order.updatedAt).toLocaleString('vi-VN') : undefined,
+            time: ((order as any).cancelledAt || order.updatedAt)
+              ? new Date((order as any).cancelledAt || order.updatedAt).toLocaleString('vi-VN')
+              : undefined,
           },
         ]
       : isMeetup

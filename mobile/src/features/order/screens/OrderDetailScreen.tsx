@@ -14,6 +14,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { Image } from 'expo-image';
 import { getSafeAvatar } from '../../../lib/imageResolver';
+import { toBackendCampus } from '../../../lib/backendMappers';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { orderMobileService } from '../../../services/orderMobileService';
@@ -172,7 +173,11 @@ export const OrderDetailScreen: React.FC = () => {
   const safePoint = activeOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
   const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
-  const isSeller = Boolean(user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id));
+  const isSeller = Boolean(
+    (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id)) ||
+    (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name)) ||
+    (user?.email && (activeOrder as any)?.sellerEmail === user.email)
+  );
 
   const handleResumePayOs = async () => {
     if (!payosCheckoutUrl) return;
@@ -188,13 +193,28 @@ export const OrderDetailScreen: React.FC = () => {
       Alert.alert('Không mở được PayOS', 'Vui lòng thử lại hoặc hủy đơn để tạo đơn mới.');
     }
   };
-  const isInterCampus = Boolean(
-    activeOrder?.orderType === 'SHIP_COD' ||
-    (activeOrder?.sellerCampus && user?.campus && activeOrder.sellerCampus !== user.campus) ||
-    (activeOrder?.buyerCampus && activeOrder?.sellerCampus && activeOrder.buyerCampus !== activeOrder.sellerCampus) ||
-    (matchedOrder?.sellerCampus && user?.campus && matchedOrder.sellerCampus !== user.campus) ||
-    matchedOrder?.orderType === 'SHIP_COD'
-  );
+  const isInterCampus = useMemo(() => {
+    if (activeOrder?.orderType) {
+      return activeOrder.orderType === 'SHIP_COD';
+    }
+    if (matchedOrder?.orderType) {
+      return matchedOrder.orderType === 'SHIP_COD';
+    }
+    if (typeof route.params?.isDifferentCampus === 'boolean') {
+      return route.params.isDifferentCampus;
+    }
+    const sellerCode = toBackendCampus(activeOrder?.sellerCampus || product.sellerCampus);
+    const buyerCode = toBackendCampus(activeOrder?.buyerCampus || user?.campus);
+    return Boolean(sellerCode && buyerCode && sellerCode !== buyerCode);
+  }, [
+    activeOrder?.orderType,
+    activeOrder?.sellerCampus,
+    activeOrder?.buyerCampus,
+    matchedOrder?.orderType,
+    route.params?.isDifferentCampus,
+    product.sellerCampus,
+    user?.campus,
+  ]);
 
   const handleShipSuccess = useCallback((orderIdParam: string, trackingCode: string, partner: string) => {
     setOrderStatus('shipping');
@@ -546,8 +566,16 @@ export const OrderDetailScreen: React.FC = () => {
           onOpenShipModal={() => setShowShipModal(true)}
           onOpenDisputeDetail={() => setShowDisputeDetailModal(true)}
           isInterCampus={isInterCampus}
+          hasTrackingCode={Boolean(activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode || fetchedOrder?.trackingCode || fetchedOrder?.shipping?.trackingCode)}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}
+          cancelledBy={activeOrder?.cancelledBy}
+          cancelReason={activeOrder?.cancelReason}
+          isPaid={activeOrder?.isPaid}
+          hasDisputeRefund={
+            activeOrder?.dispute?.status === 'RESOLVED' ||
+            activeOrder?.dispute?.status === 'REFUNDED'
+          }
           onConfirmOrder={handleConfirmOrder}
           onConfirmReceived={handleConfirmReceived}
           onOpenScanner={() => setShowScannerModal(true)}

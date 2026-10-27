@@ -396,6 +396,11 @@ model Order {
   meetupLocation  String?
   safePointHubId  String?
 
+  // Cancellation Metadata ("SELLER" | "BUYER" | "SHIPPER" | "DISPUTE" | "SYSTEM")
+  cancelledBy     String?
+  cancelReason    String?
+  cancelledAt     DateTime?
+
   reviews        Review[]
   dispute        Dispute?
 

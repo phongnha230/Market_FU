@@ -382,6 +382,11 @@ export const OrderListScreen: React.FC = () => {
       price: formatPrice(item.totalAmount || item.price),
       isCod: item.orderType === 'SHIP_COD',
       order: item,
+      isSeller: Boolean(
+        (currentUserId && item.sellerId === currentUserId) ||
+        (user?.name && item.sellerName === user.name) ||
+        isSeller
+      ),
     });
   }, [navigation]);
 

@@ -8,19 +8,85 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-interface CancelledBannerProps {}
+interface CancelledBannerProps {
+  isSeller?: boolean;
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+  isPaid?: boolean;
+  hasDisputeRefund?: boolean;
+  onOpenDisputeDetail?: () => void;
+}
 
-const CancelledBanner: React.FC<CancelledBannerProps> = React.memo(() => (
-  <View style={styles.cancelledBanner}>
-    <Ionicons name="close-circle" size={24} color="#64748B" />
-    <View style={styles.cancelledTextWrap}>
-      <Text style={styles.cancelledTitle}>Đơn hàng đã được hủy</Text>
-      <Text style={styles.cancelledSub}>
-        Giao dịch đã kết thúc an toàn. Tiền cọc Escrow (nếu có) đã được hoàn trả về ví Campus của bạn.
-      </Text>
+const CancelledBanner: React.FC<CancelledBannerProps> = React.memo(({
+  isSeller,
+  cancelledBy,
+  cancelReason,
+  isPaid,
+  hasDisputeRefund,
+  onOpenDisputeDetail,
+}) => {
+  const isDispute = cancelledBy === 'DISPUTE' || Boolean(hasDisputeRefund);
+  const isShipper = cancelledBy === 'SHIPPER';
+  const isSellerCancel = cancelledBy === 'SELLER';
+  const isSystem = cancelledBy === 'SYSTEM';
+
+  const title = isDispute
+    ? isSeller
+      ? 'Đơn đã hoàn tiền khiếu nại cho Người mua'
+      : 'Yêu cầu trả hàng & hoàn tiền đã được BQT duyệt'
+    : isShipper
+    ? 'Đơn vị vận chuyển đã hủy giao / hoàn trả hàng'
+    : isSellerCancel
+    ? isSeller
+      ? 'Bạn đã từ chối nhận đơn / lịch hẹn'
+      : 'Người bán đã từ chối nhận đơn / lịch hẹn'
+    : isSystem
+    ? 'Đơn hàng tự động hủy do quá hạn thanh toán'
+    : isSeller
+    ? 'Người mua đã hủy đơn hàng này'
+    : 'Bạn đã hủy đơn hàng thành công';
+
+  const subtitle = isDispute
+    ? isSeller
+      ? 'Ban Quản Trị đã chấp thuận yêu cầu trả hàng. Tiền cọc Escrow và Xu đã hoàn trả cho Người mua.'
+      : 'Yêu cầu trả hàng của bạn đã được chấp thuận. Tiền Escrow & Xu đã được xử lý hoàn trả về ví.'
+    : isShipper
+    ? `${cancelReason || 'Đơn vị vận chuyển báo hủy giao / hoàn trả kiện hàng'}. ${
+        isPaid ? 'Tiền cọc Escrow & Xu đã hoàn trả 100%.' : 'Đơn COD chưa phát sinh thu tiền.'
+      }`
+    : isSellerCancel
+    ? `${cancelReason || 'Người bán không thể tiếp nhận đơn / lịch hẹn'}. ${
+        isPaid ? 'Tiền cọc Escrow & Xu đã được hoàn trả 100%.' : 'Sản phẩm đã mở bán lại trên sàn.'
+      }`
+    : `${cancelReason ? `Lý do: ${cancelReason}. ` : ''}${
+        isPaid
+          ? 'Tiền cọc Escrow và Xu đã được hoàn trả về ví Campus.'
+          : 'Giao dịch đã đóng (chưa phát sinh thanh toán cọc).'
+      }`;
+
+  return (
+    <View style={[styles.cancelledBanner, isDispute && { backgroundColor: '#FEF2F2', borderColor: '#FECDD3' }]}>
+      <Ionicons
+        name={isDispute ? 'shield-checkmark' : isShipper ? 'bus' : 'close-circle'}
+        size={24}
+        color={isDispute ? '#DC2626' : isShipper ? '#D97706' : '#64748B'}
+      />
+      <View style={styles.cancelledTextWrap}>
+        <Text style={[styles.cancelledTitle, isDispute && { color: '#991B1B' }]}>{title}</Text>
+        <Text style={[styles.cancelledSub, isDispute && { color: '#B91C1C' }]}>{subtitle}</Text>
+        {isDispute && onOpenDisputeDetail && (
+          <TouchableOpacity
+            style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#DC2626', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+            activeOpacity={0.85}
+            onPress={onOpenDisputeDetail}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Xem hồ sơ hoàn tiền ➔</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
-  </View>
-));
+  );
+});
 CancelledBanner.displayName = 'CancelledBanner';
 
 interface DisputedBannerProps {
@@ -84,6 +150,7 @@ interface PrimaryActionButtonProps {
   orderStatus: string;
   isSeller: boolean;
   isInterCampus?: boolean;
+  hasTrackingCode?: boolean;
   isReviewed: boolean;
   isSubmitting: boolean;
   isDisputed: boolean;
@@ -100,6 +167,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   orderStatus,
   isSeller,
   isInterCampus,
+  hasTrackingCode,
   isReviewed,
   isSubmitting,
   isDisputed,
@@ -117,44 +185,6 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
     // When pending seller confirmation:
     if (isPending) {
-      if (isInterCampus) {
-        return (
-          <View style={{ gap: 8 }}>
-            <TouchableOpacity
-              style={[styles.confirmReceivedBtn, { backgroundColor: '#EA580C' }]}
-              activeOpacity={0.88}
-              onPress={onOpenShipModal || onConfirmOrder}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
-                  <Text style={styles.confirmReceivedText}>
-                    Bàn giao bưu cục GHN (Tạo mã vận đơn)
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {onCancelOrder && (
-              <TouchableOpacity
-                style={[styles.confirmReceivedBtn, { backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECDD3' }]}
-                activeOpacity={0.88}
-                onPress={onCancelOrder}
-                disabled={isSubmitting}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#E11D48" style={styles.mr6} />
-                <Text style={[styles.confirmReceivedText, { color: '#E11D48', fontWeight: '700' }]}>
-                  Từ chối đơn (Hoàn cọc 100% cho khách)
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        );
-      }
-
       return (
         <View style={{ gap: 8 }}>
           <TouchableOpacity
@@ -169,7 +199,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
               <>
                 <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
                 <Text style={styles.confirmReceivedText}>
-                  Đồng ý đơn & Chốt lịch hẹn
+                  {isInterCampus ? 'Đồng ý nhận đơn' : 'Đồng ý đơn & Chốt lịch hẹn'}
                 </Text>
               </>
             )}
@@ -203,12 +233,14 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
               disabled={isSubmitting}
             >
               <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
-              <Text style={styles.confirmReceivedText}>Sửa mã vận đơn / Hãng vận chuyển</Text>
+              <Text style={styles.confirmReceivedText}>
+                {hasTrackingCode ? 'Sửa mã vận đơn / Hãng vận chuyển' : 'Bàn giao bưu cục GHN (Tạo mã vận đơn)'}
+              </Text>
             </TouchableOpacity>
             <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' }]}>
               <Ionicons name="cube-outline" size={20} color="#2563EB" style={styles.mr6} />
               <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 13 }]}>
-                Kiện hàng đang được bưu cục luân chuyển
+                {hasTrackingCode ? 'Kiện hàng đang được bưu cục luân chuyển' : 'Đã tiếp nhận đơn • Đang chờ đóng gói & bàn giao'}
               </Text>
             </View>
           </View>
@@ -429,8 +461,13 @@ export interface OrderActionButtonsProps {
   orderStatus: string;
   isSeller: boolean;
   isInterCampus?: boolean;
+  hasTrackingCode?: boolean;
   isReviewed: boolean;
   isSubmitting: boolean;
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+  isPaid?: boolean;
+  hasDisputeRefund?: boolean;
   onConfirmOrder?: () => void;
   onConfirmReceived: () => void;
   onOpenScanner: () => void;
@@ -448,8 +485,13 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   orderStatus,
   isSeller,
   isInterCampus,
+  hasTrackingCode,
   isReviewed,
   isSubmitting,
+  cancelledBy,
+  cancelReason,
+  isPaid,
+  hasDisputeRefund,
   onConfirmOrder,
   onConfirmReceived,
   onOpenScanner,
@@ -474,7 +516,16 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
 
   return (
     <View style={styles.actionContainer}>
-      {isCancelled && <CancelledBanner />}
+      {isCancelled && (
+        <CancelledBanner
+          isSeller={isSeller}
+          cancelledBy={cancelledBy}
+          cancelReason={cancelReason}
+          isPaid={isPaid}
+          hasDisputeRefund={hasDisputeRefund}
+          onOpenDisputeDetail={onOpenDisputeDetail}
+        />
+      )}
 
       {isDisputed && (
         <DisputedBanner isSeller={isSeller} onOpenDisputeDetail={onOpenDisputeDetail} onWithdrawDispute={onWithdrawDispute} />
@@ -485,6 +536,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
         orderStatus={orderStatus}
         isSeller={isSeller}
         isInterCampus={isInterCampus}
+        hasTrackingCode={hasTrackingCode}
         isReviewed={isReviewed}
         isSubmitting={isSubmitting}
         isDisputed={isDisputed}

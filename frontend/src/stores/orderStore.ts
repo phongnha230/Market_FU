@@ -96,6 +96,10 @@ export interface OrderItem {
     voucherAmount: string;
   };
   dispute?: any;
+  cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
+  cancelReason?: string | null;
+  cancelledAt?: string | null;
+  shippingPartner?: string;
 }
 
 interface OrderState {
@@ -188,9 +192,19 @@ export const useOrderStore = create<OrderState>()(
                   bo.status === 'COMPLETED'
                     ? 'Giao dịch thành công'
                     : bo.status === 'CANCELLED'
-                    ? ((bo as any).dispute ? 'Đã hoàn tiền (Khiếu nại được duyệt)' : 'Đã hủy đơn')
+                    ? ((bo as any).cancelledBy === 'DISPUTE' || (bo as any).dispute?.status === 'RESOLVED'
+                        ? 'Đã hoàn tiền (Khiếu nại được duyệt)'
+                        : (bo as any).cancelledBy === 'SHIPPER'
+                        ? 'Đơn vị vận chuyển hủy giao'
+                        : (bo as any).cancelledBy === 'SELLER'
+                        ? 'Người bán đã từ chối / hủy đơn'
+                        : (bo as any).cancelledBy === 'BUYER'
+                        ? 'Người mua đã hủy đơn'
+                        : (bo as any).cancelledBy === 'SYSTEM'
+                        ? 'Tự động hủy (Quá hạn TT)'
+                        : 'Đã hủy đơn')
                     : bo.status === 'SHIPPING'
-                    ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : ((bo as any).trackingCode ? 'Đang giao hàng (GHN)' : 'Đang chuẩn bị hàng'))
+                    ? (bo.orderType === 'MEETUP' ? 'Đã chốt hẹn Safe-Point • Chờ bàn giao' : ((bo as any).trackingCode || bo.shipping?.trackingCode ? 'Đang giao hàng (GHN)' : 'Đang chuẩn bị hàng'))
                     : bo.status === 'PAID'
                     ? (bo.orderType === 'MEETUP' ? 'Đã nạp Escrow • Chờ người bán xác nhận lịch hẹn' : 'Đã thanh toán (Escrow bảo hộ) • Chờ người bán xác nhận')
                     : bo.status === 'DELIVERED'
@@ -199,6 +213,10 @@ export const useOrderStore = create<OrderState>()(
                     ? 'Chờ thanh toán (PayOS)'
                     : 'Chờ người bán xác nhận',
                 statusColor: statusColorMap[bo.status] || 'text-fpt-orange',
+                cancelledBy: (bo as any).cancelledBy || null,
+                cancelReason: (bo as any).cancelReason || null,
+                cancelledAt: (bo as any).cancelledAt || null,
+                shippingPartner: bo.shipping?.shippingPartner,
                 reviewed: bo.reviews && bo.reviews.length > 0,
                 reviewData: bo.reviews && bo.reviews.length > 0 ? {
                   rating: Number(bo.reviews[0].rating) || 5,

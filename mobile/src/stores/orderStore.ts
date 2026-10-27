@@ -72,9 +72,15 @@ export interface OrderItem {
   handshakeOtp?: string;
   orderType?: 'MEETUP' | 'SHIP_COD';
   trackingCode?: string;
+  cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
+  cancelReason?: string | null;
+  isPaid?: boolean;
   shippingPartner?: string;
   shipping?: {
     trackingCode?: string;
+  cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
+  cancelReason?: string | null;
+  isPaid?: boolean;
     shippingPartner?: string;
     receiverName?: string;
     receiverPhone?: string;

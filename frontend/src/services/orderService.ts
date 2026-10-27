@@ -70,6 +70,9 @@ export interface BackendOrder {
   };
   reviews?: any[];
   dispute?: any;
+  cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
+  cancelReason?: string | null;
+  cancelledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -236,8 +236,11 @@ export class ShippingWebhookService {
 
     const now = new Date();
     const isDelivered = mapped === 'DELIVERED';
+    const isCancelledByCarrier = mapped === 'CANCELLED';
+    const carrierName = order.shipping?.shippingPartner || 'GHN';
+    const carrierCancelReason = `Đơn vị vận chuyển (${carrierName}) báo hủy giao / hoàn trả kiện hàng`;
 
-    // 6. Cập nhật trong transaction: đơn + sản phẩm SOLD + COD paid flag
+    // 6. Cập nhật trong transaction: đơn + sản phẩm SOLD / AVAILABLE + COD paid flag / hoàn xu
     await prisma.$transaction(async (tx) => {
       // Chỉ cập nhật khi chưa bị xử lý bởi webhook song song khác
       const upd = await tx.order.updateMany({
@@ -254,6 +257,12 @@ export class ShippingWebhookService {
                   deliveredAt: now,
                 },
               }
+            : isCancelledByCarrier
+            ? {
+                cancelledBy: 'SHIPPER',
+                cancelReason: carrierCancelReason,
+                cancelledAt: now,
+              }
             : {}),
         },
       });
@@ -264,14 +273,53 @@ export class ShippingWebhookService {
 
       if (isDelivered) {
         await tx.product.update({ where: { id: order.productId }, data: { status: 'SOLD' } });
+      } else if (isCancelledByCarrier) {
+        // Mở lại trạng thái Đang bán cho sản phẩm khi bưu tá hủy / hoàn hàng
+        await tx.product.updateMany({
+          where: { id: order.productId },
+          data: { status: 'AVAILABLE' },
+        });
+
+        // Hoàn lại FPT Coin nếu người mua đã áp dụng
+        if (order.payment?.coinsUsed > 0) {
+          await tx.profile.update({
+            where: { userId: order.buyerId },
+            data: { campusCoins: { increment: order.payment.coinsUsed } },
+          });
+        }
+
+        if (order.payment?.appliedUserVoucherId) {
+          const completedOrderWithVoucher = await tx.order.findFirst({
+            where: {
+              id: { not: order.id },
+              buyerId: order.buyerId,
+              status: 'COMPLETED',
+              payment: { is: { appliedUserVoucherId: order.payment.appliedUserVoucherId } },
+            },
+            select: { id: true },
+          });
+
+          if (!completedOrderWithVoucher) {
+            await tx.userVoucher.updateMany({
+              where: { id: order.payment.appliedUserVoucherId, userId: order.buyerId, status: 'USED' },
+              data: { status: 'UNUSED', usedAt: null },
+            });
+          }
+        }
       }
     });
 
     // 7. Bắn thông báo Realtime & Push FCM cho 2 bên (Task 3.2)
-    const title = isDelivered ? '📦 Kiện hàng đã giao thành công' : mapped === 'SHIPPING' ? '🚚 Đơn hàng đang vận chuyển' : '↩️ Đơn hàng bị hủy/hoàn trả';
+    const title = isDelivered
+      ? '📦 Kiện hàng đã giao thành công'
+      : mapped === 'SHIPPING'
+      ? '🚚 Đơn hàng đang vận chuyển'
+      : '↩️ Đơn vị vận chuyển báo hủy / hoàn trả';
     const body = isDelivered
       ? `Đơn hàng #${order.orderCode} đã được shipper thu tiền COD và giao thành công. Bạn có 48 giờ bao test kiểm tra món đồ!`
-      : `Đơn hàng #${order.orderCode} vừa cập nhật trạng thái: ${mapped} (đối tác ${order.shipping?.shippingPartner || 'GHTK'}).`;
+      : isCancelledByCarrier
+      ? `Đơn hàng #${order.orderCode} đã bị đơn vị vận chuyển (${carrierName}) hủy giao / hoàn trả kiện hàng. Sản phẩm đã tự động mở bán lại.`
+      : `Đơn hàng #${order.orderCode} vừa cập nhật trạng thái: ${mapped} (đối tác ${carrierName}).`;
 
     await Promise.all([
       notificationService.sendNotification({

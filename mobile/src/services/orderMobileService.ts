@@ -164,9 +164,21 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     statusBg = '#EFF6FF';
     statusLabel = '🚚 Đang vận chuyển';
   } else if (status === 'CANCELLED') {
-    statusColor = '#64748B';
-    statusBg = '#F1F5F9';
-    statusLabel = '❌ Đã hủy';
+    const cancelledBy = item.cancelledBy;
+    const isDisputeRefund = cancelledBy === 'DISPUTE' || item.dispute?.status === 'RESOLVED' || item.dispute?.status === 'REFUNDED';
+    statusColor = isDisputeRefund ? '#DC2626' : '#64748B';
+    statusBg = isDisputeRefund ? '#FEF2F2' : '#F1F5F9';
+    statusLabel = isDisputeRefund
+      ? '💸 Đã hoàn tiền (Khiếu nại)'
+      : cancelledBy === 'SHIPPER'
+      ? '🚚 Shipper hủy giao'
+      : cancelledBy === 'SELLER'
+      ? '❌ Người bán từ chối đơn'
+      : cancelledBy === 'BUYER'
+      ? '❌ Người mua đã hủy'
+      : cancelledBy === 'SYSTEM'
+      ? '⏱️ Tự động hủy (Quá hạn)'
+      : '❌ Đã hủy';
   } else if (status === 'DISPUTED') {
     statusColor = '#DC2626';
     statusBg = '#FEF2F2';
@@ -181,8 +193,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     '';
   const validOtp = /^\d{4}$/.test(rawOtp) ? rawOtp : generate4DigitOtp();
 
-  const rawCampus = product.campus || item.shipping?.destinationCampus;
-  const friendlyCampus = fromBackendCampus(rawCampus);
+  const rawBuyerCampus = item.shipping?.destinationCampus || item.buyer?.profile?.campus || product.campus;
+  const friendlyCampus = fromBackendCampus(rawBuyerCampus);
+  const friendlySellerCampus = fromBackendCampus(product.campus || item.seller?.profile?.campus || 'HOL');
 
   const isShip = Boolean(
     item.orderType === 'SHIP_COD' ||
@@ -231,7 +244,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     sellerName:
       item.seller?.profile?.fullName || item.seller?.fullName || item.sellerName || 'Người bán FPT',
     sellerCohort: item.seller?.profile?.cohort || '',
-    sellerCampus: fromBackendCampus(item.seller?.profile?.campus || 'HOL'),
+    sellerCampus: friendlySellerCampus,
     sellerAvatar: item.seller?.profile?.avatarUrl || item.seller?.avatarUrl,
     buyerId: item.buyerId || item.buyer?.id || '',
     buyerName:
@@ -243,6 +256,9 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     statusLabel: item.statusLabel || statusLabel,
     statusColor: item.statusColor || statusColor,
     statusBg: item.statusBg || statusBg,
+    cancelledBy: item.cancelledBy || null,
+    cancelReason: item.cancelReason || null,
+    isPaid: Boolean(item.payment?.isPaid),
     safePoint: rawLocation,
     timeSlot: resolvedTimeSlot,
     deliveryNote: resolvedNote,

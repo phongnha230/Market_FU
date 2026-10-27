@@ -20,7 +20,7 @@ import { useMarket } from '@/context/MarketContext';
 import { useUserStore } from '@/stores/userStore';
 import { OrderItem, useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { ShieldCheck, MapPin, QrCode, Phone, Lock, Store, Edit3, Loader2 } from 'lucide-react';
+import { ShieldCheck, MapPin, QrCode, Phone, Lock, Store, Edit3, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 import { orderService } from '@/services/orderService';
 import { ProductService } from '@/services/productService';
@@ -80,6 +80,77 @@ function OrdersPageInner() {
     VALID_TABS.includes(tabFromUrl as MainTab) ? (tabFromUrl as MainTab) : 'buying'
   );
   const [activeProgressFilter, setActiveProgressFilter] = useState<string>(filterFromUrl);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ORDERS_PER_PAGE = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeMainTab, activeProgressFilter]);
+
+  const renderPaginationBar = (totalItems: number, perPage: number = ORDERS_PER_PAGE) => {
+    const totalPages = Math.ceil(totalItems / perPage);
+    if (totalPages <= 1) return null;
+    const safePage = Math.min(currentPage, totalPages);
+    const startIdx = (safePage - 1) * perPage;
+    const endIdx = Math.min(startIdx + perPage, totalItems);
+
+    return (
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-2xs">
+        <span className="text-xs text-slate-500 font-medium">
+          Hiển thị <strong className="text-slate-800">{startIdx + 1}–{endIdx}</strong> trong tổng số{' '}
+          <strong className="text-slate-800">{totalItems}</strong> đơn hàng
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            onClick={() => {
+              setCurrentPage(Math.max(1, safePage - 1));
+              window.scrollTo({ top: 180, behavior: 'smooth' });
+            }}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span>Trước</span>
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+            const isCurrent = pageNum === safePage;
+            return (
+              <button
+                key={pageNum}
+                type="button"
+                onClick={() => {
+                  setCurrentPage(pageNum);
+                  window.scrollTo({ top: 180, behavior: 'smooth' });
+                }}
+                className={`h-8 min-w-8 px-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  isCurrent
+                    ? 'bg-fpt-orange text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            onClick={() => {
+              setCurrentPage(Math.min(totalPages, safePage + 1));
+              window.scrollTo({ top: 180, behavior: 'smooth' });
+            }}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+          >
+            <span>Sau</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -101,7 +172,12 @@ function OrdersPageInner() {
   // Thống kê số lượng đơn theo tiến trình đồng bộ theo Tab đang mở
   const filterCounts = React.useMemo(() => {
     return {
-      qr: currentTabOrders.filter((o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')).length,
+      qr: currentTabOrders.filter(
+        (o) =>
+          o.status !== 'cancelled' &&
+          o.status !== 'disputed' &&
+          ((o.payment && !o.payment.isPaid && o.payment.paymentMethod !== 'CASH' && !o.payment.paymentMethod?.toLowerCase().includes('cod')) || (o.type === 'safe-handoff' && o.status !== 'completed'))
+      ).length,
       packing: currentTabOrders.filter((o) => o.status === 'processing').length,
       shipping: currentTabOrders.filter((o) => o.status === 'shipping').length,
       inspecting: currentTabOrders.filter((o) => o.status === 'delivered').length,
@@ -115,7 +191,10 @@ function OrdersPageInner() {
     if (activeProgressFilter === 'all') return buyingOrders;
     if (activeProgressFilter === 'qr') {
       return buyingOrders.filter(
-        (o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')
+        (o) =>
+          o.status !== 'cancelled' &&
+          o.status !== 'disputed' &&
+          ((o.payment && !o.payment.isPaid && o.payment.paymentMethod !== 'CASH' && !o.payment.paymentMethod?.toLowerCase().includes('cod')) || (o.type === 'safe-handoff' && o.status !== 'completed'))
       );
     }
     if (activeProgressFilter === 'packing') {
@@ -141,7 +220,10 @@ function OrdersPageInner() {
     if (activeProgressFilter === 'all') return sellingOrders;
     if (activeProgressFilter === 'qr') {
       return sellingOrders.filter(
-        (o) => (o.payment && !o.payment.isPaid) || (o.type === 'safe-handoff' && o.status !== 'completed')
+        (o) =>
+          o.status !== 'cancelled' &&
+          o.status !== 'disputed' &&
+          ((o.payment && !o.payment.isPaid && o.payment.paymentMethod !== 'CASH' && !o.payment.paymentMethod?.toLowerCase().includes('cod')) || (o.type === 'safe-handoff' && o.status !== 'completed'))
       );
     }
     if (activeProgressFilter === 'packing') {
@@ -240,6 +322,20 @@ function OrdersPageInner() {
       showToast(`❌ ${msg}`, 'error');
     }
   };
+
+  const safeBuyingPage = Math.min(currentPage, Math.max(1, Math.ceil(filteredBuyingOrders.length / ORDERS_PER_PAGE)));
+  const paginatedBuyingOrders = filteredBuyingOrders.slice((safeBuyingPage - 1) * ORDERS_PER_PAGE, safeBuyingPage * ORDERS_PER_PAGE);
+
+  const safeSellingPage = Math.min(currentPage, Math.max(1, Math.ceil(filteredSellingOrders.length / ORDERS_PER_PAGE)));
+  const paginatedSellingOrders = filteredSellingOrders.slice((safeSellingPage - 1) * ORDERS_PER_PAGE, safeSellingPage * ORDERS_PER_PAGE);
+
+  const LISTINGS_PER_PAGE = 6;
+  const safeListingsPage = Math.min(currentPage, Math.max(1, Math.ceil(myProducts.length / LISTINGS_PER_PAGE)));
+  const paginatedMyProducts = myProducts.slice((safeListingsPage - 1) * LISTINGS_PER_PAGE, safeListingsPage * LISTINGS_PER_PAGE);
+
+  const handoffOrders = orders.filter((o) => o.type === 'safe-handoff');
+  const safeHandoffPage = Math.min(currentPage, Math.max(1, Math.ceil(handoffOrders.length / ORDERS_PER_PAGE)));
+  const paginatedHandoffOrders = handoffOrders.slice((safeHandoffPage - 1) * ORDERS_PER_PAGE, safeHandoffPage * ORDERS_PER_PAGE);
 
   const handleCancelOrder = async (orderId: string, orderCode: string) => {
     const confirmed = window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng ${orderCode}? Tiền cọc hoặc Xu sẽ được hoàn về tài khoản.`);
@@ -414,7 +510,7 @@ function OrdersPageInner() {
                     </Button>
                   </Card>
                 ) : (
-                  filteredBuyingOrders.map((order) => (
+                  paginatedBuyingOrders.map((order) => (
                     <OrderCard
                       key={order.id}
                       order={order}
@@ -442,6 +538,8 @@ function OrdersPageInner() {
                 )}
               </div>
             )}
+
+            {activeMainTab === 'buying' && filteredBuyingOrders.length > 0 && renderPaginationBar(filteredBuyingOrders.length)}
 
             {/* TAB 2: SELLING ORDERS NEED SHIPPING (SELLER ONLY) */}
             {activeMainTab === 'selling' && (
@@ -588,7 +686,7 @@ function OrdersPageInner() {
                       </Button>
                     </Card>
                   ) : (
-                    filteredSellingOrders.map((order) => (
+                    paginatedSellingOrders.map((order) => (
                       <OrderCard
                         key={order.id}
                         order={order}
@@ -613,6 +711,8 @@ function OrdersPageInner() {
                 </div>
               )
             )}
+
+            {activeMainTab === 'selling' && isSeller && filteredSellingOrders.length > 0 && renderPaginationBar(filteredSellingOrders.length)}
 
             {/* TAB 3: LISTINGS / SELLING (SELLER ONLY) */}
             {activeMainTab === 'listings' && (
@@ -701,7 +801,7 @@ function OrdersPageInner() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {myProducts.map((prod) => {
+                        {paginatedMyProducts.map((prod) => {
                           const status = (prod as any).status || 'AVAILABLE';
                           return (
                             <Card key={prod.id} className="flex flex-row items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition shadow-none">
@@ -771,6 +871,8 @@ function OrdersPageInner() {
               )
             )}
 
+            {activeMainTab === 'listings' && isSeller && !isLoadingMyProducts && myProducts.length > 0 && renderPaginationBar(myProducts.length, LISTINGS_PER_PAGE)}
+
             {/* TAB 4: SAFE-HANDOFF APPOINTMENTS TAB */}
             {activeMainTab === 'handoff' && (
               <div className="space-y-4">
@@ -785,8 +887,7 @@ function OrdersPageInner() {
                     </p>
                   </Card>
                 ) : (
-                  orders
-                    .filter((o) => o.type === 'safe-handoff')
+                  paginatedHandoffOrders
                     .map((order) => (
                       <OrderCard
                         key={order.id}
@@ -809,6 +910,7 @@ function OrdersPageInner() {
                       />
                     ))
                 )}
+                {renderPaginationBar(handoffOrders.length)}
               </div>
             )}
           </div>

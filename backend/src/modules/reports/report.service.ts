@@ -642,11 +642,14 @@ export class ReportService {
 
       // 2. B4-1: Xử lý trạng thái đơn hàng & hoàn trả tiền / Xu / Voucher / sản phẩm
       if (isRefund) {
-        // Cập nhật Order -> CANCELLED và trả trạng thái thanh toán về false
+        // Cập nhật Order -> CANCELLED, gắn nhãn hủy do KHIẾU NẠI (DISPUTE) và trả trạng thái thanh toán về false
         await tx.order.update({
           where: { id: orderId },
           data: {
             status: 'CANCELLED',
+            cancelledBy: 'DISPUTE',
+            cancelReason: 'Yêu cầu trả hàng & hoàn tiền đã được BQT chấp thuận',
+            cancelledAt: now,
             payment: {
               ...dispute.order.payment,
               isPaid: false,
@@ -662,14 +665,26 @@ export class ReportService {
 
         // Khôi phục Voucher đã dùng nếu có
         if (dispute.order.payment?.appliedUserVoucherId) {
-          await tx.userVoucher.updateMany({
+          const completedOrderWithVoucher = await tx.order.findFirst({
             where: {
-              id: dispute.order.payment.appliedUserVoucherId,
-              userId: dispute.order.buyerId,
-              status: 'USED',
+              id: { not: dispute.order.id },
+              buyerId: dispute.order.buyerId,
+              status: 'COMPLETED',
+              payment: { is: { appliedUserVoucherId: dispute.order.payment.appliedUserVoucherId } },
             },
-            data: { status: 'UNUSED', usedAt: null },
+            select: { id: true },
           });
+
+          if (!completedOrderWithVoucher) {
+            await tx.userVoucher.updateMany({
+              where: {
+                id: dispute.order.payment.appliedUserVoucherId,
+                userId: dispute.order.buyerId,
+                status: 'USED',
+              },
+              data: { status: 'UNUSED', usedAt: null },
+            });
+          }
         }
 
         // B4-1: Hoàn lại đúng số FPT Xu đã dùng cho Người mua

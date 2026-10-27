@@ -108,6 +108,10 @@ export default function OrderDetailPage() {
           return {
             ...prev,
             status: statusMap[detail.status] || prev.status,
+            cancelledBy: (detail as any).cancelledBy ?? prev.cancelledBy,
+            cancelReason: (detail as any).cancelReason ?? prev.cancelReason,
+            cancelledAt: (detail as any).cancelledAt ?? prev.cancelledAt,
+            dispute: (detail as any).dispute ?? prev.dispute,
             appointmentTime: detail.appointmentTime || prev.appointmentTime,
             meetupLocation: detail.meetupLocation || prev.meetupLocation,
             handshake: detail.handshake || prev.handshake,
@@ -263,12 +267,24 @@ export default function OrderDetailPage() {
 
     if (!confirm(confirmPrompt)) return;
     try {
-      await orderService.cancelOrder(
-        order.id || cleanCode,
-        isSellerViewer ? 'Người bán từ chối nhận đơn / lịch hẹn' : 'Người mua yêu cầu hủy đơn'
+      const reasonText = isSellerViewer
+        ? 'Người bán từ chối nhận đơn / lịch hẹn'
+        : 'Người mua yêu cầu hủy đơn';
+      const actor = isSellerViewer ? 'SELLER' : 'BUYER';
+      const newStatusText = isSellerViewer ? 'Người bán đã từ chối / hủy đơn' : 'Người mua đã hủy đơn';
+      await orderService.cancelOrder(order.id || cleanCode, reasonText);
+      updateOrderStatus(order.code, 'cancelled', newStatusText);
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'cancelled',
+              statusText: newStatusText,
+              cancelledBy: actor,
+              cancelReason: reasonText,
+            }
+          : null
       );
-      updateOrderStatus(order.code, 'cancelled', 'Đã hủy đơn hàng');
-      setOrder((prev) => (prev ? { ...prev, status: 'cancelled', statusText: 'Đã hủy đơn hàng' } : null));
       showToast(
         isPaid
           ? 'Đã hủy đơn thành công! Hệ thống đã tự động hoàn tiền cọc Escrow 100% cho người mua.'
@@ -377,7 +393,42 @@ export default function OrderDetailPage() {
       !order.payment?.paymentMethod?.toLowerCase().includes('vietqr') &&
       !order.payment?.paymentMethod?.toLowerCase().includes('payos'));
 
+  const effectiveCancelledBy = (backendOrderDetail as any)?.cancelledBy || order.cancelledBy;
+  const effectiveCancelReason = (backendOrderDetail as any)?.cancelReason || order.cancelReason;
+  const effectiveDispute = (backendOrderDetail as any)?.dispute || order.dispute;
+  const isDisputeRefund =
+    effectiveCancelledBy === 'DISPUTE' ||
+    effectiveDispute?.status === 'RESOLVED' ||
+    effectiveDispute?.status === 'REFUNDED';
+  const isShipperCancel = effectiveCancelledBy === 'SHIPPER';
+  const isSellerCancel = effectiveCancelledBy === 'SELLER';
+  const isSystemCancel = effectiveCancelledBy === 'SYSTEM';
+
   const getEscrowBadgeMeta = () => {
+    if (order.status === 'cancelled') {
+      if (isDisputeRefund) {
+        return {
+          text: 'Đã hoàn tiền Khiếu nại',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      }
+      if (order.payment?.isPaid) {
+        return {
+          text: 'Đã hoàn tiền cọc Escrow',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      }
+      if (isCodOrder) {
+        return {
+          text: 'Đơn COD đã hủy',
+          className: 'bg-slate-100 text-slate-600 border-slate-200',
+        };
+      }
+      return {
+        text: 'Đã hủy (Chưa thanh toán)',
+        className: 'bg-slate-100 text-slate-600 border-slate-200',
+      };
+    }
     if (order.type === 'safe-handoff') {
       return {
         text: 'Xác thực QR Handshake',
@@ -463,10 +514,29 @@ export default function OrderDetailPage() {
 
   // Tracking steps fallback
   const rawTrackingSteps = order.status === 'cancelled'
-    ? [
-        { title: 'Tiếp nhận đơn hàng', desc: 'Đơn hàng đã được tạo', status: 'completed' },
-        { title: 'Đã hủy đơn hàng', desc: 'Đơn hàng đã được hủy thành công • Đã hoàn tiền cọc Escrow 100% cho người mua', status: 'cancelled' },
-      ]
+    ? (liveTracking?.steps && liveTracking.steps.length > 0
+        ? liveTracking.steps
+        : [
+            { title: 'Tiếp nhận đơn hàng', desc: 'Đơn hàng đã được tạo trên hệ thống', status: 'completed' },
+            ...(isShipperCancel
+              ? [{ title: 'Đã bàn giao vận chuyển', desc: 'Người bán đã giao kiện hàng cho đơn vị vận chuyển', status: 'completed' }]
+              : []),
+            {
+              title: isDisputeRefund
+                ? 'Hoàn tiền theo quyết định Khiếu nại'
+                : isShipperCancel
+                ? 'Đơn vị vận chuyển hủy giao / Hoàn hàng'
+                : isSellerCancel
+                ? 'Người bán đã từ chối / hủy đơn'
+                : isSystemCancel
+                ? 'Hệ thống tự động hủy đơn'
+                : 'Người mua đã hủy đơn hàng',
+              desc:
+                (effectiveCancelReason || 'Đơn hàng đã đóng') +
+                (order.payment?.isPaid ? ' • Đã hoàn tiền cọc Escrow 100% cho người mua' : isCodOrder ? ' • Đơn COD chưa phát sinh thu tiền' : ''),
+              status: 'cancelled',
+            },
+          ])
     : isSafeHandoff
     ? (liveTracking?.steps && liveTracking.steps.some((s: any) => s.title.includes('Escrow') || s.title.includes('Safe-Point')) ? liveTracking.steps : safeHandoffDefaultSteps)
     : liveTracking?.steps || order.tracking?.steps || [
@@ -505,7 +575,12 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
       ? 45000
       : 0;
   const coinDiscount = (order.payment as any)?.coinDiscount || 0;
-  const totalBuyerPay = Math.max(0, order.product.price + effectiveShippingFee - coinDiscount);
+  const rawCalculatedTotal = Math.max(0, order.product.price + effectiveShippingFee - coinDiscount);
+  const totalBuyerPay =
+    typeof order.payment?.totalAmount === 'number' && order.payment.totalAmount > 0
+      ? order.payment.totalAmount
+      : rawCalculatedTotal;
+  const voucherDiscount = Math.max(0, rawCalculatedTotal - totalBuyerPay);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800">
@@ -569,6 +644,8 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                 <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
               ) : isOrderDisputed ? (
                 <AlertTriangle className="h-4.5 w-4.5 text-rose-600" />
+              ) : order.status === 'cancelled' ? (
+                <XCircle className="h-4.5 w-4.5 text-rose-600" />
               ) : (
                 <Clock className="h-4.5 w-4.5 text-amber-600" />
               )}
@@ -709,36 +786,92 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
               )}
 
               {order.status === 'cancelled' && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-3 text-xs text-rose-950">
-                  <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
-                    <XCircle className="h-5 w-5" />
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-950">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
+                      {isDisputeRefund ? <ShieldAlert className="h-5 w-5" /> : isShipperCancel ? <Truck className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
+                        {isDisputeRefund
+                          ? 'Đơn hàng đã hoàn tiền cho Người mua theo phán quyết Khiếu nại của BQT'
+                          : isShipperCancel
+                          ? `Đơn vị vận chuyển (${order.shippingPartner || 'GHN'}) báo hủy giao / hoàn trả kiện hàng`
+                          : isSellerCancel
+                          ? 'Bạn đã từ chối / hủy đơn hàng này'
+                          : isSystemCancel
+                          ? 'Đơn hàng tự động hủy do quá hạn thanh toán'
+                          : 'Người mua đã hủy đơn hàng này'}
+                      </h4>
+                      <p className="text-[11px] text-rose-800 leading-relaxed">
+                        {isDisputeRefund
+                          ? 'Yêu cầu trả hàng & hoàn tiền của Người mua đã được Ban Quản Trị chấp thuận. Tiền cọc Escrow và Xu đã được hoàn trả cho Người mua. Bài đăng chuyển sang trạng thái Ẩn.'
+                          : isShipperCancel
+                          ? `Lý do từ đơn vị vận chuyển: "${effectiveCancelReason || 'Giao không thành công / Hoàn trả kiện hàng'}". Sản phẩm đã tự động được mở lại trạng thái Đang bán trên sàn.`
+                          : isSellerCancel
+                          ? `Bạn đã từ chối nhận đơn / lịch hẹn này. ${order.payment?.isPaid ? 'Toàn bộ tiền cọc Escrow và Xu của Người mua đã được hoàn trả 100%.' : 'Đơn COD chưa phát sinh thu tiền.'} Sản phẩm đã tự động mở lại trạng thái Đang bán trên sàn.`
+                          : `Lý do hủy: "${effectiveCancelReason || 'Người mua đổi ý / Quá hạn thanh toán'}". ${order.payment?.isPaid ? 'Tiền cọc Escrow đã được hoàn trả cho Người mua.' : 'Chưa phát sinh thanh toán.'} Sản phẩm đã được mở lại trạng thái Đang bán trên sàn.`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
-                      Đơn hàng đã được hủy / từ chối
-                    </h4>
-                    <p className="text-[11px] text-rose-800 leading-relaxed">
-                      Đơn hàng này đã bị hủy. Toàn bộ tiền cọc Escrow và xu của Người mua đã được tự động hoàn trả 100%. Sản phẩm đã được tự động mở lại trạng thái Đang bán trên sàn.
-                    </p>
-                  </div>
+                  {isDisputeRefund && (
+                    <Button
+                      asChild
+                      size="sm"
+                      className="shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                    >
+                      <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                        <ShieldAlert className="h-3.5 w-3.5 mr-1.5 text-white" />
+                        <span>Xem hồ sơ khiếu nại</span>
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               )}
             </>
           ) : (
             <>
               {order.status === 'cancelled' && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-3 text-xs text-rose-950">
-                  <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
-                    <XCircle className="h-5 w-5" />
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-950">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
+                      {isDisputeRefund ? <ShieldAlert className="h-5 w-5" /> : isShipperCancel ? <Truck className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
+                        {isDisputeRefund
+                          ? 'Yêu cầu trả hàng & hoàn tiền đã được Ban Quản Trị chấp thuận'
+                          : isShipperCancel
+                          ? `Đơn vị vận chuyển (${order.shippingPartner || 'GHN'}) đã hủy giao / hoàn trả kiện hàng`
+                          : isSellerCancel
+                          ? 'Người bán đã từ chối nhận đơn / lịch hẹn'
+                          : isSystemCancel
+                          ? 'Đơn hàng đã tự động hủy do quá hạn thanh toán'
+                          : 'Bạn đã hủy đơn hàng thành công'}
+                      </h4>
+                      <p className="text-[11px] text-rose-800 leading-relaxed">
+                        {isDisputeRefund
+                          ? `Hồ sơ khiếu nại của bạn đã được BQT phê duyệt hoàn tiền. Toàn bộ tiền cọc Escrow (${formatVND(order.product.price)}) và Xu/Voucher đã được xử lý hoàn trả về tài khoản của bạn.`
+                          : isShipperCancel
+                          ? `Đơn vị vận chuyển không thể giao kiện hàng này (${effectiveCancelReason || 'Bưu cục báo hủy giao / hoàn hàng'}). ${order.payment?.isPaid ? `Toàn bộ tiền cọc Escrow (${formatVND(order.product.price)}) và Xu của bạn đã được hoàn trả 100%.` : 'Đây là đơn COD nên bạn không bị trừ bất kỳ khoản phí nào (Xu/Voucher nếu dùng đã được hoàn lại).'}`
+                          : isSellerCancel
+                          ? `Người bán không thể tiếp nhận đơn / lịch hẹn này (${effectiveCancelReason || 'Người bán từ chối đơn'}). ${order.payment?.isPaid ? `Toàn bộ tiền cọc Escrow (${formatVND(order.product.price)}) và Xu của bạn đã được tự động hoàn trả 100% vào ví.` : 'Đơn hàng COD đã đóng và hoàn lại Xu/Voucher (nếu có).'}`
+                          : `Lý do hủy: "${effectiveCancelReason || 'Theo yêu cầu của người mua'}". ${order.payment?.isPaid ? `Toàn bộ tiền cọc Escrow (${formatVND(order.product.price)}) và Xu/Voucher của bạn đã được tự động hoàn trả đầy đủ.` : 'Đơn hàng chưa phát sinh thanh toán cọc Escrow (Xu/Voucher nếu dùng đã được hoàn lại).'}`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-rose-950 text-xs sm:text-sm">
-                      Đơn hàng đã được hủy thành công
-                    </h4>
-                    <p className="text-[11px] text-rose-800 leading-relaxed">
-                      Đơn hàng này đã bị hủy. Toàn bộ tiền cọc Escrow ({formatVND(order.product.price)}) và Xu/Voucher của bạn đã được tự động hoàn trả đầy đủ vào ví tài khoản.
-                    </p>
-                  </div>
+                  {isDisputeRefund && (
+                    <Button
+                      asChild
+                      size="sm"
+                      className="shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                    >
+                      <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                        <ShieldAlert className="h-3.5 w-3.5 mr-1.5 text-white" />
+                        <span>Xem hồ sơ hoàn tiền</span>
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               )}
               {isOrderDelivered && (
@@ -1376,6 +1509,12 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                       <span>{order.type === 'safe-handoff' ? 'Phí bàn giao Safe-Point:' : 'Phí luân chuyển liên Campus (GHN):'}</span>
                       <span className="font-semibold text-slate-900">{formatVND(effectiveShippingFee)}</span>
                     </div>
+                    {voucherDiscount > 0 && (
+                      <div className="flex items-center justify-between text-emerald-700 font-medium">
+                        <span>Ưu đãi Voucher Freeship:</span>
+                        <span>-{formatVND(voucherDiscount)}</span>
+                      </div>
+                    )}
                     {coinDiscount > 0 && (
                       <div className="flex items-center justify-between text-emerald-700 font-medium">
                         <span>Ưu đãi FPT Coins:</span>
@@ -1405,6 +1544,15 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                     <span className="font-bold text-emerald-600 flex items-center gap-1">
                       <CheckCircle2 className="h-3 w-3" />
                       <span>{isSellerViewer ? 'Đã quyết toán vào ví của bạn' : 'Giao dịch hoàn tất'}</span>
+                    </span>
+                  ) : order.status === 'cancelled' ? (
+                    <span className="font-bold text-rose-600 flex items-center gap-1">
+                      <XCircle className="h-3 w-3" />
+                      <span>
+                        {isDisputeRefund || order.payment?.isPaid
+                          ? 'Đã hoàn tiền cọc Escrow 100%'
+                          : 'Đơn đã hủy (Không phát sinh thu tiền)'}
+                      </span>
                     </span>
                   ) : order.payment?.isPaid ? (
                     <span className="font-bold text-emerald-600 flex items-center gap-1">
