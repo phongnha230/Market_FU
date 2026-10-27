@@ -9,8 +9,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCheckoutController } from '../hooks/useCheckoutController';
-import { CheckoutEscrowBanner } from '../components/CheckoutEscrowBanner';
-import { CheckoutKycBanner } from '../components/CheckoutKycBanner';
 import { CheckoutProductCard } from '../components/CheckoutProductCard';
 import { CheckoutSafePointCard } from '../components/CheckoutSafePointCard';
 import { CheckoutPaymentMethods } from '../components/CheckoutPaymentMethods';
@@ -48,14 +46,6 @@ export const CheckoutScreen: React.FC = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-        {/* Top Escrow Banner */}
-        <CheckoutEscrowBanner />
-
-        {/* Unverified KYC Warning Banner */}
-        <CheckoutKycBanner
-          isKycVerified={ctrl.isKycVerified}
-          onOpenKycModal={() => ctrl.setIsKycModalOpen(true)}
-        />
 
         {/* Product Card with agreed price support */}
         <CheckoutProductCard

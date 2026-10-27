@@ -17,7 +17,6 @@ import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import { SavedProductCard } from '../components/SavedProductCard';
 import { SavedItemsEmptyState } from '../components/SavedItemsEmptyState';
 import { SavedItemsTopNav } from '../components/SavedItemsTopNav';
-import { SavedItemsPriceDropBanner } from '../components/SavedItemsPriceDropBanner';
 import { isProductInCategory } from '../../../lib/backendMappers';
 import { resolveProductImage } from '../../../lib/imageResolver';
 
@@ -63,7 +62,6 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
   const savedProductsMap = useFavoriteStore((s) => s.savedProductsMap || {});
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showPriceAlert, setShowPriceAlert] = useState<boolean>(true);
   const [sortOrder, setSortOrder] = useState<'newest' | 'price'>('newest');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -207,12 +205,6 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
     handleProductPress(p);
   }, [handleProductPress, navigation]);
 
-  const handleSafePointPress = () => {
-    Alert.alert(
-      '🛡️ Safe-Handoff Point',
-      'Hệ thống trạm hẹn an toàn FPT Campus:\n• Sảnh Tòa Alpha: Bàn test có nguồn 220V và bảo vệ trực 24/7.\n• Sảnh Thư viện Beta: Bàn giao giáo trình & thiết bị học tập.\n• Sân KTX Dom B: Điểm hẹn giao dịch nội khu thuận tiện.'
-    );
-  };
 
   const handleToggleSort = () => {
     setSortOrder((prev) => {
@@ -334,90 +326,69 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
         showsVerticalScrollIndicator={false}
       >
         {/* ═══════════════════════════════════════════════════════════
-            3. SUMMARY STRIP: Số lượng đồ đã lưu & Nút dọn tin đã bán
+            3. SUMMARY STRIP: Chỉ hiện khi có sản phẩm đã lưu
         ═══════════════════════════════════════════════════════════ */}
-        <View style={styles.summaryStrip}>
-          <View style={styles.summaryLeft}>
-            <View style={styles.bookmarkBox}>
-              <Ionicons name="bookmark" size={14} color="#EA580C" />
+        {products.length > 0 && (
+          <View style={styles.summaryStrip}>
+            <View style={styles.summaryLeft}>
+              <View style={styles.bookmarkBox}>
+                <Ionicons name="bookmark" size={14} color="#EA580C" />
+              </View>
+              <Text style={styles.summaryText}>
+                Đã lưu <Text style={styles.boldOrange}>{products.length}</Text> món đồ •{' '}
+                {soldItemsCount > 0 ? (
+                  <Text style={styles.boldRedText}>{soldItemsCount} món đã bán</Text>
+                ) : (
+                  <Text style={styles.boldGreenText}>Tất cả còn hàng</Text>
+                )}
+              </Text>
             </View>
-            <Text style={styles.summaryText}>
-              Đã lưu <Text style={styles.boldOrange}>{products.length}</Text> món đồ •{' '}
-              {soldItemsCount > 0 ? (
-                <Text style={styles.boldRedText}>{soldItemsCount} món đã bán</Text>
-              ) : (
-                <Text style={styles.boldGreenText}>Tất cả còn hàng</Text>
-              )}
-            </Text>
+            {soldItemsCount > 0 && (
+              <TouchableOpacity
+                style={styles.cleanSoldBtn}
+                activeOpacity={0.8}
+                onPress={handleCleanSold}
+              >
+                <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.cleanSoldBtnText}>Dọn tin ({soldItemsCount})</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {soldItemsCount > 0 && (
-            <TouchableOpacity
-              style={styles.cleanSoldBtn}
-              activeOpacity={0.8}
-              onPress={handleCleanSold}
-            >
-              <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-              <Text style={styles.cleanSoldBtnText}>Dọn tin ({soldItemsCount})</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ═══════════════════════════════════════════════════════════
-            4. PRICE DROP ALERT BANNER (GIÁ HỜI)
-        ═══════════════════════════════════════════════════════════ */}
-        {showPriceAlert && (
-          <SavedItemsPriceDropBanner onClose={() => setShowPriceAlert(false)} />
         )}
 
-        {/* ═══════════════════════════════════════════════════════════
-            5. CATEGORY FILTER CHIPS
-        ═══════════════════════════════════════════════════════════ */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryChipsScroll}
-        >
-          {CATEGORY_CHIPS.map((cat) => {
-            const isSelected = cat.id === selectedCategory;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                activeOpacity={0.8}
-                onPress={() => setSelectedCategory(cat.id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    isSelected && styles.categoryChipTextActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
 
         {/* ═══════════════════════════════════════════════════════════
-            6. SAFE-HANDOFF POINT BANNER
+            4. CATEGORY FILTER CHIPS: Chỉ hiện khi có sản phẩm đã lưu
         ═══════════════════════════════════════════════════════════ */}
-        <TouchableOpacity
-          style={styles.safePointBanner}
-          activeOpacity={0.85}
-          onPress={handleSafePointPress}
-        >
-          <View style={styles.safePointLeft}>
-            <View style={styles.shieldIconBox}>
-              <Ionicons name="shield-checkmark" size={17} color="#FFFFFF" />
-            </View>
-            <View style={styles.safePointTextCol}>
-              <Text style={styles.safePointTitle}>Safe-Handoff Point</Text>
-              <Text style={styles.safePointDesc}>Hẹn giao dịch an toàn tại sảnh Alpha & KTX</Text>
-            </View>
-          </View>
-          <Text style={styles.seePointsLink}>Xem điểm ›</Text>
-        </TouchableOpacity>
+        {products.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryChipsScroll}
+          >
+            {CATEGORY_CHIPS.map((cat) => {
+              const isSelected = cat.id === selectedCategory;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedCategory(cat.id)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      isSelected && styles.categoryChipTextActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
 
         {/* ═══════════════════════════════════════════════════════════
             7. SAVED PRODUCTS 2-COLUMN GRID
@@ -440,30 +411,7 @@ export const SavedItemsScreen: React.FC<SavedItemsScreenProps> = ({ onGoBack }) 
           </View>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════
-            8. TIPS BANNER: Mẹo săn đồ KTX giá rẻ
-        ═══════════════════════════════════════════════════════════ */}
-        <TouchableOpacity
-          style={styles.tipsBanner}
-          activeOpacity={0.85}
-          onPress={() =>
-            Alert.alert(
-              '💡 Mẹo săn đồ KTX giá rẻ',
-              'Nhấn vào nút Chuông thông báo trong Chi tiết sản phẩm để hệ thống tự động bắn Notification ngay khi người bán hạ giá món đồ bạn đã lưu!'
-            )
-          }
-        >
-          <View style={styles.tipsIconCircle}>
-            <Ionicons name="bulb-outline" size={19} color="#EA580C" />
-          </View>
-          <View style={styles.tipsTextCol}>
-            <Text style={styles.tipsTitle}>Mẹo săn đồ KTX giá rẻ</Text>
-            <Text style={styles.tipsSub}>
-              Bật chuông thông báo khi người bán hạ giá đồ đã lưu.
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-        </TouchableOpacity>
+
       </ScrollView>
     </View>
   );

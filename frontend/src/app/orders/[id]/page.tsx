@@ -681,18 +681,30 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
               )}
 
               {isOrderDisputed && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex items-start gap-3 text-xs text-rose-950">
-                  <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
-                    <AlertTriangle className="h-5 w-5" />
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-950">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-rose-600 p-2 text-white shrink-0 mt-0.5">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-rose-900 text-xs sm:text-sm">
+                        Người mua đã mở hồ sơ Khiếu nại / Yêu cầu Trả hàng
+                      </h4>
+                      <p className="text-[11px] text-rose-800 leading-relaxed">
+                        Vui lòng kiểm tra lý do khiếu nại, video bằng chứng unboxing của Người mua hoặc vào mục Tin nhắn thương lượng trong khi Ban Quản Trị xem xét xử lý.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-rose-900 text-xs sm:text-sm">
-                      Người mua đã mở hồ sơ Khiếu nại / Yêu cầu Trả hàng
-                    </h4>
-                    <p className="text-[11px] text-rose-800 leading-relaxed">
-                      Vui lòng vào mục Tin nhắn để thương lượng với Người mua hoặc chờ Ban Quản Trị đối soát video unboxing để xử lý thỏa đáng.
-                    </p>
-                  </div>
+                  <Button
+                    asChild
+                    size="sm"
+                    className="shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                  >
+                    <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                      <ShieldAlert className="h-3.5 w-3.5 mr-1.5 text-white" />
+                      <span>Xem phiếu khiếu nại</span>
+                    </Link>
+                  </Button>
                 </div>
               )}
 
@@ -1581,14 +1593,26 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   )}
 
                   {isOrderDisputed && (
-                    <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-950 space-y-1.5">
-                      <p className="font-bold flex items-center gap-1.5 text-xs text-rose-800">
-                        <AlertTriangle className="h-4 w-4 text-rose-600" />
-                        <span>Đơn hàng đang có khiếu nại</span>
-                      </p>
-                      <p className="text-[11px] text-rose-700 leading-relaxed">
-                        Vui lòng vào phòng chat trao đổi với Người mua hoặc chờ Admin kiểm tra video bóc hàng.
-                      </p>
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-950 space-y-1.5">
+                        <p className="font-bold flex items-center gap-1.5 text-xs text-rose-800">
+                          <AlertTriangle className="h-4 w-4 text-rose-600" />
+                          <span>Đơn hàng đang có hồ sơ khiếu nại</span>
+                        </p>
+                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                          Người mua đã gửi hồ sơ khiếu nại / trả hàng. Tiền cọc Escrow đang tạm khóa bảo hộ 100%. Bạn có thể xem chi tiết lý do, video unboxing và tiến độ phán quyết của BQT.
+                        </p>
+                      </div>
+
+                      <Button
+                        asChild
+                        className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs h-10 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Link href={`/orders/dispute?code=${encodeURIComponent(cleanCode)}`}>
+                          <ShieldAlert className="h-4 w-4 mr-1.5 text-white" />
+                          <span>Xem chi tiết khiếu nại & Video bằng chứng</span>
+                        </Link>
+                      </Button>
                     </div>
                   )}
 

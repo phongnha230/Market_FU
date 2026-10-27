@@ -27,6 +27,7 @@ import { OrderInterCampusBanner } from '../components/OrderInterCampusBanner';
 import { PackageProofRow } from '../components/PackageProofRow';
 import { OrderDetailModals } from '../components/OrderDetailModals';
 import { OrderShipModal } from '../components/OrderShipModal';
+import { OrderDisputeDetailModal } from '../components/OrderDisputeDetailModal';
 import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 
 const HIT_SLOP_8 = { top: 8, bottom: 8, left: 8, right: 8 } as const;
@@ -41,6 +42,7 @@ export const OrderDetailScreen: React.FC = () => {
 
   const [showProofModal, setShowProofModal] = useState(false);
   const [showShipModal, setShowShipModal] = useState(false);
+  const [showDisputeDetailModal, setShowDisputeDetailModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showWithdrawDisputeModal, setShowWithdrawDisputeModal] = useState(false);
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -542,6 +544,7 @@ export const OrderDetailScreen: React.FC = () => {
           orderStatus={orderStatus}
           isSeller={Boolean(isSeller)}
           onOpenShipModal={() => setShowShipModal(true)}
+          onOpenDisputeDetail={() => setShowDisputeDetailModal(true)}
           isInterCampus={isInterCampus}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}
@@ -589,6 +592,18 @@ export const OrderDetailScreen: React.FC = () => {
         isAlreadyShipping={orderStatus === 'shipping'}
         onClose={() => setShowShipModal(false)}
         onSuccess={handleShipSuccess}
+      />
+
+      <OrderDisputeDetailModal
+        visible={showDisputeDetailModal}
+        orderCode={activeOrder?.orderNumber || orderId}
+        productTitle={product.title}
+        isSeller={Boolean(isSeller)}
+        buyerName={activeOrder?.buyerName}
+        sellerName={activeOrder?.sellerName || product.sellerName}
+        dispute={activeOrder?.dispute}
+        onClose={() => setShowDisputeDetailModal(false)}
+        onOpenChat={handleOpenChat}
       />
 
       <ReviewDetailModal

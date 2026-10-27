@@ -25,10 +25,11 @@ CancelledBanner.displayName = 'CancelledBanner';
 
 interface DisputedBannerProps {
   isSeller?: boolean;
+  onOpenDisputeDetail?: () => void;
   onWithdrawDispute?: () => void;
 }
 
-const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, onWithdrawDispute }) => (
+const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, onOpenDisputeDetail, onWithdrawDispute }) => (
   <View style={styles.disputedBanner}>
     <View style={styles.disputedHeader}>
       <Ionicons name="warning" size={20} color="#D97706" />
@@ -38,18 +39,42 @@ const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, on
     </View>
     <Text style={styles.disputedSub}>
       {isSeller
-        ? 'Người mua đã gửi yêu cầu khiếu nại và đổi trả. Tiền Escrow tạm khóa bảo hộ. Bạn có thể nhắn tin cho người mua để cùng trao đổi xử lý.'
+        ? 'Người mua đã gửi yêu cầu khiếu nại và đổi trả. Tiền Escrow tạm khóa bảo hộ. Bạn có thể bấm xem chi tiết phiếu khiếu nại và video bằng chứng để cùng đối soát.'
         : 'BQT đang thẩm tra bằng chứng giao nhận. Nếu bạn và đối tác đã tự thương lượng xong, bạn có thể tự rút đơn khiếu nại bên dưới.'}
     </Text>
-    {!isSeller && onWithdrawDispute && (
+    {isSeller && onOpenDisputeDetail && (
       <TouchableOpacity
-        style={styles.withdrawDisputeBtn}
+        style={[styles.withdrawDisputeBtn, { backgroundColor: '#DC2626', marginTop: 10 }]}
         activeOpacity={0.85}
-        onPress={onWithdrawDispute}
+        onPress={onOpenDisputeDetail}
       >
-        <Ionicons name="refresh-circle" size={18} color="#FFFFFF" style={styles.mr6} />
-        <Text style={styles.withdrawDisputeBtnText}>Rút Đơn Khiếu Nại (Đã Tự Thỏa Thuận)</Text>
+        <Ionicons name="document-text-outline" size={17} color="#FFFFFF" style={styles.mr6} />
+        <Text style={styles.withdrawDisputeBtnText}>Xem Chi Tiết Phiếu Khiếu Nại</Text>
       </TouchableOpacity>
+    )}
+    {!isSeller && (
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+        {onOpenDisputeDetail && (
+          <TouchableOpacity
+            style={[styles.withdrawDisputeBtn, { backgroundColor: '#DC2626', flex: 1, marginTop: 0 }]}
+            activeOpacity={0.85}
+            onPress={onOpenDisputeDetail}
+          >
+            <Ionicons name="document-text-outline" size={17} color="#FFFFFF" style={styles.mr6} />
+            <Text style={styles.withdrawDisputeBtnText}>Xem Chi Tiết</Text>
+          </TouchableOpacity>
+        )}
+        {onWithdrawDispute && (
+          <TouchableOpacity
+            style={[styles.withdrawDisputeBtn, { flex: 1, marginTop: 0 }]}
+            activeOpacity={0.85}
+            onPress={onWithdrawDispute}
+          >
+            <Ionicons name="refresh-circle" size={17} color="#FFFFFF" style={styles.mr6} />
+            <Text style={styles.withdrawDisputeBtnText}>Rút Đơn</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     )}
   </View>
 ));
@@ -400,6 +425,7 @@ SubActionButtons.displayName = 'SubActionButtons';
 
 export interface OrderActionButtonsProps {
   onOpenShipModal?: () => void;
+  onOpenDisputeDetail?: () => void;
   orderStatus: string;
   isSeller: boolean;
   isInterCampus?: boolean;
@@ -418,6 +444,7 @@ export interface OrderActionButtonsProps {
 
 export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(({
   onOpenShipModal,
+  onOpenDisputeDetail,
   orderStatus,
   isSeller,
   isInterCampus,
@@ -450,7 +477,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
       {isCancelled && <CancelledBanner />}
 
       {isDisputed && (
-        <DisputedBanner isSeller={isSeller} onWithdrawDispute={onWithdrawDispute} />
+        <DisputedBanner isSeller={isSeller} onOpenDisputeDetail={onOpenDisputeDetail} onWithdrawDispute={onWithdrawDispute} />
       )}
 
       <PrimaryActionButton
