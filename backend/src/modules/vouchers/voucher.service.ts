@@ -165,6 +165,7 @@ export class VoucherService {
         ...(input.partner && { partner: input.partner }),
         ...(input.coinCost !== undefined && { coinCost: input.coinCost }),
         ...(input.discountValue !== undefined && { discountValue: input.discountValue }),
+        ...(input.minOrderValue !== undefined && { minOrderValue: input.minOrderValue }),
         ...(input.quantity !== undefined && { quantity: input.quantity }),
         ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl?.trim() || null }),
         ...(input.validDays !== undefined && { validDays: input.validDays }),
@@ -497,8 +498,20 @@ export class VoucherService {
       throw new AppError('Mã voucher không tồn tại trong hệ thống', 404, 'VOUCHER_NOT_FOUND');
     }
 
-    if (requester.role !== 'ADMIN' && userVoucher.userId !== requester.userId) {
-      throw new AppError('Bạn không có quyền hoàn tác mã voucher của người khác', 403, 'FORBIDDEN');
+    if (requester.role !== 'ADMIN') {
+      throw new AppError('Chỉ Quản trị viên (Admin) mới có quyền hoàn tác voucher đã sử dụng', 403, 'FORBIDDEN');
+    }
+
+    const usedInCompletedOrder = await prisma.order.findFirst({
+      where: {
+        payment: { is: { appliedUserVoucherId: userVoucher.id } },
+        status: 'COMPLETED',
+      },
+      select: { orderCode: true },
+    });
+
+    if (usedInCompletedOrder) {
+      throw new AppError(`Voucher này đã được áp dụng vào đơn hàng #${usedInCompletedOrder.orderCode} đã hoàn tất, không thể hoàn tác!`, 400, 'CANNOT_RESTORE_COMPLETED_ORDER_VOUCHER');
     }
 
     const now = new Date();

@@ -252,91 +252,74 @@ export class OrderService {
     let appliedUserVoucherId: string | null = null;
     if (voucherCode && voucherCode.trim()) {
       const cleanVoucherCode = voucherCode.trim().toUpperCase();
-      let userVoucher = await prisma.userVoucher.findFirst({
-        where: {
-          userId: buyerId,
-          voucherCode: cleanVoucherCode,
-          status: 'UNUSED',
-          expiredAt: { gt: new Date() },
-        },
+      const userVoucher = await prisma.userVoucher.findUnique({
+        where: { voucherCode: cleanVoucherCode },
         include: { voucher: true },
       });
 
-      // Nếu ví của người dùng chưa có mã này, kiểm tra xem có voucher hệ thống hợp lệ không (Freeship/CampusShip)
-      if (!userVoucher) {
-        const isShipCode = cleanVoucherCode.includes('SHIP') || cleanVoucherCode.includes('FREE');
-        const systemVoucher = await prisma.voucher.findFirst({
-          where: {
-            isActive: true,
-            ...(isShipCode
-              ? {
-                  OR: [
-                    { partner: 'CAMPUS_SHIP' },
-                    { partner: 'OTHER' },
-                    { title: { contains: 'Vận Chuyển', mode: 'insensitive' } },
-                    { title: { contains: 'Ship', mode: 'insensitive' } },
-                  ],
-                }
-              : {
-                  title: { contains: cleanVoucherCode, mode: 'insensitive' },
-                }),
-          },
-        });
-
-        if (systemVoucher && (isShipCode || systemVoucher.title.toUpperCase().includes(cleanVoucherCode))) {
-          const expiredDate = new Date();
-          expiredDate.setDate(expiredDate.getDate() + (systemVoucher.validDays || 30));
-          userVoucher = await prisma.userVoucher.create({
-            data: {
-              userId: buyerId,
-              voucherId: systemVoucher.id,
-              voucherCode: cleanVoucherCode,
-              status: 'UNUSED',
-              expiredAt: expiredDate,
-            },
-            include: { voucher: true },
-          });
-        } else {
-          throw new AppError(
-            `Mã giảm giá "${cleanVoucherCode}" không hợp lệ, không có trong ví của bạn hoặc đã hết hạn sử dụng.`,
-            400,
-            'INVALID_VOUCHER_CODE'
-          );
-        }
+      if (!userVoucher || userVoucher.userId !== buyerId) {
+        throw new AppError(
+          `Mã voucher "${cleanVoucherCode}" không tồn tại trong ví của bạn. Vui lòng kiểm tra lại hoặc đổi voucher tại kho quà.`,
+          400,
+          'INVALID_VOUCHER_CODE'
+        );
       }
 
-      if (userVoucher && userVoucher.voucher) {
-        // Kiểm tra điều kiện giá trị đơn hàng tối thiểu (minOrderValue)
-        const minOrder = userVoucher.voucher.minOrderValue || 0;
-        if (minOrder > 0 && finalProductPrice < minOrder) {
+      if (userVoucher.status === 'USED') {
+        throw new AppError(
+          `Voucher "${userVoucher.voucher?.title || cleanVoucherCode}" đã được sử dụng trước đó. Mỗi voucher chỉ được áp dụng 1 lần duy nhất!`,
+          400,
+          'VOUCHER_ALREADY_USED'
+        );
+      }
+
+      const now = new Date();
+      if (userVoucher.status === 'EXPIRED' || userVoucher.expiredAt < now) {
+        throw new AppError(
+          `Voucher "${userVoucher.voucher?.title || cleanVoucherCode}" đã quá hạn sử dụng.`,
+          400,
+          'VOUCHER_EXPIRED'
+        );
+      }
+
+      if (!userVoucher.voucher || !userVoucher.voucher.isActive) {
+        throw new AppError(
+          'Voucher này hiện đang tạm ngưng áp dụng trên hệ thống.',
+          400,
+          'VOUCHER_INACTIVE'
+        );
+      }
+
+      // Kiểm tra điều kiện giá trị đơn hàng tối thiểu (minOrderValue)
+      const minOrder = userVoucher.voucher.minOrderValue || 0;
+      if (minOrder > 0 && finalProductPrice < minOrder) {
+        throw new AppError(
+          `Voucher "${userVoucher.voucher.title}" chỉ áp dụng cho đơn hàng từ ${minOrder.toLocaleString('vi-VN')} đ trở lên (giá trị sản phẩm hiện tại: ${finalProductPrice.toLocaleString('vi-VN')} đ).`,
+          400,
+          'VOUCHER_MIN_ORDER_NOT_MET'
+        );
+      }
+
+      const isShippingVoucher =
+        userVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+        userVoucher.voucher.partner === 'OTHER' ||
+        userVoucher.voucher.title.toLowerCase().includes('vận chuyển') ||
+        userVoucher.voucher.title.toLowerCase().includes('ship');
+
+      if (isShippingVoucher) {
+        if (orderType === 'MEETUP' || shippingFee <= 0) {
           throw new AppError(
-            `Voucher "${userVoucher.voucher.title}" chỉ áp dụng cho đơn hàng từ ${minOrder.toLocaleString('vi-VN')} đ trở lên (giá trị sản phẩm hiện tại: ${finalProductPrice.toLocaleString('vi-VN')} đ).`,
+            'Voucher Freeship chỉ áp dụng cho đơn hàng vận chuyển liên Campus!',
             400,
-            'VOUCHER_MIN_ORDER_NOT_MET'
+            'VOUCHER_CROSS_CAMPUS_ONLY'
           );
         }
-
-        const isShippingVoucher =
-          userVoucher.voucher.partner === 'CAMPUS_SHIP' ||
-          userVoucher.voucher.partner === 'OTHER' ||
-          userVoucher.voucher.title.toLowerCase().includes('vận chuyển') ||
-          userVoucher.voucher.title.toLowerCase().includes('ship');
-
-        if (isShippingVoucher) {
-          if (orderType === 'MEETUP' || shippingFee <= 0) {
-            throw new AppError(
-              'Voucher Freeship chỉ áp dụng cho đơn hàng vận chuyển liên Campus!',
-              400,
-              'VOUCHER_CROSS_CAMPUS_ONLY'
-            );
-          }
-          // Trợ giá cước vận chuyển liên campus: giảm tối đa bằng cước ship thực tế
-          voucherDiscount = Math.min(shippingFee, userVoucher.voucher.discountValue);
-        } else {
-          voucherDiscount = userVoucher.voucher.discountValue;
-        }
-        appliedUserVoucherId = userVoucher.id;
+        // Trợ giá cước vận chuyển liên campus: giảm tối đa bằng cước ship thực tế
+        voucherDiscount = Math.min(shippingFee, userVoucher.voucher.discountValue);
+      } else {
+        voucherDiscount = userVoucher.voucher.discountValue;
       }
+      appliedUserVoucherId = userVoucher.id;
     }
 
     const effectivePaymentMethod = paymentMethod === 'PAYOS_WEB' ? 'PAYOS_WEB' : (orderType === 'SHIP_COD' ? 'CASH' : paymentMethod);

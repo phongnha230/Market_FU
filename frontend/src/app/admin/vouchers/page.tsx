@@ -189,6 +189,53 @@ export default function AdminVouchersPage() {
   });
 
   // Voucher Form State
+  // Voucher Edit State
+  const [editingVoucher, setEditingVoucher] = useState<BackendVoucher | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    partner: 'CANTEEN' as VoucherPartner,
+    coinCost: 50,
+    discountValue: 10000,
+    minOrderValue: 0,
+    quantity: 100,
+    validDays: 30,
+    imageUrl: '',
+    isActive: true,
+  });
+
+  const openEditModal = (voucher: BackendVoucher) => {
+    setEditingVoucher(voucher);
+    setEditFormData({
+      title: voucher.title,
+      description: voucher.description || '',
+      partner: voucher.partner,
+      coinCost: voucher.coinCost,
+      discountValue: voucher.discountValue,
+      minOrderValue: voucher.minOrderValue || 0,
+      quantity: voucher.quantity,
+      validDays: voucher.validDays,
+      imageUrl: voucher.imageUrl || '',
+      isActive: voucher.isActive,
+    });
+  };
+
+  const handleUpdateVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVoucher) return;
+    try {
+      setSubmitting(true);
+      setErrorMsg(null);
+      const updated = await voucherService.updateVoucher(editingVoucher.id, editFormData);
+      setVouchers((prev) => prev.map((v) => (v.id === editingVoucher.id ? { ...v, ...updated } : v)));
+      setEditingVoucher(null);
+    } catch (err: any) {
+      setErrorMsg(err?.message || err?.response?.data?.error?.message || 'Cập nhật voucher thất bại.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -549,6 +596,13 @@ export default function AdminVouchersPage() {
                             {voucher.isActive ? 'Tạm ẩn' : 'Kích hoạt'}
                           </button>
                           <button
+                            onClick={() => openEditModal(voucher)}
+                            className="rounded-xl border border-blue-200 bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100 cursor-pointer transition"
+                            title="Chỉnh sửa voucher"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDelete(voucher)}
                             className="rounded-xl border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 cursor-pointer transition"
                             title="Xóa voucher"
@@ -866,6 +920,160 @@ export default function AdminVouchersPage() {
                     className="rounded-xl bg-fpt-orange px-5 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover disabled:opacity-50 cursor-pointer shadow-xs"
                   >
                     {submitting ? 'Đang tạo...' : 'Tạo Voucher'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 1.5: EDIT VOUCHER */}
+        {editingVoucher && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                    <Edit2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Chỉnh Sửa Mã Voucher</h3>
+                    <p className="text-[11px] text-slate-500">Cập nhật số lượng kho, số xu đổi hoặc điều kiện voucher</p>
+                  </div>
+                </div>
+                <button onClick={() => setEditingVoucher(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {errorMsg && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateVoucher} className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Tiêu đề voucher <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Đối tác cung cấp</label>
+                    <select
+                      value={editFormData.partner}
+                      onChange={(e) => setEditFormData({ ...editFormData, partner: e.target.value as VoucherPartner })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                    >
+                      <option value="CANTEEN">Căn tin FPT</option>
+                      <option value="PASSIO">Passio Coffee</option>
+                      <option value="SEVEN_ELEVEN">7-Eleven KTX</option>
+                      <option value="CAMPUS_SHIP">FPT CampusShip (Freeship)</option>
+                      <option value="OTHER">Đối tác khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Mức giảm giá (VNĐ) <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      required
+                      min={1000}
+                      step={1000}
+                      value={editFormData.discountValue}
+                      onChange={(e) => setEditFormData({ ...editFormData, discountValue: Number(e.target.value) })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">
+                      Đơn hàng tối thiểu áp dụng (VNĐ)
+                    </label>
+                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                      {editFormData.minOrderValue > 0 ? `Áp dụng đơn từ ${editFormData.minOrderValue.toLocaleString()}đ` : 'Mọi giá trị đơn'}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={5000}
+                    value={editFormData.minOrderValue === 0 ? '' : editFormData.minOrderValue}
+                    onChange={(e) => setEditFormData({ ...editFormData, minOrderValue: Math.max(0, Number(e.target.value) || 0) })}
+                    placeholder="0 (Áp dụng cho mọi giá trị đơn)"
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 focus:border-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Số Xu cần đổi <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={editFormData.coinCost}
+                      onChange={(e) => setEditFormData({ ...editFormData, coinCost: Number(e.target.value) })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Số lượng trong kho <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={editFormData.quantity}
+                      onChange={(e) => setEditFormData({ ...editFormData, quantity: Number(e.target.value) })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Hạn dùng (ngày)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={editFormData.validDays}
+                      onChange={(e) => setEditFormData({ ...editFormData, validDays: Number(e.target.value) })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Mô tả / Điều kiện áp dụng</label>
+                  <textarea
+                    rows={2}
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingVoucher(null)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    {submitting ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                   </button>
                 </div>
               </form>

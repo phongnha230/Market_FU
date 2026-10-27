@@ -210,9 +210,30 @@ function CheckoutContent() {
   const isSameCampus = originCode === destinationCode;
   const isMeetup = typeParam === 'meetup' || isSameCampus;
 
-  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví
+  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví & đồng bộ loại bỏ voucher đã USED
   useEffect(() => {
-    if (!isMeetup && !selectedVoucher && !isVoucherManuallyRemoved && myVouchers && myVouchers.length > 0) {
+    if (!myVouchers || myVouchers.length === 0) return;
+
+    if (selectedVoucher) {
+      const latestSelected = myVouchers.find((v) => v.voucherCode === selectedVoucher.voucherCode);
+      if (latestSelected && latestSelected.status !== 'UNUSED') {
+        const nextUnusedShip = !isMeetup
+          ? myVouchers.find(
+              (v) =>
+                v.status === 'UNUSED' &&
+                (v.voucher.partner === 'CAMPUS_SHIP' ||
+                  v.voucher.partner === 'OTHER' ||
+                  v.voucher.title.toLowerCase().includes('ship') ||
+                  v.voucher.title.toLowerCase().includes('vận chuyển')) &&
+                productData.price >= (v.voucher.minOrderValue || 0)
+            ) || null
+          : null;
+        setSelectedVoucher(nextUnusedShip);
+        return;
+      }
+    }
+
+    if (!isMeetup && !selectedVoucher && !isVoucherManuallyRemoved) {
       const shipVoucher = myVouchers.find(
         (v) =>
           v.status === 'UNUSED' &&
@@ -226,7 +247,7 @@ function CheckoutContent() {
         setSelectedVoucher(shipVoucher);
       }
     }
-  }, [isMeetup, myVouchers, selectedVoucher, isVoucherManuallyRemoved]);
+  }, [isMeetup, myVouchers, selectedVoucher, isVoucherManuallyRemoved, productData.price]);
 
   // 2b. Fetch safe-handoff hubs for current campus when isMeetup
   useEffect(() => {
@@ -379,6 +400,10 @@ function CheckoutContent() {
         console.warn('Backend createOrder failed or offline, using resilient fallback:', err);
       }
 
+      if (selectedVoucher) {
+        fetchMyVouchers().catch(() => {});
+      }
+
       if (useCoinDiscount && maxCoinsAllowed > 0) {
         addCoins(-maxCoinsAllowed);
       }
@@ -422,11 +447,22 @@ function CheckoutContent() {
 
       showToast(`🎉 Đặt hàng thành công! Đơn hàng ${finalCode} đã được khởi tạo.`);
       setTimeout(() => {
-        router.push(
-          `/checkout/success?orderCode=${finalCode}&paymentMethod=${paymentMethod}&amount=${totalAmount}&productId=${productData.id}&meetupLocation=${encodeURIComponent(selectedHub)}&appointmentTime=${encodeURIComponent(appointmentIso || '')}`
-        );
+        const query = new URLSearchParams({
+          orderCode: finalCode,
+          paymentMethod,
+          orderType: isMeetup ? 'MEETUP' : 'SHIP_COD',
+          amount: String(totalAmount),
+          agreedPrice: String(effectiveProductPrice),
+          productId: productData.id,
+        });
+        if (isMeetup) {
+          query.set('meetupLocation', selectedHub);
+          if (appointmentIso) query.set('appointmentTime', appointmentIso);
+        }
+        router.push(`/checkout/success?${query.toString()}`);
       }, 600);
     } catch (err: any) {
+      fetchMyVouchers().catch(() => {});
       const apiMessage = err?.response?.data?.error?.message || err?.response?.data?.message;
       showToast(apiMessage || err?.message || 'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại!');
     } finally {
@@ -992,48 +1028,7 @@ function CheckoutContent() {
                             <p className="text-xs text-slate-500 mt-0.5">
                               Bạn có voucher Freeship trong ví? Bấm nút bên cạnh để mở Ví và áp mã giảm cước ship ngay.
                             </p>
-                            {myVouchers.filter((v) => v.status === 'UNUSED').length === 0 &&
-                              myVouchers.some(
-                                (v) =>
-                                  v.status === 'USED' &&
-                                  (v.voucher?.partner === 'CAMPUS_SHIP' ||
-                                    v.voucher?.title?.toLowerCase().includes('ship') ||
-                                    v.voucher?.title?.toLowerCase().includes('vận chuyển'))
-                              ) && (
-                                <div className="mt-2.5 flex items-center justify-between rounded-xl bg-amber-50 border border-amber-300 p-2.5 text-xs text-amber-950">
-                                  <div className="flex items-center gap-1.5 font-medium min-w-0 pr-2">
-                                    <RotateCcw className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                                    <span className="truncate">Bạn có mã Freeship từng lỡ bấm xác nhận dùng nhầm?</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const usedShip = myVouchers.filter(
-                                        (v) =>
-                                          v.status === 'USED' &&
-                                          (v.voucher?.partner === 'CAMPUS_SHIP' ||
-                                            v.voucher?.title?.toLowerCase().includes('ship') ||
-                                            v.voucher?.title?.toLowerCase().includes('vận chuyển'))
-                                      );
-                                      for (const v of usedShip) {
-                                        await useVoucherStore.getState().restoreVoucherCode(v.voucherCode);
-                                      }
-                                      await fetchMyVouchers();
-                                      const restored = useVoucherStore
-                                        .getState()
-                                        .myVouchers.find((v) => v.status === 'UNUSED');
-                                      if (restored) {
-                                        setSelectedVoucher(restored);
-                                        setIsVoucherManuallyRemoved(false);
-                                      }
-                                      showToast('✅ Đã khôi phục mã Freeship về ví và tự động áp dụng!');
-                                    }}
-                                    className="font-bold text-amber-800 hover:text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-2.5 py-1 rounded-lg shrink-0 cursor-pointer shadow-2xs transition"
-                                  >
-                                    Khôi phục & Dùng ngay
-                                  </button>
-                                </div>
-                              )}
+
                           </div>
                         </div>
 
@@ -1430,55 +1425,7 @@ function CheckoutContent() {
 
             {/* Danh sách voucher có sẵn */}
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-              {myVouchers.some(
-                (v) =>
-                  v.status === 'USED' &&
-                  (v.voucher?.partner === 'CAMPUS_SHIP' ||
-                    v.voucher?.title?.toLowerCase().includes('ship') ||
-                    v.voucher?.title?.toLowerCase().includes('vận chuyển'))
-              ) && (
-                <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 mb-2 text-left">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                        <RotateCcw className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                        <span>Phát hiện mã Freeship từng lỡ bấm xác nhận dùng</span>
-                      </div>
-                      <div className="text-[11px] text-amber-700 mt-0.5">
-                        Bấm để khôi phục mã về ví và tự động trừ cước ship cho đơn này.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const usedShip = myVouchers.filter(
-                          (v) =>
-                            v.status === 'USED' &&
-                            (v.voucher?.partner === 'CAMPUS_SHIP' ||
-                              v.voucher?.title?.toLowerCase().includes('ship') ||
-                              v.voucher?.title?.toLowerCase().includes('vận chuyển'))
-                        );
-                        for (const v of usedShip) {
-                          await useVoucherStore.getState().restoreVoucherCode(v.voucherCode);
-                        }
-                        await fetchMyVouchers();
-                        const restored = useVoucherStore
-                          .getState()
-                          .myVouchers.find((v) => v.status === 'UNUSED');
-                        if (restored) {
-                          setSelectedVoucher(restored);
-                          setIsVoucherManuallyRemoved(false);
-                          setIsVoucherModalOpen(false);
-                        }
-                        showToast('✅ Đã khôi phục mã Freeship và áp dụng cho đơn hàng!');
-                      }}
-                      className="shrink-0 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs cursor-pointer"
-                    >
-                      Khôi phục & Áp mã
-                    </button>
-                  </div>
-                </div>
-              )}
+
               {myVouchers.filter((v) => v.status === 'UNUSED').length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-400 space-y-3">
                   <p>Bạn chưa có mã voucher nào khả dụng trong ví.</p>

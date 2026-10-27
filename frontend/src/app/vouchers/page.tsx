@@ -305,28 +305,7 @@ export default function VouchersPage() {
     }
   };
 
-  const [isRestoringVoucher, setIsRestoringVoucher] = useState(false);
 
-  // Khôi phục voucher về ví khi lỡ bấm nhầm
-  const handleRestoreVoucher = async (userVoucher: UserVoucher) => {
-    setIsRestoringVoucher(true);
-    try {
-      const res = await useVoucherStore.getState().restoreVoucherCode(userVoucher.voucherCode);
-      if (res.success) {
-        showToast(`✅ ${res.message || 'Đã hoàn lại voucher về ví thành công!'}`, 'success');
-        setSelectedUserVoucher((prev) =>
-          prev && prev.id === userVoucher.id ? { ...prev, status: 'UNUSED', usedAt: undefined } : prev
-        );
-        await fetchMyVouchers();
-      } else {
-        showToast(res.message || 'Không thể hoàn lại mã này', 'error');
-      }
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Lỗi khi hoàn lại voucher', 'error');
-    } finally {
-      setIsRestoringVoucher(false);
-    }
-  };
 
   // Sử dụng voucher tại quầy (Xác nhận đổi thưởng)
   const handleConfirmUseVoucher = async (userVoucher: UserVoucher) => {
@@ -734,26 +713,14 @@ export default function VouchersPage() {
                       )}
 
                       {isUsed ? (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUserVoucher(uv)}
-                            className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                          >
-                            <QrCode className="h-4 w-4" />
-                            <span>Chi tiết</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRestoreVoucher(uv)}
-                            disabled={isRestoringVoucher}
-                            className="py-2.5 px-3 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition flex items-center justify-center gap-1 cursor-pointer shadow-xs disabled:opacity-50"
-                            title="Khôi phục lại mã vào ví nếu bạn lỡ bấm dùng nhầm"
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            <span>Hoàn lại ví</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserVoucher(uv)}
+                          className="w-full py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <QrCode className="h-4 w-4" />
+                          <span>Xem Chi Tiết Voucher</span>
+                        </button>
                       ) : (
                         <button
                           type="button"
@@ -897,20 +864,9 @@ export default function VouchersPage() {
                 </button>
               )
             ) : (
-              <div className="space-y-2">
-                <div className="rounded-xl bg-slate-100 p-2.5 text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <span>Voucher này đã được đánh dấu đã dùng</span>
-                </div>
-                <button
-                  type="button"
-                  disabled={isRestoringVoucher}
-                  onClick={() => handleRestoreVoucher(selectedUserVoucher)}
-                  className="w-full rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>{isRestoringVoucher ? 'Đang khôi phục...' : 'Tôi bấm nhầm - Hoàn lại voucher vào ví'}</span>
-                </button>
+              <div className="rounded-xl bg-slate-100 p-3 text-center text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Voucher này đã được sử dụng thành công</span>
               </div>
             )}
           </div>
