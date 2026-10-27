@@ -1,11 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChatMessage } from '@/types/chat';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ShieldCheck, Tag, CheckCircle2, CheckCheck, Sparkles, MapPin, Ticket, ChevronRight, Clock, AlertCircle, PackageCheck, Lock, ReceiptText, XCircle, Truck, CalendarCheck, QrCode } from 'lucide-react';
+import {
+  ShieldCheck,
+  Tag,
+  CheckCircle2,
+  CheckCheck,
+  Sparkles,
+  MapPin,
+  Ticket,
+  ChevronRight,
+  Clock,
+  AlertCircle,
+  PackageCheck,
+  Lock,
+  ReceiptText,
+  XCircle,
+  Truck,
+  CalendarCheck,
+  QrCode,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+} from 'lucide-react';
 
 function getInitials(name?: string): string {
   if (!name) return 'SV';
@@ -91,6 +113,8 @@ interface MessageHistoryProps {
   isSeller?: boolean;
   onAcceptOffer?: (msgId: string, offerPrice: number) => void;
   onRejectOffer?: (msgId: string, offerPrice: number) => void;
+  onEditMessage?: (msgId: string, newText: string) => void;
+  onDeleteMessage?: (msgId: string) => void;
 }
 
 export default function MessageHistory({
@@ -104,21 +128,38 @@ export default function MessageHistory({
   isSeller,
   onAcceptOffer,
   onRejectOffer,
+  onEditMessage,
+  onDeleteMessage,
 }: MessageHistoryProps) {
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+
+  const handleStartEdit = (msg: ChatMessage) => {
+    setEditingMsgId(msg.id);
+    setEditingText(msg.text || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMsgId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = (msgId: string) => {
+    const trimmed = editingText.trim();
+    if (!trimmed) return;
+    if (onEditMessage) {
+      onEditMessage(msgId, trimmed);
+    }
+    setEditingMsgId(null);
+    setEditingText('');
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* FPT SAFE TRADING CALLOUT BOX */}
-      <div className="mx-4 mt-3 shrink-0 rounded-xl bg-blue-50/80 border border-blue-200/80 p-3 text-xs text-blue-900 flex items-start gap-2.5">
-        <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="leading-relaxed text-[11px]">
-          <strong>Khuyến nghị An toàn Giao dịch FPT:</strong> Với đơn <em>cùng campus</em>, kiểm tra máy kỹ tại trạm Safe-Point (Sảnh Alpha, Thư viện, KTX). Với đơn <em>liên campus</em>, bảo đảm an toàn qua Quỹ Escrow sàn FPT &amp; bưu tá vận chuyển kèm 48h bảo vệ dùng thử.
-        </div>
-      </div>
-
       {/* MESSAGES HISTORY */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
+      <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0 p-4 space-y-3.5">
         {/* Date Divider */}
-        <div className="flex items-center justify-center my-2">
+        <div className="flex items-center justify-center my-1.5">
           <span className="rounded-full bg-slate-200/80 px-3 py-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
             {formatDateHeader(messages[0]?.time)}
           </span>
@@ -155,12 +196,14 @@ export default function MessageHistory({
                   {/* Product Details Box */}
                   <div className="flex gap-3 rounded-xl bg-white border border-slate-200/90 p-2.5 shadow-2xs">
                     <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-100 bg-slate-100 shrink-0">
-                      <Image
-                        src={ticket.imageUrl || '/products/keyboard-akko.jpg'}
-                        alt={ticket.title}
-                        fill
-                        className="object-cover"
-                      />
+                      {ticket.imageUrl ? (
+                        <Image
+                          src={ticket.imageUrl}
+                          alt={ticket.title}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : null}
                     </div>
                     <div className="min-w-0 flex-1 flex flex-col justify-between">
                       <div>
@@ -226,6 +269,37 @@ export default function MessageHistory({
             );
           }
 
+          // Trường hợp đề xuất giá từng được chốt nhưng sau đó đơn hàng bị hủy hoặc bị từ chối lại -> trở về giá gốc
+          if (msg.isOfferCancelled) {
+            return (
+              <div key={msg.id} className="flex justify-center my-2">
+                <div className="rounded-2xl bg-slate-100/90 border border-slate-200 p-3 shadow-2xs max-w-sm w-full text-xs space-y-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-xl bg-slate-400 text-white flex items-center justify-center shrink-0">
+                      <XCircle className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-slate-700 text-xs flex items-center justify-between">
+                        <span>Thỏa thuận giá đã hủy</span>
+                        <span className="rounded bg-slate-200 text-slate-600 text-[10px] font-bold px-1.5 py-0.5">
+                          Về giá gốc
+                        </span>
+                      </div>
+                      {msg.offerPrice && (
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Mức giá từng thương lượng: <span className="line-through">{msg.offerPrice}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pt-1.5 border-t border-slate-200/70 text-[11px] text-slate-500">
+                    Đơn hàng hoặc thỏa thuận này đã bị hủy. Sản phẩm đã quay về giá gốc niêm yết.
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           if (msg.isOfferAccepted) {
             const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
             const isProductUnavailable = Boolean(productStatus && productStatus !== 'AVAILABLE');
@@ -285,7 +359,7 @@ export default function MessageHistory({
                       </div>
                     </div>
                     <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-700 flex items-center justify-between">
-                      <span>Ưu đãi quá 30 phút. Vui lòng thương lượng lại!</span>
+                      <span>Ưu đãi quá 30 phút. Giá sản phẩm đã quay về giá gốc!</span>
                     </div>
                   </div>
                 </div>
@@ -330,15 +404,22 @@ export default function MessageHistory({
             );
           }
 
-          if (msg.isOfferRejected) {
+          if (msg.isOfferRejected || msg.text?.includes('[OFFER_REJECTED]')) {
+            const cleanRejectText = (msg.text || '').replace(/^\[OFFER_REJECTED\]\s*/i, '');
             return (
               <div key={msg.id} className="flex justify-center my-2">
-                <div className="rounded-xl bg-rose-50/90 border border-rose-200/80 px-3 py-1.5 flex items-center gap-2 shadow-2xs max-w-sm text-xs">
-                  <div className="h-5 w-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
+                <div className="rounded-xl bg-rose-50/90 border border-rose-200/80 px-3.5 py-2 flex items-center gap-2.5 shadow-2xs max-w-md text-xs">
+                  <div className="h-6 w-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
                     <Tag className="h-3 w-3" />
                   </div>
-                  <div className="text-[11px] text-rose-900 font-medium">
-                    Đã từ chối giá đề xuất: <strong className="font-bold text-rose-700">{msg.offerPrice || 'thương lượng'}</strong>
+                  <div className="text-[11px] text-rose-900 font-medium leading-relaxed">
+                    {msg.offerPrice ? (
+                      <>
+                        Đã từ chối giá đề xuất: <strong className="font-bold text-rose-700">{msg.offerPrice}</strong> (Sản phẩm giữ nguyên giá gốc)
+                      </>
+                    ) : (
+                      cleanRejectText || 'Đã từ chối mức giá đề xuất. Sản phẩm giữ nguyên giá gốc niêm yết.'
+                    )}
                   </div>
                 </div>
               </div>
@@ -440,9 +521,11 @@ export default function MessageHistory({
                     <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-slate-200/60 text-[11px] text-sky-800">
                       <Lock className="h-3.5 w-3.5 text-sky-600 shrink-0 mt-0.5" />
                       <span>
-                        {cleanText.toLowerCase().includes('ship') || cleanText.toLowerCase().includes('giao hàng') || cleanText.toLowerCase().includes('liên campus')
-                        ? 'Tiền cọc Escrow được sàn FPT giữ bảo chứng an toàn. Khoản tiền sẽ được giải ngân cho Người bán sau khi bưu tá giao hàng và qua thời gian dùng thử 48h (Golden Test Period).'
-                        : 'Tiền cọc được sàn FPT giữ bảo chứng an toàn, chỉ thanh toán cho người bán khi hai bên quét mã bàn giao tại Safe Point.'}
+                        {cleanText.toLowerCase().includes('ship') ||
+                        cleanText.toLowerCase().includes('giao hàng') ||
+                        cleanText.toLowerCase().includes('liên campus')
+                          ? 'Tiền cọc Escrow được sàn FPT giữ bảo chứng an toàn. Khoản tiền sẽ được giải ngân cho Người bán sau khi bưu tá giao hàng và qua thời gian dùng thử 48h (Golden Test Period).'
+                          : 'Tiền cọc được sàn FPT giữ bảo chứng an toàn, chỉ thanh toán cho người bán khi hai bên quét mã bàn giao tại Safe Point.'}
                       </span>
                     </div>
                   </div>
@@ -492,7 +575,7 @@ export default function MessageHistory({
                         Đơn hàng {orderCode ? `#${orderCode}` : ''} đã bị hủy
                       </h5>
                       <span className="text-[11px] text-rose-700 font-medium">
-                        Tiền cọc / Xu đã được hoàn về ví người mua
+                        Tiền cọc / Xu đã được hoàn về ví người mua • Giá sản phẩm đã quay về giá gốc
                       </span>
                     </div>
                   </div>
@@ -501,7 +584,7 @@ export default function MessageHistory({
                   <div className="mt-2.5 rounded-xl bg-white/90 border border-rose-100 p-3 text-xs text-slate-700 leading-relaxed">
                     <p className="font-medium text-slate-800">{cleanText}</p>
                     <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-rose-100 text-[11px] text-slate-600">
-                      <span>Món hàng đã được mở lại trạng thái Đang bán. Hai bên có thể tiếp tục trao đổi hoặc thương lượng lại.</span>
+                      <span>Món hàng đã được mở lại trạng thái Đang bán theo giá niêm yết ban đầu. Hai bên có thể tiếp tục trao đổi hoặc thương lượng lại.</span>
                     </div>
                   </div>
                 </div>
@@ -627,7 +710,10 @@ export default function MessageHistory({
             );
           }
 
-          const isMeetupMsg = msg.text.includes('hẹn điểm') || msg.text.includes('Hẹn điểm') || msg.text.includes('bàn giao đồ tại Sảnh');
+          const isMeetupMsg =
+            msg.text?.includes('hẹn điểm') ||
+            msg.text?.includes('Hẹn điểm') ||
+            msg.text?.includes('bàn giao đồ tại Sảnh');
           if (isMeetupMsg) {
             return (
               <div key={msg.id} className="flex justify-center my-3">
@@ -657,10 +743,12 @@ export default function MessageHistory({
           }
 
           const isMe = msg.sender === 'me';
+          const isEditing = editingMsgId === msg.id;
+
           return (
             <div
               key={msg.id}
-              className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
+              className={`group flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {!isMe && (
                 <div className="relative shrink-0 mb-1">
@@ -673,6 +761,32 @@ export default function MessageHistory({
                 </div>
               )}
 
+              {/* Nút Chỉnh sửa & Xóa cho tin nhắn thường của chính mình */}
+              {isMe && !isEditing && (onEditMessage || onDeleteMessage) && (
+                <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-1 mb-5 shrink-0">
+                  {onEditMessage && msg.text && !msg.image && (
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(msg)}
+                      title="Chỉnh sửa tin nhắn"
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-fpt-orange hover:border-orange-200 shadow-2xs transition cursor-pointer"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {onDeleteMessage && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteMessage(msg.id)}
+                      title="Xóa tin nhắn"
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 shadow-2xs transition cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="max-w-[80%] sm:max-w-[65%] space-y-1">
                 <div
                   className={`rounded-2xl p-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
@@ -681,22 +795,62 @@ export default function MessageHistory({
                       : 'bg-white border border-slate-200/90 text-slate-800 rounded-bl-xs'
                   }`}
                 >
-                  <p>{msg.text}</p>
-
-                  {/* Embedded Photo in message */}
-                  {msg.image && (
-                    <div className="mt-2 relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 group">
-                      <Image
-                        src={msg.image}
-                        alt="Ảnh thật sản phẩm"
-                        fill
-                        className="object-cover"
+                  {isEditing ? (
+                    <div className="space-y-2 min-w-[220px] sm:min-w-[280px]">
+                      <input
+                        type="text"
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveEdit(msg.id);
+                          } else if (e.key === 'Escape') {
+                            handleCancelEdit();
+                          }
+                        }}
+                        autoFocus
+                        className="w-full rounded-xl bg-white text-slate-900 px-3 py-1.5 text-xs sm:text-sm font-medium outline-none ring-2 ring-orange-300"
                       />
-                      <div className="absolute bottom-2 right-2 rounded-lg bg-slate-900/80 px-2 py-1 text-[10px] font-bold text-white flex items-center gap-1">
-                        <span>Phóng to</span>
-                        <Sparkles className="h-3 w-3" />
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 text-[11px] font-bold transition cursor-pointer"
+                        >
+                          <X className="h-3 w-3" />
+                          <span>Hủy</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEdit(msg.id)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white text-fpt-orange hover:bg-orange-50 px-2.5 py-1 text-[11px] font-bold shadow-2xs transition cursor-pointer"
+                        >
+                          <Check className="h-3 w-3" />
+                          <span>Lưu</span>
+                        </button>
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      <p>{msg.text}</p>
+
+                      {/* Embedded Photo in message */}
+                      {msg.image && (
+                        <div className="mt-2 relative aspect-[16/10] w-full rounded-xl overflow-hidden border border-slate-200 group">
+                          <Image
+                            src={msg.image}
+                            alt="Ảnh thật sản phẩm"
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute bottom-2 right-2 rounded-lg bg-slate-900/80 px-2 py-1 text-[10px] font-bold text-white flex items-center gap-1">
+                            <span>Phóng to</span>
+                            <Sparkles className="h-3 w-3" />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

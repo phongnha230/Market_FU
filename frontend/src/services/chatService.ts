@@ -155,6 +155,22 @@ export const chatService = {
   },
 
   // 6. Xóa cuộc trò chuyện
+  // 6. Xóa cuộc trò chuyện
+  async updateMessage(conversationId: string, messageId: string, text: string): Promise<BackendMessage> {
+    const response = await apiClient.patch<ApiResponse<BackendMessage>>(
+      `/chats/conversations/${conversationId}/messages/${messageId}`,
+      { text }
+    );
+    return response.data.data;
+  },
+
+  async deleteMessage(conversationId: string, messageId: string): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>(
+      `/chats/conversations/${conversationId}/messages/${messageId}`
+    );
+    return response.data.data;
+  },
+
   async deleteConversation(conversationId: string): Promise<any> {
     const response = await apiClient.delete<ApiResponse<any>>(
       `/chats/conversations/${conversationId}`

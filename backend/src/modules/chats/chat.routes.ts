@@ -27,7 +27,13 @@ router.post(
 // 5. Đánh dấu đã đọc tin nhắn
 router.patch('/conversations/:id/read', chatController.markAsRead);
 
-// 6. Xóa cuộc trò chuyện
+// 6. Chỉnh sửa tin nhắn thường (cấm sửa tin nhắn trả giá / hệ thống)
+router.patch('/conversations/:id/messages/:messageId', chatController.updateMessage);
+
+// 7. Xóa tin nhắn thường (cấm xóa tin nhắn trả giá / hệ thống)
+router.delete('/conversations/:id/messages/:messageId', chatController.deleteMessage);
+
+// 8. Xóa cuộc trò chuyện
 router.delete('/conversations/:id', chatController.deleteConversation);
 
 export default router;

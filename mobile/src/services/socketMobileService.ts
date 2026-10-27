@@ -146,6 +146,34 @@ class SocketMobileService {
     };
   }
 
+  onMessageUpdated(callback: (data: { conversationId: string; messageId: string; text: string }) => void) {
+    const socket = this.getSocket();
+    if (!socket) return () => {};
+
+    const handler = (data: any) => {
+      callback(data);
+    };
+
+    socket.on('message_updated', handler);
+    return () => {
+      socket.off('message_updated', handler);
+    };
+  }
+
+  onMessageDeleted(callback: (data: { conversationId: string; messageId: string; lastMessageText?: string }) => void) {
+    const socket = this.getSocket();
+    if (!socket) return () => {};
+
+    const handler = (data: any) => {
+      callback(data);
+    };
+
+    socket.on('message_deleted', handler);
+    return () => {
+      socket.off('message_deleted', handler);
+    };
+  }
+
   onNewMessageNotification(callback: (data: { conversationId: string; productId: string; text?: string }) => void) {
     const socket = this.getSocket();
     if (!socket) return () => {};

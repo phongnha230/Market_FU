@@ -123,6 +123,8 @@ export const ChatListScreen: React.FC = () => {
       partnerId: c.partnerId,
       productId: c.productId,
       sellerId: c.sellerId,
+      productCampus: c.productCampus,
+      rawProductPrice: c.productPrice,
       buyerId: c.buyerId,
     } as any;
   });
@@ -164,6 +166,11 @@ export const ChatListScreen: React.FC = () => {
         price: item.productPrice,
         image: item.productImage,
         sellerId: (item as any).sellerId,
+        originalPrice: typeof (item as any).rawProductPrice === 'number' ? (item as any).rawProductPrice : undefined,
+        campus: (item as any).productCampus,
+        sellerCampus: (item as any).productCampus,
+        sellerName: isBuyerRole ? item.name : undefined,
+        sellerCohort: isBuyerRole ? item.cohort : undefined,
       },
     });
   };

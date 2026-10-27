@@ -1,22 +1,36 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { resolveProductImage } from '../../../lib/imageResolver';
 
-export const ChatProductStrip: React.FC = () => {
+export interface ChatProductStripProps {
+  product?: {
+    title: string;
+    price: string;
+    image?: any;
+    badge?: string;
+  };
+}
+
+export const ChatProductStrip: React.FC<ChatProductStripProps> = ({ product }) => {
+  if (!product || !product.title) return null;
+
   return (
     <View style={styles.strip}>
       <Image
-        source={require('../../../../assets/products/keyboard-akko.jpg')}
+        source={resolveProductImage(product.image)}
         style={styles.thumb}
         contentFit="cover"
       />
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>Bàn phím cơ Akko 3087 v2 Orange Switch</Text>
-        <Text style={styles.price}>520.000đ</Text>
+        <Text style={styles.title} numberOfLines={1}>{product.title}</Text>
+        <Text style={styles.price}>{product.price}</Text>
       </View>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>Thỏa thuận Handoff</Text>
-      </View>
+      {product.badge ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{product.badge}</Text>
+        </View>
+      ) : null}
     </View>
   );
 };

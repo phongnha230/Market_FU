@@ -27,6 +27,7 @@ export interface ConversationItem {
   productTitle?: string;
   productPrice?: number;
   productImage?: string;
+  productCampus?: string;
   buyerId?: string;
   sellerId?: string;
 }
@@ -61,6 +62,7 @@ export const chatMobileService = {
             productTitle: product.title,
             productPrice: product.price,
             productImage: product.images?.[0]?.imageUrl || product.images?.[0],
+            productCampus: product.campus || c.seller?.profile?.campus,
             buyerId: c.buyerId,
             sellerId: c.sellerId,
           };
@@ -266,6 +268,32 @@ export const chatMobileService = {
       return true;
     } catch (e: any) {
       console.log('⚠️ [deleteConversation error]:', e?.message);
+      return false;
+    }
+  },
+
+  /**
+   * Chỉnh sửa tin nhắn thường (không áp dụng cho tin nhắn trả giá / hệ thống)
+   */
+  async updateMessage(conversationId: string, messageId: string, text: string): Promise<boolean> {
+    try {
+      await apiClient.patch(`/chats/conversations/${conversationId}/messages/${messageId}`, { text });
+      return true;
+    } catch (e: any) {
+      console.log('⚠️ [updateMessage error]:', e?.message);
+      return false;
+    }
+  },
+
+  /**
+   * Xóa tin nhắn thường (không áp dụng cho tin nhắn trả giá / hệ thống)
+   */
+  async deleteMessage(conversationId: string, messageId: string): Promise<boolean> {
+    try {
+      await apiClient.delete(`/chats/conversations/${conversationId}/messages/${messageId}`);
+      return true;
+    } catch (e: any) {
+      console.log('⚠️ [deleteMessage error]:', e?.message);
       return false;
     }
   },

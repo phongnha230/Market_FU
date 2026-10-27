@@ -34,6 +34,7 @@ export interface ConversationItem {
   productTitle: string;
   productPrice: number;
   productImage: any;
+  productCampus?: string;
   messages: ChatMessage[];
   buyerId?: string;
   sellerId?: string;
@@ -102,6 +103,7 @@ export const useChatStore = create<ChatState>()(
                 productTitle: item.productTitle || 'Món đồ Campus',
                 productPrice: item.productPrice || 0,
                 productImage: item.productImage || require('../../assets/products/monitor-dell-24.jpg'),
+                productCampus: item.productCampus || existing?.productCampus,
                 messages: existing?.messages || [],
                 buyerId: item.buyerId,
                 sellerId: item.sellerId,

@@ -109,6 +109,50 @@ export class ChatController {
   };
 
   /**
+   * PATCH /api/chats/conversations/:id/messages/:messageId
+   * Chỉnh sửa tin nhắn thường (không cho phép sửa tin nhắn trả giá / hệ thống đơn hàng)
+   */
+  updateMessage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const conversationId = req.params.id as string;
+      const messageId = req.params.messageId as string;
+      const { text } = req.body;
+
+      const updated = await chatService.updateMessage(
+        authReq.user!.userId,
+        conversationId,
+        messageId,
+        text
+      );
+      return sendSuccess(res, updated);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /api/chats/conversations/:id/messages/:messageId
+   * Xóa tin nhắn thường (không cho phép xóa tin nhắn trả giá / hệ thống đơn hàng)
+   */
+  deleteMessage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const conversationId = req.params.id as string;
+      const messageId = req.params.messageId as string;
+
+      const result = await chatService.deleteMessage(
+        authReq.user!.userId,
+        conversationId,
+        messageId
+      );
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * DELETE /api/chats/conversations/:id
    * Xóa một cuộc trò chuyện
    */

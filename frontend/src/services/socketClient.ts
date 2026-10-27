@@ -230,6 +230,32 @@ class SocketClient {
   }
 
   /**
+   * Lắng nghe sự kiện tin nhắn được chỉnh sửa
+   */
+  onMessageUpdated(callback: (data: { conversationId: string; messageId: string; text: string }) => void) {
+    const socket = this.getSocket();
+    if (socket) {
+      socket.on('message_updated', callback);
+    }
+    return () => {
+      socket?.off('message_updated', callback);
+    };
+  }
+
+  /**
+   * Lắng nghe sự kiện tin nhắn bị xóa
+   */
+  onMessageDeleted(callback: (data: { conversationId: string; messageId: string; lastMessageText?: string }) => void) {
+    const socket = this.getSocket();
+    if (socket) {
+      socket.on('message_deleted', callback);
+    }
+    return () => {
+      socket?.off('message_deleted', callback);
+    };
+  }
+
+  /**
    * Lắng nghe trạng thái người kia đang gõ
    */
   onTyping(onStart: (data: { userId: string }) => void, onStop: (data: { userId: string }) => void) {

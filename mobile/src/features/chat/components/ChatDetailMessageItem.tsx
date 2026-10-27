@@ -12,7 +12,7 @@ export interface MessageItem {
   offerData?: {
     originalPrice: number;
     offeredPrice: number;
-    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'unavailable';
+    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'unavailable' | 'cancelled';
   };
   safePointData?: {
     location: string;
@@ -99,6 +99,13 @@ const ChatOfferBubble: React.FC<ChatOfferBubbleProps> = ({
             <View style={[styles.declinedBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
               <Ionicons name="time" size={12} color="#B45309" />
               <Text style={[styles.declinedText, { color: '#B45309' }]}>Thỏa thuận đã hết hạn (30 phút)</Text>
+            </View>
+          ) : offerData.status === 'cancelled' ? (
+            <View style={[styles.declinedBadge, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+              <Ionicons name="refresh-circle" size={12} color="#475569" />
+              <Text style={[styles.declinedText, { color: '#475569' }]}>
+                Đơn đã hủy • Mặt hàng quay về giá gốc
+              </Text>
             </View>
           ) : offerData.status === 'accepted' ? (
             <View style={styles.statusCol}>
@@ -205,18 +212,61 @@ const ChatSafePointBubble: React.FC<ChatSafePointBubbleProps> = ({ item, isMe, o
 interface ChatTextBubbleProps {
   item: MessageItem;
   isMe: boolean;
+  onMessageAction?: (item: MessageItem) => void;
 }
 
-const ChatTextBubble: React.FC<ChatTextBubbleProps> = ({ item, isMe }) => {
+const isImmutableOfferOrOrderText = (text?: string): boolean => {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    text.includes('[OFFER_ACCEPTED]') ||
+    text.includes('[OFFER_REJECTED]') ||
+    text.startsWith('[ORDER_CREATED]') ||
+    text.startsWith('[ORDER_CANCELLED]') ||
+    text.startsWith('[ORDER_SHIPPING_CONFIRMED]') ||
+    text.startsWith('[APPOINTMENT_CONFIRMED]') ||
+    lower.startsWith('đề xuất giá') ||
+    lower.includes('đồng ý chốt mức giá') ||
+    lower.includes('từ chối đề xuất')
+  );
+};
+
+const ChatTextBubble: React.FC<ChatTextBubbleProps> = ({ item, isMe, onMessageAction }) => {
+  const canModify = isMe && !isImmutableOfferOrOrderText(item.text) && Boolean(onMessageAction);
+  const cleanText = (item.text || '')
+    .replace(/^\[OFFER_ACCEPTED\]\s*/i, '')
+    .replace(/^\[OFFER_REJECTED\]\s*/i, '');
+
   return (
     <View style={[styles.msgWrapper, isMe ? styles.myMsgWrapper : styles.theirMsgWrapper]}>
-      <View style={[styles.bubble, isMe ? styles.myBubble : styles.theirBubble]}>
-        <Text style={[styles.bubbleText, isMe ? styles.myBubbleText : styles.theirBubbleText]}>
-          {item.text}
-        </Text>
-        <Text style={[styles.bubbleTime, isMe ? styles.myBubbleTime : styles.theirBubbleTime]}>
-          {item.time}
-        </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {canModify && (
+          <TouchableOpacity
+            onPress={() => onMessageAction?.(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{
+              padding: 4,
+              borderRadius: 8,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+            }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={13} color="#64748B" />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          activeOpacity={canModify ? 0.85 : 1}
+          onLongPress={canModify ? () => onMessageAction?.(item) : undefined}
+          style={[styles.bubble, isMe ? styles.myBubble : styles.theirBubble]}
+        >
+          <Text style={[styles.bubbleText, isMe ? styles.myBubbleText : styles.theirBubbleText]}>
+            {cleanText}
+          </Text>
+          <Text style={[styles.bubbleTime, isMe ? styles.myBubbleTime : styles.theirBubbleTime]}>
+            {item.time}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -225,31 +275,54 @@ const ChatTextBubble: React.FC<ChatTextBubbleProps> = ({ item, isMe }) => {
 interface ChatImageBubbleProps {
   item: MessageItem;
   isMe: boolean;
+  onMessageAction?: (item: MessageItem) => void;
 }
 
-const ChatImageBubble: React.FC<ChatImageBubbleProps> = ({ item, isMe }) => {
+const ChatImageBubble: React.FC<ChatImageBubbleProps> = ({ item, isMe, onMessageAction }) => {
+  const canModify = isMe && Boolean(onMessageAction);
   return (
     <View style={[styles.msgWrapper, isMe ? styles.myMsgWrapper : styles.theirMsgWrapper]}>
-      <View style={[styles.imageBubble, isMe ? styles.myImageBubble : styles.theirImageBubble]}>
-        {item.imageUrl ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={styles.chatMediaImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="image-outline" size={28} color="#94A3B8" />
-          </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {canModify && (
+          <TouchableOpacity
+            onPress={() => onMessageAction?.(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{
+              padding: 4,
+              borderRadius: 8,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+            }}
+          >
+            <Ionicons name="trash-outline" size={13} color="#DC2626" />
+          </TouchableOpacity>
         )}
-        {item.text && item.text !== 'Đã gửi một ảnh' && (
-          <Text style={[styles.imageCaptionText, isMe ? styles.myBubbleText : styles.theirBubbleText]}>
-            {item.text}
+        <TouchableOpacity
+          activeOpacity={canModify ? 0.85 : 1}
+          onLongPress={canModify ? () => onMessageAction?.(item) : undefined}
+          style={[styles.imageBubble, isMe ? styles.myImageBubble : styles.theirImageBubble]}
+        >
+          {item.imageUrl ? (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.chatMediaImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Ionicons name="image-outline" size={28} color="#94A3B8" />
+            </View>
+          )}
+          {item.text && item.text !== 'Đã gửi một ảnh' && (
+            <Text style={[styles.imageCaptionText, isMe ? styles.myBubbleText : styles.theirBubbleText]}>
+              {item.text}
+            </Text>
+          )}
+          <Text style={[styles.bubbleTime, isMe ? styles.myBubbleTime : styles.theirBubbleTime, { marginTop: 4 }]}>
+            {item.time}
           </Text>
-        )}
-        <Text style={[styles.bubbleTime, isMe ? styles.myBubbleTime : styles.theirBubbleTime, { marginTop: 4 }]}>
-          {item.time}
-        </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -372,6 +445,7 @@ interface ChatDetailMessageItemProps {
   onBookSafePoint: (safePointLocation?: string) => void;
   onCheckoutOffer?: (offeredPrice: number) => void;
   onViewOrder?: (orderCode?: string) => void;
+  onMessageAction?: (item: MessageItem) => void;
 }
 
 export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
@@ -382,6 +456,7 @@ export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
   onBookSafePoint,
   onCheckoutOffer,
   onViewOrder,
+  onMessageAction,
 }) => {
   const isMe = item.sender === 'me';
 
@@ -411,10 +486,10 @@ export const ChatDetailMessageItem: React.FC<ChatDetailMessageItemProps> = ({
   }
 
   if (item.type === 'image') {
-    return <ChatImageBubble item={item} isMe={isMe} />;
+    return <ChatImageBubble item={item} isMe={isMe} onMessageAction={onMessageAction} />;
   }
 
-  return <ChatTextBubble item={item} isMe={isMe} />;
+  return <ChatTextBubble item={item} isMe={isMe} onMessageAction={onMessageAction} />;
 };
 
 const styles = StyleSheet.create({

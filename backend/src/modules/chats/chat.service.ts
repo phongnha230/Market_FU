@@ -604,6 +604,158 @@ export class ChatService {
 
     return { success: true, conversationId };
   }
+
+  /**
+   * Kiểm tra tin nhắn có thuộc nhóm thương lượng giá / hệ thống đơn hàng (cấm sửa/xóa) không
+   */
+  private isImmutableTransactionMessage(message: {
+    messageType?: string | null;
+    offerPrice?: number | null;
+    text?: string | null;
+  }): boolean {
+    const text = (message.text || '').trim();
+    const lower = text.toLowerCase();
+    return Boolean(
+      message.messageType === 'OFFER_PRICE' ||
+        (message.offerPrice !== null && message.offerPrice !== undefined && message.offerPrice > 0) ||
+        text.includes('[OFFER_ACCEPTED]') ||
+        text.includes('[OFFER_REJECTED]') ||
+        text.startsWith('[ORDER_CREATED]') ||
+        text.startsWith('[ORDER_CANCELLED]') ||
+        text.startsWith('[ORDER_SHIPPING_CONFIRMED]') ||
+        text.startsWith('[APPOINTMENT_CONFIRMED]') ||
+        lower.startsWith('đề xuất giá') ||
+        lower.includes('đồng ý chốt mức giá') ||
+        lower.includes('từ chối đề xuất')
+    );
+  }
+
+  /**
+   * 7. Chỉnh sửa tin nhắn (Chỉ áp dụng cho tin nhắn thường của chính người gửi; CẤM sửa tin nhắn trả giá/đơn hàng)
+   */
+  async updateMessage(userId: string, conversationId: string, messageId: string, newText: string) {
+    const trimmedText = (newText || '').trim();
+    if (!trimmedText) {
+      throw new AppError('Nội dung tin nhắn không được để trống', 400, 'EMPTY_MESSAGE_TEXT');
+    }
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message || message.conversationId !== conversationId) {
+      throw new AppError('Tin nhắn không tồn tại', 404, 'MESSAGE_NOT_FOUND');
+    }
+
+    if (message.senderId !== userId) {
+      throw new AppError('Bạn chỉ có quyền chỉnh sửa tin nhắn của chính mình', 403, 'FORBIDDEN');
+    }
+
+    if (this.isImmutableTransactionMessage(message)) {
+      throw new AppError(
+        'Tin nhắn trả giá hoặc thông báo đơn hàng không được phép chỉnh sửa để đảm bảo minh bạch giao dịch.',
+        403,
+        'MESSAGE_IMMUTABLE'
+      );
+    }
+
+    const updated = await prisma.message.update({
+      where: { id: messageId },
+      data: { text: trimmedText },
+    });
+
+    // Cập nhật lastMessageText nếu đây là tin nhắn mới nhất của hội thoại
+    const latestMsg = await prisma.message.findFirst({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (latestMsg && latestMsg.id === messageId) {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { lastMessageText: trimmedText },
+      });
+    }
+
+    const io = getIO();
+    io?.to(`conversation_${conversationId}`).emit('message_updated', {
+      conversationId,
+      messageId,
+      text: updated.text,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return updated;
+  }
+
+  /**
+   * 8. Xóa / Thu hồi tin nhắn (Chỉ áp dụng cho tin nhắn thường của chính người gửi; CẤM xóa tin nhắn trả giá/đơn hàng)
+   */
+  async deleteMessage(userId: string, conversationId: string, messageId: string) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message || message.conversationId !== conversationId) {
+      throw new AppError('Tin nhắn không tồn tại', 404, 'MESSAGE_NOT_FOUND');
+    }
+
+    if (message.senderId !== userId) {
+      throw new AppError('Bạn chỉ có quyền xóa tin nhắn của chính mình', 403, 'FORBIDDEN');
+    }
+
+    if (this.isImmutableTransactionMessage(message)) {
+      throw new AppError(
+        'Tin nhắn trả giá hoặc thông báo đơn hàng không được phép xóa để đảm bảo minh bạch giao dịch.',
+        403,
+        'MESSAGE_IMMUTABLE'
+      );
+    }
+
+    await prisma.message.delete({
+      where: { id: messageId },
+    });
+
+    // Cập nhật lại lastMessageText cho cuộc hội thoại
+    const latestMsg = await prisma.message.findFirst({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let summaryText = 'Bắt đầu cuộc trò chuyện';
+    if (latestMsg) {
+      if (latestMsg.messageType === 'OFFER_PRICE') {
+        summaryText = `[Đề xuất giá: ${latestMsg.offerPrice?.toLocaleString()} VNĐ]`;
+      } else if (latestMsg.messageType === 'MEETUP_LOCATION') {
+        summaryText = `[Hẹn gặp tại: ${latestMsg.meetupLocation}]`;
+      } else if (latestMsg.messageType === 'IMAGE') {
+        summaryText = '[Hình ảnh]';
+      } else {
+        summaryText = latestMsg.text || '';
+      }
+    }
+
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageText: summaryText,
+        ...(latestMsg ? { lastMessageAt: latestMsg.createdAt } : {}),
+      },
+    });
+
+    const io = getIO();
+    io?.to(`conversation_${conversationId}`).emit('message_deleted', {
+      conversationId,
+      messageId,
+      lastMessageText: summaryText,
+    });
+
+    return {
+      success: true,
+      conversationId,
+      messageId,
+      lastMessageText: summaryText,
+    };
+  }
 }
 
 export const chatService = new ChatService();

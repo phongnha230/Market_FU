@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import CompactHeader from '@/components/layout/CompactHeader';
-import Footer from '@/components/Footer';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import ChatHeader from '@/components/chat/ChatHeader';
 import PinnedProductBar from '@/components/chat/PinnedProductBar';
@@ -299,9 +298,19 @@ function ChatContent() {
 
                     const hasOfferPrice = Boolean(m.offerPrice || m.messageType === 'OFFER_PRICE');
 
-                    // Kiểm tra xem sau tin nhắn này có phản hồi đồng ý hoặc từ chối hay không
+                    // Kiểm tra xem sau tin nhắn này có phản hồi đồng ý, từ chối hoặc hủy đơn hay không
                     const laterMsgs = storeMsgs.slice(idx + 1);
-                    const acceptMsgItem = laterMsgs.find((later) =>
+                    const nextNewOfferIdx = laterMsgs.findIndex((later) => {
+                      const laterIsAccept = Boolean(
+                        later.text?.includes('[OFFER_ACCEPTED]') ||
+                        later.text?.toLowerCase().includes('đồng ý mức giá') ||
+                        later.text?.toLowerCase().includes('đồng ý chốt')
+                      );
+                      return Boolean((later.offerPrice || later.messageType === 'OFFER_PRICE') && !laterIsAccept);
+                    });
+                    const relevantLaterMsgs = nextNewOfferIdx !== -1 ? laterMsgs.slice(0, nextNewOfferIdx) : laterMsgs;
+
+                    const acceptMsgItem = relevantLaterMsgs.find((later) =>
                       Boolean(
                         later.text?.includes('[OFFER_ACCEPTED]') ||
                         later.text?.toLowerCase().includes('đồng ý mức giá') ||
@@ -309,7 +318,7 @@ function ChatContent() {
                       )
                     );
                     const isLaterAccepted = Boolean(acceptMsgItem);
-                    const isLaterRejected = laterMsgs.some((later) =>
+                    const isLaterRejected = relevantLaterMsgs.some((later) =>
                       Boolean(
                         later.text?.includes('[OFFER_REJECTED]') ||
                         later.text?.toLowerCase().includes('từ chối đề xuất') ||
@@ -317,9 +326,24 @@ function ChatContent() {
                       )
                     );
 
-                    // Thẻ đề xuất giá ban đầu sẽ đổi trạng thái khi có tin nhắn sau phản hồi
-                    const isOfferAccepted = hasOfferPrice ? (isLaterAccepted || isAcceptMsg) : isAcceptMsg;
-                    const isOfferRejected = hasOfferPrice ? isLaterRejected : false;
+                    const isLaterOrderCancelled = laterMsgs.some((later) =>
+                      Boolean(later.text?.includes('[ORDER_CANCELLED]'))
+                    );
+                    const isLaterRejectedAny = laterMsgs.some((later) =>
+                      Boolean(
+                        later.text?.includes('[OFFER_REJECTED]') ||
+                        later.text?.toLowerCase().includes('từ chối đề xuất') ||
+                        later.text?.toLowerCase().includes('chưa phù hợp')
+                      )
+                    );
+
+                    const rawOfferAccepted = hasOfferPrice ? (isLaterAccepted || isAcceptMsg) : isAcceptMsg;
+                    // Nếu đơn hàng sau đó bị hủy hoặc có từ chối trả giá mới -> hủy hiệu lực chốt giá để mặt hàng về giá gốc!
+                    const isOfferCancelled = Boolean(
+                      rawOfferAccepted && (isLaterOrderCancelled || isLaterRejectedAny || nextNewOfferIdx !== -1)
+                    );
+                    const isOfferAccepted = Boolean(rawOfferAccepted && !isOfferCancelled);
+                    const isOfferRejected = Boolean((hasOfferPrice && !isAcceptMsg && isLaterRejected) || isRejectMsg);
 
                     // Xác định thời điểm chấp nhận deal để tính hạn 30 phút
                     let offerAcceptedAt: number | undefined;
@@ -365,6 +389,7 @@ function ChatContent() {
                       isOfferAccepted,
                       isOfferRejected,
                       isOfferExpired,
+                      isOfferCancelled,
                       offerAcceptedAt,
                       offerPrice: displayPrice,
                       numericOfferPrice: numPrice,
@@ -469,7 +494,7 @@ function ChatContent() {
     );
 
     try {
-      const res = await chatService.sendMessage(
+      await chatService.sendMessage(
         activeConv.id,
         {
           type: 'IMAGE',
@@ -478,13 +503,8 @@ function ChatContent() {
         file
       );
 
-      // Đồng bộ mediaUrl từ server vào chatStore
-      chatStore.sendMessage({
-        conversationId: activeConv.id,
-        messageType: 'IMAGE',
-        text: 'Đã gửi một ảnh sản phẩm',
-        mediaUrl: res?.mediaUrl || previewUrl,
-      });
+      // Đồng bộ danh sách tin nhắn từ server (tránh gửi lặp lần 2 qua Socket)
+      await chatStore.fetchMessages(activeConv.id);
       showToast('📷 Đã gửi ảnh thành công!', 'success');
     } catch (err: any) {
       console.log('⚠️ [handleSendImage error]:', err?.message);
@@ -555,6 +575,8 @@ function ChatContent() {
             messages: c.messages.map((m) =>
               m.id === msgId || (m.offerPrice && !m.isOfferAccepted && !m.isOfferRejected)
                 ? { ...m, isOfferRejected: true, isOfferAccepted: false }
+                : m.isOfferAccepted
+                ? { ...m, isOfferAccepted: false, isOfferCancelled: true }
                 : m
             ),
           };
@@ -571,6 +593,46 @@ function ChatContent() {
     });
 
     showToast(`Đã từ chối mức giá đề xuất ${formattedPrice}.`, 'info');
+  };
+
+  const handleEditMessage = async (msgId: string, newText: string) => {
+    if (!activeConv) return;
+    try {
+      await chatStore.editMessage(activeConv.id, msgId, newText);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConv.id
+            ? {
+                ...c,
+                messages: c.messages.map((m) => (m.id === msgId ? { ...m, text: newText } : m)),
+              }
+            : c
+        )
+      );
+      showToast('Đã chỉnh sửa tin nhắn.', 'success');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Không thể chỉnh sửa tin nhắn này.', 'error');
+    }
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!activeConv) return;
+    try {
+      await chatStore.deleteMessage(activeConv.id, msgId);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConv.id
+            ? {
+                ...c,
+                messages: c.messages.filter((m) => m.id !== msgId),
+              }
+            : c
+        )
+      );
+      showToast('Đã xóa tin nhắn.', 'info');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Không thể xóa tin nhắn này.', 'error');
+    }
   };
 
   const isInterCampusChat = Boolean(
@@ -616,15 +678,14 @@ function ChatContent() {
             </div>
           </main>
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 py-4 sm:py-6">
-        <div className="mx-auto w-full max-w-7xl px-3 sm:px-4 space-y-3 flex-1 flex flex-col">
+      <div className="h-dvh overflow-hidden bg-[#F8FAFC] flex flex-col font-sans text-slate-800 py-2 sm:py-3">
+        <div className="mx-auto w-full max-w-[1440px] px-2 sm:px-4 space-y-2 flex-1 min-h-0 flex flex-col">
           <CompactHeader
             breadcrumbs={[
               { label: 'Tin nhắn & Trao đổi P2P' },
@@ -650,15 +711,14 @@ function ChatContent() {
             </div>
           </main>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 py-4 sm:py-6">
-      <div className="mx-auto w-full max-w-7xl px-3 sm:px-4 space-y-3 flex-1 flex flex-col">
-        {/* Compact in-container Header like Image 2 */}
+    <div className="h-dvh overflow-hidden bg-[#F8FAFC] flex flex-col font-sans text-slate-800 py-2 sm:py-3">
+      <div className="mx-auto w-full max-w-[1440px] px-2 sm:px-4 space-y-2 flex-1 min-h-0 flex flex-col">
+        {/* Compact in-container Header */}
         <CompactHeader
           breadcrumbs={[
             { label: 'Tin nhắn & Trao đổi P2P' },
@@ -668,10 +728,10 @@ function ChatContent() {
         />
 
         {/* MAIN CHAT CONTAINER */}
-        <main className="flex-1 w-full flex flex-col">
+        <main className="flex-1 min-h-0 w-full flex flex-col">
         {/* Unverified KYC Warning Banner */}
         {!isKycVerified && (
-          <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-amber-900 shadow-xs">
+          <div className="mb-2 shrink-0 rounded-2xl border border-amber-200 bg-amber-50 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-amber-900 shadow-xs">
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center shrink-0">
                 <ShieldAlert className="h-4 w-4" />
@@ -693,7 +753,7 @@ function ChatContent() {
           </div>
         )}
 
-        <div className="flex rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[calc(100vh-170px)] min-h-[580px] w-full">
+        <div className="flex flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden w-full">
           {/* 1. MÀN HÌNH DI ĐỘNG / TABLET / CỬA SỔ THU NHỎ (< 1024px): CHUẨN ZALO 100% */}
           {isMobile ? (
             !showMobileChat ? (
@@ -738,22 +798,38 @@ function ChatContent() {
                     />
 
                     {(() => {
-                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
-                        .reverse()
-                        .find((m) => m.isOfferAccepted);
-                      const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
-                        (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
-
                       const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
                         .reverse()
                         .find((m) => m.text?.includes('[ORDER_CREATED]'));
                       const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
                         .reverse()
                         .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
+                      const lastRejectedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferRejected || m.text?.includes('[OFFER_REJECTED]'));
 
                       const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
                       const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
-                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
+                      const rejectedIdx = lastRejectedOfferMsg ? activeConv.messages.indexOf(lastRejectedOfferMsg) : -1;
+                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx > orderCancelledIdx;
+
+                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferAccepted && !m.isOfferExpired && !m.isOfferCancelled);
+                      const acceptedIdx = lastAcceptedOfferMsg ? activeConv.messages.indexOf(lastAcceptedOfferMsg) : -1;
+
+                      // Nếu đơn hàng đã hủy hoặc có từ chối sau lần chốt giá -> trả mặt hàng về giá gốc niêm yết
+                      const isAcceptedDealStillValid =
+                        acceptedIdx !== -1 &&
+                        acceptedIdx > orderCancelledIdx &&
+                        acceptedIdx > rejectedIdx;
+
+                      const activeAgreedPrice = isAcceptedDealStillValid
+                        ? lastAcceptedOfferMsg?.numericOfferPrice ||
+                          (lastAcceptedOfferMsg?.offerPrice
+                            ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10)
+                            : undefined)
+                        : undefined;
                       const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
                       const isInterCampusOrder = Boolean(
                         lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
@@ -795,6 +871,8 @@ function ChatContent() {
                       isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                       onAcceptOffer={handleAcceptOffer}
                       onRejectOffer={handleRejectOffer}
+                      onEditMessage={handleEditMessage}
+                      onDeleteMessage={handleDeleteMessage}
                     />
 
                     <ChatInputBar
@@ -863,22 +941,38 @@ function ChatContent() {
                     />
 
                     {(() => {
-                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
-                        .reverse()
-                        .find((m) => m.isOfferAccepted);
-                      const activeAgreedPrice = lastAcceptedOfferMsg?.numericOfferPrice || 
-                        (lastAcceptedOfferMsg?.offerPrice ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10) : undefined);
-
                       const lastOrderCreatedMsg = [...(activeConv?.messages || [])]
                         .reverse()
                         .find((m) => m.text?.includes('[ORDER_CREATED]'));
                       const lastOrderCancelledMsg = [...(activeConv?.messages || [])]
                         .reverse()
                         .find((m) => m.text?.includes('[ORDER_CANCELLED]'));
+                      const lastRejectedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferRejected || m.text?.includes('[OFFER_REJECTED]'));
 
                       const orderCreatedIdx = lastOrderCreatedMsg ? activeConv.messages.indexOf(lastOrderCreatedMsg) : -1;
                       const orderCancelledIdx = lastOrderCancelledMsg ? activeConv.messages.indexOf(lastOrderCancelledMsg) : -1;
-                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx >= orderCancelledIdx;
+                      const rejectedIdx = lastRejectedOfferMsg ? activeConv.messages.indexOf(lastRejectedOfferMsg) : -1;
+                      const hasActiveOrder = orderCreatedIdx !== -1 && orderCreatedIdx > orderCancelledIdx;
+
+                      const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
+                        .reverse()
+                        .find((m) => m.isOfferAccepted && !m.isOfferExpired && !m.isOfferCancelled);
+                      const acceptedIdx = lastAcceptedOfferMsg ? activeConv.messages.indexOf(lastAcceptedOfferMsg) : -1;
+
+                      // Nếu đơn hàng đã hủy hoặc có từ chối sau lần chốt giá -> trả mặt hàng về giá gốc niêm yết
+                      const isAcceptedDealStillValid =
+                        acceptedIdx !== -1 &&
+                        acceptedIdx > orderCancelledIdx &&
+                        acceptedIdx > rejectedIdx;
+
+                      const activeAgreedPrice = isAcceptedDealStillValid
+                        ? lastAcceptedOfferMsg?.numericOfferPrice ||
+                          (lastAcceptedOfferMsg?.offerPrice
+                            ? parseInt(lastAcceptedOfferMsg.offerPrice.replace(/\D/g, ''), 10)
+                            : undefined)
+                        : undefined;
                       const activeOrderCode = lastOrderCreatedMsg?.text?.match(/#(ORD-[A-Za-z0-9_-]+)/i)?.[1];
                       const isInterCampusOrder = Boolean(
                         lastOrderCreatedMsg?.text?.toLowerCase().includes('ship cod') ||
@@ -920,6 +1014,8 @@ function ChatContent() {
                       isSeller={activeConv.isMeSeller ?? (activeConv.role === 'buyer')}
                       onAcceptOffer={handleAcceptOffer}
                       onRejectOffer={handleRejectOffer}
+                      onEditMessage={handleEditMessage}
+                      onDeleteMessage={handleDeleteMessage}
                     />
 
                     <ChatInputBar
@@ -951,8 +1047,6 @@ function ChatContent() {
         defaultRole="student"
         onShowToast={showToast}
       />
-
-      <Footer />
     </div>
   );
 }

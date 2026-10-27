@@ -79,6 +79,8 @@ interface ChatState {
   getTotalUnreadCount: () => number;
   getConversationMessages: (conversationId: string) => ChatMessage[];
   deleteConversation: (conversationId: string) => void;
+  editMessage: (conversationId: string, messageId: string, newText: string) => Promise<void>;
+  deleteMessage: (conversationId: string, messageId: string) => Promise<void>;
   replaceConversationId?: (oldId: string, newId: string) => void;
   resetChat: () => void;
 }
@@ -292,17 +294,29 @@ export const useChatStore = create<ChatState>()(
             // Bỏ qua nếu tin nhắn với ID này đã tồn tại
             if (currentMsgs.some((m) => m.id === newMsg.id)) return state;
 
-            // Nếu tin nhắn do chính user gửi và đang có bản optimistic tạm thời (id bắt đầu bằng msg-), thay thế bằng ID chính thức
-            const currentUserId = state.activeUserId;
-            const isMe = incomingSenderId === currentUserId;
-            const optimisticIndex = isMe
-              ? currentMsgs.findIndex(
-                  (m) =>
-                    m.id.startsWith('msg-') &&
-                    m.text === newMsg.text &&
-                    (m.offerPrice === newMsg.offerPrice || (!m.offerPrice && !newMsg.offerPrice))
-                )
-              : -1;
+            // Kiểm tra tin nhắn có phải của chính user hiện tại không (so khớp cả id, studentId, email và activeUserId)
+            const currentUser = useUserStore.getState().user;
+            const myIdentifiers = [
+              state.activeUserId,
+              currentUser?.id,
+              currentUser?.studentId,
+              currentUser?.email,
+              'user-current',
+            ]
+              .filter(Boolean)
+              .map((v) => String(v).trim().toLowerCase());
+
+            const normalizedSenderId = incomingSenderId ? String(incomingSenderId).trim().toLowerCase() : '';
+            const isMe = Boolean(normalizedSenderId && myIdentifiers.includes(normalizedSenderId));
+
+            // Nếu đang có bản optimistic tạm thời (id bắt đầu bằng msg-) trùng nội dung, thay thế bằng bản ghi chính thức từ Server
+            const optimisticIndex = currentMsgs.findIndex(
+              (m) =>
+                m.id.startsWith('msg-') &&
+                (isMe || (m.senderId && myIdentifiers.includes(String(m.senderId).trim().toLowerCase()))) &&
+                (m.text || '').trim() === (newMsg.text || '').trim() &&
+                (m.offerPrice === newMsg.offerPrice || (!m.offerPrice && !newMsg.offerPrice))
+            );
 
             let updatedMsgs: ChatMessage[];
             if (optimisticIndex !== -1) {
@@ -313,7 +327,7 @@ export const useChatStore = create<ChatState>()(
             }
 
             const isCurrentlyActive = state.activeConversationId === conversationId;
-            if (isCurrentlyActive && incomingSenderId !== state.activeUserId) {
+            if (isCurrentlyActive && !isMe) {
               socketClient.markAsRead(conversationId);
               chatService.markAsRead(conversationId).catch(() => {});
             }
@@ -324,8 +338,8 @@ export const useChatStore = create<ChatState>()(
               ? {
                   ...targetConv,
                   lastMessageText: newMsg.text || 'Tin nhắn mới',
-                  lastMessageAt: newMsg.createdAt,
-                  unreadCount: isCurrentlyActive ? 0 : (targetConv.unreadCount || 0) + 1,
+                  lastMessageAt: savedMsg.createdAt || new Date().toISOString(),
+                  unreadCount: isCurrentlyActive || isMe ? 0 : (targetConv.unreadCount || 0) + 1,
                 }
               : null;
             const updatedConversations = updatedTarget ? [updatedTarget, ...otherConvs] : state.conversations;
@@ -348,6 +362,50 @@ export const useChatStore = create<ChatState>()(
         });
 
         // Lắng nghe sự kiện Online/Offline thời gian thực
+        const cleanupMsgUpdated = socketClient.onMessageUpdated(({ conversationId, messageId, text }) => {
+          set((state) => {
+            const currentMsgs = state.messagesByConversation[conversationId] || [];
+            const updatedMsgs = currentMsgs.map((m) => (m.id === messageId ? { ...m, text } : m));
+            const isLatest = currentMsgs.length > 0 && currentMsgs[currentMsgs.length - 1].id === messageId;
+            const uId = state.activeUserId;
+            const updatedConversations = isLatest
+              ? state.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageText: text } : c))
+              : state.conversations;
+            return {
+              conversations: updatedConversations,
+              conversationsByUser: uId
+                ? { ...state.conversationsByUser, [uId]: updatedConversations }
+                : state.conversationsByUser,
+              messagesByConversation: {
+                ...state.messagesByConversation,
+                [conversationId]: updatedMsgs,
+              },
+            };
+          });
+        });
+
+        const cleanupMsgDeleted = socketClient.onMessageDeleted(({ conversationId, messageId, lastMessageText }) => {
+          set((state) => {
+            const currentMsgs = state.messagesByConversation[conversationId] || [];
+            const updatedMsgs = currentMsgs.filter((m) => m.id !== messageId);
+            const fallbackLast = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1].text || '' : 'Bắt đầu cuộc trò chuyện';
+            const nextLastText = lastMessageText !== undefined ? lastMessageText : fallbackLast;
+            const uId = state.activeUserId;
+            const updatedConversations = state.conversations.map((c) =>
+              c.id === conversationId ? { ...c, lastMessageText: nextLastText } : c
+            );
+            return {
+              conversations: updatedConversations,
+              conversationsByUser: uId
+                ? { ...state.conversationsByUser, [uId]: updatedConversations }
+                : state.conversationsByUser,
+              messagesByConversation: {
+                ...state.messagesByConversation,
+                [conversationId]: updatedMsgs,
+              },
+            };
+          });
+        });
         const cleanupPresence = socketClient.onPresenceChanged((presence) => {
           set((state) => ({
             conversations: state.conversations.map((c) =>
@@ -367,6 +425,8 @@ export const useChatStore = create<ChatState>()(
         return () => {
           cleanupMsg();
           cleanupPresence();
+          cleanupMsgUpdated();
+          cleanupMsgDeleted();
         };
       },
 
@@ -538,6 +598,31 @@ export const useChatStore = create<ChatState>()(
               offerPrice,
               meetupLocation,
             })
+            .then((savedMsg) => {
+              const savedId = savedMsg?.id || (savedMsg as any)?._id;
+              if (!savedId) return;
+              set((state) => {
+                const currentMsgs = state.messagesByConversation[conversationId] || [];
+                // Nếu Socket đã kịp đẩy bản ghi savedId về rồi thì xóa bản optimistic thừa
+                if (currentMsgs.some((m) => m.id === savedId)) {
+                  return {
+                    messagesByConversation: {
+                      ...state.messagesByConversation,
+                      [conversationId]: currentMsgs.filter((m) => m.id !== newMsg.id),
+                    },
+                  };
+                }
+                // Ngược lại, cập nhật ID của bản optimistic thành savedId
+                return {
+                  messagesByConversation: {
+                    ...state.messagesByConversation,
+                    [conversationId]: currentMsgs.map((m) =>
+                      m.id === newMsg.id ? { ...m, id: savedId } : m
+                    ),
+                  },
+                };
+              });
+            })
             .catch(() => {});
         }
 
@@ -621,6 +706,60 @@ export const useChatStore = create<ChatState>()(
 
       getConversationMessages: (conversationId) => {
         return get().messagesByConversation[conversationId] || [];
+      },
+
+      editMessage: async (conversationId: string, messageId: string, newText: string) => {
+        const trimmed = newText.trim();
+        if (!trimmed) return;
+        // Optimistic update
+        set((state) => {
+          const currentMsgs = state.messagesByConversation[conversationId] || [];
+          const updatedMsgs = currentMsgs.map((m) => (m.id === messageId ? { ...m, text: trimmed } : m));
+          const isLatest = currentMsgs.length > 0 && currentMsgs[currentMsgs.length - 1].id === messageId;
+          const uId = state.activeUserId;
+          const updatedConversations = isLatest
+            ? state.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageText: trimmed } : c))
+            : state.conversations;
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? { ...state.conversationsByUser, [uId]: updatedConversations }
+              : state.conversationsByUser,
+            messagesByConversation: {
+              ...state.messagesByConversation,
+              [conversationId]: updatedMsgs,
+            },
+          };
+        });
+        if (!messageId.startsWith('msg-')) {
+          await chatService.updateMessage(conversationId, messageId, trimmed);
+        }
+      },
+
+      deleteMessage: async (conversationId: string, messageId: string) => {
+        set((state) => {
+          const currentMsgs = state.messagesByConversation[conversationId] || [];
+          const updatedMsgs = currentMsgs.filter((m) => m.id !== messageId);
+          const nextLastText =
+            updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1].text || '' : 'Bắt đầu cuộc trò chuyện';
+          const uId = state.activeUserId;
+          const updatedConversations = state.conversations.map((c) =>
+            c.id === conversationId ? { ...c, lastMessageText: nextLastText } : c
+          );
+          return {
+            conversations: updatedConversations,
+            conversationsByUser: uId
+              ? { ...state.conversationsByUser, [uId]: updatedConversations }
+              : state.conversationsByUser,
+            messagesByConversation: {
+              ...state.messagesByConversation,
+              [conversationId]: updatedMsgs,
+            },
+          };
+        });
+        if (!messageId.startsWith('msg-')) {
+          await chatService.deleteMessage(conversationId, messageId);
+        }
       },
 
       deleteConversation: (conversationId: string) => {

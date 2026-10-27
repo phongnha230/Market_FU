@@ -18,6 +18,7 @@ export interface ChatMessage {
   isOfferAccepted?: boolean;
   isOfferRejected?: boolean;
   isOfferExpired?: boolean;
+  isOfferCancelled?: boolean;
   offerAcceptedAt?: number;
   offerPrice?: string;
   numericOfferPrice?: number;
