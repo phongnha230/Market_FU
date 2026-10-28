@@ -582,7 +582,87 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
           },
         } as any,
       },
+      {
+        name: 'get_marketplace_stats',
+        description:
+          'Lấy số liệu thống kê thời gian thực của sàn Market FU: tổng số sản phẩm đang đăng bán (AVAILABLE), số lượng theo từng campus (Hòa Lạc, TP.HCM, Đà Nẵng, Cần Thơ, Quy Nhơn) và theo từng danh mục. BẮT BUỘC gọi hàm này khi người dùng hỏi sàn có bao nhiêu sản phẩm, sàn có nhiều đồ không, có bao nhiêu món đồ, thống kê hàng hóa trên sàn, hoặc tình hình buôn bán.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            campus: {
+              type: SchemaType.STRING,
+              description: 'Mã campus (HOL, HCM, DAD, QN, CT) nếu người dùng hỏi riêng số lượng của một cơ sở cụ thể',
+            },
+          },
+        } as any,
+      },
     ];
+  }
+
+  /**
+   * Thực thi Function Call: Truy vấn thống kê số lượng sản phẩm trên sàn
+   */
+  async executeGetMarketplaceStats(args: { campus?: string } = {}) {
+    try {
+      const targetCampus = args.campus ? args.campus.trim().toUpperCase() : undefined;
+      const whereCondition: any = { status: 'AVAILABLE' };
+      if (targetCampus) {
+        whereCondition.campus = targetCampus;
+      }
+
+      const [totalAvailable, allAvailable] = await Promise.all([
+        prisma.product.count({ where: whereCondition }).catch(() => 0),
+        prisma.product.findMany({
+          where: { status: 'AVAILABLE' },
+          select: { campus: true, categoryType: true },
+          take: 500,
+        }).catch(() => []),
+      ]);
+
+      const campusMap: Record<string, number> = {
+        HOL: 0,
+        HCM: 0,
+        DAD: 0,
+        CT: 0,
+        QN: 0,
+      };
+
+      const categoryMap: Record<string, number> = {};
+
+      allAvailable.forEach((p: any) => {
+        if (p.campus && campusMap[p.campus] !== undefined) {
+          campusMap[p.campus] = (campusMap[p.campus] || 0) + 1;
+        }
+        if (p.categoryType) {
+          categoryMap[p.categoryType] = (categoryMap[p.categoryType] || 0) + 1;
+        }
+      });
+
+      return {
+        totalAvailable: totalAvailable || allAvailable.length,
+        byCampus: {
+          'Hòa Lạc (HOL)': campusMap.HOL,
+          'TP.HCM (HCM)': campusMap.HCM,
+          'Đà Nẵng (DAD)': campusMap.DAD,
+          'Cần Thơ (CT)': campusMap.CT,
+          'Quy Nhơn (QN)': campusMap.QN,
+        },
+        byCategory: categoryMap,
+      };
+    } catch (err: any) {
+      console.warn('⚠️ [executeGetMarketplaceStats error]:', err?.message);
+      return {
+        totalAvailable: 0,
+        byCampus: {
+          'Hòa Lạc (HOL)': 0,
+          'TP.HCM (HCM)': 0,
+          'Đà Nẵng (DAD)': 0,
+          'Cần Thơ (CT)': 0,
+          'Quy Nhơn (QN)': 0,
+        },
+        byCategory: {},
+      };
+    }
   }
 
   /**
@@ -670,10 +750,44 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
     // Category lúc này chỉ dùng làm điểm cộng xếp hạng (ranking boost).
     let candidateIds = new Set<string>();
 
-    if (rawKeyword) {
-      // 1. Quét qua Meilisearch Engine (Fuzzy search chịu lỗi chính tả, không ép cứng categoryType)
+    const stopWords = new Set([
+      'có', 'nào', 'liên', 'quan', 'đến', 'không', 'ko', 'k', 'hok', 'hem', 'chưa',
+      'món', 'đồ', 'bạn', 'ơi', 'ad', 'admin', 'cóc', 'bot', 'ai',
+      'xin', 'chào', 'hello', 'hi', 'alo', 'hey', 'cảm', 'ơn', 'thanks', 'thank',
+      'tìm', 'kiếm', 'giúp', 'mua', 'bán', 'pass', 'nhượng', 'thanh', 'lý',
+      'hỏi', 'xem', 'check', 'kiểm', 'tra', 'thử', 'báo',
+      'cho', 'mình', 'tớ', 'tao', 'em', 'anh', 'chị', 'mày', 'tụi', 'chúng', 'cần', 'muốn', 'định', 'tính',
+      'ở', 'tại', 'trong', 'ngoài', 'trên', 'dưới', 'quanh', 'khu', 'vực',
+      'và', 'hoặc', 'hay', 'với', 'cùng', 'tầm', 'khoảng', 'cỡ', 'chừng',
+      'chiếc', 'cái', 'con', 'bộ', 'quyển', 'cuốn', 'cặp', 'đôi',
+      'những', 'các', 'mấy', 'tất', 'cả',
+      'sản', 'phẩm', 'mặt', 'hàng', 'mẫu', 'kiểu', 'loại', 'dòng', 'thể',
+      'thuộc', 'về', 'của', 'do',
+      'thì', 'là', 'mà', 'bao', 'nhiêu', 'nhiều', 'ít',
+      'hiện', 'nay', 'giờ', 'bây', 'đang', 'còn', 'hết',
+      'campus', 'cơ', 'sở', 'trường', 'sàn', 'chợ', 'shop', 'kho',
+      'hòa', 'lạc', 'hoà', 'hol', 'hcm', 'sài', 'gòn', 'đà', 'nẵng', 'dad', 'cần', 'thơ', 'ct', 'quy', 'nhơn', 'qn',
+      'nó', 'ấy', 'đó', 'này', 'kia', 'vậy', 'thế', 'nhỉ', 'nhé', 'nha', 'ạ', 'hả', 'ư',
+      'giá', 'rẻ', 'mắc', 'đắt', 'tốt', 'xịn', 'đẹp', 'mới', 'cũ', 'zin', 'like', 'new',
+      'sinh', 'viên', 'fpt', 'ktx', 'ký', 'túc', 'xá', 'phòng', 'trọ'
+    ]);
+
+    const meaningfulTokens = rawKeyword
+      ? rawKeyword
+          .toLowerCase()
+          .replace(/[?!.,;:"'()\[\]]+/g, ' ')
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter((t) => (t.length >= 2 || /^[0-9xc]$/i.test(t)) && !stopWords.has(t))
+      : [];
+
+    const corePhrase = meaningfulTokens.join(' ');
+    const hasSpecificKeyword = meaningfulTokens.length > 0;
+
+    if (hasSpecificKeyword) {
+      // 1. Quét qua Meilisearch Engine với cụm từ cốt lõi đã lọc nhiễu
       try {
-        const meiliRes = await searchProductsMeili(rawKeyword, {
+        const meiliRes = await searchProductsMeili(corePhrase, {
           maxPrice: args.maxPrice,
           minPrice: args.minPrice,
           limit: 25,
@@ -685,25 +799,21 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         // Meilisearch offline thì tiếp tục dùng MongoDB
       }
 
-      // 2. Quét trực tiếp qua MongoDB Prisma để bắt cả các sản phẩm vừa đăng chưa kịp sync vào Meilisearch
-      const stopWords = new Set([
-        'có', 'nào', 'liên', 'quan', 'đến', 'không', 'món', 'đồ', 'bạn', 'ơi',
-        'tìm', 'giúp', 'mua', 'bán', 'cho', 'mình', 'cần', 'ở', 'tại', 'và',
-        'hoặc', 'chiếc', 'cái', 'với', 'tầm', 'khoảng', 'dưới', 'trên'
-      ]);
-      const meaningfulTokens = rawKeyword
-        .toLowerCase()
-        .split(/\s+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 2 && !stopWords.has(t));
-
+      // 2. Quét trực tiếp qua MongoDB Prisma
       const orClauses: any[] = [
-        { title: { contains: rawKeyword, mode: 'insensitive' } },
-        { description: { contains: rawKeyword, mode: 'insensitive' } },
+        { title: { contains: corePhrase, mode: 'insensitive' } },
+        { description: { contains: corePhrase, mode: 'insensitive' } },
       ];
-      if (meaningfulTokens.length > 0) {
-        meaningfulTokens.forEach((tk) => {
-          orClauses.push({ title: { contains: tk, mode: 'insensitive' } });
+      if (meaningfulTokens.length >= 2) {
+        orClauses.push({
+          AND: meaningfulTokens.map((tk) => ({
+            title: { contains: tk, mode: 'insensitive' },
+          })),
+        });
+        // Không dùng riêng meaningfulTokens[0] vì cụm từ ghép như "bàn học" sẽ bị kéo tất cả "bàn phím" vào
+      } else if (meaningfulTokens.length === 1) {
+        orClauses.push({
+          title: { contains: meaningfulTokens[0], mode: 'insensitive' },
         });
       }
 
@@ -714,14 +824,15 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
           ...(Object.keys(priceFilter).length > 0 ? { price: priceFilter } : {}),
         },
         select: { id: true },
-        take: 25,
+        take: 30,
       });
 
       dbMatches.forEach((p) => candidateIds.add(p.id));
     }
 
-    // Nếu không có keyword (tìm đồ chung theo danh mục / campus)
-    if (!rawKeyword || candidateIds.size === 0) {
+    // CHỈ lấy danh sách sản phẩm chung theo campus/category khi người dùng KHÔNG tìm từ khóa cụ thể.
+    // Nếu người dùng hỏi món cụ thể (vd: "iPhone 14 Pro") mà không có trong kho -> trả về [] ngay, tuyệt đối không bốc sản phẩm ngẫu nhiên!
+    if (!hasSpecificKeyword) {
       const buildWhere = (includeCampus: boolean, includeCategory: boolean) => {
         const where: any = { status: 'AVAILABLE' };
         if (includeCampus && targetCampus) where.campus = targetCampus as any;
@@ -730,7 +841,6 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         return where;
       };
 
-      // Thử tìm đúng campus & category
       let prods = await prisma.product.findMany({
         where: buildWhere(true, true),
         take: 8,
@@ -747,7 +857,6 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         },
       });
 
-      // Nếu campus hiện tại chưa có, mở rộng tìm Toàn quốc (liên 5 campus)
       if (prods.length === 0 && targetCampus) {
         prods = await prisma.product.findMany({
           where: buildWhere(false, true),
@@ -766,7 +875,6 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         });
       }
 
-      // Nếu vẫn chưa có, bỏ cả category để tìm rộng hơn
       if (prods.length === 0 && targetCategory) {
         prods = await prisma.product.findMany({
           where: buildWhere(false, false),
@@ -788,7 +896,11 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       return prods;
     }
 
-    // ── 3. QUERY CHI TIẾT & SẮP XẾP ĐA DẠNG SẢN PHẨM ──
+    if (candidateIds.size === 0) {
+      return [];
+    }
+
+    // ── 3. QUERY CHI TIẾT & CHẤM ĐIỂM ĐỘ LIÊN QUAN TỪ KHÓA (Relevance Scoring) ──
     const matchedProducts = await prisma.product.findMany({
       where: {
         id: { in: Array.from(candidateIds) },
@@ -798,6 +910,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       select: {
         id: true,
         title: true,
+        description: true,
         price: true,
         condition: true,
         campus: true,
@@ -807,23 +920,80 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
       },
     });
 
-    // ── XẾP HẠNG THÔNG MINH (Smart Multi-Product Ranking) ──
-    // Ưu tiên 1: Cùng campus với sinh viên (để gặp mặt trực tiếp Safe Handoff)
-    // Ưu tiên 2: Khớp danh mục
-    // Ưu tiên 3: Giá tăng dần (giúp sinh viên so sánh từ lựa chọn tiết kiệm đến cao cấp)
-    matchedProducts.sort((a, b) => {
-      const aCampus = targetCampus && a.campus === targetCampus ? 1 : 0;
-      const bCampus = targetCampus && b.campus === targetCampus ? 1 : 0;
+    const tokenizeText = (text: string): Set<string> =>
+      new Set(text.split(/[\s,./()\-_"'!?:;\[\]]+/).filter(Boolean));
+
+    const scoreProduct = (p: any): number => {
+      const titleNorm = (p.title || '').toLowerCase();
+      const descNorm = (p.description || '').toLowerCase();
+      const combined = `${titleNorm} ${descNorm}`;
+
+      const titleWords = tokenizeText(titleNorm);
+      const combinedWords = tokenizeText(combined);
+
+      const titleMatchedTokens = meaningfulTokens.filter((tk) => titleWords.has(tk) || titleNorm.includes(tk));
+      const totalMatchedTokens = meaningfulTokens.filter((tk) => combinedWords.has(tk) || combined.includes(tk));
+
+      // Luật lọc chặt chẽ chống gợi ý sai loại sản phẩm (VD: hỏi "bàn học" tuyệt đối không được ra "bàn phím", hỏi "iPhone 14 Pro" không được ra "Macbook Pro"):
+      if (meaningfulTokens.length === 1) {
+        if (totalMatchedTokens.length === 0) return 0;
+      } else if (meaningfulTokens.length === 2) {
+        // Cụm danh từ ghép 2 từ (bàn học, bàn phím, tai nghe, tủ lạnh...):
+        // Bắt buộc: Cụm từ liên tiếp (corePhrase) phải nằm trong tiêu đề hoặc mô tả,
+        // HOẶC cả 2 từ bắt buộc phải cùng xuất hiện trong tiêu đề (tiêu đề không được thiếu từ nào trong 2 từ)!
+        const hasContiguousPhrase = titleNorm.includes(corePhrase) || descNorm.includes(corePhrase);
+        const hasBothInTitle = titleMatchedTokens.length === 2;
+        if (!hasContiguousPhrase && !hasBothInTitle) {
+          return 0;
+        }
+      } else if (meaningfulTokens.length >= 3) {
+        // Cụm >= 3 từ (vd: bàn học sinh viên, bàn phím cơ gaming, iphone 14 pro):
+        // 2 từ đầu tiên tạo thành danh từ gốc (VD: "bàn học", "bàn phím", "iphone 14"):
+        const headNounPair = `${meaningfulTokens[0]} ${meaningfulTokens[1]}`;
+        const hasHeadNoun = titleNorm.includes(headNounPair) || descNorm.includes(headNounPair) || (titleWords.has(meaningfulTokens[0]) && titleWords.has(meaningfulTokens[1]));
+        const minRequired = Math.max(2, Math.ceil(meaningfulTokens.length * 0.6));
+        if (!hasHeadNoun || totalMatchedTokens.length < minRequired) {
+          return 0;
+        }
+      }
+
+      let score = 0;
+      if (corePhrase && titleNorm.includes(corePhrase)) score += 100;
+      else if (corePhrase && descNorm.includes(corePhrase)) score += 40;
+
+      if (titleMatchedTokens.length === meaningfulTokens.length) score += 85;
+      else if (totalMatchedTokens.length === meaningfulTokens.length) score += 50;
+      else score += titleMatchedTokens.length * 20;
+
+      return score;
+    };
+
+    const scoredProducts = matchedProducts
+      .map((p) => ({ product: p, score: scoreProduct(p) }))
+      .filter((item) => item.score > 0);
+
+    // ── XẾP HẠNG THÔNG MINH (Smart Relevance-First Multi-Product Ranking) ──
+    // Ưu tiên 1: Điểm độ liên quan từ khóa (Relevance Score chênh lệch >= 20 điểm luôn được ưu tiên tuyệt đối)
+    // Ưu tiên 2: Cùng campus với sinh viên (để gặp mặt trực tiếp Safe Handoff)
+    // Ưu tiên 3: Khớp danh mục
+    // Ưu tiên 4: Giá tăng dần
+    scoredProducts.sort((a, b) => {
+      if (Math.abs(b.score - a.score) >= 20) {
+        return b.score - a.score;
+      }
+
+      const aCampus = targetCampus && a.product.campus === targetCampus ? 1 : 0;
+      const bCampus = targetCampus && b.product.campus === targetCampus ? 1 : 0;
       if (aCampus !== bCampus) return bCampus - aCampus;
 
-      const aCat = targetCategory && a.categoryType === targetCategory ? 1 : 0;
-      const bCat = targetCategory && b.categoryType === targetCategory ? 1 : 0;
+      const aCat = targetCategory && a.product.categoryType === targetCategory ? 1 : 0;
+      const bCat = targetCategory && b.product.categoryType === targetCategory ? 1 : 0;
       if (aCat !== bCat) return bCat - aCat;
 
-      return a.price - b.price;
+      return a.product.price - b.product.price;
     });
 
-    return matchedProducts.slice(0, 8);
+    return scoredProducts.slice(0, 8).map(({ product: { description, ...rest } }) => rest);
   }
 
   /**
@@ -908,6 +1078,10 @@ NGUYÊN TẮC BẢO MẬT & AN TOÀN TUYỆT ĐỐI (F-09 Guardrail):
 - KHI NGƯỜI DÙNG HỎI NGOÀI CHUYÊN MÔN (không liên quan sàn MarketFU, mua bán đồ cũ, quy trình campus FPT, ví dụ: hỏi làm bài tập code, toán, triết học, chính trị, tán gẫu ngoài lề): Hãy từ chối lịch sự và hài hước kiểu Cóc FPT: "Dạ Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ rành về mua bán đồ cũ, tìm đồ phòng trọ, điểm hẹn Safe Handoff và chính sách Escrow tại 5 cơ sở thôi nè! 🐸 Bạn cần tìm món đồ gì (giáo trình, quạt, bàn học, laptop...) hay thắc mắc về quy trình mua bán thì hỏi mình nhé!"
 
 KIẾN THỨC NỀN TẢNG VỀ HỆ THỐNG:
+0. THỐNG KÊ SẢN PHẨM TRÊN SÀN (KHI ĐƯỢC HỎI SỐ LƯỢNG / TỔNG SẢN PHẨM):
+- Khi người dùng hỏi "sàn có bao nhiêu sản phẩm", "hiện tại có bao nhiêu món", "sàn có đông đồ không", "thống kê sàn", "tổng số sản phẩm"... BẮT BUỘC gọi function "get_marketplace_stats".
+- TUYỆT ĐỐI KHÔNG TỪ CHỐI, KHÔNG BAO GIỜ NÓI "dữ liệu quá lớn" hay "không xem được tổng số lượng", vì bạn có quyền truy cập trực tiếp số liệu thống kê thời gian thực từ cơ sở dữ liệu!
+
 1. TÌM KIẾM SẢN PHẨM:
 Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập, BẮT BUỘC gọi function "search_products" để truy vấn cơ sở dữ liệu thực.
 - QUAN TRỌNG VỀ LIÊN CAMPUS: Sàn Market FU có hệ sinh thái 5 cơ sở trường FPT (Hòa Lạc, TP.HCM, Đà Nẵng, Quy Nhơn, Cần Thơ) và hỗ trợ giao hàng Ship COD / Đặt cọc Escrow an toàn giữa các campus. Nếu món đồ tìm thấy ở cơ sở khác (ví dụ sinh viên ở Hòa Lạc nhưng chuột gaming lại ở Cần Thơ), bạn HÃY BÁO RÕ món đồ đang có tại cơ sở đó (kèm tên, giá tiền, tình trạng) và hướng dẫn bạn có thể đặt mua qua hình thức Ship COD / Escrow có bảo hộ 48h kiểm tra máy nhé! TUYỆT ĐỐI KHÔNG ĐƯỢC bảo là không có đồ nếu search_products đã trả về kết quả!
@@ -929,9 +1103,12 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
 - Sinh viên có thể dùng FPT Coin tích lũy (từ điểm danh, xác thực KYC Thẻ SV, viết đánh giá 2 chiều) để trừ tiền trực tiếp vào đơn hàng (50.000đ - 100.000đ).
 
 5. NGUYÊN TẮC TƯ VẤN & SO SÁNH SẢN PHẨM THÔNG MINH (KHI NHẬN KẾT QUẢ TỪ SEARCH_PRODUCTS):
-- BẮT BUỘC GIỚI THIỆU & SO SÁNH ĐA DẠNG:
-  + Khi có từ 2 sản phẩm trở lên, BẮT BUỘC giới thiệu và so sánh từ 2 đến 4 lựa chọn tiêu biểu nhất cho bạn sinh viên.
-  + TUYỆT ĐỐI KHÔNG chỉ nói cụt lủn 1 sản phẩm duy nhất khi trong kết quả còn các sản phẩm liên quan khác.
+- TUYỆT ĐỐI CHỈ TƯ VẤN SẢN PHẨM KHỚP ĐÚNG YÊU CẦU:
+  + Nếu sinh viên hỏi "bàn học", TUYỆT ĐỐI CHỈ giới thiệu các món bàn học. KHÔNG ĐƯỢC tự ý giới thiệu thêm "bàn phím" hoặc đồ không liên quan, ngay cả khi chúng vô tình có trong danh sách tìm kiếm hoặc trong lịch sử chat cũ!
+  + Chỉ so sánh các sản phẩm cùng nhóm loại mặt hàng với nhau (ví dụ bàn học so sánh với bàn học khác, bàn phím so sánh với bàn phím khác).
+- BẮT BUỘC GIỚI THIỆU & SO SÁNH ĐA DẠNG (KHI CÓ NHIỀU SẢN PHẨM CÙNG LOẠI):
+  + Khi có từ 2 sản phẩm cùng loại trở lên, BẮT BUỘC giới thiệu và so sánh từ 2 đến 4 lựa chọn tiêu biểu nhất cho bạn sinh viên.
+  + TUYỆT ĐỐI KHÔNG chỉ nói cụt lủn 1 sản phẩm duy nhất khi trong kết quả còn các sản phẩm liên quan cùng loại khác.
 - PHÂN NHÓM & SO SÁNH RÕ RÀNG:
   + Lựa chọn Cùng Campus / Tiết kiệm: Ưu tiên món ở campus của bạn sinh viên trước để hẹn gặp trực tiếp Safe Handoff (sảnh Alpha, Thư viện Beta, KTX...) không tốn phí ship và test đồ ngay.
   + Lựa chọn Liên Campus / Nâng cấp: Nêu rõ các món ở cơ sở khác (nếu có lựa chọn xịn hơn như phím custom, máy like new...), giải thích có thể đặt Ship COD cọc Escrow 48h dùng thử.
@@ -1037,7 +1214,26 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
                   results: productContext,
                   totalFound: suggestedProducts.length,
                   guidance:
-                    'Nếu có từ 2 sản phẩm trở lên, BẮT BUỘC giới thiệu và so sánh từ 2-4 lựa chọn tiêu biểu (cùng campus vs khác campus ship COD, giá rẻ sinh viên vs cao cấp/custom, tình trạng), đưa ra lời khuyên khách quan.',
+                    suggestedProducts.length === 0
+                      ? 'Hiện tại KHÔNG có sản phẩm nào khớp với từ khóa trên cả 5 campus (totalFound = 0). Hãy báo rõ và lịch sự cho bạn sinh viên rằng món đồ này hiện chưa có ai đăng pass trên sàn, gợi ý bạn thử tìm từ khóa khác hoặc quay lại sau nhé. TUYỆT ĐỐI KHÔNG tự bịa sản phẩm.'
+                      : 'Nếu có từ 2 sản phẩm trở lên, BẮT BUỘC giới thiệu và so sánh từ 2-4 lựa chọn tiêu biểu (cùng campus vs khác campus ship COD, giá rẻ sinh viên vs cao cấp/custom, tình trạng), đưa ra lời khuyên khách quan.',
+                },
+              },
+            },
+          ]);
+
+          aiResponseText = response.response.text();
+        } else if (functionCall && functionCall.name === 'get_marketplace_stats') {
+          const stats = await this.executeGetMarketplaceStats(functionCall.args as any);
+
+          response = await chat.sendMessage([
+            {
+              functionResponse: {
+                name: 'get_marketplace_stats',
+                response: {
+                  ...stats,
+                  guidance:
+                    'Báo cáo con số thống kê chính xác, vui tươi, nhiệt tình kiểu Cóc FPT (nêu rõ tổng số sản phẩm đang có và phân bố theo từng campus). Gợi ý bạn sinh viên nếu muốn tìm đồ cụ thể thì có thể gõ tên món đồ để bạn tìm giúp.',
                 },
               },
             },
@@ -1054,8 +1250,31 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
     }
 
     // 4. Fallback thông minh nếu chưa cấu hình Gemini hoặc lỗi API
+    const q = sanitizedMessage.toLowerCase();
+    const isAskingStats =
+      q.includes('bao nhiêu sản phẩm') ||
+      q.includes('bao nhiêu món') ||
+      q.includes('bao nhiêu đồ') ||
+      q.includes('tổng số sản phẩm') ||
+      q.includes('sàn có bao nhiêu') ||
+      q.includes('sàn mình có bao nhiêu') ||
+      q.includes('có nhiều đồ không') ||
+      q.includes('thống kê');
+
+    // Chống trả lời thoái thác ảo khi người dùng hỏi số lượng sản phẩm:
+    if (isAskingStats && (!aiResponseText || aiResponseText.includes('không thể xem') || aiResponseText.includes('rất lớn') || aiResponseText.includes('chỉ rành về mua bán'))) {
+      const stats = await this.executeGetMarketplaceStats({ campus });
+      aiResponseText = `🐸 Hiện tại trên toàn sàn Market FU đang có tổng cộng **${stats.totalAvailable} sản phẩm** đang được các bạn sinh viên đăng bán trên 5 cơ sở:\n\n` +
+        `• **Hòa Lạc (HOL)**: ${stats.byCampus['Hòa Lạc (HOL)']} món đồ\n` +
+        `• **TP.HCM (HCM)**: ${stats.byCampus['TP.HCM (HCM)']} món đồ\n` +
+        `• **Đà Nẵng (DAD)**: ${stats.byCampus['Đà Nẵng (DAD)']} món đồ\n` +
+        `• **Cần Thơ (CT)**: ${stats.byCampus['Cần Thơ (CT)']} món đồ\n` +
+        `• **Quy Nhơn (QN)**: ${stats.byCampus['Quy Nhơn (QN)']} món đồ\n\n` +
+        `Bạn đang quan tâm đến món đồ học tập, sinh hoạt hay đồ công nghệ nào để mình tìm kiếm nhanh giúp bạn nhé!`;
+    }
+
+    // 4. Fallback thông minh nếu chưa cấu hình Gemini hoặc lỗi API
     if (!aiResponseText) {
-      const q = sanitizedMessage.toLowerCase();
 
       // Trường hợp 1: Chào hỏi
       const isGreeting =
@@ -1133,7 +1352,15 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
         q.includes('nồi') ||
         q.includes('máy') ||
         q.includes('laptop') ||
-        q.includes('xe')
+        q.includes('xe') ||
+        q.includes('iphone') ||
+        q.includes('ipad') ||
+        q.includes('tai nghe') ||
+        q.includes('màn hình') ||
+        q.includes('balo') ||
+        q.includes('tủ') ||
+        q.includes('giường') ||
+        /\b(có\s+.+\s*(không|ko|k|chưa|nhỉ))\b/i.test(q)
       ) {
         if (suggestedProducts.length === 0) {
           suggestedProducts = await this.executeSearchProducts({
@@ -1162,6 +1389,86 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
       // Trường hợp 5: Câu hỏi ngoài chuyên môn / chung chung
       else {
         aiResponseText = `🐸 Dạ Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ hỗ trợ các vấn đề về mua bán đồ cũ, mẹo kiểm tra đồ, thủ tục Safe Handoff, giải đáp Escrow và hướng dẫn điểm hẹn an toàn tại 5 cơ sở trường thôi nè!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ phòng trọ, laptop, xe cộ...) hoặc cần hỗ trợ cách đặt cọc/khiếu nại, bạn cứ gõ cho mình nhé!`;
+      }
+    }
+
+    // 4b. Tự động đồng bộ thẻ sản phẩm trực quan (Product Cards Sync Guardrail):
+    // Đảm bảo nếu AI phản hồi giới thiệu sản phẩm hoặc người dùng hỏi mua/tìm sản phẩm có sẵn,
+    // thẻ Card sản phẩm (suggestedProducts) sẽ LUÔN ĐƯỢC HIỂN THỊ TRỰC QUAN dưới tin nhắn!
+    if (suggestedProducts.length === 0 && aiResponseText) {
+      try {
+        const stopWordsSync = new Set([
+          'có', 'nào', 'liên', 'quan', 'đến', 'không', 'ko', 'k', 'hok', 'hem', 'chưa',
+          'món', 'đồ', 'bạn', 'ơi', 'ad', 'admin', 'cóc', 'bot', 'ai',
+          'xin', 'chào', 'hello', 'hi', 'alo', 'hey', 'cảm', 'ơn', 'thanks', 'thank',
+          'tìm', 'kiếm', 'giúp', 'mua', 'bán', 'pass', 'nhượng', 'thanh', 'lý',
+          'hỏi', 'xem', 'check', 'kiểm', 'tra', 'thử', 'báo',
+          'cho', 'mình', 'tớ', 'tao', 'em', 'anh', 'chị', 'mày', 'tụi', 'chúng', 'cần', 'muốn', 'định', 'tính',
+          'ở', 'tại', 'trong', 'ngoài', 'trên', 'dưới', 'quanh', 'khu', 'vực',
+          'và', 'hoặc', 'hay', 'với', 'cùng', 'tầm', 'khoảng', 'cỡ', 'chừng',
+          'chiếc', 'cái', 'con', 'bộ', 'quyển', 'cuốn', 'cặp', 'đôi',
+          'những', 'các', 'mấy', 'tất', 'cả',
+          'sản', 'phẩm', 'mặt', 'hàng', 'mẫu', 'kiểu', 'loại', 'dòng', 'thể',
+          'thuộc', 'về', 'của', 'do',
+          'thì', 'là', 'mà', 'bao', 'nhiêu', 'nhiều', 'ít',
+          'hiện', 'nay', 'giờ', 'bây', 'đang', 'còn', 'hết',
+          'campus', 'cơ', 'sở', 'trường', 'sàn', 'chợ', 'shop', 'kho',
+          'hòa', 'lạc', 'hoà', 'hol', 'hcm', 'sài', 'gòn', 'đà', 'nẵng', 'dad', 'cần', 'thơ', 'ct', 'quy', 'nhơn', 'qn',
+          'nó', 'ấy', 'đó', 'này', 'kia', 'vậy', 'thế', 'nhỉ', 'nhé', 'nha', 'ạ', 'hả', 'ư',
+          'giá', 'rẻ', 'mắc', 'đắt', 'tốt', 'xịn', 'đẹp', 'mới', 'cũ', 'zin', 'like', 'new',
+          'sinh', 'viên', 'fpt', 'ktx', 'ký', 'túc', 'xá', 'phòng', 'trọ'
+        ]);
+
+        const inquiryTokens = (sanitizedMessage || '')
+          .toLowerCase()
+          .replace(/[?!.,;:"'()[\]]+/g, ' ')
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter((t) => (t.length >= 2 || /^[0-9xc]$/i.test(t)) && !stopWordsSync.has(t));
+
+        if (inquiryTokens.length > 0) {
+          const autoProds = await this.executeSearchProducts({
+            campus,
+            maxPrice,
+            keyword: sanitizedMessage,
+          });
+
+          if (autoProds.length > 0) {
+            suggestedProducts = autoProds;
+            suggestedProductIds = suggestedProducts.map((p) => p.id);
+          }
+        }
+
+        // Nếu qua từ khóa chưa có nhưng trong văn bản phản hồi AI có nhắc cụ thể đến tiêu đề sản phẩm AVAILABLE trong DB:
+        if (suggestedProducts.length === 0) {
+          const candidateDbProds = await prisma.product.findMany({
+            where: { status: 'AVAILABLE' },
+            take: 30,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              condition: true,
+              campus: true,
+              categoryType: true,
+              images: true,
+              meetupLocation: true,
+            },
+          });
+
+          const matchedFromText = candidateDbProds.filter((p) => {
+            const cleanTitle = (p.title || '').trim().toLowerCase();
+            return cleanTitle.length >= 5 && aiResponseText.toLowerCase().includes(cleanTitle);
+          });
+
+          if (matchedFromText.length > 0) {
+            suggestedProducts = matchedFromText.slice(0, 6);
+            suggestedProductIds = suggestedProducts.map((p) => p.id);
+          }
+        }
+      } catch (err: any) {
+        console.warn('⚠️ [Product Cards Auto-Sync Warning]:', err?.message);
       }
     }
 

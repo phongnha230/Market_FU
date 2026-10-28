@@ -104,6 +104,100 @@ const SUGGESTION_CHIPS = [
   'Hệ thống FPT Coin dùng thế nào?',
 ];
 
+// Helper hiển thị tin nhắn chat với Typography & Markdown mượt mà, không lộ ký tự ** thô kệch
+const FormattedChatMessage: React.FC<{ content: string; isUser: boolean }> = ({ content, isUser }) => {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+
+  const parseInline = (text: string) => {
+    // Tách bold **...** và code `...`
+    const parts = text.split(/(\*{2}[^*]+?\*{2}|`[^`]+?`)/g);
+
+    return parts.map((part, idx) => {
+      if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+        const inner = part.slice(2, -2);
+        return (
+          <strong
+            key={idx}
+            className={`font-semibold ${isUser ? 'text-white font-bold' : 'text-slate-900 font-bold'}`}
+          >
+            {inner}
+          </strong>
+        );
+      }
+      if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+        const inner = part.slice(1, -1);
+        return (
+          <code
+            key={idx}
+            className={`px-1.5 py-0.5 rounded text-[11px] font-mono ${
+              isUser ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-700 border border-orange-200/60'
+            }`}
+          >
+            {inner}
+          </code>
+        );
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div className="space-y-1.5 leading-relaxed text-[12.5px]">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+
+        // Dòng bullet: bắt đầu bằng * hoặc -
+        const isBullet = /^[*-]\s+/.test(trimmed);
+        // Dòng số thứ tự: bắt đầu bằng 1., 2. hoặc 1)
+        const isNumbered = /^\d+[\.\)]\s+/.test(trimmed);
+
+        if (isBullet) {
+          const cleanLine = trimmed.replace(/^[*-]\s+/, '');
+          return (
+            <div key={idx} className="flex items-start gap-1.5 pl-0.5 my-0.5">
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 mt-2 ${
+                  isUser ? 'bg-white/90' : 'bg-orange-500'
+                }`}
+              />
+              <span className="flex-1">{parseInline(cleanLine)}</span>
+            </div>
+          );
+        }
+
+        if (isNumbered) {
+          const numMatch = trimmed.match(/^(\d+)[\.\)]/);
+          const num = numMatch ? numMatch[1] : '';
+          const cleanLine = trimmed.replace(/^\d+[\.\)]\s+/, '');
+          return (
+            <div key={idx} className="flex items-start gap-1.5 pl-0.5 my-1">
+              <span
+                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0 mt-0.5 ${
+                  isUser ? 'bg-white/25 text-white' : 'bg-orange-100 text-orange-700 border border-orange-200/50'
+                }`}
+              >
+                {num}
+              </span>
+              <span className="flex-1">{parseInline(cleanLine)}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="my-0.5">
+            {parseInline(line)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function AIChatbotWidget() {
   const pathname = usePathname();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
@@ -437,6 +531,26 @@ export default function AIChatbotWidget() {
       };
     }
 
+    // 5b. Thống kê sản phẩm trên sàn
+    if (
+      q.includes('bao nhiêu sản phẩm') ||
+      q.includes('bao nhiêu món') ||
+      q.includes('bao nhiêu đồ') ||
+      q.includes('tổng số sản phẩm') ||
+      q.includes('sàn có bao nhiêu') ||
+      q.includes('sàn mình có bao nhiêu') ||
+      q.includes('có nhiều đồ không') ||
+      q.includes('thống kê')
+    ) {
+      return {
+        reply: `📊 **Thống kê sàn Campus Marketplace FU:**\n\n• Hiện tại trên hệ thống đang có hàng chục sản phẩm đồ cũ, giáo trình, thiết bị điện tử và đồ dùng phòng trọ được sinh viên đăng bán trên 5 cơ sở.\n• Các cơ sở sôi động nhất: **Hòa Lạc, TP.HCM và Đà Nẵng**.\n• Bạn có thể gõ tên món đồ bạn quan tâm (ví dụ: *bàn phím, chuột, laptop, giáo trình...*) để Cóc AI tìm kiếm trực tiếp cho bạn nhé!`,
+        links: [
+          { label: '🔍 Xem toàn bộ sản phẩm trên sàn', url: '/posts' },
+          { label: '📦 Xem danh mục hot', url: '/#categories' }
+        ]
+      };
+    }
+
     // 6. Chào hỏi
     const isGreeting =
       /\b(hi|hello|alo|hey)\b/i.test(q) ||
@@ -478,21 +592,64 @@ export default function AIChatbotWidget() {
       const all = await ProductService.getAllProducts();
       if (!all || all.length === 0) return null;
 
-      const stopWords = ['có', 'nào', 'liên', 'quan', 'đến', 'không', 'món', 'đồ', 'bạn', 'ơi', 'tìm', 'giúp', 'mua', 'bán', 'cho', 'mình', 'cần'];
+      const stopWords = new Set([
+        'có', 'nào', 'liên', 'quan', 'đến', 'không', 'ko', 'k', 'hok', 'hem', 'chưa',
+        'món', 'đồ', 'bạn', 'ơi', 'ad', 'admin', 'cóc', 'bot', 'ai',
+        'xin', 'chào', 'hello', 'hi', 'alo', 'hey', 'cảm', 'ơn', 'thanks', 'thank',
+        'tìm', 'kiếm', 'giúp', 'mua', 'bán', 'pass', 'nhượng', 'thanh', 'lý',
+        'hỏi', 'xem', 'check', 'kiểm', 'tra', 'thử', 'báo',
+        'cho', 'mình', 'tớ', 'tao', 'em', 'anh', 'chị', 'mày', 'tụi', 'chúng', 'cần', 'muốn', 'định', 'tính',
+        'ở', 'tại', 'trong', 'ngoài', 'trên', 'dưới', 'quanh', 'khu', 'vực',
+        'và', 'hoặc', 'hay', 'với', 'cùng', 'tầm', 'khoảng', 'cỡ', 'chừng',
+        'chiếc', 'cái', 'con', 'bộ', 'quyển', 'cuốn', 'cặp', 'đôi',
+        'những', 'các', 'mấy', 'tất', 'cả',
+        'sản', 'phẩm', 'mặt', 'hàng', 'mẫu', 'kiểu', 'loại', 'dòng', 'thể',
+        'thuộc', 'về', 'của', 'do',
+        'thì', 'là', 'mà', 'bao', 'nhiêu', 'nhiều', 'ít',
+        'hiện', 'nay', 'giờ', 'bây', 'đang', 'còn', 'hết',
+        'campus', 'cơ', 'sở', 'trường', 'sàn', 'chợ', 'shop', 'kho',
+        'hòa', 'lạc', 'hoà', 'hol', 'hcm', 'sài', 'gòn', 'đà', 'nẵng', 'dad', 'cần', 'thơ', 'ct', 'quy', 'nhơn', 'qn',
+        'nó', 'ấy', 'đó', 'này', 'kia', 'vậy', 'thế', 'nhỉ', 'nhé', 'nha', 'ạ', 'hả', 'ư',
+        'giá', 'rẻ', 'mắc', 'đắt', 'tốt', 'xịn', 'đẹp', 'mới', 'cũ', 'zin', 'like', 'new',
+        'sinh', 'viên', 'fpt', 'ktx', 'ký', 'túc', 'xá', 'phòng', 'trọ'
+      ]);
       const tokens = qNorm
+        .replace(/[?!.,;:"'()\[\]]+/g, ' ')
         .split(/\s+/)
         .map((t) => t.trim())
-        .filter((t) => t.length >= 2 && !stopWords.includes(t));
+        .filter((t) => (t.length >= 2 || /^[0-9xc]$/i.test(t)) && !stopWords.has(t));
 
       if (tokens.length === 0) return null;
 
-      const matched = all.filter((p) => {
-        const titleNorm = (p.title || '').toLowerCase();
-        const descNorm = (p.description || '').toLowerCase();
-        const phrase = tokens.join(' ');
-        if (titleNorm.includes(phrase) || descNorm.includes(phrase)) return true;
-        return tokens.some((tk) => titleNorm.includes(tk) || descNorm.includes(tk));
-      });
+      const phrase = tokens.join(' ');
+      const scored = all
+        .map((p) => {
+          const titleNorm = (p.title || '').toLowerCase();
+          const descNorm = (p.description || '').toLowerCase();
+          const combined = `${titleNorm} ${descNorm}`;
+
+          const titleMatched = tokens.filter((tk) => titleNorm.includes(tk));
+          const totalMatched = tokens.filter((tk) => combined.includes(tk));
+
+          if (tokens.length === 1 && totalMatched.length === 0) return { p, score: 0 };
+          if (tokens.length === 2 && (totalMatched.length < 2 || titleMatched.length < 1)) return { p, score: 0 };
+          if (tokens.length >= 3) {
+            const minReq = Math.max(2, Math.ceil(tokens.length * 0.6));
+            if (!titleNorm.includes(tokens[0]) || totalMatched.length < minReq) return { p, score: 0 };
+          }
+
+          let score = 0;
+          if (titleNorm.includes(phrase)) score += 100;
+          else if (descNorm.includes(phrase)) score += 40;
+          if (titleMatched.length === tokens.length) score += 80;
+          else score += titleMatched.length * 20;
+
+          return { p, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+      const matched = scored.map((item) => item.p);
 
       if (matched.length > 0) {
         const formatted = matched.slice(0, 5).map((p) => ({
@@ -581,8 +738,16 @@ export default function AIChatbotWidget() {
       const userCampus = useUserStore.getState().user?.campus || 'Hòa Lạc';
       const aiRes = await aiService.assistantChat(query, userCampus, sessionId || undefined);
       if (aiRes && aiRes.reply) {
-        // Chỉ hiển thị sản phẩm khi backend AI thực sự tìm thấy và gợi ý
-        const finalProducts = aiRes.suggestedProducts || [];
+        // Ưu tiên sản phẩm từ backend AI gợi ý thực tế
+        let finalProducts = aiRes.suggestedProducts || [];
+
+        // Client-side fallback nếu backend trả về text gợi ý nhưng suggestedProducts chưa kịp gắn:
+        if (finalProducts.length === 0) {
+          const localMatch = await searchLocalProducts(query);
+          if (localMatch && localMatch.products.length > 0) {
+            finalProducts = localMatch.products;
+          }
+        }
 
         const nextSessionId = aiRes.sessionId || sessionId;
         if (nextSessionId && nextSessionId !== 'guest_session') {
@@ -938,13 +1103,13 @@ export default function AIChatbotWidget() {
 
                     <div className="flex flex-col max-w-[82%]">
                       <div
-                        className={`p-3 rounded-2xl leading-relaxed whitespace-pre-line ${
+                        className={`p-3 rounded-2xl leading-relaxed ${
                           msg.sender === 'user'
                             ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-br-xs shadow-md shadow-orange-500/15'
                             : 'bg-white border border-slate-200/90 text-slate-800 rounded-bl-xs shadow-xs'
                         }`}
                       >
-                        {msg.text}
+                        <FormattedChatMessage content={msg.text} isUser={msg.sender === 'user'} />
 
                         {/* Quick action links nếu bot cung cấp */}
                         {msg.quickLinks && msg.quickLinks.length > 0 && (
