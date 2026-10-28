@@ -42,8 +42,8 @@ export interface AdminPostItem {
   rawId: string;
   campus: string;
   category: string;
-  status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REJECTED';
-  riskLevel: 'high' | 'pccc' | 'clean' | 'rejected' | 'pending' | 'sold' | 'hidden' | 'reserved';
+  status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'REJECTED' | 'LOCKED';
+  riskLevel: 'high' | 'pccc' | 'clean' | 'rejected' | 'pending' | 'sold' | 'hidden' | 'reserved' | 'locked';
   riskBadge: string;
   title: string;
   description?: string;
@@ -87,7 +87,10 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
   let riskLevel: AdminPostItem['riskLevel'] = 'clean';
   let riskBadge = '✅ Đang hiển thị';
 
-  if (status === 'REJECTED') {
+  if (status === 'LOCKED') {
+    riskLevel = 'locked';
+    riskBadge = '🔒 Đã khóa vi phạm';
+  } else if (status === 'REJECTED') {
     riskLevel = 'rejected';
     riskBadge = '🚫 Đã từ chối';
   } else if (status === 'SOLD') {
@@ -157,7 +160,9 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
       : null);
 
   let aiNoteText = '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.';
-  if (p.rejectionReason) {
+  if (status === 'LOCKED') {
+    aiNoteText = `🔒 Tin đăng bị khóa vi phạm: ${p.rejectionReason || 'Vi phạm điều khoản quy chế'}`;
+  } else if (p.rejectionReason) {
     aiNoteText = `🚫 Lý do từ chối: ${p.rejectionReason}`;
   } else if (status === 'SOLD') {
     aiNoteText = '📦 Sản phẩm đã bán thành công và hoàn tất bàn giao cho người mua.';
@@ -205,6 +210,9 @@ function adaptBackendToAdminPost(p: any): AdminPostItem {
     phone,
     email,
     rejectionReason: p.rejectionReason,
+    appealStatus: p.appealStatus || null,
+    appealReason: p.appealReason || null,
+    appealedAt: p.appealedAt || null,
     approvedAt: p.approvedAt,
     updatedAt: p.updatedAt,
   };
@@ -231,6 +239,14 @@ const RISK_BADGE_COLORS: Record<string, string> = {
   hidden: 'bg-slate-100 text-slate-600 border-slate-200',
   reserved: 'bg-purple-100 text-purple-700 border-purple-200',
 };
+
+const QUICK_LOCK_REASONS = [
+  'Nhận được báo cáo khiếu nại gian lận / lừa cọc từ sinh viên.',
+  'Hàng hóa thuộc danh mục bị cấm trao đổi trong khuôn viên trường FPT.',
+  'Thiết bị điện công suất lớn vi phạm an toàn PCCC KTX FPT.',
+  'Mô tả hoặc tiêu đề chứa thông tin gian lận, cọc ngoài sàn.',
+  'Spam bài đăng hoặc hàng giả, hàng nhái không rõ nguồn gốc.',
+];
 
 const QUICK_REJECT_REASONS = [
   'Ảnh không phải ảnh chụp thực tế hoặc tải từ mạng.',
@@ -269,6 +285,11 @@ export default function AdminPostsPage() {
   const [rejectAppealModalTarget, setRejectAppealModalTarget] = useState<AdminPostItem | null>(null);
   const [appealRejectReason, setAppealRejectReason] = useState('');
   const [isRejectingAppeal, setIsRejectingAppeal] = useState(false);
+
+  // Modal Khóa tin vi phạm
+  const [lockModalTarget, setLockModalTarget] = useState<AdminPostItem | null>(null);
+  const [lockReason, setLockReason] = useState('');
+  const [isLocking, setIsLocking] = useState(false);
 
   // Modal Từ chối tin
   const [rejectModalTarget, setRejectModalTarget] = useState<AdminPostItem | null>(null);
@@ -365,15 +386,20 @@ export default function AdminPostsPage() {
       const currentPost = posts.find((post) => post.rawId === rawId);
       if (!currentPost?.updatedAt) throw new Error('Thiếu thời điểm cập nhật tin. Vui lòng tải lại danh sách.');
       await ProductService.approveProduct(rawId, currentPost.updatedAt);
+      const wasAppealed = currentPost?.appealStatus === 'PENDING';
+      const wasPending = currentPost?.status === 'PENDING_APPROVAL';
       setPosts((prev) =>
         prev.map((p) =>
           p.rawId === rawId
             ? {
                 ...p,
                 status: 'AVAILABLE',
+                appealStatus: wasAppealed ? 'APPROVED' : p.appealStatus,
                 riskLevel: 'clean',
                 riskBadge: '✅ Đang hiển thị',
-                aiNote: '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.',
+                aiNote: wasAppealed
+                  ? '✅ Đã chấp thuận kháng nghị: Tin đã được phục hồi hiển thị trên chợ.'
+                  : '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.',
                 aiScore: 95,
               }
             : p
@@ -386,9 +412,12 @@ export default function AdminPostsPage() {
             ? {
                 ...prev,
                 status: 'AVAILABLE',
+                appealStatus: wasAppealed ? 'APPROVED' : prev.appealStatus,
                 riskLevel: 'clean',
                 riskBadge: '✅ Đang hiển thị',
-                aiNote: '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.',
+                aiNote: wasAppealed
+                  ? '✅ Đã chấp thuận kháng nghị: Tin đã được phục hồi hiển thị trên chợ.'
+                  : '✅ Verified: Đã duyệt bài và đang hiển thị công khai trên chợ sinh viên.',
                 aiScore: 95,
               }
             : null
@@ -398,13 +427,72 @@ export default function AdminPostsPage() {
       setProcessedCount((c) => c + 1);
       setCounts((prev) => ({
         ...prev,
-        pending: Math.max(0, prev.pending - 1),
+        pending: wasPending ? Math.max(0, prev.pending - 1) : prev.pending,
+        appeals: wasAppealed ? Math.max(0, prev.appeals - 1) : prev.appeals,
         live: prev.live + 1,
       }));
       showToast('✅ Đã duyệt và kích hoạt tin đăng hiển thị trên sàn!');
     } catch (err: any) {
       if (err?.response?.status === 409) await fetchProducts(true);
       showToast(`🚫 Lỗi duyệt tin: ${err?.message || 'Vui lòng thử lại'}`, 'error');
+    }
+  };
+
+  // Mở modal Khóa tin vi phạm
+  const openLockModal = (post: AdminPostItem) => {
+    setLockModalTarget(post);
+    setLockReason(QUICK_LOCK_REASONS[0]);
+  };
+
+  // Xác nhận Khóa tin vi phạm (gọi API lock)
+  const handleConfirmLock = async () => {
+    if (!lockModalTarget) return;
+    if (!lockReason.trim()) {
+      showToast('Vui lòng nhập lý do khóa tin đăng', 'error');
+      return;
+    }
+
+    try {
+      setIsLocking(true);
+      await ProductService.lockProduct(lockModalTarget.rawId, lockReason.trim(), lockModalTarget.updatedAt);
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.rawId === lockModalTarget.rawId
+            ? {
+                ...p,
+                status: 'LOCKED',
+                riskLevel: 'locked',
+                riskBadge: '🔒 Đã khóa vi phạm',
+                aiNote: `🔒 Lý do khóa: ${lockReason.trim()}`,
+                rejectionReason: lockReason.trim(),
+              }
+            : p
+        )
+      );
+
+      if (selectedDetail?.rawId === lockModalTarget.rawId) {
+        setSelectedDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'LOCKED',
+                riskLevel: 'locked',
+                riskBadge: '🔒 Đã khóa vi phạm',
+                aiNote: `🔒 Lý do khóa: ${lockReason.trim()}`,
+                rejectionReason: lockReason.trim(),
+              }
+            : null
+        );
+      }
+
+      showToast('🔒 Đã khóa và gỡ tin đăng vi phạm khỏi trang chủ thành công!');
+      setLockModalTarget(null);
+      setLockReason('');
+    } catch (err: any) {
+      showToast(`🚫 Lỗi khóa tin: ${err?.message || 'Vui lòng thử lại'}`, 'error');
+    } finally {
+      setIsLocking(false);
     }
   };
 
@@ -841,12 +929,21 @@ export default function AdminPostsPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openRejectModal(post);
+                                openLockModal(post);
                               }}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-600 cursor-pointer hover:bg-red-50"
+                              className="rounded-lg border border-red-200 bg-red-50/70 px-2.5 py-1 text-[10px] font-bold text-red-600 cursor-pointer hover:bg-red-100 transition flex items-center gap-1"
                             >
+                              <Lock className="h-3 w-3" />
                               Khóa / Gỡ tin
                             </button>
+                          </div>
+                        )}
+                        {post.status === 'LOCKED' && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-extrabold text-red-700">
+                              <Lock className="h-3 w-3" />
+                              Đã khóa vi phạm
+                            </span>
                           </div>
                         )}
 
@@ -1119,6 +1216,45 @@ export default function AdminPostsPage() {
                   </div>
                 </div>
 
+                {/* Khối đơn khiếu nại / Kháng nghị từ Seller (nếu có) */}
+                {selectedDetail.appealStatus === 'PENDING' && (
+                  <div className="rounded-2xl border border-purple-300 bg-purple-50/80 p-3.5 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs font-bold text-purple-900 border-b border-purple-200/60 pb-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <Send className="h-4 w-4 text-purple-600" />
+                        Đơn khiếu nại / Kháng nghị từ Người bán
+                      </span>
+                      <span className="rounded-md bg-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-800">
+                        Chờ thẩm định
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 border border-purple-200/80 text-xs text-purple-950 italic">
+                      &ldquo;{selectedDetail.appealReason || 'Yêu cầu BQT xem xét mở khóa/khôi phục lại tin đăng.'}&rdquo;
+                    </div>
+                    {selectedDetail.appealedAt && (
+                      <div className="text-[10px] text-purple-600">
+                        Thời gian gửi: {new Date(selectedDetail.appealedAt).toLocaleString('vi-VN')}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => handleApprove(selectedDetail.rawId)}
+                        className="rounded-xl bg-purple-700 py-2 text-xs font-bold text-white hover:bg-purple-800 cursor-pointer shadow-xs text-center flex items-center justify-center gap-1 transition active:scale-95"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Chấp thuận
+                      </button>
+                      <button
+                        onClick={() => setRejectAppealModalTarget(selectedDetail)}
+                        className="rounded-xl border border-purple-300 bg-white py-2 text-xs font-bold text-purple-700 hover:bg-purple-100 cursor-pointer text-center flex items-center justify-center gap-1 transition active:scale-95"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        Bác bỏ
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="pt-2 space-y-2">
                   {selectedDetail.status === 'PENDING_APPROVAL' ? (
@@ -1140,12 +1276,31 @@ export default function AdminPostsPage() {
                     </>
                   ) : selectedDetail.status === 'AVAILABLE' ? (
                     <button
-                      onClick={() => openRejectModal(selectedDetail)}
-                      className="w-full rounded-xl border border-red-300 bg-red-50 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 cursor-pointer active:scale-95 transition flex items-center justify-center gap-1.5"
+                      onClick={() => openLockModal(selectedDetail)}
+                      className="w-full rounded-xl border border-rose-300 bg-rose-50 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-100 cursor-pointer active:scale-95 transition flex items-center justify-center gap-1.5"
                     >
-                      <XCircle className="h-4 w-4" />
-                      🚫 Khóa tin / Gỡ khỏi trang chủ
+                      <Lock className="h-4 w-4" />
+                      🚫 Khóa tin vi phạm / Gỡ khỏi sàn
                     </button>
+                  ) : selectedDetail.status === 'LOCKED' ? (
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-center space-y-1">
+                        <div className="text-xs font-bold text-rose-800 flex items-center justify-center gap-1.5">
+                          <Lock className="h-4 w-4 text-rose-600" />
+                          Tin đăng đã bị BQT khóa do vi phạm
+                        </div>
+                        <div className="text-[11px] text-rose-700 font-medium">
+                          {selectedDetail.rejectionReason || 'Vi phạm điều khoản quy chế chợ sinh viên'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleApprove(selectedDetail.rawId)}
+                        className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 cursor-pointer active:scale-95 transition shadow-xs flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        ✓ Mở khóa tin (Khôi phục hiển thị)
+                      </button>
+                    </div>
                   ) : selectedDetail.status === 'SOLD' ? (
                     <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-center space-y-1">
                       <div className="text-xs font-bold text-blue-800 flex items-center justify-center gap-1.5">
@@ -1181,6 +1336,93 @@ export default function AdminPostsPage() {
             </div>
           )}
         </div>
+
+                {/* Modal Khóa tin vi phạm */}
+        {lockModalTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-rose-200">
+              <div className="flex items-center justify-between border-b border-rose-100 pb-3">
+                <div className="flex items-center gap-2 text-rose-600 font-bold text-base">
+                  <div className="h-8 w-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                  <span>Khóa tin đăng vi phạm quy chế</span>
+                </div>
+                <button
+                  onClick={() => setLockModalTarget(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 space-y-1 text-xs">
+                <div className="font-semibold text-rose-800">
+                  Món đồ:{' '}
+                  <strong className="text-rose-950 font-bold">{lockModalTarget.title}</strong>{' '}
+                  <span className="text-rose-500 font-normal">({lockModalTarget.id})</span>
+                </div>
+                <div className="text-rose-600 text-[11px]">
+                  Người bán: <strong>{lockModalTarget.sellerName}</strong> ({lockModalTarget.sellerRollNumber})
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Chọn lý do vi phạm nhanh:
+                </label>
+                <div className="space-y-1.5">
+                  {QUICK_LOCK_REASONS.map((r, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setLockReason(r)}
+                      className={`w-full text-left rounded-xl px-3 py-2 text-xs transition border cursor-pointer ${
+                        lockReason === r
+                          ? 'bg-rose-50 border-rose-300 text-rose-700 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      • {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nội dung lý do khóa (gửi thông báo & email cho người bán):
+                </label>
+                <textarea
+                  rows={3}
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  placeholder="Nhập chi tiết hành vi vi phạm..."
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setLockModalTarget(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isLocking}
+                  onClick={handleConfirmLock}
+                  className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isLocking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+                  <span>Xác nhận khóa tin vi phạm</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Từ chối tin đăng */}
         {rejectModalTarget && (

@@ -12,6 +12,7 @@ router.get('/', productController.getProducts);
 router.get('/admin/moderation', authenticate, authorize('ADMIN'), productController.getAdminProducts);
 router.patch('/admin/:id/approve', authenticate, authorize('ADMIN'), productController.approveProduct);
 router.patch('/admin/:id/reject', authenticate, authorize('ADMIN'), productController.rejectProduct);
+router.patch('/admin/:id/lock', authenticate, authorize('ADMIN'), productController.lockProduct);
 router.patch('/admin/:id/reject-appeal', authenticate, authorize('ADMIN'), productController.rejectAppeal);
 
 // Protected routes (Xem danh sách yêu thích) - đặt trước :id

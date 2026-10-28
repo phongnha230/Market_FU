@@ -333,9 +333,15 @@ export const ProductService = {
     return response.data.data;
   },
 
-  // 15. [Admin] Từ chối tin đăng kèm lý do
-  async rejectProduct(id: string, reason: string, expectedUpdatedAt: string): Promise<any> {
+    // 15. [Admin] Từ chối tin đăng kèm lý do
+  async rejectProduct(id: string, reason: string, expectedUpdatedAt?: string): Promise<any> {
     const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/reject`, { reason, expectedUpdatedAt });
+    return response.data.data;
+  },
+
+  // 15b. [Admin] Khóa tin đăng vi phạm quy chế sàn
+  async lockProduct(id: string, reason: string, expectedUpdatedAt?: string): Promise<any> {
+    const response = await apiClient.patch<ApiResponse<any>>(`/products/admin/${id}/lock`, { reason, expectedUpdatedAt });
     return response.data.data;
   },
 

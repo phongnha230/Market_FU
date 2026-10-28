@@ -10,6 +10,7 @@ import {
   boostProductSchema,
   approveProductSchema,
   rejectProductSchema,
+  lockProductSchema,
   appealProductSchema,
   rejectAppealSchema,
 } from './product.dto';
@@ -265,6 +266,18 @@ export class ProductController {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { expectedUpdatedAt } = approveProductSchema.parse(req.body);
       const result = await productService.approveProduct(req.user!.userId, id, expectedUpdatedAt);
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Quản trị viên khóa tin đăng do vi phạm (PATCH /api/products/admin/:id/lock)
+  async lockProduct(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const { reason, expectedUpdatedAt } = lockProductSchema.parse(req.body);
+      const result = await productService.lockProduct(req.user!.userId, id, reason, expectedUpdatedAt);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

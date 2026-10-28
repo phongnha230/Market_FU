@@ -70,7 +70,7 @@ export const queryProductSchema = z.object({
   search: z.string().max(100, 'Từ khóa tìm kiếm tối đa 100 ký tự').optional(),
   hashtag: z.string().max(50, 'Hashtag tối đa 50 ký tự').optional(), // Lọc theo 1 hashtag cụ thể: ?hashtag=quạt
   sellerId: z.string().optional(), // Lọc theo người bán cụ thể
-  status: z.enum(['PENDING_APPROVAL', 'AVAILABLE', 'RESERVED', 'SOLD', 'HIDDEN', 'EXPIRED', 'REJECTED']).optional(),
+  status: z.enum(['PENDING_APPROVAL', 'AVAILABLE', 'RESERVED', 'SOLD', 'HIDDEN', 'EXPIRED', 'REJECTED', 'LOCKED']).optional(),
   allStatuses: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(false)), // Hiển thị tất cả trạng thái (dùng cho profile của chính mình)
   sortBy: z.enum(['newest', 'price_asc', 'price_desc', 'views']).default('newest'),
   page: z.coerce.number().min(1).default(1),
@@ -87,7 +87,12 @@ export const updateProductStatusSchema = z.object({
 
 export const rejectProductSchema = z.object({
   reason: z.string().min(2, 'Lý do từ chối ít nhất 2 ký tự').max(500, 'Lý do từ chối tối đa 500 ký tự'),
-  expectedUpdatedAt: z.string().datetime(),
+  expectedUpdatedAt: z.string().optional(),
+});
+
+export const lockProductSchema = z.object({
+  reason: z.string().trim().min(5, 'Lý do khóa tin ít nhất 5 ký tự').max(500, 'Lý do khóa tin tối đa 500 ký tự'),
+  expectedUpdatedAt: z.string().optional(),
 });
 
 export const approveProductSchema = z.object({
@@ -100,6 +105,7 @@ export type UpdateProductStatusInput = z.infer<typeof updateProductStatusSchema>
 export type QueryProductInput = z.infer<typeof queryProductSchema>;
 export type BoostProductInput = z.infer<typeof boostProductSchema>;
 export type RejectProductInput = z.infer<typeof rejectProductSchema>;
+export type LockProductInput = z.infer<typeof lockProductSchema>;
 
 export const appealProductSchema = z.object({
   reason: z.string().trim().min(5, 'Lý do kháng nghị phải có ít nhất 5 ký tự').max(1000, 'Lý do kháng nghị tối đa 1000 ký tự'),

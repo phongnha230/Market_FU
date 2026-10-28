@@ -526,15 +526,23 @@ export class ProductService {
       throw new AppError('Bạn không có quyền cập nhật trạng thái sản phẩm của người khác', 403, 'FORBIDDEN');
     }
 
+    if (product.status === 'LOCKED') {
+      throw new AppError('Tin đăng đã bị Ban Quản Trị khóa do vi phạm quy chế. Vui lòng gửi kháng nghị để được xem xét.', 403, 'PRODUCT_LOCKED_BY_ADMIN');
+    }
     if (product.status === 'RESERVED' || product.status === 'SOLD') {
       throw new AppError('Không thể đổi trạng thái tin đang có đơn giữ chỗ hoặc đã bán', 409, 'PRODUCT_STATUS_LOCKED');
     }
     if (product.status === 'PENDING_APPROVAL' || product.status === 'REJECTED') {
       throw new AppError('Tin đăng phải được quản trị viên duyệt trước khi đổi trạng thái', 409, 'PRODUCT_REVIEW_REQUIRED');
     }
-    if (status === 'AVAILABLE' &&
-      (!product.approvedAt || !['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status))) {
-      throw new AppError('Tin đăng phải được quản trị viên duyệt trước khi hiển thị', 409, 'PRODUCT_REVIEW_REQUIRED');
+    let approvedAtFallback: Date | undefined = undefined;
+    if (status === 'AVAILABLE') {
+      if (!['AVAILABLE', 'HIDDEN', 'EXPIRED'].includes(product.status)) {
+        throw new AppError('Tin đăng phải được quản trị viên duyệt trước khi hiển thị', 409, 'PRODUCT_REVIEW_REQUIRED');
+      }
+      if (!product.approvedAt) {
+        approvedAtFallback = new Date();
+      }
     }
     if (status === 'RESERVED') {
       throw new AppError('Trạng thái giữ chỗ chỉ được cập nhật qua giao dịch đơn hàng', 409, 'ORDER_STATUS_REQUIRED');
@@ -544,8 +552,8 @@ export class ProductService {
     }
 
     const updated = await prisma.product.update({
-      where: { id, status: product.status, updatedAt: product.updatedAt },
-      data: { status },
+      where: { id },
+      data: { status, ...(approvedAtFallback && { approvedAt: approvedAtFallback }) },
       include: {
         seller: publicSellerSelect,
         category: {
@@ -1224,7 +1232,7 @@ export class ProductService {
     const persistApproval = () => prisma.product.update({
       where: {
         id: productId,
-        status: { in: ['PENDING_APPROVAL', 'REJECTED'] },
+        status: { in: ['PENDING_APPROVAL', 'REJECTED', 'LOCKED'] },
         updatedAt: new Date(expectedUpdatedAt),
       },
       data: {
@@ -1285,6 +1293,81 @@ export class ProductService {
     return updated;
   }
 
+  // 15b. Quản trị viên khóa tin đăng do vi phạm quy chế (Khóa / Gỡ bỏ tin)
+  async lockProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt?: string) {
+    const existing = await prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
+      throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
+    }
+
+    if (existing.status === 'LOCKED') {
+      throw new AppError('Tin đăng này đã bị khóa từ trước', 400, 'PRODUCT_ALREADY_LOCKED');
+    }
+
+    // Admin có quyền tối cao cưỡng chế khóa tin vi phạm
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        status: 'LOCKED',
+        rejectionReason: reason,
+        moderatedBy: adminId,
+        appealStatus: null,
+        appealReason: null,
+        appealedAt: null,
+      },
+      include: {
+        seller: publicSellerSelect,
+        category: true,
+      },
+    });
+
+    // Xóa khỏi Meilisearch
+    await deleteProductFromMeili(productId).catch(() => {});
+
+    // Xóa cache danh mục và sản phẩm
+    await delCachePattern('categories:*').catch(() => {});
+    await delCachePattern('products:*').catch(() => {});
+
+    // Broadcast sự kiện cập nhật trạng thái
+    try {
+      broadcastEvent('product:updated', sanitizeProductSeller(updated));
+    } catch {}
+
+    // Gửi thông báo & Email cảnh báo cho Người bán
+    try {
+      const seller = await prisma.user.findUnique({
+        where: { id: updated.sellerId },
+        select: { email: true },
+      });
+      await notificationService.sendNotification({
+        userId: updated.sellerId,
+        type: 'SYSTEM',
+        title: '⚠️ Tin đăng của bạn đã bị Ban Quản Trị tạm khóa',
+        message: `Tin đăng "${updated.title}" đã bị khóa do vi phạm quy chế: ${reason}. Bạn có thể gửi kháng nghị nếu có khiếu nại.`,
+        link: '/profile',
+        data: {
+          productId: updated.id,
+          productTitle: updated.title,
+          status: 'LOCKED',
+          reason,
+          action: 'LOCKED',
+        },
+      });
+
+      if (seller?.email) {
+        sendEmail({
+          to: seller.email,
+          subject: `[FPT Campus Market] Thông báo khóa tin đăng: ${updated.title}`,
+          html: `<p>Xin chào,</p><p>Tin đăng <strong>${updated.title}</strong> của bạn đã bị Ban Quản Trị tạm khóa do vi phạm:</p><blockquote>${reason}</blockquote><p>Vui lòng đăng nhập vào hệ thống để xem chi tiết hoặc gửi đơn kháng nghị.</p>`,
+        }).catch((err) => console.error('Email lock notify error:', err));
+      }
+    } catch (err) {
+      console.error('Failed to notify seller about locked product:', err);
+    }
+
+    return updated;
+  }
+
   // 16. Quản trị viên từ chối duyệt hoặc gỡ tin đăng vi phạm
   async rejectProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt: string) {
     const existing = await prisma.product.findUnique({ where: { id: productId } });
@@ -1315,13 +1398,37 @@ export class ProductService {
     });
     let updated: Awaited<ReturnType<typeof persistRejection>>;
     try {
-      updated = await persistRejection();
+      if (expectedUpdatedAt) {
+        updated = await persistRejection();
+      } else {
+        throw { code: 'P2025' };
+      }
     } catch (error) {
       if ((error as { code?: string }).code === 'P2025') {
-        throw new AppError('Tin đăng đã thay đổi hoặc không còn chờ duyệt. Vui lòng tải lại.', 409, 'PRODUCT_REVIEW_STALE');
+        // Fallback update trực tiếp nếu tin vẫn đang ở trạng thái hợp lệ
+        if (['PENDING_APPROVAL', 'AVAILABLE'].includes(existing.status)) {
+          updated = await prisma.product.update({
+            where: { id: productId },
+            data: {
+              status: 'REJECTED',
+              rejectionReason: reason,
+              moderatedBy: adminId,
+              appealStatus: null,
+              appealReason: null,
+              appealedAt: null,
+            },
+            include: {
+              seller: publicSellerSelect,
+              category: true,
+            },
+          });
+        } else {
+          throw new AppError('Tin đăng đã thay đổi hoặc không còn chờ duyệt. Vui lòng tải lại.', 409, 'PRODUCT_REVIEW_STALE');
+        }
+      } else {
+        console.error('Could not reject product', { productId, adminId, error });
+        throw error;
       }
-      console.error('Could not reject product', { productId, adminId, error });
-      throw error;
     }
 
     // Xóa khỏi Meilisearch nếu có
@@ -1373,8 +1480,8 @@ export class ProductService {
       throw new AppError('Bạn không có quyền kháng nghị tin đăng của người khác', 403, 'FORBIDDEN');
     }
 
-    if (product.status !== 'REJECTED') {
-      throw new AppError('Chỉ có thể gửi kháng nghị cho tin đăng đang bị từ chối hoặc bị gỡ bỏ', 400, 'PRODUCT_NOT_REJECTED');
+    if (!['REJECTED', 'LOCKED'].includes(product.status)) {
+      throw new AppError('Chỉ có thể gửi kháng nghị cho tin đăng đang bị từ chối hoặc bị tạm khóa', 400, 'PRODUCT_NOT_REJECTED');
     }
 
     if (product.appealStatus === 'PENDING') {
@@ -1406,7 +1513,7 @@ export class ProductService {
     const persistAppealRejection = () => prisma.product.update({
       where: {
         id: productId,
-        status: 'REJECTED',
+        status: { in: ['REJECTED', 'LOCKED'] },
         appealStatus: 'PENDING',
         updatedAt: new Date(expectedUpdatedAt),
       },
