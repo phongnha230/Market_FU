@@ -415,6 +415,7 @@ function OrdersPageInner() {
                 if (f && f !== 'all') p.set('filter', f);
                 router.replace(`/orders?${p.toString()}`, { scroll: false });
               }}
+              buyingCount={buyingOrders.length}
               ordersCount={activeMainTab === 'selling' ? sellingOrders.length : buyingOrders.length}
               sellingCount={sellingOrders.length}
               listingsCount={myProducts.length}
