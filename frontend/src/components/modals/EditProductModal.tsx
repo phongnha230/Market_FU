@@ -181,12 +181,18 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-1.5">
-                <span>Chỉnh sửa nhanh tin đăng</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-fpt-orange">
-                  Quick Form
+                <span>{product.status === 'REJECTED' ? 'Chỉnh sửa & Nộp duyệt lại' : 'Chỉnh sửa nhanh tin đăng'}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  product.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-orange-100 text-fpt-orange'
+                }`}>
+                  {product.status === 'REJECTED' ? 'Bị từ chối' : 'Quick Form'}
                 </span>
               </h2>
-              <p className="text-[11px] text-slate-500">Cập nhật nhanh giá bán, tiêu đề, tình trạng & địa điểm</p>
+              <p className="text-[11px] text-slate-500">
+                {product.status === 'REJECTED'
+                  ? 'Khắc phục nội dung theo yêu cầu BQT để nộp duyệt lại'
+                  : 'Cập nhật nhanh giá bán, tiêu đề, tình trạng & địa điểm'}
+              </p>
             </div>
           </div>
           <button
@@ -201,6 +207,22 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+          {/* Hộp nhắc lý do từ chối khi nộp duyệt lại */}
+          {product.status === 'REJECTED' && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-xs space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Lý do BQT từ chối bài trước đó:</span>
+              </div>
+              <p className="font-medium text-rose-950 italic pl-5.5">
+                &ldquo;{(product as any).rejectionReason || product.rejectionReason || 'Hình ảnh hoặc nội dung chưa đạt tiêu chuẩn chợ sinh viên FPT.'}&rdquo;
+              </p>
+              <p className="text-[10px] text-rose-600 font-medium pl-5.5 pt-0.5">
+                👉 Vui lòng điều chỉnh thông tin/ảnh bên dưới rồi nhấn <strong>&ldquo;Lưu & Nộp duyệt lại&rdquo;</strong> để gửi đơn cho BQT kiểm duyệt.
+              </p>
+            </div>
+          )}
+
           {/* Title */}
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -462,7 +484,7 @@ export default function EditProductModal({ product, onClose, onSaved }: EditProd
                   <span>Đã lưu!</span>
                 </>
               ) : (
-                <span>Lưu thay đổi</span>
+                <span>{product.status === 'REJECTED' ? 'Lưu & Nộp duyệt lại' : 'Lưu thay đổi'}</span>
               )}
             </button>
           </div>

@@ -29,6 +29,94 @@ interface AiAssistantMessageItemProps {
   onActionChip: (chipId: string) => void;
 }
 
+const renderInlineFormattedText = (raw: string, isUser = false) => {
+  const parts = raw.split(/(\*{2}[^*]+?\*{2}|`[^`]+?`)/g);
+
+  return parts.map((part, pIdx) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <Text
+          key={pIdx}
+          style={[styles.aiBoldText, isUser && styles.userBoldText]}
+        >
+          {part.slice(2, -2)}
+        </Text>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <Text key={pIdx} style={styles.aiCodeText}>
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    return <Text key={pIdx}>{part}</Text>;
+  });
+};
+
+const FormattedAiText: React.FC<{
+  text: string;
+  isWelcome?: boolean;
+  userName?: string;
+}> = ({ text, isWelcome, userName }) => {
+  if (isWelcome) {
+    return (
+      <Text style={styles.aiBubbleText}>
+        Chào <Text style={styles.boldOrangeText}>{userName}</Text>! Tôi là trợ lý
+        chuyên sâu FPT 5Campus Marketplace. Tôi có thể hỗ trợ bạn thẩm định giá
+        đồ dùng học tập, đối soát tài khoản MSSV chính quy, hoặc kết nối giao
+        dịch trực tiếp ngay tại ký túc xá. Bạn cần hỗ trợ gì hôm nay?
+      </Text>
+    );
+  }
+
+  const lines = text.split('\n');
+
+  return (
+    <View style={styles.formattedTextContainer}>
+      {lines.map((line, lineIdx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <View key={lineIdx} style={styles.lineSpacer} />;
+        }
+
+        const bulletMatch = trimmed.match(/^(\*|-|•)\s+(.*)$/);
+        const numberMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+
+        if (bulletMatch) {
+          return (
+            <View key={lineIdx} style={styles.aiBulletRow}>
+              <View style={styles.aiBulletDot} />
+              <Text style={[styles.aiBubbleText, styles.aiBulletText]}>
+                {renderInlineFormattedText(bulletMatch[2])}
+              </Text>
+            </View>
+          );
+        }
+
+        if (numberMatch) {
+          return (
+            <View key={lineIdx} style={styles.aiBulletRow}>
+              <View style={styles.aiNumberBadge}>
+                <Text style={styles.aiNumberText}>{numberMatch[1]}</Text>
+              </View>
+              <Text style={[styles.aiBubbleText, styles.aiBulletText]}>
+                {renderInlineFormattedText(numberMatch[2])}
+              </Text>
+            </View>
+          );
+        }
+
+        return (
+          <Text key={lineIdx} style={styles.aiBubbleText}>
+            {renderInlineFormattedText(trimmed)}
+          </Text>
+        );
+      })}
+    </View>
+  );
+};
+
 export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
   message,
   userName = 'Quân',
@@ -87,15 +175,11 @@ export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
           )}
 
           {message.text && (
-            <Text style={styles.aiBubbleText}>
-              {message.id === 'm1' ? (
-                <>
-                  Chào <Text style={styles.boldOrangeText}>{userName}</Text>! Tôi là trợ lý chuyên sâu FPT 5Campus Marketplace. Tôi có thể hỗ trợ bạn thẩm định giá đồ dùng học tập, đối soát tài khoản MSSV chính quy, hoặc kết nối giao dịch trực tiếp ngay tại ký túc xá. Bạn cần hỗ trợ gì hôm nay?
-                </>
-              ) : (
-                message.text
-              )}
-            </Text>
+            <FormattedAiText
+              text={message.text}
+              isWelcome={message.id === 'm1'}
+              userName={userName}
+            />
           )}
 
           {message.suggestedProducts && message.suggestedProducts.length > 0 && (
@@ -271,7 +355,64 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0F172A',
     lineHeight: 19,
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  formattedTextContainer: {
+    marginBottom: 4,
+  },
+  lineSpacer: {
+    height: 6,
+  },
+  aiBoldText: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  userBoldText: {
+    color: '#FFFFFF',
+  },
+  aiCodeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    backgroundColor: '#F1F5F9',
+    color: '#EA580C',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  aiBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+    paddingLeft: 2,
+  },
+  aiBulletDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EA580C',
+    marginTop: 6.5,
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  aiBulletText: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  aiNumberBadge: {
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    marginRight: 7,
+    flexShrink: 0,
+  },
+  aiNumberText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EA580C',
   },
   boldOrangeText: {
     color: '#EA580C',

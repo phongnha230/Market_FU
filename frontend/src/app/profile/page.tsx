@@ -1187,7 +1187,7 @@ export default function ProfilePage() {
                       {/* Right controls: Status Filter & View Mode Toggle */}
                       <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
                         {/* Filter chips */}
-                        <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl text-[11px]">
+                        <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl text-[11px] overflow-x-auto max-w-full no-scrollbar whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setListingFilter('ALL')}
@@ -2790,7 +2790,7 @@ export default function ProfilePage() {
               <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 space-y-1">
                 <span className="font-bold flex items-center gap-1 text-rose-700">
                   <ShieldAlert className="h-3.5 w-3.5" />
-                  Lý do bị từ chối trước đó:
+                  {appealModalTarget.status === 'LOCKED' ? 'Lý do BQT khóa tin trước đó:' : 'Lý do bị từ chối trước đó:'}
                 </span>
                 <p>{appealModalTarget.rejectionReason}</p>
               </div>
