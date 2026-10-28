@@ -28,6 +28,7 @@ import {
   ArrowRight,
   Shield,
   FileCheck,
+  ChevronLeft,
   ChevronRight,
   MessageSquare,
   Sparkles,
@@ -104,11 +105,16 @@ export default function ProfilePage() {
   // Edit product
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [listingViewMode, setListingViewMode] = useState<'grid' | 'list'>('grid');
-  const [listingFilter, setListingFilter] = useState<'ALL' | 'AVAILABLE' | 'PENDING_APPROVAL' | 'HIDDEN' | 'REJECTED'>('ALL');
+  const [listingFilter, setListingFilter] = useState<'ALL' | 'AVAILABLE' | 'PENDING_APPROVAL' | 'HIDDEN' | 'REJECTED' | 'LOCKED'>('ALL');
   const [myProducts, setMyProducts] = useState<ProductItem[]>([]);
   const [isLoadingMyProducts, setIsLoadingMyProducts] = useState(false);
 
   // Appeal modal state
+  const [listingPage, setListingPage] = useState<number>(1);
+  const LISTINGS_PER_PAGE = 6;
+  const SOLD_PER_PAGE = 6;
+  const [soldPage, setSoldPage] = useState<number>(1);
+  const [rejectionModalProduct, setRejectionModalProduct] = useState<ProductItem | null>(null);
   const [appealModalTarget, setAppealModalTarget] = useState<ProductItem | null>(null);
   const [appealReasonInput, setAppealReasonInput] = useState('');
   const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
@@ -307,6 +313,30 @@ export default function ProfilePage() {
     return sellingItems.filter((item) => item.status === listingFilter);
   }, [sellingItems, listingFilter]);
 
+  const totalListingPages = Math.ceil(filteredSellingItems.length / LISTINGS_PER_PAGE);
+  const paginatedSellingItems = useMemo(() => {
+    const start = (listingPage - 1) * LISTINGS_PER_PAGE;
+    return filteredSellingItems.slice(start, start + LISTINGS_PER_PAGE);
+  }, [filteredSellingItems, listingPage]);
+
+  const totalSoldPages = Math.ceil(soldItems.length / SOLD_PER_PAGE);
+  const paginatedSoldItems = useMemo(() => {
+    const start = (soldPage - 1) * SOLD_PER_PAGE;
+    return soldItems.slice(start, start + SOLD_PER_PAGE);
+  }, [soldItems, soldPage]);
+
+  const rejectedSellingProducts = useMemo(() => {
+    return sellingItems.filter((p) => p.status === 'REJECTED');
+  }, [sellingItems]);
+
+  const lockedSellingProducts = useMemo(() => {
+    return sellingItems.filter((p) => p.status === 'LOCKED');
+  }, [sellingItems]);
+
+  useEffect(() => {
+    setListingPage(1);
+  }, [listingFilter]);
+
   const sellingCounts = useMemo(() => {
     return {
       all: sellingItems.length,
@@ -314,6 +344,7 @@ export default function ProfilePage() {
       pending: sellingItems.filter((p) => p.status === 'PENDING_APPROVAL').length,
       hidden: sellingItems.filter((p) => p.status === 'HIDDEN').length,
       rejected: sellingItems.filter((p) => p.status === 'REJECTED').length,
+      locked: sellingItems.filter((p) => p.status === 'LOCKED').length,
     };
   }, [sellingItems]);
 
@@ -1134,9 +1165,9 @@ export default function ProfilePage() {
 
                 {/* TAB 1: TIN ĐANG RAO BÁN */}
                 {activeTab === 'selling' && (
-                  <div className="space-y-3.5">
+                  <div id="seller-listings-section" className="space-y-4">
                     {/* Top Control Bar: Title, Count, Filters, View Switcher */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-slate-900">
                           Danh sách đồ dùng đang pass
@@ -1156,11 +1187,11 @@ export default function ProfilePage() {
                       {/* Right controls: Status Filter & View Mode Toggle */}
                       <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
                         {/* Filter chips */}
-                        <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-lg text-[11px]">
+                        <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl text-[11px]">
                           <button
                             type="button"
                             onClick={() => setListingFilter('ALL')}
-                            className={`px-2 py-0.5 rounded-md font-bold transition ${
+                            className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                               listingFilter === 'ALL'
                                 ? 'bg-white text-slate-900 shadow-2xs'
                                 : 'text-slate-500 hover:text-slate-800'
@@ -1171,7 +1202,7 @@ export default function ProfilePage() {
                           <button
                             type="button"
                             onClick={() => setListingFilter('AVAILABLE')}
-                            className={`px-2 py-0.5 rounded-md font-bold transition ${
+                            className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                               listingFilter === 'AVAILABLE'
                                 ? 'bg-white text-emerald-700 shadow-2xs'
                                 : 'text-slate-500 hover:text-slate-800'
@@ -1183,7 +1214,7 @@ export default function ProfilePage() {
                             <button
                               type="button"
                               onClick={() => setListingFilter('PENDING_APPROVAL')}
-                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                              className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                                 listingFilter === 'PENDING_APPROVAL'
                                   ? 'bg-white text-amber-700 shadow-2xs'
                                   : 'text-slate-500 hover:text-slate-800'
@@ -1196,7 +1227,7 @@ export default function ProfilePage() {
                             <button
                               type="button"
                               onClick={() => setListingFilter('HIDDEN')}
-                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                              className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                                 listingFilter === 'HIDDEN'
                                   ? 'bg-white text-zinc-700 shadow-2xs'
                                   : 'text-slate-500 hover:text-slate-800'
@@ -1209,7 +1240,7 @@ export default function ProfilePage() {
                             <button
                               type="button"
                               onClick={() => setListingFilter('REJECTED')}
-                              className={`px-2 py-0.5 rounded-md font-bold transition ${
+                              className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
                                 listingFilter === 'REJECTED'
                                   ? 'bg-white text-rose-700 shadow-2xs'
                                   : 'text-slate-500 hover:text-slate-800'
@@ -1218,26 +1249,39 @@ export default function ProfilePage() {
                               Bị từ chối ({sellingCounts.rejected})
                             </button>
                           )}
+                          {sellingCounts.locked > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setListingFilter('LOCKED')}
+                              className={`px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                                listingFilter === 'LOCKED'
+                                  ? 'bg-white text-red-800 shadow-2xs'
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              Bị khóa ({sellingCounts.locked})
+                            </button>
+                          )}
                         </div>
 
                         {/* View Mode Toggle: Grid vs List */}
-                        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+                        <div className="flex items-center bg-slate-100 p-0.5 rounded-xl">
                           <button
                             type="button"
                             onClick={() => setListingViewMode('grid')}
-                            className={`p-1 rounded-md transition ${
+                            className={`p-1.5 rounded-lg transition cursor-pointer ${
                               listingViewMode === 'grid'
                                 ? 'bg-white text-fpt-orange shadow-2xs'
                                 : 'text-slate-400 hover:text-slate-600'
                             }`}
-                            title="Hiển thị dạng lưới thu gọn"
+                            title="Hiển thị dạng lưới 2 cột tinh gọn"
                           >
                             <LayoutGrid className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setListingViewMode('list')}
-                            className={`p-1 rounded-md transition ${
+                            className={`p-1.5 rounded-lg transition cursor-pointer ${
                               listingViewMode === 'list'
                                 ? 'bg-white text-fpt-orange shadow-2xs'
                                 : 'text-slate-400 hover:text-slate-600'
@@ -1250,21 +1294,79 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
+                    {/* TOP ALERT BANNER (KHI CÓ BÀI ĐĂNG BỊ BQT TỪ CHỐI) */}
+                    {rejectedSellingProducts.length > 0 && (
+                      <div className="rounded-2xl border border-rose-200 bg-linear-to-r from-rose-50/90 via-pink-50/60 to-orange-50/40 p-3.5 sm:p-4 text-xs shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="h-9 w-9 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <ShieldAlert className="h-5 w-5" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="font-extrabold text-rose-950 flex items-center gap-1.5 flex-wrap">
+                              <span>Có {rejectedSellingProducts.length} bài đăng bị BQT từ chối duyệt</span>
+                              <span className="text-[10px] bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded font-bold">Cần xử lý</span>
+                            </div>
+                            <p className="text-slate-600 text-[11px] leading-relaxed">
+                              {rejectedSellingProducts.length === 1 ? (
+                                <>
+                                  Tin <strong>&ldquo;{rejectedSellingProducts[0].title}&rdquo;</strong> chưa đạt chuẩn kiểm duyệt: &ldquo;{rejectedSellingProducts[0]._raw.rejectionReason || 'Hình ảnh hoặc nội dung vi phạm tiêu chuẩn cộng đồng'}&rdquo;
+                                </>
+                              ) : (
+                                'Vui lòng kiểm tra lý do kiểm duyệt của BQT để sửa lại thông tin hoặc gửi kháng nghị.'
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          {rejectedSellingProducts.length === 1 ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setRejectionModalProduct(rejectedSellingProducts[0]._raw)}
+                                className="px-3 py-1.5 rounded-xl bg-white border border-rose-200 font-bold text-rose-700 hover:bg-rose-50 transition shadow-2xs text-[11px] cursor-pointer"
+                              >
+                                Xem chi tiết lý do
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAppealModalTarget(rejectedSellingProducts[0]._raw);
+                                  setAppealReasonInput('');
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition shadow-2xs text-[11px] cursor-pointer flex items-center gap-1"
+                              >
+                                <Send className="h-3 w-3" />
+                                <span>Kháng nghị</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setListingFilter('REJECTED')}
+                              className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 transition shadow-2xs text-[11px] cursor-pointer"
+                            >
+                              Xem các tin bị từ chối ({rejectedSellingProducts.length})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Loading Skeletons */}
                     {isLoadingMyProducts ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden animate-pulse">
-                            <div className="aspect-[4/3] bg-slate-100" />
-                            <div className="p-3 space-y-2">
-                              <div className="h-3.5 bg-slate-200 rounded w-2/3" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+                            <div className="aspect-[16/10] bg-slate-100" />
+                            <div className="p-3 space-y-1">
+                              <div className="h-4 bg-slate-200 rounded w-2/3" />
                               <div className="h-3 bg-slate-100 rounded w-full" />
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : filteredSellingItems.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-6 sm:p-8 text-center bg-slate-50/50">
+                      <div className="rounded-2xl border border-dashed border-slate-200 p-8 sm:p-10 text-center bg-slate-50/50">
                         <p className="text-sm font-semibold text-slate-600">
                           {sellingItems.length === 0 ? 'Bạn chưa đăng bài pass đồ nào' : 'Không có tin đăng nào ở bộ lọc này'}
                         </p>
@@ -1273,22 +1375,22 @@ export default function ProfilePage() {
                         </p>
                         <Link
                           href="/create-post"
-                          className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-3.5 py-1.5 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-2xs"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-fpt-orange px-4 py-2 text-xs font-bold text-white hover:bg-fpt-orange-hover transition shadow-2xs"
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-4 w-4" />
                           <span>Đăng tin ngay</span>
                         </Link>
                       </div>
                     ) : listingViewMode === 'grid' ? (
-                      /* COMPACT GRID VIEW (3 Columns on Desktop, 2 on SM, 1 on Mobile) */
+                      /* COMPACT 3-COLUMN GRID VIEW (NHỎ GỌN CHUẨN LỊCH SỬ ĐÃ BÁN) */
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5">
-                        {filteredSellingItems.map((prod) => (
+                        {paginatedSellingItems.map((prod) => (
                           <Card
                             key={prod.id}
                             className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden"
                           >
                             <div>
-                              {/* Top Compact Image (aspect-[4/3] - compact and neat) */}
+                              {/* Image: aspect-[16/10] */}
                               <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
                                 <Image
                                   src={prod.imageUrl}
@@ -1297,107 +1399,146 @@ export default function ProfilePage() {
                                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
                                 {/* Campus badge */}
-                                <div className="absolute top-2 left-2 rounded-md bg-slate-900/75 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                <div className="absolute top-2.5 left-2.5 rounded-lg bg-slate-900/75 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
                                   {prod.campusBadge}
                                 </div>
 
                                 {/* Condition badge */}
-                                <div className="absolute top-2 right-2 rounded-md bg-amber-500/90 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                <div className="absolute top-2.5 right-2.5 rounded-lg bg-amber-500/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
                                   {prod.conditionBadge}
                                 </div>
 
                                 {/* Status badge */}
                                 {prod.status && prod.status !== 'AVAILABLE' && (
-                                  <div
-                                    className={`absolute bottom-2 left-2 rounded-md px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md shadow-2xs ${
-                                      prod.status === 'PENDING_APPROVAL'
-                                        ? 'bg-amber-600/90'
-                                        : prod.status === 'REJECTED'
-                                        ? 'bg-rose-600/90'
-                                        : prod.status === 'SOLD'
-                                        ? 'bg-slate-800/90'
-                                        : prod.status === 'HIDDEN'
-                                        ? 'bg-zinc-700/90'
-                                        : 'bg-sky-600/90'
-                                    }`}
-                                  >
-                                    {prod.status === 'PENDING_APPROVAL'
-                                      ? '⏳ Chờ duyệt'
-                                      : prod.status === 'REJECTED'
-                                      ? '🚫 Bị từ chối'
-                                      : prod.status === 'SOLD'
-                                      ? '✓ Đã bán'
-                                      : prod.status === 'RESERVED'
-                                      ? '🔒 Đã cọc'
-                                      : prod.status === 'HIDDEN'
-                                      ? 'Đã ẩn'
-                                      : prod.status}
-                                  </div>
-                                )}
+                                   <div
+                                     className={`absolute bottom-2.5 left-2.5 rounded-lg px-2.5 py-1 text-[10px] font-extrabold text-white backdrop-blur-md shadow-xs ${
+                                       prod.status === 'LOCKED'
+                                         ? 'bg-red-700/95 ring-1 ring-red-400'
+                                         : prod.status === 'PENDING_APPROVAL'
+                                         ? 'bg-amber-600/90'
+                                         : prod.status === 'REJECTED'
+                                         ? 'bg-rose-600/90'
+                                         : prod.status === 'SOLD'
+                                         ? 'bg-slate-800/90'
+                                         : prod.status === 'HIDDEN'
+                                         ? 'bg-zinc-700/90'
+                                         : 'bg-slate-700/90'
+                                     }`}
+                                   >
+                                     {prod.status === 'LOCKED'
+                                       ? '🔒 Bị BQT khóa'
+                                       : prod.status === 'PENDING_APPROVAL'
+                                       ? '⏳ Chờ duyệt'
+                                       : prod.status === 'REJECTED'
+                                       ? '🚫 Bị từ chối'
+                                       : prod.status === 'SOLD'
+                                       ? '✓ Đã bán'
+                                       : prod.status === 'RESERVED'
+                                       ? '🔒 Đã cọc'
+                                       : prod.status === 'HIDDEN'
+                                       ? 'Đã ẩn'
+                                       : prod.status}
+                                   </div>
+                                 )}
                               </div>
 
-                              {/* Card Content - Compact & Clean */}
-                              <div className="p-3 space-y-1">
-                                <div className="flex items-center justify-between">
+                              {/* Card Content: Compact & Clean */}
+                              <div className="p-3.5 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
                                   <div className="text-sm sm:text-base font-extrabold text-rose-600">
                                     {formatVND(prod.price)}
                                   </div>
-                                  <span className="text-[10px] text-slate-400 font-medium">
+                                  <span className="text-[11px] text-slate-400 font-medium">
                                     {prod.timeAgo}
                                   </span>
                                 </div>
 
                                 <h4
-                                  className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1 leading-snug group-hover:text-fpt-orange transition-colors"
+                                  className="text-sm font-bold text-slate-900 line-clamp-1 leading-snug group-hover:text-fpt-orange transition-colors"
                                   title={prod.title}
                                 >
                                   {prod.title}
                                 </h4>
 
-                                <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">
-                                  {prod.description}
-                                </p>
-
-                                {prod.status === 'REJECTED' && (
-                                  <div className="mt-1.5 rounded-lg border border-rose-200 bg-rose-50/90 p-2 text-[10px] text-rose-800 space-y-0.5">
-                                    <div className="font-bold flex items-center gap-1 text-rose-700">
-                                      <ShieldAlert className="h-3 w-3 shrink-0" />
-                                      <span>Lý do BQT từ chối:</span>
-                                    </div>
-                                    <p className="line-clamp-2 text-[10px] leading-relaxed text-rose-900">
-                                      {prod._raw.rejectionReason || 'Nội dung hoặc ảnh chưa đạt tiêu chuẩn kiểm duyệt.'}
-                                    </p>
+                                {prod.status === 'LOCKED' ? (
+                                   <div className="flex items-center justify-between gap-2 pt-0.5">
+                                     <button
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.preventDefault();
+                                         setRejectionModalProduct(prod._raw || prod);
+                                       }}
+                                       className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-300 px-2 py-0.5 text-[11px] font-extrabold text-red-700 hover:bg-red-100 transition cursor-pointer"
+                                     >
+                                       <Lock className="h-3.5 w-3.5 text-red-600" />
+                                       <span>Xem lý do bị khóa</span>
+                                     </button>
+                                     <span className="text-[10px] text-white font-black bg-red-600 px-1.5 py-0.2 rounded">Vi phạm</span>
+                                   </div>
+                                 ) : prod.status === 'REJECTED' ? (
+                                   <div className="flex items-center justify-between gap-2 pt-0.5">
+                                     <button
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.preventDefault();
+                                         setRejectionModalProduct(prod._raw || prod);
+                                       }}
+                                       className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                                     >
+                                       <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+                                       <span>Xem lý do từ chối</span>
+                                     </button>
+                                     <span className="text-[10px] text-rose-500 font-bold bg-rose-50/60 px-1.5 py-0.2 rounded">Cần sửa</span>
+                                   </div>
+                                 ) : (
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+                                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                    <span className="truncate">{prod.campusBadge || 'FPT Campus'}</span>
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            {/* Card Footer Actions - Compact 2-Tier Toolbar */}
+                            {/* Card Footer Actions */}
                             <div className="border-t border-slate-100 p-2 bg-slate-50/70 space-y-1.5 text-[11px]">
-                              {/* Primary Actions: Quick Edit + Boost */}
                               <div className="grid grid-cols-2 gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setEditingProduct(prod._raw);
-                                  }}
-                                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50/80 px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
-                                  title="Chỉnh sửa nhanh thông tin bài đăng"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  <span>Sửa tin</span>
-                                </button>
+                                {prod.status === 'LOCKED' ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setRejectionModalProduct(prod._raw || prod);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                    title="Xem lý do Ban Quản Trị khóa tin"
+                                  >
+                                    <Lock className="h-3.5 w-3.5 text-red-600" />
+                                    <span>Lý do khóa</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setEditingProduct(prod._raw);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/90 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                    title="Chỉnh sửa thông tin bài đăng"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    <span>Sửa tin</span>
+                                  </button>
+                                )}
 
-                                {prod.status === 'REJECTED' ? (
+                                {prod.status === 'LOCKED' || prod.status === 'REJECTED' ? (
                                   prod._raw.appealStatus === 'PENDING' ? (
-                                    <span className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800 shadow-2xs">
-                                      <Clock className="h-3 w-3 text-amber-600" />
+                                    <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-800 shadow-2xs">
+                                      <Clock className="h-3.5 w-3.5 text-amber-600" />
                                       <span>Chờ duyệt đơn</span>
                                     </span>
                                   ) : prod._raw.appealStatus === 'REJECTED' ? (
-                                    <span className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 shadow-2xs">
-                                      <ShieldAlert className="h-3 w-3 text-rose-600" />
+                                    <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 shadow-2xs">
+                                      <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
                                       <span>Bị bác đơn</span>
                                     </span>
                                   ) : (
@@ -1408,10 +1549,10 @@ export default function ProfilePage() {
                                         setAppealModalTarget(prod._raw);
                                         setAppealReasonInput('');
                                       }}
-                                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition cursor-pointer active:scale-95 shadow-2xs"
                                       title="Gửi đơn khiếu nại tới BQT"
                                     >
-                                      <Send className="h-3 w-3 text-purple-600" />
+                                      <Send className="h-3.5 w-3.5 text-purple-600" />
                                       <span>Kháng nghị</span>
                                     </button>
                                   )
@@ -1422,30 +1563,31 @@ export default function ProfilePage() {
                                       e.preventDefault();
                                       handleBoostProduct(prod.id, prod.title);
                                     }}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer active:scale-95 shadow-2xs"
                                     title="Đẩy tin lên đầu trang (-100 FPT Coin)"
                                   >
-                                    <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
+                                    <Zap className="h-3.5 w-3.5 text-amber-600 fill-amber-500" />
                                     <span>Đẩy tin (-100)</span>
                                   </button>
                                 )}
                               </div>
 
-                              {/* Secondary Actions: Renew + Hide/Show + Detail Link */}
-                              <div className="flex items-center justify-between gap-1 pt-0.5">
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleRenewProduct(prod.id, prod.title);
-                                    }}
-                                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
-                                    title="Gia hạn bài đăng thêm 30 ngày"
-                                  >
-                                    <RefreshCw className="h-2.5 w-2.5 text-slate-400" />
-                                    <span>Gia hạn</span>
-                                  </button>
+                              <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  {prod.status !== 'LOCKED' && prod.status !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleRenewProduct(prod.id, prod.title);
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-fpt-orange transition cursor-pointer active:scale-95 shadow-2xs"
+                                      title="Gia hạn bài đăng thêm 30 ngày"
+                                    >
+                                      <RefreshCw className="h-3 w-3 text-slate-400" />
+                                      <span>Gia hạn</span>
+                                    </button>
+                                  )}
 
                                   {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
                                     <button
@@ -1454,7 +1596,7 @@ export default function ProfilePage() {
                                         e.preventDefault();
                                         handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN');
                                       }}
-                                      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
+                                      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
                                         prod.status === 'HIDDEN'
                                           ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
@@ -1463,12 +1605,12 @@ export default function ProfilePage() {
                                     >
                                       {prod.status === 'HIDDEN' ? (
                                         <>
-                                          <Eye className="h-2.5 w-2.5 text-emerald-600" />
+                                          <Eye className="h-3 w-3 text-emerald-600" />
                                           <span>Hiện</span>
                                         </>
                                       ) : (
                                         <>
-                                          <EyeOff className="h-2.5 w-2.5 text-slate-500" />
+                                          <EyeOff className="h-3 w-3 text-slate-500" />
                                           <span>Ẩn</span>
                                         </>
                                       )}
@@ -1478,10 +1620,10 @@ export default function ProfilePage() {
 
                                 <Link
                                   href={prod.detailLink}
-                                  className="font-bold text-[10px] text-slate-500 hover:text-fpt-orange flex items-center gap-0.5 transition shrink-0 pl-1"
+                                  className="font-bold text-[11px] text-slate-500 hover:text-fpt-orange flex items-center gap-1 transition shrink-0 pr-0.5"
                                 >
                                   <span>Chi tiết</span>
-                                  <ArrowRight className="h-2.5 w-2.5" />
+                                  <ArrowRight className="h-3 w-3" />
                                 </Link>
                               </div>
                             </div>
@@ -1491,10 +1633,10 @@ export default function ProfilePage() {
                     ) : (
                       /* COMPACT HORIZONTAL LIST VIEW */
                       <div className="space-y-2.5">
-                        {filteredSellingItems.map((prod) => (
+                        {paginatedSellingItems.map((prod) => (
                           <div
                             key={prod.id}
-                            className="group flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 sm:p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs transition"
+                            className="group flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl border border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs transition"
                           >
                             {/* Left: Thumbnail & Main Info */}
                             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1510,28 +1652,32 @@ export default function ProfilePage() {
                               <div className="min-w-0 flex-1 space-y-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span
-                                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                                      prod.status === 'AVAILABLE'
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : prod.status === 'PENDING_APPROVAL'
-                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                        : prod.status === 'HIDDEN'
-                                        ? 'bg-zinc-100 text-zinc-600'
-                                        : 'bg-rose-50 text-rose-700'
-                                    }`}
-                                  >
-                                    {prod.status === 'AVAILABLE'
-                                      ? '🟢 Đang bán'
-                                      : prod.status === 'PENDING_APPROVAL'
-                                      ? '⏳ Chờ duyệt'
-                                      : prod.status === 'HIDDEN'
-                                      ? '⚪ Đã ẩn'
-                                      : prod.status}
-                                  </span>
-                                  <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.2 rounded">
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold flex items-center gap-1 ${
+                                       prod.status === 'AVAILABLE'
+                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                         : prod.status === 'PENDING_APPROVAL'
+                                         ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                         : prod.status === 'HIDDEN'
+                                         ? 'bg-zinc-100 text-zinc-600 border border-zinc-200'
+                                         : prod.status === 'LOCKED'
+                                         ? 'bg-red-50 text-red-700 border border-red-300'
+                                         : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                     }`}
+                                   >
+                                     {prod.status === 'AVAILABLE'
+                                       ? '🟢 Đang bán'
+                                       : prod.status === 'PENDING_APPROVAL'
+                                       ? '⏳ Chờ duyệt'
+                                       : prod.status === 'HIDDEN'
+                                       ? '⚪ Đã ẩn'
+                                       : prod.status === 'LOCKED'
+                                       ? '🔒 Bị BQT khóa'
+                                       : '🚫 Bị từ chối'}
+                                   </span>
+                                  <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
                                     {prod.campusBadge}
                                   </span>
-                                  <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.2 rounded">
+                                  <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-md">
                                     {prod.conditionBadge}
                                   </span>
                                 </div>
@@ -1551,40 +1697,82 @@ export default function ProfilePage() {
                                     • {prod.timeAgo}
                                   </span>
                                 </div>
+
+                                {prod.status === 'LOCKED' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => setRejectionModalProduct(prod._raw || prod)}
+                                     className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-700 hover:underline cursor-pointer"
+                                   >
+                                     <Lock className="h-3 w-3 text-red-600" />
+                                     <span>Xem lý do bị khóa</span>
+                                   </button>
+                                 )}
+                                 {prod.status === 'REJECTED' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => setRejectionModalProduct(prod._raw || prod)}
+                                     className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
+                                   >
+                                     <ShieldAlert className="h-3 w-3 text-rose-600" />
+                                     <span>Xem lý do từ chối</span>
+                                   </button>
+                                 )}
                               </div>
                             </div>
 
                             {/* Right: Actions Cluster */}
-                            <div className="flex items-center gap-1.5 shrink-0 justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                              <button
-                                type="button"
-                                onClick={() => setEditingProduct(prod._raw)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 shadow-2xs"
-                                title="Chỉnh sửa bài đăng"
-                              >
-                                <Pencil className="h-3 w-3" />
-                                <span>Sửa tin</span>
-                              </button>
+                            <div className="flex items-center gap-1.5 shrink-0 justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 flex-wrap">
+                              {/* 1. Nút Sửa tin hoặc Lý do khóa */}
+                              {prod.status === 'LOCKED' ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setRejectionModalProduct(prod._raw || prod);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-extrabold text-red-700 hover:bg-red-100 transition active:scale-95 shadow-2xs cursor-pointer"
+                                  title="Xem lý do Ban Quản Trị khóa tin"
+                                >
+                                  <Lock className="h-3 w-3 text-red-600" />
+                                  <span>Lý do khóa</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setEditingProduct(prod._raw);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition active:scale-95 shadow-2xs cursor-pointer"
+                                  title="Chỉnh sửa bài đăng"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>Sửa tin</span>
+                                </button>
+                              )}
 
-                              {prod.status === 'REJECTED' ? (
-                                prod._raw.appealStatus === 'PENDING' ? (
-                                  <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800 shadow-2xs">
+                              {/* 2. Nút Kháng nghị (cho LOCKED/REJECTED) HOẶC Đẩy tin (cho tin AVAILABLE/HIDDEN) */}
+                              {prod.status === 'LOCKED' || prod.status === 'REJECTED' ? (
+                                prod._raw?.appealStatus === 'PENDING' ? (
+                                  <span className="inline-flex items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-bold text-amber-800 shadow-2xs">
                                     <Clock className="h-3 w-3 text-amber-600" />
                                     <span>Chờ duyệt đơn</span>
                                   </span>
-                                ) : prod._raw.appealStatus === 'REJECTED' ? (
-                                  <span className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 shadow-2xs">
+                                ) : prod._raw?.appealStatus === 'REJECTED' ? (
+                                  <span className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold text-rose-700 shadow-2xs">
                                     <ShieldAlert className="h-3 w-3 text-rose-600" />
                                     <span>Bị bác đơn</span>
                                   </span>
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setAppealModalTarget(prod._raw);
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setAppealModalTarget(prod._raw || prod);
                                       setAppealReasonInput('');
                                     }}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700 hover:bg-purple-100 transition active:scale-95 shadow-2xs"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-[11px] font-bold text-purple-700 hover:bg-purple-100 transition active:scale-95 shadow-2xs cursor-pointer"
                                   >
                                     <Send className="h-3 w-3 text-purple-600" />
                                     <span>Kháng nghị</span>
@@ -1593,8 +1781,11 @@ export default function ProfilePage() {
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => handleBoostProduct(prod.id, prod.title)}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition active:scale-95 shadow-2xs"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleBoostProduct(prod.id, prod.title);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition active:scale-95 shadow-2xs cursor-pointer"
                                   title="Đẩy tin (-100 FPT Coin)"
                                 >
                                   <Zap className="h-3 w-3 text-amber-600 fill-amber-500" />
@@ -1602,21 +1793,31 @@ export default function ProfilePage() {
                                 </button>
                               )}
 
-                              <button
-                                type="button"
-                                onClick={() => handleRenewProduct(prod.id, prod.title)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition active:scale-95 shadow-2xs"
-                                title="Gia hạn bài đăng 30 ngày"
-                              >
-                                <RefreshCw className="h-3 w-3 text-slate-400" />
-                                <span>Gia hạn</span>
-                              </button>
+                              {/* 3. Nút Gia hạn (chỉ hiện cho tin không bị khóa/từ chối/chờ duyệt) */}
+                              {prod.status !== 'LOCKED' && prod.status !== 'REJECTED' && prod.status !== 'PENDING_APPROVAL' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleRenewProduct(prod.id, prod.title);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-fpt-orange transition active:scale-95 shadow-2xs cursor-pointer"
+                                  title="Gia hạn bài đăng 30 ngày"
+                                >
+                                  <RefreshCw className="h-3 w-3 text-slate-400" />
+                                  <span>Gia hạn</span>
+                                </button>
+                              )}
 
+                              {/* 4. Nút Ẩn / Hiện (chỉ cho AVAILABLE và HIDDEN) */}
                               {(prod.status === 'AVAILABLE' || prod.status === 'HIDDEN') && (
                                 <button
                                   type="button"
-                                  onClick={() => handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN')}
-                                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition active:scale-95 shadow-2xs ${
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleToggleHideProduct(prod.id, prod.title, prod.status === 'HIDDEN');
+                                  }}
+                                  className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition active:scale-95 shadow-2xs cursor-pointer ${
                                     prod.status === 'HIDDEN'
                                       ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
@@ -1637,9 +1838,10 @@ export default function ProfilePage() {
                                 </button>
                               )}
 
+                              {/* 5. Nút Chi tiết */}
                               <Link
                                 href={prod.detailLink}
-                                className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:text-fpt-orange transition"
+                                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:text-fpt-orange transition"
                               >
                                 <span>Chi tiết</span>
                                 <ArrowRight className="h-3 w-3" />
@@ -1647,6 +1849,64 @@ export default function ProfilePage() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* PAGINATION BAR (MỖI TRANG 4 SẢN PHẨM) */}
+                    {filteredSellingItems.length > LISTINGS_PER_PAGE && (
+                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-2xs">
+                        <span className="text-xs text-slate-500 font-medium">
+                          Hiển thị <strong className="text-slate-800">{(listingPage - 1) * LISTINGS_PER_PAGE + 1}–{Math.min(listingPage * LISTINGS_PER_PAGE, filteredSellingItems.length)}</strong> trong tổng số{' '}
+                          <strong className="text-slate-800">{filteredSellingItems.length}</strong> tin đăng
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={listingPage <= 1}
+                            onClick={() => {
+                              setListingPage((p) => Math.max(1, p - 1));
+                              document.getElementById('seller-listings-section')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                            <span>Trước</span>
+                          </button>
+
+                          {Array.from({ length: totalListingPages }, (_, i) => i + 1).map((pageNum) => {
+                            const isCurrent = pageNum === listingPage;
+                            return (
+                              <button
+                                key={pageNum}
+                                type="button"
+                                onClick={() => {
+                                  setListingPage(pageNum);
+                                  document.getElementById('seller-listings-section')?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className={`h-8 min-w-8 px-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                                  isCurrent
+                                    ? 'bg-fpt-orange text-white shadow-xs'
+                                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+
+                          <button
+                            type="button"
+                            disabled={listingPage >= totalListingPages}
+                            onClick={() => {
+                              setListingPage((p) => Math.min(totalListingPages, p + 1));
+                              document.getElementById('seller-listings-section')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            <span>Sau</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1834,7 +2094,7 @@ export default function ProfilePage() {
                       )
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-3.5">
-                        {soldItems.map((item) => (
+                        {paginatedSoldItems.map((item) => (
                           <Card
                             key={item.id}
                             className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden"
@@ -1919,6 +2179,64 @@ export default function ProfilePage() {
                             </div>
                           </Card>
                         ))}
+                      </div>
+                    )}
+
+                    {/* PAGINATION BAR FOR SOLD ITEMS */}
+                    {soldItems.length > SOLD_PER_PAGE && (
+                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-2xs">
+                        <span className="text-xs text-slate-500 font-medium">
+                          Hiển thị <strong className="text-slate-800">{(soldPage - 1) * SOLD_PER_PAGE + 1}–{Math.min(soldPage * SOLD_PER_PAGE, soldItems.length)}</strong> trong tổng số{' '}
+                          <strong className="text-slate-800">{soldItems.length}</strong> món đã bán
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={soldPage <= 1}
+                            onClick={() => {
+                              setSoldPage((p) => Math.max(1, p - 1));
+                              document.getElementById('profile-tabs-content')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                            <span>Trước</span>
+                          </button>
+
+                          {Array.from({ length: totalSoldPages }, (_, i) => i + 1).map((pageNum) => {
+                            const isCurrent = pageNum === soldPage;
+                            return (
+                              <button
+                                key={pageNum}
+                                type="button"
+                                onClick={() => {
+                                  setSoldPage(pageNum);
+                                  document.getElementById('profile-tabs-content')?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                className={`h-8 min-w-8 px-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                                  isCurrent
+                                    ? 'bg-fpt-orange text-white shadow-xs'
+                                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+
+                          <button
+                            type="button"
+                            disabled={soldPage >= totalSoldPages}
+                            onClick={() => {
+                              setSoldPage((p) => Math.min(totalSoldPages, p + 1));
+                              document.getElementById('profile-tabs-content')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            <span>Sau</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2228,7 +2546,7 @@ export default function ProfilePage() {
                         {favorites.map((fav) => (
                           <Card key={fav.id} className="group flex flex-col justify-between rounded-2xl border-slate-200/90 bg-white shadow-xs hover:border-slate-300 hover:shadow-md transition overflow-hidden">
                             <div>
-                              <div className="relative aspect-[16/10] w-full bg-slate-100 overflow-hidden">
+                              <div className="relative aspect-[4/3] w-full bg-slate-100 overflow-hidden">
                                 <Image
                                   src={fav.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80'}
                                   alt={fav.title}
@@ -2345,6 +2663,104 @@ export default function ProfilePage() {
             setEditingProduct(null);
           }}
         />
+      )}
+
+      {/* REJECTION REASON MODAL */}
+      {rejectionModalProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200/80 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {rejectionModalProduct.status === 'LOCKED' ? 'Lý do BQT khóa tin đăng' : 'Lý do từ chối kiểm duyệt'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {rejectionModalProduct.status === 'LOCKED' ? 'Thông báo vi phạm quy chế sàn' : 'Phản hồi từ Ban Quản Trị Campus Hub'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectionModalProduct(null)}
+                className="p-1 rounded-xl text-slate-400 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Product Brief */}
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-slate-200 shrink-0">
+                <Image
+                  src={rejectionModalProduct.imageUrl}
+                  alt={rejectionModalProduct.title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 truncate">{rejectionModalProduct.title}</h4>
+                <p className="text-xs font-extrabold text-rose-600 mt-0.5">{formatVND(rejectionModalProduct.price)}</p>
+              </div>
+            </div>
+
+            {/* Rejection Notice Box */}
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-1.5">
+              <div className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                <span>Nội dung ghi chú của BQT:</span>
+              </div>
+              <p className="text-xs text-rose-950 leading-relaxed font-medium">
+                {rejectionModalProduct.rejectionReason || 'Ảnh chụp chưa rõ ràng hoặc nội dung bài đăng chưa đáp ứng tiêu chuẩn kiểm duyệt của chợ sinh viên FPT.'}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-3 text-[11px] text-slate-500 space-y-1">
+              <p className="font-bold text-slate-700">💡 Hướng dẫn khắc phục:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Chụp ảnh thực tế sản phẩm (kèm thẻ SV hoặc viết giấy ghi chú).</li>
+                <li>Mô tả chi tiết tình trạng máy/đồ dùng, phụ kiện đi kèm.</li>
+                <li>Nếu cho rằng BQT nhầm lẫn, bạn có thể gửi đơn kháng nghị kèm bằng chứng.</li>
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              {rejectionModalProduct.status !== 'LOCKED' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = rejectionModalProduct;
+                    setRejectionModalProduct(null);
+                    setEditingProduct(target);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span>Chỉnh sửa tin ngay</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = rejectionModalProduct;
+                  setRejectionModalProduct(null);
+                  setAppealModalTarget(target);
+                  setAppealReasonInput('');
+                }}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>Gửi kháng nghị</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* APPEAL MODAL */}
