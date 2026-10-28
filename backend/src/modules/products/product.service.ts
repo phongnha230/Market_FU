@@ -1345,7 +1345,13 @@ export class ProductService {
         title: '⚠️ Tin đăng của bạn đã bị Ban Quản Trị tạm khóa',
         body: `Tin đăng "${updated.title}" đã bị khóa do vi phạm quy chế: ${reason}. Bạn có thể gửi kháng nghị nếu có khiếu nại.`,
         targetUrl: '/profile',
-        email: seller?.email ? { to: seller.email } : undefined,
+        email: seller?.email
+          ? {
+              to: seller.email,
+              subject: `[FPT Campus Market] Thông báo khóa tin đăng: ${updated.title}`,
+              html: `<p>Xin chào,</p><p>Tin đăng <strong>${updated.title}</strong> của bạn đã bị Ban Quản Trị tạm khóa do vi phạm:</p><blockquote>${reason}</blockquote><p>Vui lòng đăng nhập vào hệ thống để xem chi tiết hoặc gửi đơn kháng nghị.</p>`,
+            }
+          : undefined,
       });
     } catch (err) {
       console.error('Failed to notify seller about locked product:', err);
