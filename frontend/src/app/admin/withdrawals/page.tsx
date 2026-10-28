@@ -21,8 +21,10 @@ import {
   Loader2,
   Wallet,
   ArrowUpRight,
+  FileText,
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
+import WithdrawalInvoiceModal from '@/components/modals/WithdrawalInvoiceModal';
 
 interface WithdrawalItem {
   id: string;
@@ -45,6 +47,13 @@ interface WithdrawalItem {
       avatarUrl?: string;
       campus?: string;
       phoneNumber?: string;
+      cohort?: string;
+      major?: string;
+      dorm?: string;
+      kyc?: {
+        studentId?: string;
+        status?: string;
+      };
     };
   };
 }
@@ -95,6 +104,9 @@ export default function AdminWithdrawalsPage() {
   // Selected item for Quick VietQR modal
   const [selectedForQr, setSelectedForQr] = useState<WithdrawalItem | null>(null);
 
+  // Selected item for Electronic Invoice modal (with red official seal)
+  const [selectedForInvoice, setSelectedForInvoice] = useState<WithdrawalItem | null>(null);
+
   // Reject modal state
   const [rejectingItem, setRejectingItem] = useState<WithdrawalItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -130,6 +142,9 @@ export default function AdminWithdrawalsPage() {
       });
       setWithdrawals((prev) =>
         prev.map((w) => (w.id === item.id ? { ...w, status: 'APPROVED', processedAt: new Date().toISOString() } : w))
+      );
+      setSelectedForInvoice((prev) =>
+        prev && prev.id === item.id ? { ...prev, status: 'APPROVED', processedAt: new Date().toISOString() } : prev
       );
     } catch (err: any) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
@@ -394,6 +409,21 @@ export default function AdminWithdrawalsPage() {
                         {/* Hành động */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Nút Xem hóa đơn điện tử có dấu đỏ & tải về */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedForInvoice(item)}
+                              title="Xem & Tải Hóa đơn điện tử có dấu đỏ xác nhận"
+                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs ${
+                                isApproved
+                                  ? 'border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-extrabold'
+                                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              <FileText className={`h-3.5 w-3.5 ${isApproved ? 'text-red-600' : 'text-slate-500'}`} />
+                              <span>Hóa đơn</span>
+                            </button>
+
                             {/* Nút bật mã VietQR chuyển khoản */}
                             <button
                               type="button"
@@ -489,6 +519,18 @@ export default function AdminWithdrawalsPage() {
               </div>
             </div>
 
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedForInvoice(selectedForQr);
+                setSelectedForQr(null);
+              }}
+              className="w-full rounded-xl border border-slate-200 bg-white hover:bg-slate-100 py-2 text-xs font-bold text-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <FileText className="h-4 w-4 text-fpt-orange" />
+              <span>Xem trước hóa đơn điện tử</span>
+            </button>
+
             {selectedForQr.status === 'PENDING' && (
               <button
                 type="button"
@@ -561,6 +603,15 @@ export default function AdminWithdrawalsPage() {
           </div>
         </div>
       )}
+
+      {/* ELECTRONIC INVOICE MODAL (WITH RED OFFICIAL SEAL & FULL SELLER INFO) */}
+      <WithdrawalInvoiceModal
+        isOpen={!!selectedForInvoice}
+        onClose={() => setSelectedForInvoice(null)}
+        withdrawal={selectedForInvoice}
+        canApprove={selectedForInvoice?.status === 'PENDING'}
+        onApprove={(item) => handleApprove(item as WithdrawalItem)}
+      />
     </AdminLayoutShell>
   );
 }

@@ -153,7 +153,11 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
 
     } finally {
       if (orderId) await prisma.order.deleteMany({ where: { id: orderId } });
-      if (productId) await prisma.product.deleteMany({ where: { id: productId } });
+      if (productId) {
+        await prisma.message.deleteMany({ where: { conversation: { productId } } }).catch(() => {});
+        await prisma.conversation.deleteMany({ where: { productId } }).catch(() => {});
+        await prisma.product.deleteMany({ where: { id: productId } });
+      }
       const userIds = [buyerId, sellerId].filter(Boolean) as string[];
       if (userIds.length > 0) {
         await prisma.report.deleteMany({ where: { reporterId: { in: userIds } } });
@@ -323,7 +327,11 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
 
     } finally {
       if (orderId) await prisma.order.deleteMany({ where: { id: orderId } });
-      if (productId) await prisma.product.deleteMany({ where: { id: productId } });
+      if (productId) {
+        await prisma.message.deleteMany({ where: { conversation: { productId } } }).catch(() => {});
+        await prisma.conversation.deleteMany({ where: { productId } }).catch(() => {});
+        await prisma.product.deleteMany({ where: { id: productId } });
+      }
       const userIds = [buyerId, sellerId].filter(Boolean) as string[];
       if (userIds.length > 0) {
         await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
@@ -467,7 +475,11 @@ describe('E2E Test Suite: Luồng giao dịch Mua & Bán (Buyer <-> Seller)', ()
       if (orderId) await prisma.order.deleteMany({ where: { id: orderId } });
       if (userVoucherId) await prisma.userVoucher.deleteMany({ where: { id: userVoucherId } });
       if (voucherId) await prisma.voucher.deleteMany({ where: { id: voucherId } });
-      if (productId) await prisma.product.deleteMany({ where: { id: productId } });
+      if (productId) {
+        await prisma.message.deleteMany({ where: { conversation: { productId } } }).catch(() => {});
+        await prisma.conversation.deleteMany({ where: { productId } }).catch(() => {});
+        await prisma.product.deleteMany({ where: { id: productId } });
+      }
       const userIds = [buyerId, sellerId].filter(Boolean) as string[];
       if (userIds.length > 0) {
         await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });

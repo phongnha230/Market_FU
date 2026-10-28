@@ -86,7 +86,7 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
   // Tiền bán hàng Escrow (VNĐ): ĐƯỢC RÚT VỀ TÀI KHOẢN NGÂN HÀNG
   // Đồng bộ chuẩn xác với Doanh thu đã nhận tại trang Quản lý đơn hàng (/orders?tab=selling)
   const availableVnd = React.useMemo(() => {
-    if (typeof sellerAnalytics?.availableBalance === 'number' && sellerAnalytics.availableBalance > 0) {
+    if (typeof sellerAnalytics?.availableBalance === 'number') {
       return sellerAnalytics.availableBalance;
     }
     if (typeof sellerAnalytics?.totalRevenue === 'number' && sellerAnalytics.totalRevenue > 0) {
@@ -96,14 +96,14 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
       return walletStore.availableEscrowBalance;
     }
     if (completedSellingRevenue > 0) {
-      return completedSellingRevenue;
+      return Math.max(0, completedSellingRevenue - Math.round(completedSellingRevenue * 0.05));
     }
     // Fallback nếu là seller có đơn hàng đã tất toán thành công trên hệ thống (250.000 đ)
     return isSellerRole ? 250000 : 0;
   }, [sellerAnalytics, walletStore.availableEscrowBalance, completedSellingRevenue, isSellerRole]);
 
   const frozenVnd = React.useMemo(() => {
-    if (typeof sellerAnalytics?.pendingEscrow === 'number' && sellerAnalytics.pendingEscrow > 0) {
+    if (typeof sellerAnalytics?.pendingEscrow === 'number') {
       return sellerAnalytics.pendingEscrow;
     }
     if (walletStore.pendingEscrowBalance > 0) {
@@ -111,6 +111,13 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
     }
     return pendingSellingEscrow;
   }, [sellerAnalytics, walletStore.pendingEscrowBalance, pendingSellingEscrow]);
+
+  const totalPlatformFees = React.useMemo(() => {
+    if (typeof sellerAnalytics?.totalPlatformFees === 'number') {
+      return sellerAnalytics.totalPlatformFees;
+    }
+    return Math.round(completedSellingRevenue * 0.05);
+  }, [sellerAnalytics, completedSellingRevenue]);
 
   const handleOpenWithdraw = () => {
     setModalInitialTab('withdraw');
@@ -188,7 +195,7 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
         )}
 
         {/* Financial Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-4">
           {/* 1. SỐ DƯ DOANH THU ESCROW KHẢ DỤNG */}
           <div className="rounded-xl border border-emerald-200/90 bg-linear-to-br from-emerald-50/70 to-teal-50/70 p-4 flex flex-col justify-between">
             <div>
@@ -237,7 +244,31 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
             </p>
           </div>
 
-          {/* 3. TÀI KHOẢN NGÂN HÀNG LIÊN KẾT */}
+          {/* 3. PHÍ SÀN ĐÃ TRÍCH (5%) */}
+          <div className="rounded-xl border border-orange-200/90 bg-orange-50/50 p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-fpt-orange" />
+                  Phí sàn trích (5%)
+                </span>
+                <span className="rounded-full bg-orange-100 border border-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                  Phí duy trì
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-orange-950 mt-2 tracking-tight">
+                {totalPlatformFees.toLocaleString('vi-VN')} <span className="text-xs font-bold text-orange-700">đ</span>
+              </div>
+              <div className="text-[11px] font-semibold text-orange-800/80 mt-0.5">
+                Trích tự động khi đơn hoàn tất
+              </div>
+            </div>
+            <p className="text-[10px] text-orange-700/80 mt-3 pt-2 border-t border-orange-200/60">
+              ✓ Duy trì server & trạm Safe-Point
+            </p>
+          </div>
+
+          {/* 4. TÀI KHOẢN NGÂN HÀNG LIÊN KẾT */}
           {(() => {
             const linkedBank = (currentUser as any)?.bankAccount || walletStore?.bankAccount;
             const isBankLinked = Boolean(linkedBank?.accountNo);
@@ -309,7 +340,7 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
         <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <Sparkles className="h-4 w-4 text-fpt-orange" />
-            <span>Phí giao dịch & rút tiền: <strong className="text-emerald-600 font-bold">0đ (Tài trợ 100% cho SV)</strong></span>
+            <span>Phí rút tiền ATM: <strong className="text-emerald-600 font-bold">0đ (Miễn phí chuyển khoản 24/7)</strong> • Phí duy trì sàn: <strong className="text-fpt-orange font-bold">5%/đơn hoàn tất</strong></span>
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">

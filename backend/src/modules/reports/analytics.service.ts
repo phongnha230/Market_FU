@@ -198,6 +198,7 @@ export class SemesterAnalyticsService {
     // 2. Tính toán tổng hợp số liệu
     let totalGMV = 0;
     let completedGMV = 0;
+    let totalPlatformRevenue = 0;
     let escrowHoldingAmount = 0;
     let completedCount = 0;
     let disputedCount = 0;
@@ -287,6 +288,8 @@ export class SemesterAnalyticsService {
       if (o.status === OrderStatus.COMPLETED) {
         completedCount += 1;
         completedGMV += amount;
+        const fee = (o.payment?.platformFeeAmount && o.payment.platformFeeAmount > 0) ? o.payment.platformFeeAmount : Math.round((o.payment?.price || amount) * 0.05);
+        totalPlatformRevenue += fee;
         if (campusMap[oCampus]) {
           campusMap[oCampus].completedOrders += 1;
         }
@@ -460,6 +463,7 @@ export class SemesterAnalyticsService {
         kycVerifiedCount: kycCount,
         totalGMV,
         completedGMV,
+        platformRevenue: totalPlatformRevenue,
         totalOrders: orders.length,
         disputedCount,
         cancelledCount,

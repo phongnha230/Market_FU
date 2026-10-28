@@ -371,6 +371,9 @@ export class OrderService {
 
     const effectivePaymentMethod = paymentMethod === 'PAYOS_WEB' ? 'PAYOS_WEB' : (orderType === 'SHIP_COD' ? 'CASH' : paymentMethod);
     const totalAmount = Math.max(0, finalProductPrice + shippingFee - coinDiscount - voucherDiscount);
+    const PLATFORM_FEE_RATE = 0.05;
+    const platformFeeAmount = Math.round(finalProductPrice * PLATFORM_FEE_RATE);
+    const sellerNetEarning = Math.max(0, finalProductPrice - platformFeeAmount);
 
     // 4. Sinh mã định danh giao dịch độc nhất
     const timestampStr = Date.now().toString().slice(-6);
@@ -477,6 +480,9 @@ export class OrderService {
             coinsUsed: actualCoinsUsed,
             coinDiscount,
             totalAmount,
+            platformFeeRate: PLATFORM_FEE_RATE,
+            platformFeeAmount,
+            sellerNetEarning,
             vietqrUrl,
             payosOrderCode,
             payosCheckoutUrl: null,
@@ -983,12 +989,15 @@ export class OrderService {
       method: isTokenMatch ? 'QR_SCAN' : 'OTP_MANUAL',
     });
 
+    const feeAmount = order.payment.platformFeeAmount || Math.round((order.payment.price || 0) * 0.05);
+    const netPaidToSeller = order.payment.sellerNetEarning || Math.max(0, (order.payment.price || 0) - feeAmount);
+
     auditLogger.recordEscrowRelease({
       orderId: order.id,
       orderCode: order.orderCode,
       sellerId: order.sellerId,
-      amount: order.payment.totalAmount,
-      reason: 'Hoàn tất bàn giao đồ trực tiếp Handshake tại campus',
+      amount: netPaidToSeller,
+      reason: `Hoàn tất bàn giao đồ trực tiếp Handshake tại campus (Đã trích 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ)`,
     });
 
     // Thông báo Realtime cho người mua
@@ -1003,8 +1012,8 @@ export class OrderService {
     // Thông báo Realtime cho người bán
     await notificationService.sendNotification({
       userId: order.sellerId,
-      title: 'Giao dịch thành công',
-      body: `Xác thực QR Handshake thành công cho đơn #${order.orderCode}. Bạn nhận được +5 điểm uy tín!`,
+      title: 'Giao dịch thành công & Tiền đã về ví',
+      body: `Xác thực QR Handshake thành công cho đơn #${order.orderCode}. Doanh thu thực nhận: ${netPaidToSeller.toLocaleString('vi-VN')} đ (Đã trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ). Bạn nhận được +5 điểm uy tín!`,
       type: 'ORDER',
       targetUrl: `/orders/review?orderId=${order.id}`,
     });
@@ -1541,20 +1550,23 @@ export class OrderService {
       return resOrder;
     });
 
+    const feeAmount = order.payment.platformFeeAmount || Math.round((order.payment.price || 0) * 0.05);
+    const netPaidToSeller = order.payment.sellerNetEarning || Math.max(0, (order.payment.price || 0) - feeAmount);
+
     // Ghi nhận Audit Log giải ngân Escrow
     auditLogger.recordEscrowRelease({
       orderId: order.id,
       orderCode: order.orderCode,
       sellerId: order.sellerId,
-      amount: order.payment.totalAmount,
-      reason: 'Người mua xác nhận đã nhận hàng an toàn (COD / Vận chuyển)',
+      amount: netPaidToSeller,
+      reason: `Người mua xác nhận đã nhận hàng an toàn (Đã khấu trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ)`,
     });
 
     // Thông báo Realtime cho người bán
     await notificationService.sendNotification({
       userId: order.sellerId,
       title: 'Đơn hàng hoàn tất & Tiền đã giải ngân!',
-      body: `Người mua đã xác nhận nhận hàng an toàn cho đơn #${order.orderCode}. Khoản tiền ${order.payment.totalAmount.toLocaleString('vi-VN')} đ trong ví Escrow đã được giải ngân cho bạn (+5 điểm uy tín)!`,
+      body: `Người mua đã xác nhận nhận hàng an toàn cho đơn #${order.orderCode}. Khoản tiền thực nhận ${netPaidToSeller.toLocaleString('vi-VN')} đ (đã trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ) trong ví Escrow đã được giải ngân cho bạn (+5 điểm uy tín)!`,
       type: 'ORDER',
       targetUrl: `/orders/review?orderId=${order.id}`,
     });
@@ -1642,18 +1654,21 @@ export class OrderService {
           });
         });
 
+        const feeAmount = order.payment.platformFeeAmount || Math.round((order.payment.price || 0) * 0.05);
+        const netPaidToSeller = order.payment.sellerNetEarning || Math.max(0, (order.payment.price || 0) - feeAmount);
+
         auditLogger.recordEscrowRelease({
           orderId: order.id,
           orderCode: order.orderCode,
           sellerId: order.sellerId,
-          amount: order.payment.totalAmount,
-          reason: 'Hết 48h bao test KTX không có khiếu nại - Hệ thống tự động giải ngân Escrow',
+          amount: netPaidToSeller,
+          reason: `Hết 48h bao test KTX không có khiếu nại - Hệ thống tự động giải ngân Escrow (Khấu trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ)`,
         });
 
         await notificationService.sendNotification({
           userId: order.sellerId,
           title: 'Đơn hàng hoàn tất & Giải ngân Escrow tự động',
-          body: `Đơn hàng #${order.orderCode} đã qua 48h bao test. Khoản tiền ${order.payment.totalAmount.toLocaleString('vi-VN')} đ trong ví Escrow đã được tự động giải ngân cho bạn!`,
+          body: `Đơn hàng #${order.orderCode} đã qua 48h bao test. Khoản tiền thực nhận ${netPaidToSeller.toLocaleString('vi-VN')} đ (đã trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ) trong ví Escrow đã được tự động giải ngân cho bạn!`,
           type: 'ORDER',
           targetUrl: `/orders`,
         });
@@ -1907,6 +1922,7 @@ export class OrderService {
     });
 
     let totalRevenue = 0;
+    let totalPlatformFees = 0;
     let withdrawableEscrowRevenue = 0;
     let pendingEscrow = 0;
     let completedOrders = 0;
@@ -1933,18 +1949,20 @@ export class OrderService {
 
     for (const o of orders) {
       const price = o.payment?.price || 0;
-      const netEscrow = Math.max(0, (o.payment?.totalAmount || 0) - (o.payment?.shippingFee || 0));
+      const feeAmount = (o.payment?.platformFeeAmount && o.payment.platformFeeAmount > 0) ? o.payment.platformFeeAmount : Math.round(price * 0.05);
+      const netEarning = (o.payment?.sellerNetEarning && o.payment.sellerNetEarning > 0) ? o.payment.sellerNetEarning : Math.max(0, price - feeAmount);
       const isOnlineEscrow =
         o.orderType !== 'SHIP_COD' &&
         ['VIETQR', 'PAYOS_WEB'].includes(o.payment?.paymentMethod || 'VIETQR') &&
         Boolean(o.payment?.isPaid);
       if (o.status === 'COMPLETED') {
         totalRevenue += price;
-        withdrawableEscrowRevenue += netEscrow > 0 ? netEscrow : price;
+        totalPlatformFees += feeAmount;
+        withdrawableEscrowRevenue += netEarning;
         completedOrders += 1;
 
         if (o.createdAt.getMonth() === currentMonth && o.createdAt.getFullYear() === currentYear) {
-          monthlyRevenue += price;
+          monthlyRevenue += netEarning;
         }
 
         if (recentSales.length < 5) {
@@ -1954,15 +1972,15 @@ export class OrderService {
             productTitle: o.product?.title || 'Sản phẩm',
             productImage: o.product?.images?.[0]?.imageUrl,
             buyerName: o.buyer?.profile?.fullName || o.buyer?.email || 'Sinh viên FPT',
-            amount: price,
+            amount: netEarning,
             orderType: o.orderType,
             status: o.status,
             createdAt: o.createdAt,
           });
         }
       } else if (['PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(o.status)) {
-        if (isOnlineEscrow) {
-          pendingEscrow += price;
+        if (isOnlineEscrow || o.orderType === 'SHIP_COD') {
+          pendingEscrow += netEarning;
         }
         if (['SHIPPING', 'DELIVERED'].includes(o.status)) {
           shippingOrders += 1;
@@ -1989,6 +2007,7 @@ export class OrderService {
     return {
       totalRevenue,
       monthlyRevenue,
+      totalPlatformFees,
       pendingEscrow,
       availableBalance,
       totalWithdrawn,

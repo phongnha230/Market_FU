@@ -312,6 +312,7 @@ export interface SemesterAnalyticsData {
     kycVerifiedCount: number;
     totalGMV: number;
     completedGMV: number;
+    platformRevenue?: number;
     totalOrders: number;
     disputedCount: number;
     cancelledCount: number;

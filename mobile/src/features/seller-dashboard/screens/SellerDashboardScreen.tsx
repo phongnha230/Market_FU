@@ -27,6 +27,8 @@ import { SellerAiTipCard } from '../components/SellerAiTipCard';
 export interface SellerAnalyticsData {
   totalRevenue: number;
   monthlyRevenue: number;
+  totalPlatformFees?: number;
+  availableBalance?: number;
   pendingEscrow: number;
   completionRate: number;
   counts: {
@@ -186,9 +188,10 @@ export const SellerDashboardScreen: React.FC = () => {
         />
 
         <SellerBalanceCard
-          availableBalance={availableBalance}
+          availableBalance={analytics?.availableBalance ?? availableBalance}
           pendingEscrowAmount={pendingEscrowAmount}
           totalRevenue={totalRevenue}
+          totalPlatformFees={analytics?.totalPlatformFees}
           onOpenWithdrawModal={() => setShowWithdrawModal(true)}
           onOpenWithdrawHistory={() => navigation.navigate('WithdrawalHistory')}
         />
@@ -200,13 +203,13 @@ export const SellerDashboardScreen: React.FC = () => {
           soldCount={soldCount}
           onNavigateMyListings={() => navigation.navigate('ManageListings')}
           onNavigateOrderList={() => navigation.navigate('OrderList')}
-          onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction')}
+          onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction', { isSeller: true })}
         />
 
         <SellerQuickOpsCard
           onPostItem={() => navigation.navigate('MainTabs', { screen: 'PostItem' })}
           onMyListings={() => navigation.navigate('ManageListings')}
-          onInterCampus={() => navigation.navigate('InterCampusTransaction')}
+          onInterCampus={() => navigation.navigate('InterCampusTransaction', { isSeller: true })}
           onWithdraw={() => setShowWithdrawModal(true)}
         />
 
@@ -214,8 +217,8 @@ export const SellerDashboardScreen: React.FC = () => {
           recentSales={realRecentSales}
           totalOrdersCount={totalOrdersCount}
           onNavigateOrderList={() => navigation.navigate('OrderList')}
-          onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction')}
-          onNavigateOrderDetail={(params) => navigation.navigate('OrderDetail', params)}
+          onNavigateInterCampus={() => navigation.navigate('InterCampusTransaction', { isSeller: true })}
+          onNavigateOrderDetail={(params) => navigation.navigate('OrderDetail', { ...params, isSeller: true })}
           userName={user?.name}
         />
 

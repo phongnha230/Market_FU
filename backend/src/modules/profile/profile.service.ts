@@ -667,10 +667,10 @@ export class ProfileService {
             where: {
               sellerId: userId,
               status: 'COMPLETED',
-              orderType: { not: 'SHIP_COD' },
+              // Tất cả đơn COMPLETED (gồm VietQR/PayOS và Shipper COD đối soát về sàn) đều giải ngân 95% (sellerNetEarning) vào ví rút tiền
               payment: {
                 is: {
-                  paymentMethod: { in: ['VIETQR', 'PAYOS_WEB'] },
+                  paymentMethod: { in: ['VIETQR', 'PAYOS_WEB', 'CASH'] },
                   isPaid: true,
                 },
               },
@@ -678,7 +678,7 @@ export class ProfileService {
             select: { payment: true },
           });
           const totalRevenue = completedOrders.reduce(
-            (sum, o) => sum + Math.max(0, (o.payment?.totalAmount || 0) - (o.payment?.shippingFee || 0)),
+            (sum, o) => sum + ((o.payment?.sellerNetEarning && o.payment.sellerNetEarning > 0) ? o.payment.sellerNetEarning : Math.max(0, (o.payment?.price || 0) - Math.round((o.payment?.price || 0) * 0.05))),
             0
           );
 
@@ -734,6 +734,26 @@ export class ProfileService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  campus: true,
+                  phoneNumber: true,
+                  cohort: true,
+                  major: true,
+                  dorm: true,
+                  kyc: true,
+                },
+              },
+            },
+          },
+        },
       }),
     ]);
 
@@ -994,6 +1014,10 @@ export class ProfileService {
                   avatarUrl: true,
                   campus: true,
                   phoneNumber: true,
+                  cohort: true,
+                  major: true,
+                  dorm: true,
+                  kyc: true,
                 },
               },
             },

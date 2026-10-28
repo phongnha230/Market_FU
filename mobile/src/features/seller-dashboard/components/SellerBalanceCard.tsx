@@ -6,6 +6,7 @@ interface SellerBalanceCardProps {
   availableBalance: number;
   pendingEscrowAmount: number;
   totalRevenue: number;
+  totalPlatformFees?: number;
   onOpenWithdrawModal: () => void;
   onOpenWithdrawHistory?: () => void;
 }
@@ -14,6 +15,7 @@ export const SellerBalanceCard: React.FC<SellerBalanceCardProps> = ({
   availableBalance,
   pendingEscrowAmount,
   totalRevenue,
+  totalPlatformFees,
   onOpenWithdrawModal,
   onOpenWithdrawHistory,
 }) => {
@@ -56,9 +58,9 @@ export const SellerBalanceCard: React.FC<SellerBalanceCardProps> = ({
           </Text>
         </View>
         <View style={styles.balanceFootItem}>
-          <Ionicons name="trending-up" size={14} color="#059669" style={{ marginRight: 4 }} />
+          <Ionicons name="sparkles" size={13} color="#EA580C" style={{ marginRight: 4 }} />
           <Text style={styles.footItemLabel}>
-            Doanh số tháng: <Text style={styles.revenueHighlight}>{totalRevenue.toLocaleString('vi-VN')} đ</Text>
+            Phí sàn (5%): <Text style={styles.feeHighlight}>{(totalPlatformFees ?? Math.round(totalRevenue * 0.05)).toLocaleString('vi-VN')} đ</Text>
           </Text>
         </View>
       </View>
@@ -156,5 +158,9 @@ const styles = StyleSheet.create({
   revenueHighlight: {
     fontWeight: '800',
     color: '#059669',
+  },
+  feeHighlight: {
+    fontWeight: '800',
+    color: '#EA580C',
   },
 });

@@ -181,6 +181,9 @@ type OrderPayment {
   coinsUsed        Int       @default(0)
   coinDiscount     Int       @default(0)
   totalAmount      Int
+  platformFeeRate  Float     @default(0.05) // Tỷ lệ phí sàn (0.05 = 5%)
+  platformFeeAmount Int      @default(0)    // Số tiền phí sàn thu (price * 5%)
+  sellerNetEarning Int       @default(0)    // Doanh thu thực nhận của người bán (price - platformFeeAmount)
   vietqrUrl        String?
   payosOrderCode   Int?      // Mã orderCode cho cổng thanh toán PayOS (Web)
   payosCheckoutUrl String?   // Link thanh toán PayOS dành cho Web

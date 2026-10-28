@@ -499,7 +499,14 @@ export default function AdminDashboard() {
             <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đã giải ngân người bán:</span>
               <span className="font-semibold text-emerald-600">
-                {(analyticsData?.metrics.completedGMV ?? 0).toLocaleString('vi-VN')} đ ({analyticsData?.metrics.completedCount ?? 0} đơn)
+                {Math.max(0, (analyticsData?.metrics.completedGMV ?? 0) - (analyticsData?.metrics?.platformRevenue ?? Math.round((analyticsData?.metrics.completedGMV ?? 0) * 0.05))).toLocaleString('vi-VN')} đ ({analyticsData?.metrics.completedCount ?? 0} đơn)
+              </span>
+            </div>
+
+            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-amber-800 font-bold">Phí sàn thu được (5%):</span>
+              <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                +{(analyticsData?.metrics?.platformRevenue ?? Math.round((analyticsData?.metrics.completedGMV ?? 0) * 0.05)).toLocaleString('vi-VN')} đ
               </span>
             </div>
           </Card>

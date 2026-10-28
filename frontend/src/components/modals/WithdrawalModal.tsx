@@ -15,8 +15,10 @@ import {
   History,
   Send,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import { useUserStore } from '@/stores/userStore';
+import WithdrawalInvoiceModal, { WithdrawalInvoiceData } from '@/components/modals/WithdrawalInvoiceModal';
 import { useWalletStore } from '@/stores/walletStore';
 import { profileService } from '@/services/profileService';
 
@@ -65,6 +67,7 @@ export default function WithdrawalModal({
   // History state
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [selectedForInvoice, setSelectedForInvoice] = useState<WithdrawalInvoiceData | null>(null);
 
   // Số dư doanh thu Escrow khả dụng có thể rút (VNĐ)
   // Tuyệt đối không quy đổi từ FPT Coin (Coin chỉ dùng mua hàng & giảm giá)
@@ -470,6 +473,43 @@ export default function WithdrawalModal({
                         <span className="text-amber-800 italic">Ghi chú: {item.adminNote}</span>
                       )}
                     </div>
+
+                    {/* Nút Xem hóa đơn điện tử có dấu đỏ */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedForInvoice({
+                          id: item.id || 'FU-WTD',
+                          amount: Number(item.amount) || 0,
+                          bankAccount: item.bankAccount || {
+                            bankName: selectedBank,
+                            accountNo: accountNumber,
+                            accountName: accountName,
+                          },
+                          status: item.status || 'PENDING',
+                          adminNote: item.adminNote,
+                          createdAt: item.createdAt || new Date().toISOString(),
+                          processedAt: item.processedAt,
+                          user: item.user || {
+                            email: currentUser.email,
+                            profile: {
+                              fullName: currentUser.name || item.bankAccount?.accountName,
+                              campus: currentUser.campus,
+                              phoneNumber: currentUser.phone || (currentUser as any).phoneNumber || '',
+                              cohort: 'K18',
+                              major: currentUser.major || 'Công nghệ thông tin',
+                              kyc: {
+                                studentId: currentUser.studentId,
+                              },
+                            },
+                          },
+                        });
+                      }}
+                      className="mt-2.5 w-full rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-red-700 py-1.5 px-3 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-red-600" />
+                      <span>Xem hóa đơn điện tử (Có dấu đỏ)</span>
+                    </button>
                   </div>
                 ))
               )}
@@ -477,6 +517,13 @@ export default function WithdrawalModal({
           )}
         </div>
       </div>
+
+      {/* ELECTRONIC INVOICE MODAL */}
+      <WithdrawalInvoiceModal
+        isOpen={!!selectedForInvoice}
+        onClose={() => setSelectedForInvoice(null)}
+        withdrawal={selectedForInvoice}
+      />
     </div>
   );
 }
