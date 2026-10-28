@@ -1343,24 +1343,10 @@ export class ProductService {
         userId: updated.sellerId,
         type: 'SYSTEM',
         title: '⚠️ Tin đăng của bạn đã bị Ban Quản Trị tạm khóa',
-        message: `Tin đăng "${updated.title}" đã bị khóa do vi phạm quy chế: ${reason}. Bạn có thể gửi kháng nghị nếu có khiếu nại.`,
-        link: '/profile',
-        data: {
-          productId: updated.id,
-          productTitle: updated.title,
-          status: 'LOCKED',
-          reason,
-          action: 'LOCKED',
-        },
+        body: `Tin đăng "${updated.title}" đã bị khóa do vi phạm quy chế: ${reason}. Bạn có thể gửi kháng nghị nếu có khiếu nại.`,
+        targetUrl: '/profile',
+        email: seller?.email ? { to: seller.email } : undefined,
       });
-
-      if (seller?.email) {
-        sendEmail({
-          to: seller.email,
-          subject: `[FPT Campus Market] Thông báo khóa tin đăng: ${updated.title}`,
-          html: `<p>Xin chào,</p><p>Tin đăng <strong>${updated.title}</strong> của bạn đã bị Ban Quản Trị tạm khóa do vi phạm:</p><blockquote>${reason}</blockquote><p>Vui lòng đăng nhập vào hệ thống để xem chi tiết hoặc gửi đơn kháng nghị.</p>`,
-        }).catch((err) => console.error('Email lock notify error:', err));
-      }
     } catch (err) {
       console.error('Failed to notify seller about locked product:', err);
     }
@@ -1369,7 +1355,7 @@ export class ProductService {
   }
 
   // 16. Quản trị viên từ chối duyệt hoặc gỡ tin đăng vi phạm
-  async rejectProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt: string) {
+  async rejectProduct(adminId: string, productId: string, reason: string, expectedUpdatedAt?: string) {
     const existing = await prisma.product.findUnique({ where: { id: productId } });
     if (!existing) {
       throw new AppError('Không tìm thấy tin đăng', 404, 'PRODUCT_NOT_FOUND');
@@ -1381,7 +1367,7 @@ export class ProductService {
       where: {
         id: productId,
         status: { in: ['PENDING_APPROVAL', 'AVAILABLE'] },
-        updatedAt: new Date(expectedUpdatedAt),
+        updatedAt: expectedUpdatedAt ? new Date(expectedUpdatedAt) : undefined,
       },
       data: {
         status: 'REJECTED',
