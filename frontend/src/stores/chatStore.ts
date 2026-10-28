@@ -254,7 +254,7 @@ export const useChatStore = create<ChatState>()(
               offerPrice: m.offerPrice,
               meetupLocation: m.meetupLocation,
               isRead: m.isRead,
-              createdAt: new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+              createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
             }));
             set((state) => ({
               messagesByConversation: {
@@ -286,7 +286,7 @@ export const useChatStore = create<ChatState>()(
             offerPrice: savedMsg.offerPrice,
             meetupLocation: savedMsg.meetupLocation,
             isRead: false,
-            createdAt: new Date(savedMsg.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            createdAt: savedMsg.createdAt ? new Date(savedMsg.createdAt).toISOString() : new Date().toISOString(),
           };
 
           set((state) => {

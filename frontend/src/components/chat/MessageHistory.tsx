@@ -68,18 +68,23 @@ function formatDateHeader(dateStr?: string): string {
   return d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function OfferCountdown({ acceptedAt }: { acceptedAt?: number }) {
-  const [timeLeft, setTimeLeft] = React.useState<number>(() => {
-    if (!acceptedAt) return 30 * 60;
+function OfferCountdown({ acceptedAt, onExpire }: { acceptedAt?: number; onExpire?: () => void }) {
+  const calculateRemaining = () => {
+    if (!acceptedAt) return 0;
     return Math.max(0, Math.floor((acceptedAt + 30 * 60 * 1000 - Date.now()) / 1000));
-  });
+  };
+
+  const [timeLeft, setTimeLeft] = React.useState<number>(calculateRemaining);
 
   React.useEffect(() => {
     if (!acceptedAt) return;
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((acceptedAt + 30 * 60 * 1000 - Date.now()) / 1000));
+      const remaining = calculateRemaining();
       setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(interval);
+      if (remaining <= 0) {
+        clearInterval(interval);
+        onExpire?.();
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [acceptedAt]);
@@ -102,6 +107,153 @@ function OfferCountdown({ acceptedAt }: { acceptedAt?: number }) {
   );
 }
 
+interface AcceptedDealCardProps {
+  msg: ChatMessage;
+  productStatus?: string;
+  productId?: string;
+  isSeller?: boolean;
+  onExpireDeal?: () => void;
+}
+
+function AcceptedDealCard({
+  msg,
+  productStatus,
+  productId,
+  isSeller,
+  onExpireDeal,
+}: AcceptedDealCardProps) {
+  const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
+  const isProductUnavailable = Boolean(productStatus && productStatus !== 'AVAILABLE');
+
+  const checkExpired = () => {
+    if (msg.isOfferExpired) return true;
+    if (!msg.offerAcceptedAt) return false;
+    return Date.now() - msg.offerAcceptedAt > 30 * 60 * 1000;
+  };
+
+  const [isExpired, setIsExpired] = React.useState<boolean>(checkExpired);
+
+  React.useEffect(() => {
+    setIsExpired(checkExpired());
+  }, [msg.isOfferExpired, msg.offerAcceptedAt]);
+
+  React.useEffect(() => {
+    if (!msg.offerAcceptedAt || isExpired) return;
+    const remainingMs = msg.offerAcceptedAt + 30 * 60 * 1000 - Date.now();
+    if (remainingMs <= 0) {
+      setIsExpired(true);
+      onExpireDeal?.();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setIsExpired(true);
+      onExpireDeal?.();
+    }, remainingMs);
+    return () => clearTimeout(timer);
+  }, [msg.offerAcceptedAt, isExpired]);
+
+  // 1. Trường hợp sản phẩm đã bị người khác mua trước (First-Come-First-Served)
+  if (isProductUnavailable) {
+    return (
+      <div key={msg.id} className="flex justify-center my-2.5">
+        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-xl bg-slate-400 text-white flex items-center justify-center shrink-0">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-slate-800 text-xs flex items-center justify-between">
+                <span>Món đồ đã có người mua</span>
+                <span className="rounded bg-rose-100 text-rose-800 text-[10px] font-bold px-1.5 py-0.5">
+                  Đã bán / Giữ chỗ
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium">
+                Giá thỏa thuận trước đó: <span className="line-through">{msg.offerPrice}</span>
+              </div>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
+            Rất tiếc! Sinh viên khác đã nhanh tay thanh toán / đặt mua món đồ này trước.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Trường hợp đã quá hạn 30 phút mà chưa tạo đơn hàng
+  if (isExpired) {
+    return (
+      <div key={msg.id} className="flex justify-center my-2.5">
+        <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <Clock className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-amber-950 text-xs flex items-center justify-between">
+                <span>Thỏa thuận giá đã hết hạn</span>
+                <span className="rounded bg-amber-200/70 text-amber-800 text-[10px] font-bold px-1.5 py-0.5">
+                  Quá 30 phút
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-800 font-medium">
+                Giá từng chốt: <span className="line-through">{msg.offerPrice}</span>
+              </div>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-700 flex items-center justify-between">
+            <span>Ưu đãi quá 30 phút. Giá sản phẩm đã quay về giá gốc!</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Trường hợp bình thường: Còn trong hạn 30 phút và sản phẩm vẫn AVAILABLE
+  return (
+    <div key={msg.id} className="flex justify-center my-2.5">
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200/90 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <CheckCircle2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
+              <span>Đã chốt giá thỏa thuận</span>
+              <OfferCountdown
+                acceptedAt={msg.offerAcceptedAt}
+                onExpire={() => {
+                  setIsExpired(true);
+                  onExpireDeal?.();
+                }}
+              />
+            </div>
+            <div className="text-[11px] text-emerald-800 font-medium">
+              Giá chốt: <strong className="text-emerald-700 font-extrabold text-xs">{msg.offerPrice}</strong>
+            </div>
+          </div>
+        </div>
+
+        {!isSeller && productId && numericPrice > 0 && (
+          <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
+            <span className="text-[10px] text-emerald-700 font-medium">
+              Giữ ưu đãi trong 30 phút
+            </span>
+            <Link
+              href={`/checkout?productId=${encodeURIComponent(productId)}&agreedPrice=${numericPrice}`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition active:scale-95"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+              <span>Đặt mua ngay ({msg.offerPrice})</span>
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface MessageHistoryProps {
   messages: ChatMessage[];
   partnerName: string;
@@ -115,6 +267,7 @@ interface MessageHistoryProps {
   onRejectOffer?: (msgId: string, offerPrice: number) => void;
   onEditMessage?: (msgId: string, newText: string) => void;
   onDeleteMessage?: (msgId: string) => void;
+  onExpireDeal?: () => void;
 }
 
 export default function MessageHistory({
@@ -130,6 +283,7 @@ export default function MessageHistory({
   onRejectOffer,
   onEditMessage,
   onDeleteMessage,
+  onExpireDeal,
 }: MessageHistoryProps) {
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
@@ -301,106 +455,15 @@ export default function MessageHistory({
           }
 
           if (msg.isOfferAccepted) {
-            const numericPrice = msg.numericOfferPrice || parseInt((msg.offerPrice || '').replace(/\D/g, ''), 10) || 0;
-            const isProductUnavailable = Boolean(productStatus && productStatus !== 'AVAILABLE');
-            const isExpired = Boolean(
-              msg.isOfferExpired ||
-              (msg.offerAcceptedAt && Date.now() - msg.offerAcceptedAt > 30 * 60 * 1000)
-            );
-
-            // 1. Trường hợp sản phẩm đã bị người khác mua trước (First-Come-First-Served)
-            if (isProductUnavailable) {
-              return (
-                <div key={msg.id} className="flex justify-center my-2.5">
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-xl bg-slate-400 text-white flex items-center justify-center shrink-0">
-                        <AlertCircle className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-xs flex items-center justify-between">
-                          <span>Món đồ đã có người mua</span>
-                          <span className="rounded bg-rose-100 text-rose-800 text-[10px] font-bold px-1.5 py-0.5">
-                            Đã bán / Giữ chỗ
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-medium">
-                          Giá thỏa thuận trước đó: <span className="line-through">{msg.offerPrice}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-500">
-                      Rất tiếc! Sinh viên khác đã nhanh tay thanh toán / đặt mua món đồ này trước.
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // 2. Trường hợp đã quá hạn 30 phút mà chưa tạo đơn hàng
-            if (isExpired) {
-              return (
-                <div key={msg.id} className="flex justify-center my-2.5">
-                  <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                        <Clock className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-amber-950 text-xs flex items-center justify-between">
-                          <span>Thỏa thuận giá đã hết hạn</span>
-                          <span className="rounded bg-amber-200/70 text-amber-800 text-[10px] font-bold px-1.5 py-0.5">
-                            Quá 30 phút
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-amber-800 font-medium">
-                          Giá từng chốt: <span className="line-through">{msg.offerPrice}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-700 flex items-center justify-between">
-                      <span>Ưu đãi quá 30 phút. Giá sản phẩm đã quay về giá gốc!</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // 3. Trường hợp bình thường: Còn trong hạn 30 phút và sản phẩm vẫn AVAILABLE
             return (
-              <div key={msg.id} className="flex justify-center my-2.5">
-                <div className="rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200/90 p-3 shadow-2xs max-w-sm w-full text-xs space-y-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-extrabold text-emerald-950 text-xs flex items-center justify-between">
-                        <span>Đã chốt giá thỏa thuận</span>
-                        <OfferCountdown acceptedAt={msg.offerAcceptedAt} />
-                      </div>
-                      <div className="text-[11px] text-emerald-800 font-medium">
-                        Giá chốt: <strong className="text-emerald-700 font-extrabold text-xs">{msg.offerPrice}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!isSeller && productId && numericPrice > 0 && (
-                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
-                      <span className="text-[10px] text-emerald-700 font-medium">
-                        Giữ ưu đãi trong 30 phút
-                      </span>
-                      <Link
-                        href={`/checkout?productId=${encodeURIComponent(productId)}&agreedPrice=${numericPrice}`}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition active:scale-95"
-                      >
-                        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
-                        <span>Đặt mua ngay ({msg.offerPrice})</span>
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <AcceptedDealCard
+                key={msg.id}
+                msg={msg}
+                productStatus={productStatus}
+                productId={productId}
+                isSeller={isSeller}
+                onExpireDeal={onExpireDeal}
+              />
             );
           }
 

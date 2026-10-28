@@ -52,6 +52,30 @@ function resolveAvatar(
   )}&background=ea580c&color=fff&bold=true&size=200`;
 }
 
+function parseAcceptedAt(dateVal?: string | number): number | undefined {
+  if (!dateVal) return undefined;
+  if (typeof dateVal === 'number') {
+    return dateVal > 0 ? dateVal : undefined;
+  }
+  const parsed = new Date(dateVal).getTime();
+  if (!isNaN(parsed) && parsed > 0) {
+    return parsed;
+  }
+  // Fallback nếu dateVal chỉ là định dạng "HH:mm" từ cache cũ (ví dụ: "12:08")
+  const timeMatch = String(dateVal).match(/^(\d{1,2}):(\d{2})$/);
+  if (timeMatch) {
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    if (d.getTime() > Date.now()) {
+      d.setDate(d.getDate() - 1);
+    }
+    return d.getTime();
+  }
+  return undefined;
+}
+
 function ChatContent() {
   const searchParams = useSearchParams();
   const sellerParam = searchParams.get('seller');
@@ -94,6 +118,13 @@ function ChatContent() {
   const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [, setLiveTick] = useState(0);
+
+  // Nhịp đồng hồ 1 giây để cập nhật trạng thái hết hạn thỏa thuận giá realtime
+  useEffect(() => {
+    const timer = setInterval(() => setLiveTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -373,12 +404,7 @@ function ChatContent() {
                     let offerAcceptedAt: number | undefined;
                     if (isOfferAccepted) {
                       const targetMsg = acceptMsgItem || (isAcceptMsg ? m : undefined);
-                      if (targetMsg?.createdAt) {
-                        const parsed = new Date(targetMsg.createdAt).getTime();
-                        if (!isNaN(parsed) && parsed > 0) {
-                          offerAcceptedAt = parsed;
-                        }
-                      }
+                      offerAcceptedAt = parseAcceptedAt(targetMsg?.createdAt);
                       if (!offerAcceptedAt) {
                         offerAcceptedAt = Date.now();
                       }
@@ -846,7 +872,13 @@ function ChatContent() {
 
                       const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
                         .reverse()
-                        .find((m) => m.isOfferAccepted && !m.isOfferExpired && !m.isOfferCancelled);
+                        .find((m) => {
+                          const isExpiredLive = Boolean(
+                            m.isOfferExpired ||
+                            (m.offerAcceptedAt && Date.now() - m.offerAcceptedAt > 30 * 60 * 1000)
+                          );
+                          return m.isOfferAccepted && !isExpiredLive && !m.isOfferCancelled;
+                        });
                       const acceptedIdx = lastAcceptedOfferMsg ? activeConv.messages.indexOf(lastAcceptedOfferMsg) : -1;
 
                       // Nếu đơn hàng đã hủy hoặc có từ chối sau lần chốt giá -> trả mặt hàng về giá gốc niêm yết
@@ -904,6 +936,7 @@ function ChatContent() {
                       onRejectOffer={handleRejectOffer}
                       onEditMessage={handleEditMessage}
                       onDeleteMessage={handleDeleteMessage}
+                      onExpireDeal={() => setLiveTick((t) => t + 1)}
                     />
 
                     <ChatInputBar
@@ -989,7 +1022,13 @@ function ChatContent() {
 
                       const lastAcceptedOfferMsg = [...(activeConv?.messages || [])]
                         .reverse()
-                        .find((m) => m.isOfferAccepted && !m.isOfferExpired && !m.isOfferCancelled);
+                        .find((m) => {
+                          const isExpiredLive = Boolean(
+                            m.isOfferExpired ||
+                            (m.offerAcceptedAt && Date.now() - m.offerAcceptedAt > 30 * 60 * 1000)
+                          );
+                          return m.isOfferAccepted && !isExpiredLive && !m.isOfferCancelled;
+                        });
                       const acceptedIdx = lastAcceptedOfferMsg ? activeConv.messages.indexOf(lastAcceptedOfferMsg) : -1;
 
                       // Nếu đơn hàng đã hủy hoặc có từ chối sau lần chốt giá -> trả mặt hàng về giá gốc niêm yết
@@ -1047,6 +1086,7 @@ function ChatContent() {
                       onRejectOffer={handleRejectOffer}
                       onEditMessage={handleEditMessage}
                       onDeleteMessage={handleDeleteMessage}
+                      onExpireDeal={() => setLiveTick((t) => t + 1)}
                     />
 
                     <ChatInputBar
