@@ -27,6 +27,9 @@ export interface ProfileQuest {
   title: string;
   description: string;
   coins: number;
+  conditionType?: string;
+  cadence?: string;
+  managedBy?: string;
   iconType: string;
   isCompleted: boolean;
   isClaimed: boolean;
@@ -173,6 +176,11 @@ export const profileService = {
   },
 
   // 8. Nhận thưởng nhiệm vụ tuần
+  async getPublicQuests(): Promise<ProfileQuest[]> {
+    const response = await apiClient.get<ApiResponse<ProfileQuest[]>>('/profile/quests/public');
+    return response.data.data || [];
+  },
+
   async getQuests(): Promise<ProfileQuest[]> {
     const response = await apiClient.get<ApiResponse<ProfileQuest[]>>('/profile/quests');
     return response.data.data || [];

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { INITIAL_QUESTS } from '../constants/voucher.constants';
 import {
   VoucherPageView,
@@ -16,10 +17,36 @@ import { profileMobileService } from '../../../services/profileMobileService';
 import { withRefreshTimeout } from '../../../utils/safeRefresh';
 
 export const useVoucher = () => {
+  let navigation: any;
+  try {
+    navigation = useNavigation();
+  } catch {}
+
   const { isAuthenticated, user, updateUser } = useUserStore();
   const { getWallet, addCoins } = useWalletStore();
   const wallet = getWallet();
   const coins = user?.coins !== undefined ? user.coins : wallet.coins;
+
+  const promptAuth = useCallback(
+    (message: string) => {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        message,
+        [
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Đăng nhập ngay',
+            onPress: () => {
+              if (navigation && navigation.navigate) {
+                navigation.navigate('Login');
+              }
+            },
+          },
+        ]
+      );
+    },
+    [navigation]
+  );
 
   // Stores
   const availableVouchers = useVoucherStore((state) => state.availableVouchers);
@@ -179,7 +206,7 @@ export const useVoucher = () => {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [isAuthenticated, checkedInToday, coins, streak, addCoins, updateUser]);
+  }, [isAuthenticated, checkedInToday, coins, streak, addCoins, updateUser, promptAuth]);
 
   // 5. Đổi Voucher bằng Campus Coins
   const handleRedeemVoucher = useCallback(

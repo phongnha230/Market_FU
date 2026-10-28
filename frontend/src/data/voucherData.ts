@@ -56,12 +56,16 @@ export interface CoinQuestItem {
   title: string;
   coins: number;
   description: string;
-  iconType: 'review' | 'kyc' | 'post' | 'safepoint' | 'other';
+  iconType: 'review' | 'kyc' | 'post' | 'safepoint' | 'other' | 'checkin';
   statusText: string;
   isCompleted: boolean;
   actionType: 'claim' | 'claimed' | 'link';
   actionHref?: string;
   actionLabel: string;
+  cadence?: string;
+  conditionType?: string;
+  managedBy?: string;
+  resetAt?: string;
 }
 
 export const INITIAL_VOUCHERS: VoucherItem[] = [];

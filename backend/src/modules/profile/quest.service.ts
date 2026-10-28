@@ -98,6 +98,28 @@ export class QuestService {
     }
   }
 
+  async getPublicQuests() {
+    await this.ensureDefaults();
+    const quests = await prisma.quest.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
+    return quests.map((quest) => {
+      const cycle = getCycle(quest.cadence);
+      return {
+        id: quest.questCode,
+        title: quest.title,
+        description: quest.description,
+        coins: quest.rewardCoins,
+        conditionType: quest.conditionType,
+        cadence: quest.cadence,
+        iconType: quest.iconType,
+        managedBy: quest.managedBy,
+        isCompleted: false,
+        isClaimed: false,
+        canClaim: false,
+        resetAt: cycle.resetAt?.toISOString(),
+      };
+    });
+  }
+
   async getForUser(userId: string) {
     await this.ensureDefaults();
     const quests = await prisma.quest.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });

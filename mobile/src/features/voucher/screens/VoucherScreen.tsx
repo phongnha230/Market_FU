@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ListRenderItemInfo,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -25,6 +26,7 @@ import VoucherQrModal from '../components/VoucherQrModal';
 import useVoucher from '../hooks/useVoucher';
 import {
   VoucherScreenProps,
+  VoucherPageView,
   Voucher,
   UserVoucher,
   MyVoucherFilterKey,
@@ -71,12 +73,41 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
   }, [onGoBack, navigation]);
 
   const handleOpenHistory = useCallback(() => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập để xem Ví Xu Campus và săn thưởng nhiệm vụ!',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
     try {
       navigation.navigate('CoinHistory');
     } catch {
       // Fallback
     }
-  }, [navigation]);
+  }, [isAuthenticated, navigation]);
+
+  const handleViewChange = useCallback(
+    (view: VoucherPageView) => {
+      if (view === 'my_vouchers' && !isAuthenticated) {
+        Alert.alert(
+          'Yêu cầu đăng nhập',
+          'Vui lòng đăng nhập để xem danh sách voucher đã đổi trong ví của bạn!',
+          [
+            { text: 'Để sau', style: 'cancel' },
+            { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+          ]
+        );
+        return;
+      }
+      setPageView(view);
+    },
+    [isAuthenticated, setPageView, navigation]
+  );
 
   // Render Available Voucher in Store
   const renderStoreItem = useCallback(
@@ -84,10 +115,11 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
       <VoucherCard
         voucher={item}
         userCoins={coins}
+        isAuthenticated={isAuthenticated}
         onRedeem={handleRedeemVoucher}
       />
     ),
-    [coins, handleRedeemVoucher]
+    [coins, isAuthenticated, handleRedeemVoucher]
   );
 
   // Render User Voucher in My Vouchers
@@ -112,31 +144,7 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
     [totalMyVouchersCount, unusedCount]
   );
 
-  if (!isAuthenticated) {
-    return (
-      <View style={[styles.screen, styles.fallbackCenter, { paddingTop: Math.max(insets.top, 20) }]}>
-        <View style={styles.fallbackCard}>
-          <View style={styles.fallbackIconCircle}>
-            <Ionicons name="gift-outline" size={40} color="#EA580C" />
-          </View>
-          <Text style={styles.fallbackTitle}>Ví Voucher Sinh Viên FPT</Text>
-          <Text style={styles.fallbackSubtitle}>
-            Bạn cần đăng nhập tài khoản Sinh viên FPT để đổi suất cơm Căn tin 10k, Passio Coffee 15k, 7-Eleven và tích lũy Campus Coins!
-          </Text>
-          <TouchableOpacity
-            style={styles.fallbackBtn}
-            onPress={() => navigation.navigate('Login')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.fallbackBtnText}>Đăng nhập ngay</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.fallbackBackBtn} onPress={handleBack}>
-            <Text style={styles.fallbackBackText}>Quay lại trang chủ</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+
 
   return (
     <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
@@ -168,7 +176,7 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
               {/* Primary tab switcher */}
               <VoucherTabs
                 pageView={pageView}
-                onViewChange={setPageView}
+                onViewChange={handleViewChange}
                 availableCount={totalAvailableCount}
                 unusedCount={unusedCount}
               />
@@ -259,7 +267,7 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
               {/* Primary tab switcher */}
               <VoucherTabs
                 pageView={pageView}
-                onViewChange={setPageView}
+                onViewChange={handleViewChange}
                 availableCount={totalAvailableCount}
                 unusedCount={unusedCount}
               />

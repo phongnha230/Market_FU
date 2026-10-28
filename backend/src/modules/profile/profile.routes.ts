@@ -8,6 +8,7 @@ const router = Router();
 
 // 1. Hồ sơ công khai của người bán khác (Public - không cần đăng nhập)
 router.get('/public/:userId', profileController.getPublicProfile);
+router.get('/quests/public', profileController.getPublicQuests);
 
 // 2. Các hành động quản lý hồ sơ của chính người dùng (Yêu cầu đăng nhập)
 router.use(authenticate);

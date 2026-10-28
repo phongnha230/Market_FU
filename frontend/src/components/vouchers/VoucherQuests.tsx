@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -11,6 +11,8 @@ import {
   MapPin,
   Check,
   Sparkles,
+  Award,
+  CalendarCheck,
 } from 'lucide-react';
 import { CoinQuestItem } from '@/data/voucherData';
 
@@ -18,13 +20,72 @@ interface VoucherQuestsProps {
   quests: CoinQuestItem[];
   claimedQuestIds: string[];
   onClaimQuest: (questId: string, coins: number) => void;
+  resetAt?: string | null;
+  isLoggedIn?: boolean;
+  onRequireAuth?: () => void;
+  onCheckIn?: () => void;
+}
+
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function getNextWeeklyReset(): Date {
+  const now = new Date();
+  const vnNow = new Date(now.getTime() + VN_OFFSET_MS);
+  const daysUntilNextMonday = ((7 - vnNow.getUTCDay() + 1) % 7) || 7;
+  const nextMondayUTC = new Date(
+    Date.UTC(
+      vnNow.getUTCFullYear(),
+      vnNow.getUTCMonth(),
+      vnNow.getUTCDate() + daysUntilNextMonday,
+      0,
+      0,
+      0,
+      0
+    )
+  );
+  return new Date(nextMondayUTC.getTime() - VN_OFFSET_MS);
+}
+
+function formatRemainingTime(ms: number): string {
+  if (ms <= 0) return 'Đang làm mới nhiệm vụ...';
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days} ngày ${hours} giờ ${minutes} phút`;
+  }
+  if (hours > 0) {
+    return `${hours} giờ ${minutes} phút ${seconds}s`;
+  }
+  return `${minutes} phút ${seconds}s`;
 }
 
 export default function VoucherQuests({
   quests,
   claimedQuestIds,
   onClaimQuest,
+  resetAt,
+  isLoggedIn = true,
+  onRequireAuth,
+  onCheckIn,
 }: VoucherQuestsProps) {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const targetTime = resetAt ? new Date(resetAt).getTime() : getNextWeeklyReset().getTime();
+      const diff = targetTime - Date.now();
+      setTimeLeft(formatRemainingTime(diff));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [resetAt]);
+
   const renderQuestIcon = (iconType: CoinQuestItem['iconType']) => {
     const iconClass = 'h-5 w-5';
     switch (iconType) {
@@ -47,10 +108,22 @@ export default function VoucherQuests({
           </div>
         );
       case 'safepoint':
-      default:
         return (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-100">
             <MapPin className={iconClass} />
+          </div>
+        );
+      case 'checkin':
+        return (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+            <CalendarCheck className={iconClass} />
+          </div>
+        );
+      case 'other':
+      default:
+        return (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <Award className={iconClass} />
           </div>
         );
     }
@@ -77,7 +150,9 @@ export default function VoucherQuests({
         <div className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50/60 px-3 py-1.5 text-xs font-bold text-slate-700 self-start sm:self-auto shrink-0">
           <Clock className="h-3.5 w-3.5 text-fpt-orange" />
           <span>LÀM MỚI NHIỆM VỤ SAU:</span>
-          <span className="text-fpt-orange font-extrabold">3 ngày 14 giờ</span>
+          <span className="text-fpt-orange font-extrabold" suppressHydrationWarning>
+            {timeLeft || 'Đang tính...'}
+          </span>
         </div>
       </div>
 
@@ -106,12 +181,19 @@ export default function VoucherQuests({
                   <p className="text-xs text-slate-500 line-clamp-2">
                     {quest.description}
                   </p>
+                  {quest.managedBy && (
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      Bởi: {quest.managedBy}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Quest Footer Actions */}
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                <span className={`font-semibold flex items-center gap-1 ${
+                  isClaimed ? 'text-slate-400' : quest.actionType === 'claim' ? 'text-emerald-600' : 'text-slate-500'
+                }`}>
                   {quest.statusText}
                 </span>
 
@@ -125,7 +207,7 @@ export default function VoucherQuests({
                       <Check className="h-3.5 w-3.5" />
                       <span>Đã nhận ✓</span>
                     </button>
-                  ) : quest.actionType === 'link' ? (
+                  ) : quest.actionType === 'link' && isLoggedIn ? (
                     <Link
                       href={quest.actionHref || '/create-post'}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-bold text-slate-700 hover:border-fpt-orange hover:text-fpt-orange transition cursor-pointer shadow-2xs"
@@ -135,7 +217,17 @@ export default function VoucherQuests({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => onClaimQuest(quest.id, quest.coins)}
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          onRequireAuth?.();
+                          return;
+                        }
+                        if (quest.id === 'quest-checkin') {
+                          onCheckIn?.();
+                          return;
+                        }
+                        onClaimQuest(quest.id, quest.coins);
+                      }}
                       className="inline-flex items-center gap-1 rounded-lg bg-fpt-orange px-3.5 py-1.5 font-bold text-white shadow-xs hover:bg-fpt-orange-hover active:scale-95 transition cursor-pointer"
                     >
                       <Sparkles className="h-3.5 w-3.5" />

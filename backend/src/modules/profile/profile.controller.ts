@@ -214,6 +214,14 @@ export class ProfileController {
     }
   };
 
+  getPublicQuests = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      return sendSuccess(res, await questService.getPublicQuests());
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getQuests = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthRequest;

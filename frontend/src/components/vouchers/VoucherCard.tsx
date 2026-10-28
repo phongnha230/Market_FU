@@ -19,6 +19,7 @@ interface VoucherCardProps {
   voucher: VoucherItem;
   isSaved: boolean;
   userCoins: number;
+  isLoggedIn?: boolean;
   onSave: (voucher: VoucherItem) => void;
   onRedeem: (voucher: VoucherItem) => void;
 }
@@ -27,6 +28,7 @@ export default function VoucherCard({
   voucher,
   isSaved,
   userCoins,
+  isLoggedIn = true,
   onSave,
   onRedeem,
 }: VoucherCardProps) {
@@ -95,7 +97,7 @@ export default function VoucherCard({
     }
   };
 
-  const hasEnoughCoins = voucher.coinCost ? userCoins >= voucher.coinCost : true;
+  const hasEnoughCoins = !isLoggedIn || (voucher.coinCost ? userCoins >= voucher.coinCost : true);
 
   return (
     <div className="group relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:shadow-md hover:border-orange-200">
@@ -175,16 +177,18 @@ export default function VoucherCard({
             <button
               type="button"
               onClick={() => onRedeem(voucher)}
-              disabled={!hasEnoughCoins}
+              disabled={isLoggedIn && !hasEnoughCoins}
               className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-all shadow-xs ${
-                hasEnoughCoins
+                !isLoggedIn || hasEnoughCoins
                   ? 'bg-fpt-orange text-white hover:bg-fpt-orange-hover cursor-pointer active:scale-98'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
               }`}
             >
               <Coins className="h-4 w-4" />
               <span>
-                {hasEnoughCoins
+                {!isLoggedIn
+                  ? `Đổi ngay (${voucher.coinCost} Coins)`
+                  : hasEnoughCoins
                   ? `Đổi ngay (${voucher.coinCost} Coins)`
                   : `Cần thêm ${voucher.coinCost! - userCoins} Coins`}
               </span>

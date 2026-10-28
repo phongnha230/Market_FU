@@ -60,7 +60,7 @@ interface QuestItem {
 export const CoinHistoryScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { user, updateUser } = useUserStore();
+  const { user, updateUser, isAuthenticated } = useUserStore();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

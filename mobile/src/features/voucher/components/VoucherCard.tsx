@@ -7,6 +7,7 @@ interface VoucherCardProps {
   voucher: Voucher;
   userCoins: number;
   isRedeemed?: boolean;
+  isAuthenticated?: boolean;
   onRedeem: (voucher: Voucher) => void;
 }
 
@@ -14,6 +15,7 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
   voucher,
   userCoins,
   isRedeemed = false,
+  isAuthenticated = true,
   onRedeem,
 }) => {
   const getPartnerTheme = (partner: string) => {
@@ -63,7 +65,7 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
   };
 
   const theme = getPartnerTheme(voucher.partner);
-  const canAfford = userCoins >= voucher.coinCost;
+  const canAfford = !isAuthenticated || userCoins >= voucher.coinCost;
 
   return (
     <View style={[styles.card, { borderColor: theme.border }]}>
@@ -131,15 +133,17 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
         <TouchableOpacity
           style={[
             styles.redeemBtn,
-            !canAfford && styles.btnDisabled,
+            isAuthenticated && !canAfford && styles.btnDisabled,
             isRedeemed && styles.btnRedeemed,
           ]}
-          disabled={!canAfford}
+          disabled={isAuthenticated && !canAfford}
           activeOpacity={0.85}
           onPress={() => onRedeem(voucher)}
         >
-          <Text style={[styles.btnText, !canAfford && styles.btnTextDisabled]}>
-            {!canAfford
+          <Text style={[styles.btnText, isAuthenticated && !canAfford && styles.btnTextDisabled]}>
+            {!isAuthenticated
+              ? 'Đổi ngay'
+              : !canAfford
               ? `Thiếu ${voucher.coinCost - userCoins} Xu`
               : isRedeemed
               ? 'Đổi thêm'
