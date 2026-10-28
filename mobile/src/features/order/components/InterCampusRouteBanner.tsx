@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface InterCampusRouteBannerProps {
   fromCampus: string;
@@ -16,92 +17,122 @@ export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
   toSafePoint,
 }) => {
   return (
-    <View style={styles.routeBanner}>
+    <LinearGradient
+      colors={['#1E3A8A', '#1D4ED8', '#2563EB']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.routeBanner}
+    >
+      {/* Top Header Pill Row */}
       <View style={styles.routeTopLine}>
         <View style={styles.routePill}>
-          <Ionicons name="airplane" size={13} color="#7C3AED" />
+          <Ionicons name="bus" size={13} color="#FED7AA" />
           <Text style={styles.routePillText}>CHUYÊN TUYẾN FPT BUS LIÊN CƠ SỞ</Text>
         </View>
         <View style={styles.escrowSafePill}>
-          <Ionicons name="shield-checkmark" size={13} color="#059669" />
+          <Ionicons name="shield-checkmark" size={13} color="#FFFFFF" />
           <Text style={styles.escrowSafeText}>Escrow Bảo Hộ 100%</Text>
         </View>
       </View>
 
+      {/* Cities and Bus Path */}
       <View style={styles.routeCitiesRow}>
         <View style={styles.cityCol}>
           <Text style={styles.cityRole}>CƠ SỞ GỬI</Text>
-          <Text style={styles.cityName}>{fromCampus}</Text>
-          <Text style={styles.stationName}>{fromSafePoint}</Text>
+          <Text style={styles.cityName} numberOfLines={1}>{fromCampus}</Text>
+          <Text style={styles.stationName} numberOfLines={1}>{fromSafePoint}</Text>
         </View>
 
         <View style={styles.busIndicator}>
           <View style={styles.busDashLine} />
           <View style={styles.busIconCircle}>
-            <Ionicons name="bus" size={18} color="#FFFFFF" />
+            <Ionicons name="bus" size={17} color="#EA580C" />
           </View>
           <View style={styles.busDashLine} />
         </View>
 
         <View style={[styles.cityCol, { alignItems: 'flex-end' }]}>
           <Text style={styles.cityRole}>CƠ SỞ NHẬN</Text>
-          <Text style={[styles.cityName, { textAlign: 'right' }]}>{toCampus}</Text>
-          <Text style={[styles.stationName, { textAlign: 'right' }]}>{toSafePoint}</Text>
+          <Text style={[styles.cityName, { textAlign: 'right' }]} numberOfLines={1}>{toCampus}</Text>
+          <Text style={[styles.stationName, { textAlign: 'right' }]} numberOfLines={1}>{toSafePoint}</Text>
         </View>
       </View>
 
-      <View style={styles.routeBusMeta}>
-        <Text style={styles.busMetaText}>
-          🚌 Chuyến xe: <Text style={styles.busMetaBold}>FPT-BUS-LINE-02</Text> • Biển số: <Text style={styles.busMetaBold}>29B-512.44</Text>
-        </Text>
-        <Text style={styles.busMetaTime}>Dự kiến đến trạm: 17:30</Text>
+      {/* Bus Meta Box - Chia 2 hàng rõ ràng, chống tràn chữ 100% */}
+      <View style={styles.routeBusMetaBox}>
+        <View style={styles.metaRow}>
+          <Ionicons name="cube-outline" size={14} color="#BFDBFE" />
+          <Text style={styles.busMetaText} numberOfLines={1}>
+            Chuyến xe: <Text style={styles.busMetaBold}>FPT-BUS-LINE-02</Text> • Biển: <Text style={styles.busMetaBold}>29B-512.44</Text>
+          </Text>
+        </View>
+
+        <View style={styles.metaDivider} />
+
+        <View style={styles.metaTimeRow}>
+          <View style={styles.timeTag}>
+            <Ionicons name="time-outline" size={13} color="#047857" />
+            <Text style={styles.timeTagText}>Dự kiến đến trạm: 17:30</Text>
+          </View>
+
+          <View style={styles.sealTag}>
+            <Ionicons name="lock-closed" size={11} color="#1E40AF" />
+            <Text style={styles.sealTagText}>Tem Seal bảo mật</Text>
+          </View>
+        </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   routeBanner: {
-    backgroundColor: '#1E1B4B',
     marginHorizontal: 16,
     marginTop: 14,
     borderRadius: 20,
     padding: 16,
-    boxShadow: '0 4px 8px rgba(30, 27, 75, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    boxShadow: '0 6px 14px rgba(30, 58, 138, 0.25)',
   },
   routeTopLine: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   routePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   routePillText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '900',
-    color: '#C7D2FE',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   escrowSafePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#064E3B',
+    gap: 3.5,
+    backgroundColor: '#059669',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#34D399',
   },
   escrowSafeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#6EE7B7',
+    color: '#FFFFFF',
   },
   routeCitiesRow: {
     flexDirection: 'row',
@@ -115,59 +146,100 @@ const styles = StyleSheet.create({
   cityRole: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#A5B4FC',
+    color: '#BFDBFE',
     letterSpacing: 0.5,
   },
   cityName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
     color: '#FFFFFF',
     marginTop: 2,
   },
   stationName: {
-    fontSize: 10,
-    color: '#CBD5E1',
+    fontSize: 11,
+    color: '#E0E7FF',
     marginTop: 2,
   },
   busIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
   busDashLine: {
-    width: 18,
+    width: 14,
     height: 1.5,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#93C5FD',
   },
   busIconCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
   },
-  routeBusMeta: {
-    marginTop: 14,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  routeBusMetaBox: {
+    marginTop: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.32)',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 7,
+  },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 5,
   },
   busMetaText: {
-    fontSize: 10.5,
-    color: '#C7D2FE',
+    fontSize: 11,
+    color: '#DBEAFE',
+    flex: 1,
   },
   busMetaBold: {
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  busMetaTime: {
+  metaDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  metaTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  timeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  timeTagText: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#FCD34D',
+    color: '#065F46',
+  },
+  sealTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  sealTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1E40AF',
   },
 });

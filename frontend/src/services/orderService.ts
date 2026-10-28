@@ -19,6 +19,9 @@ export interface BackendOrder {
     coinsUsed: number;
     coinDiscount: number;
     totalAmount: number;
+    platformFeeRate?: number;
+    platformFeeAmount?: number;
+    sellerNetEarning?: number;
     vietqrUrl?: string;
     payosOrderCode?: number;
     payosCheckoutUrl?: string;
@@ -283,6 +286,7 @@ export const orderService = {
   async getSellerAnalytics(): Promise<{
     totalRevenue: number;
     monthlyRevenue: number;
+    totalPlatformFees?: number;
     pendingEscrow: number;
     availableBalance?: number;
     totalWithdrawn?: number;

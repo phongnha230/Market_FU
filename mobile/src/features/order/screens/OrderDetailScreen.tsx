@@ -174,9 +174,18 @@ export const OrderDetailScreen: React.FC = () => {
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
   const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
   const isSeller = Boolean(
-    (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id)) ||
-    (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name)) ||
-    (user?.email && (activeOrder as any)?.sellerEmail === user.email)
+    route.params?.isSeller ??
+    (
+      (user?.id && (activeOrder?.buyerId === user.id || matchedOrder?.buyerId === user.id || (activeOrder as any)?.buyer?.id === user.id))
+        ? false
+        : (
+            (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id || (activeOrder as any)?.seller?.id === user.id)) ||
+            (user?.email && ((activeOrder as any)?.sellerEmail === user.email || (activeOrder as any)?.seller?.email === user.email)) ||
+            (user?.studentId && ((activeOrder as any)?.sellerStudentId === user.studentId || (activeOrder as any)?.seller?.studentId === user.studentId)) ||
+            (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name || (activeOrder as any)?.seller?.profile?.fullName === user.name)) ||
+            (user?.role === 'SELLER')
+          )
+    )
   );
 
   const handleResumePayOs = async () => {
@@ -255,7 +264,8 @@ export const OrderDetailScreen: React.FC = () => {
               await orderMobileService.confirmDelivery(orderId);
               updateOrderStatus(orderId, 'COMPLETED', '✅ Hoàn tất', '#059669', '#DCFCE7');
               setOrderStatus('completed');
-              Alert.alert(
+              setTimeout(() => {
+                Alert.alert(
                 '🎉 Giao dịch hoàn tất!',
                 'Hệ thống đã giải ngân tiền cọc Escrow cho người bán. Bạn có muốn đánh giá trải nghiệm để cộng điểm uy tín Campus không?',
                 [
@@ -274,6 +284,7 @@ export const OrderDetailScreen: React.FC = () => {
                   },
                 ]
               );
+              }, 150);
             } catch (err: any) {
               Alert.alert('Không thể xác nhận', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi xác nhận nhận hàng.');
             } finally {
@@ -290,11 +301,11 @@ export const OrderDetailScreen: React.FC = () => {
       setIsSubmitting(true);
       await orderMobileService.confirmOrder(orderId);
       if (isInterCampus) {
-        setOrderStatus('shipping');
-        updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '🚚 Đang vận chuyển', '#2563EB', '#EFF6FF');
+        setShowShipModal(true);
+        updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '🚚 Chờ gửi hàng', '#EA580C', '#FFF7ED');
         Alert.alert(
           '🎉 Đã tiếp nhận đơn hàng!',
-          'Bạn đã đồng ý đơn liên campus. Vui lòng đóng gói sản phẩm cẩn thận và mang tới bưu cục GHN hoặc trạm xe buýt FPT Bus để gửi.'
+          'Bạn đã đồng ý đơn liên campus. Vui lòng chọn hãng vận chuyển và tạo mã vận đơn để bàn giao bưu tá.'
         );
       } else {
         setOrderStatus('escrow_holding');
@@ -331,12 +342,26 @@ export const OrderDetailScreen: React.FC = () => {
   }, [orderId, updateOrderStatus]);
 
   const handleOpenChat = useCallback(() => {
-    const activeProductId = matchedOrder?.productId || product.id;
+    const activeProductId = activeOrder?.productId || matchedOrder?.productId || product.id;
+    const partnerId = isSeller
+      ? (activeOrder?.buyerId || matchedOrder?.buyerId || (activeOrder as any)?.buyer?.id || 'u-buyer')
+      : (activeOrder?.sellerId || matchedOrder?.sellerId || (activeOrder as any)?.seller?.id || sellerId || 'u-seller');
+    const partnerName = isSeller
+      ? (activeOrder?.buyerName || matchedOrder?.buyerName || (activeOrder as any)?.buyer?.profile?.fullName || 'Người mua FPT')
+      : (activeOrder?.sellerName || matchedOrder?.sellerName || product.sellerName || 'Người bán FPT');
+    const partnerCohort = isSeller
+      ? (activeOrder?.buyerCohort || matchedOrder?.buyerCohort || 'Sinh viên FPT')
+      : (activeOrder?.sellerCohort || matchedOrder?.sellerCohort || product.sellerCohort || 'Sinh viên FPT');
+    const partnerAvatar = isSeller
+      ? (activeOrder?.buyerAvatar || matchedOrder?.buyerAvatar)
+      : (activeOrder?.sellerAvatar || matchedOrder?.sellerAvatar);
+
     navigation.navigate('ChatDetail', {
       partner: {
-        id: matchedOrder?.sellerId || 'u-partner',
-        name: product.sellerName || 'Người bán',
-        cohort: product.sellerCohort || 'Sinh viên FPT',
+        id: partnerId,
+        name: partnerName,
+        cohort: partnerCohort,
+        avatar: partnerAvatar,
         isOnline: true,
       },
       product: {
@@ -346,7 +371,7 @@ export const OrderDetailScreen: React.FC = () => {
         image: product.image,
       },
     });
-  }, [navigation, product, matchedOrder]);
+  }, [navigation, product, matchedOrder, activeOrder, isSeller, sellerId]);
 
   const handleOpenDispute = useCallback(() => {
     navigation.navigate('Dispute', {
@@ -375,8 +400,12 @@ export const OrderDetailScreen: React.FC = () => {
       product,
       fromCampus: product.sellerCampus || 'Hòa Lạc',
       toCampus: user?.campus || 'TP. Hồ Chí Minh',
+      isSeller: Boolean(isSeller),
+      orderStatus,
+      trackingCode: activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode,
+      shippingPartner: activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner,
     });
-  }, [navigation, orderId, product, user?.campus]);
+  }, [navigation, orderId, product, user?.campus, isSeller, orderStatus, activeOrder]);
 
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) navigation.goBack();
@@ -444,9 +473,14 @@ export const OrderDetailScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
         <OrderStatusTimeline orderStatus={orderStatus} isInterCampus={isInterCampus} />
-        <OrderProductSummaryCard product={product} />
+        <OrderProductSummaryCard
+          product={product}
+          isSeller={Boolean(isSeller)}
+          platformFee={activeOrder?.payment?.platformFeeAmount}
+          sellerNetEarning={activeOrder?.payment?.sellerNetEarning}
+        />
 
         {/* THÔNG TIN ĐỐI TÁC GIAO DỊCH */}
         <Text style={styles.sectionHeader}>

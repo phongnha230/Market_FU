@@ -201,8 +201,15 @@ export default function OrderCard({
                   Doanh thu thực nhận
                 </span>
                 <div className={`text-base sm:text-lg font-black ${order.status === 'cancelled' ? 'text-slate-400 line-through' : 'text-emerald-600'}`}>
-                  {order.status === 'cancelled' ? '0 đ' : `+${formatVND(order.product.price)}`}
+                  {order.status === 'cancelled'
+                    ? '0 đ'
+                    : `+${formatVND((order.payment?.sellerNetEarning && order.payment.sellerNetEarning > 0) ? order.payment.sellerNetEarning : (order.product.price - Math.round(order.product.price * 0.05)))}`}
                 </div>
+                {order.status !== 'cancelled' && (
+                  <div className="text-[10px] text-slate-400 font-medium">
+                    (Phí sàn 5%: -{formatVND((order.payment?.platformFeeAmount && order.payment.platformFeeAmount > 0) ? order.payment.platformFeeAmount : Math.round(order.product.price * 0.05))})
+                  </div>
+                )}
                 <Badge
                   variant="outline"
                   className={`rounded text-[10px] font-bold px-1.5 py-0.5 border ${

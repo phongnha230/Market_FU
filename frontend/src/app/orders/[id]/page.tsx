@@ -46,6 +46,7 @@ import {
   Calendar,
   ScanLine,
   KeyRound,
+  Sparkles,
   Check,
 } from 'lucide-react';
 
@@ -115,6 +116,7 @@ export default function OrderDetailPage() {
             appointmentTime: detail.appointmentTime || prev.appointmentTime,
             meetupLocation: detail.meetupLocation || prev.meetupLocation,
             handshake: detail.handshake || prev.handshake,
+            payment: detail.payment || prev.payment,
             buyer: detail.buyer ? {
               id: detail.buyer.id,
               fullName: detail.buyer.profile?.fullName || detail.buyer.email?.split('@')[0] || 'Sinh viên FPT',
@@ -1022,6 +1024,37 @@ const trackingSteps = rawTrackingSteps.map((st: any) => ({
                   </div>
                 </div>
               </div>
+
+              {/* Financial Breakdown (Seller gets full disclosure of 5% platform fee) */}
+              {isSellerViewer && (
+                <div className="mt-3 rounded-xl bg-orange-50/70 border border-orange-200/90 p-3 text-xs space-y-1.5">
+                  <div className="font-extrabold text-orange-950 flex items-center justify-between pb-1 border-b border-orange-200/60">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-fpt-orange" />
+                      Chi tiết tài chính đơn bán
+                    </span>
+                    <span className="text-[10px] bg-orange-200/80 text-orange-900 px-2 py-0.5 rounded-full font-bold">
+                      Phí sàn 5%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 pt-0.5">
+                    <span>Giá niêm yết sản phẩm:</span>
+                    <span className="font-semibold text-slate-800">{formatVND(order.product.price)}</span>
+                  </div>
+                  <div className="flex justify-between text-orange-700 font-medium">
+                    <span>Phí dịch vụ nền tảng & Safe-Point (5%):</span>
+                    <span className="font-semibold">
+                      -{formatVND((order.payment?.platformFeeAmount && order.payment.platformFeeAmount > 0) ? order.payment.platformFeeAmount : Math.round(order.product.price * 0.05))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-emerald-800 font-bold pt-1.5 border-t border-orange-200/60 text-sm">
+                    <span>Doanh thu thực nhận vào ví:</span>
+                    <span className="text-emerald-700">
+                      +{formatVND((order.payment?.sellerNetEarning && order.payment.sellerNetEarning > 0) ? order.payment.sellerNetEarning : (order.product.price - Math.round(order.product.price * 0.05)))}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Delivery destination note */}
               <div className="rounded-xl bg-slate-50 border border-slate-100 p-2.5 text-xs text-slate-700 flex items-center gap-2">

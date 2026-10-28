@@ -356,6 +356,7 @@ export const OrderListScreen: React.FC = () => {
   const handleNavigateDetail = React.useCallback((item: OrderItem) => {
     navigation.navigate('OrderDetail', {
       orderId: item.orderNumber || item.id,
+      isSeller,
       product: {
         id: item.productId,
         title: item.productTitle,
@@ -371,7 +372,7 @@ export const OrderListScreen: React.FC = () => {
       isReviewed: item.isReviewed,
       totalAmount: item.totalAmount,
     });
-  }, [navigation]);
+  }, [navigation, isSeller]);
 
   const handleDispute = React.useCallback((item: OrderItem) => {
     navigation.navigate('Dispute', {

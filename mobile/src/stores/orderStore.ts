@@ -75,12 +75,18 @@ export interface OrderItem {
   cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
   cancelReason?: string | null;
   isPaid?: boolean;
+  payment?: {
+    platformFeeRate?: number;
+    platformFeeAmount?: number;
+    sellerNetEarning?: number;
+    amount?: number;
+    isPaid?: boolean;
+    method?: string;
+    payosCheckoutUrl?: string;
+  };
   shippingPartner?: string;
   shipping?: {
     trackingCode?: string;
-  cancelledBy?: 'SELLER' | 'BUYER' | 'SHIPPER' | 'DISPUTE' | 'SYSTEM' | string | null;
-  cancelReason?: string | null;
-  isPaid?: boolean;
     shippingPartner?: string;
     receiverName?: string;
     receiverPhone?: string;

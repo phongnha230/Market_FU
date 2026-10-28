@@ -4,9 +4,24 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface InterCampusNoticeCardProps {
   toSafePoint: string;
+  isSeller?: boolean;
 }
 
-export const InterCampusNoticeCard: React.FC<InterCampusNoticeCardProps> = ({ toSafePoint }) => {
+export const InterCampusNoticeCard: React.FC<InterCampusNoticeCardProps> = ({ toSafePoint, isSeller = false }) => {
+  if (isSeller) {
+    return (
+      <View style={[styles.stationNoticeCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+        <View style={styles.noticeHeader}>
+          <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
+          <Text style={[styles.noticeTitle, { color: '#1E40AF' }]}>Quy Chuẩn Đóng Gói & Bàn Giao</Text>
+        </View>
+        <Text style={[styles.noticeBody, { color: '#1E3A8A' }]}>
+          Người bán vui lòng quay video quá trình kiểm tra ngoại quan, đóng gói chống sốc và dán tem niêm phong seal trước khi bàn giao cho bưu tá GHN hoặc xe buýt FPT Bus. Đây là bằng chứng bảo vệ quyền lợi Người Bán 100% khi có đối soát khiếu nại.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.stationNoticeCard}>
       <View style={styles.noticeHeader}>

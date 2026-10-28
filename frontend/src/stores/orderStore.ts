@@ -63,6 +63,9 @@ export interface OrderItem {
     price?: number;
     shippingFee?: number;
     totalAmount: number;
+    platformFeeRate?: number;
+    platformFeeAmount?: number;
+    sellerNetEarning?: number;
     vietqrUrl?: string;
     payosOrderCode?: number;
     payosCheckoutUrl?: string;
@@ -257,6 +260,9 @@ export const useOrderStore = create<OrderState>()(
                       price: bo.payment.price,
                       shippingFee: bo.payment.shippingFee,
                       totalAmount: bo.payment.totalAmount,
+                      platformFeeRate: bo.payment.platformFeeRate,
+                      platformFeeAmount: bo.payment.platformFeeAmount,
+                      sellerNetEarning: bo.payment.sellerNetEarning,
                       vietqrUrl: bo.payment.vietqrUrl,
                       payosOrderCode: (bo.payment as any).payosOrderCode,
                       payosCheckoutUrl: (bo.payment as any).payosCheckoutUrl,

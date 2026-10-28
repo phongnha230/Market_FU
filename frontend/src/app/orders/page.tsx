@@ -281,10 +281,12 @@ function OrdersPageInner() {
     }
   }, [isSeller]);
 
-  const totalRevenue = sellerAnalytics?.totalRevenue ?? sellingOrders
+  const totalGrossRevenue = sellerAnalytics?.totalRevenue ?? sellingOrders
     .filter((o) => o.status === 'completed')
     .reduce((sum, o) => sum + (o.product?.price || 0), 0);
 
+  const totalPlatformFees = sellerAnalytics?.totalPlatformFees ?? Math.round(totalGrossRevenue * 0.05);
+  const totalRevenue = Math.max(0, totalGrossRevenue - totalPlatformFees);
   const pendingEscrow = sellerAnalytics?.pendingEscrow ?? sellingOrders
     .filter((o) => o.status !== 'completed' && (o.status as string) !== 'cancelled')
     .reduce((sum, o) => sum + (o.product?.price || 0), 0);
@@ -634,7 +636,7 @@ function OrdersPageInner() {
                         <div className="text-lg sm:text-xl font-black text-slate-900">
                           {formatVND(totalRevenue)}
                         </div>
-                        <p className="text-[10px] text-slate-400">Đã tất toán về ví của bạn</p>
+                        <p className="text-[10px] text-slate-400">Đã trừ 5% phí sàn (-{formatVND(totalPlatformFees)})</p>
                       </div>
 
                       {/* 2. Tiền giữ Escrow */}

@@ -80,7 +80,7 @@ const CancelledBanner: React.FC<CancelledBannerProps> = React.memo(({
             activeOpacity={0.85}
             onPress={onOpenDisputeDetail}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Xem hồ sơ hoàn tiền ➔</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Xem hoàn tiền ➔</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -115,7 +115,7 @@ const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, on
         onPress={onOpenDisputeDetail}
       >
         <Ionicons name="document-text-outline" size={17} color="#FFFFFF" style={styles.mr6} />
-        <Text style={styles.withdrawDisputeBtnText}>Xem Chi Tiết Phiếu Khiếu Nại</Text>
+        <Text style={styles.withdrawDisputeBtnText}>Xem khiếu nại</Text>
       </TouchableOpacity>
     )}
     {!isSeller && (
@@ -127,7 +127,7 @@ const DisputedBanner: React.FC<DisputedBannerProps> = React.memo(({ isSeller, on
             onPress={onOpenDisputeDetail}
           >
             <Ionicons name="document-text-outline" size={17} color="#FFFFFF" style={styles.mr6} />
-            <Text style={styles.withdrawDisputeBtnText}>Xem Chi Tiết</Text>
+            <Text style={styles.withdrawDisputeBtnText}>Xem khiếu nại</Text>
           </TouchableOpacity>
         )}
         {onWithdrawDispute && (
@@ -179,18 +179,26 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   onOpenReviewDetail,
   onCancelOrder,
 }) => {
-  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
+  const status = String(orderStatus || '').toLowerCase();
+  const isPending = status === 'pending' || status === 'pending_safepoint';
+  const isCompleted = status === 'completed';
+  const isCancelled = status === 'cancelled';
+  const isShipping = status === 'shipping' || status === 'handover_confirmed';
+  const isDelivered = status === 'delivered';
+  const isEscrow = status === 'escrow_holding' || status === 'escrow_paid';
 
   // 1. Seller flow
-  if (isSeller && orderStatus !== 'completed' && orderStatus !== 'cancelled' && !isDisputed) {
+  if (isSeller && !isCompleted && !isCancelled && !isDisputed) {
     // When pending seller confirmation:
     if (isPending) {
       return (
         <View style={{ gap: 8 }}>
           <TouchableOpacity
             style={[styles.confirmReceivedBtn, { backgroundColor: '#059669' }]}
-            activeOpacity={0.88}
+            activeOpacity={0.7}
             onPress={onConfirmOrder}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            delayPressIn={0}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -199,7 +207,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
               <>
                 <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.mr6} />
                 <Text style={styles.confirmReceivedText}>
-                  {isInterCampus ? 'Đồng ý nhận đơn' : 'Đồng ý đơn & Chốt lịch hẹn'}
+                  {isInterCampus ? 'Đồng ý nhận đơn' : 'Đồng ý & Hẹn gặp'}
                 </Text>
               </>
             )}
@@ -214,7 +222,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
             >
               <Ionicons name="close-circle-outline" size={20} color="#E11D48" style={styles.mr6} />
               <Text style={[styles.confirmReceivedText, { color: '#E11D48', fontWeight: '700' }]}>
-                Từ chối đơn (Hoàn cọc 100% cho khách)
+                Từ chối đơn (Hoàn cọc 100%)
               </Text>
             </TouchableOpacity>
           )}
@@ -223,7 +231,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     }
 
     if (isInterCampus) {
-      if (orderStatus === 'shipping' || orderStatus === 'SHIPPING' || orderStatus === 'HANDOVER_CONFIRMED') {
+      if (isShipping) {
         return (
           <View style={{ gap: 8 }}>
             <TouchableOpacity
@@ -234,32 +242,34 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
             >
               <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
               <Text style={styles.confirmReceivedText}>
-                {hasTrackingCode ? 'Sửa mã vận đơn / Hãng vận chuyển' : 'Bàn giao bưu cục GHN (Tạo mã vận đơn)'}
+                {hasTrackingCode ? 'Sửa mã vận đơn' : 'Bàn giao bưu cục (Tạo mã)'}
               </Text>
             </TouchableOpacity>
-            <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' }]}>
-              <Ionicons name="cube-outline" size={20} color="#2563EB" style={styles.mr6} />
-              <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 13 }]}>
-                {hasTrackingCode ? 'Kiện hàng đang được bưu cục luân chuyển' : 'Đã tiếp nhận đơn • Đang chờ đóng gói & bàn giao'}
+            <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: 12, height: 44 }]}>
+              <Ionicons name="cube-outline" size={18} color="#2563EB" style={styles.mr6} />
+              <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
+                {hasTrackingCode ? 'Kiện hàng đang luân chuyển' : 'Đã tiếp nhận • Chờ đóng gói'}
               </Text>
             </View>
           </View>
         );
       }
-      if (orderStatus === 'delivered' || orderStatus === 'DELIVERED') {
+      if (isDelivered) {
         return (
-          <View style={[styles.confirmReceivedBtn, { backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' }]}>
-            <Ionicons name="checkmark-circle" size={20} color="#059669" style={styles.mr6} />
-            <Text style={[styles.confirmReceivedText, { color: '#065F46', fontSize: 13 }]}>
-              Đã phát tới KTX • Người mua đang trong 48h bao test
+          <View style={[styles.confirmReceivedBtn, { backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 12, height: 44 }]}>
+            <Ionicons name="checkmark-circle" size={18} color="#059669" style={styles.mr6} />
+            <Text style={[styles.confirmReceivedText, { color: '#065F46', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
+              Đã phát tới KTX • Đang kiểm hàng
             </Text>
           </View>
         );
       }
       return (
-        <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
-          <Ionicons name="cube-outline" size={20} color="#EA580C" style={styles.mr6} />
-          <Text style={[styles.confirmReceivedText, { color: '#334155' }]}>Đơn liên campus • GHN luân chuyển & đối soát</Text>
+        <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 12, height: 44 }]}>
+          <Ionicons name="cube-outline" size={18} color="#EA580C" style={styles.mr6} />
+          <Text style={[styles.confirmReceivedText, { color: '#334155', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
+            Đơn liên campus • Đang luân chuyển
+          </Text>
         </View>
       );
     }
@@ -268,12 +278,14 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     return (
       <TouchableOpacity
         style={[styles.confirmReceivedBtn, styles.sellerBtnBg]}
-        activeOpacity={0.88}
+        activeOpacity={0.7}
         onPress={onOpenScanner}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        delayPressIn={0}
         disabled={isSubmitting}
       >
         <Ionicons name="scan" size={20} color="#FFFFFF" style={styles.mr6} />
-        <Text style={styles.confirmReceivedText}>Quét mã QR / Nhập OTP để bàn giao hàng</Text>
+        <Text style={styles.confirmReceivedText}>Quét QR / Nhập OTP bàn giao</Text>
       </TouchableOpacity>
     );
   }
@@ -298,7 +310,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   }
 
   // 3. Buyer flow: when waiting for handover or when delivery confirmed
-  if (!isSeller && (orderStatus === 'escrow_holding' || orderStatus === 'ESCROW_PAID')) {
+  if (!isSeller && isEscrow) {
     // Với đơn hẹn gặp Safe-Point (cùng campus), việc bàn giao do Người bán quét QR / nhập OTP xác thực tại bàn Safe-Point.
     // Người mua KHÔNG tự bấm "Đã nhận hàng" khi chưa gặp mặt đối tác!
     if (!isInterCampus) {
@@ -315,31 +327,32 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
       );
     }
 
-    // Với đơn liên campus đang vận chuyển, hiển thị trạng thái vận chuyển
+    // Với đơn liên campus đang vận chuyển, hiển thị trạng thái vận chuyển gọn gàng chống tràn chữ
     return (
-      <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}>
-        <Ionicons name="cube-outline" size={20} color="#EA580C" style={styles.mr6} />
-        <Text style={[styles.confirmReceivedText, { color: '#334155' }]}>Đơn liên campus • Đang vận chuyển tuyến FPT Bus</Text>
+      <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 12, height: 44 }]}>
+        <Ionicons name="bus-outline" size={18} color="#EA580C" style={styles.mr6} />
+        <Text style={[styles.confirmReceivedText, { color: '#334155', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
+          Đơn liên campus • Tuyến FPT Bus
+        </Text>
       </View>
     );
   }
 
-  // 4. Buyer flow: khi shipper/bưu tá đã phát tới sảnh KTX (DELIVERED) hoặc đang giao (SHIPPING) mà người mua đã nhận tận tay
+  // 4. Buyer flow: Khi bưu tá/xe buýt đã phát tới sảnh KTX (DELIVERED) thì người mua mới được bấm "Đã nhận hàng"
+  // Đối với đơn liên Campus (isInterCampus): KHÔNG cho phép người mua giải ngân sớm khi kiện hàng còn đang trên xe buýt / SHIPPING trên đường!
   const isDeliveryConfirmable =
     !isSeller &&
-    (orderStatus === 'delivered' ||
-      orderStatus === 'DELIVERED' ||
-      orderStatus === 'shipping' ||
-      orderStatus === 'SHIPPING' ||
-      orderStatus === 'HANDOVER_CONFIRMED');
+    (isDelivered || (!isInterCampus && isShipping));
 
   if (isDeliveryConfirmable) {
-    const isEarlyConfirm = orderStatus === 'shipping' || orderStatus === 'SHIPPING' || orderStatus === 'HANDOVER_CONFIRMED';
+    const isEarlyConfirm = !isInterCampus && isShipping;
     return (
       <TouchableOpacity
         style={styles.confirmReceivedBtn}
-        activeOpacity={0.88}
+        activeOpacity={0.7}
         onPress={onConfirmReceived}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        delayPressIn={0}
         disabled={isSubmitting}
       >
         {isSubmitting ? (
@@ -348,7 +361,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
           <>
             <Ionicons name="checkmark-done" size={20} color="#FFFFFF" style={styles.mr6} />
             <Text style={styles.confirmReceivedText}>
-              {isEarlyConfirm ? 'Đã nhận hàng tận tay (Xác nhận sớm)' : 'Đã nhận hàng (Giải ngân Escrow)'}
+              {isEarlyConfirm ? 'Đã nhận hàng (Xác nhận sớm)' : 'Đã nhận hàng & Giải ngân'}
             </Text>
           </>
         )}
@@ -357,7 +370,6 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   }
 
   // 5. Completed order flow
-  const isCompleted = orderStatus === 'completed' || orderStatus === 'COMPLETED';
   if (isCompleted) {
     // 5a. Dành cho Người Bán: Không yêu cầu người bán tự đánh giá chính mình
     if (isSeller) {
@@ -369,7 +381,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
             onPress={onOpenReviewDetail}
           >
             <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
-            <Text style={styles.viewReviewMainText}>Xem đánh giá từ người mua (★ Đã nhận đánh giá)</Text>
+            <Text style={styles.viewReviewMainText}>Xem đánh giá từ người mua (★)</Text>
           </TouchableOpacity>
         );
       }
@@ -397,7 +409,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
           onPress={onOpenReview}
         >
           <Ionicons name="star" size={18} color="#FFFFFF" style={styles.mr6} />
-          <Text style={styles.reviewMainText}>Đánh giá người bán ngay</Text>
+          <Text style={styles.reviewMainText}>Đánh giá người bán</Text>
         </TouchableOpacity>
       );
     }
@@ -409,7 +421,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
         onPress={onOpenReviewDetail}
       >
         <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
-        <Text style={styles.viewReviewMainText}>Xem lại đánh giá của bạn (★ Đã đánh giá)</Text>
+        <Text style={styles.viewReviewMainText}>Xem lại đánh giá của bạn (★)</Text>
       </TouchableOpacity>
     );
   }
@@ -434,8 +446,10 @@ const SubActionButtons: React.FC<SubActionButtonsProps> = React.memo(({
   <View style={styles.subActionRow}>
     <TouchableOpacity
       style={styles.chatActionBtn}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       onPress={onOpenChat}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      delayPressIn={0}
     >
       <Ionicons name="chatbubble-outline" size={18} color="#0F172A" style={styles.mr4} />
       <Text style={styles.chatActionText}>{isSeller ? 'Nhắn cho người mua' : 'Nhắn tin người bán'}</Text>
@@ -444,8 +458,10 @@ const SubActionButtons: React.FC<SubActionButtonsProps> = React.memo(({
     {canDispute && (
       <TouchableOpacity
         style={styles.disputeActionBtn}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
         onPress={onOpenDispute}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        delayPressIn={0}
       >
         <Ionicons name="alert-circle-outline" size={18} color="#DC2626" style={styles.mr4} />
         <Text style={styles.disputeActionText}>Khiếu nại / Hoàn tiền</Text>
@@ -502,11 +518,16 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   onCancelOrder,
   onWithdrawDispute,
 }) => {
-  const isDisputed = orderStatus === 'disputed' || orderStatus === 'DISPUTED';
-  const isCancelled = orderStatus === 'cancelled';
-  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
-  const canDispute = !isSeller && !isCancelled && !isDisputed && (orderStatus === 'delivered' || orderStatus === 'DELIVERED' || orderStatus === 'completed' || orderStatus === 'COMPLETED');
-  const canCancel = !isCancelled && !isDisputed && (orderStatus === 'escrow_holding' || isPending || orderStatus === 'ESCROW_PAID') && !(isSeller && isPending);
+  const status = String(orderStatus || '').toLowerCase();
+  const isDisputed = status === 'disputed';
+  const isCancelled = status === 'cancelled';
+  const isPending = status === 'pending' || status === 'pending_safepoint';
+  const isDelivered = status === 'delivered';
+  const isCompleted = status === 'completed';
+  const isEscrow = status === 'escrow_holding' || status === 'escrow_paid';
+
+  const canDispute = !isSeller && !isCancelled && !isDisputed && (isDelivered || isCompleted);
+  const canCancel = !isCancelled && !isDisputed && (isEscrow || isPending) && !(isSeller && isPending);
 
   const cancelLabel = isSeller && isPending
     ? 'Từ chối đơn hàng'
@@ -558,8 +579,10 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
       {canCancel && (
         <TouchableOpacity
           style={styles.cancelActionBtn}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           onPress={onCancelOrder}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          delayPressIn={0}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
@@ -595,6 +618,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
     borderRadius: 14,
     paddingVertical: 14,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
