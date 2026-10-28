@@ -350,72 +350,130 @@ function OrderSuccessContent() {
   });
 
   if (isMobileSource) {
+    const isCancelled = isCancelledByPayos || (payosWasCancelled && !isPaid);
+    const amountVal = backendOrder?.payment?.totalAmount ?? (amountParam ? parseInt(amountParam, 10) : productData.price);
+
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-5 text-center select-none">
-        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-          {isCancelledByPayos || (payosWasCancelled && !isPaid) ? (
+      <div className="min-h-screen bg-gradient-to-b from-orange-50/70 via-slate-50 to-white text-slate-800 flex flex-col items-center justify-center p-4 sm:p-6 select-none font-sans">
+        <div className="max-w-md w-full bg-white border border-slate-100 rounded-3xl p-6 sm:p-7 shadow-xl shadow-slate-200/50 text-center relative overflow-hidden">
+          {/* Subtle Top Decorative Bar */}
+          <div
+            className={`absolute top-0 left-0 right-0 h-1.5 ${
+              isCancelled
+                ? 'bg-gradient-to-r from-rose-500 to-orange-400'
+                : isPaid
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                : 'bg-gradient-to-r from-amber-500 to-orange-400'
+            }`}
+          />
+
+          {/* FPT Campus Trust Header */}
+          <div className="flex items-center justify-center gap-1.5 mb-5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-orange-500" />
+            <span>Sàn Sinh Viên FPT</span>
+            <span className="text-slate-300">•</span>
+            <span className="flex items-center gap-1 text-emerald-600">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Ví Escrow Bảo Hộ
+            </span>
+          </div>
+
+          {/* Icon & Status */}
+          {isCancelled ? (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-4">
-                <XCircle className="w-9 h-9" />
+              <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-500 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
+                <XCircle className="w-9 h-9 stroke-[2.2]" />
               </div>
-              <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-300 font-bold text-xs uppercase px-3 py-1 mb-3">
-                Phiên thanh toán chưa hoàn tất
+              <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700 font-bold text-[11px] uppercase px-3 py-1 mb-2.5">
+                ĐÃ HỦY GIAO DỊCH PAYOS
               </Badge>
-              <h1 className="text-xl font-black text-white mb-2">Đã đóng cổng PayOS</h1>
-              <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                Bạn vừa đóng hoặc hủy giao dịch PayOS cho đơn hàng{' '}
-                <span className="font-mono font-bold text-orange-400">#{orderCode}</span>.
+              <h1 className="text-xl font-black text-slate-900 mb-2">Đã hủy thanh toán an toàn</h1>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">
+                Bạn vừa đóng phiên PayOS cho đơn hàng{' '}
+                <span className="font-mono font-bold text-orange-600">#{orderCode}</span>.
                 <br />
-                Đơn hàng vẫn được lưu và bảo lưu trong 15 phút. Bạn có thể mở lại ứng dụng để thanh toán lại hoặc xem lại đơn hàng bất kỳ lúc nào.
+                Tài khoản của bạn <span className="font-semibold text-slate-800">không bị trừ tiền</span>. Xu tích lũy và voucher đã được hoàn trả lại ví.
               </p>
+              <div className="bg-rose-50/70 border border-rose-100/80 rounded-xl px-3.5 py-2 mb-4 text-[11.5px] font-medium text-rose-800 flex items-center justify-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>Không phát sinh phí • Bảo lưu 100% quyền mua</span>
+              </div>
             </>
           ) : isPaid ? (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-9 h-9" />
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
+                <CheckCircle2 className="w-9 h-9 stroke-[2.2]" />
               </div>
-              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 font-bold text-xs uppercase px-3 py-1 mb-3">
-                Thanh toán Escrow thành công
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 font-bold text-[11px] uppercase px-3 py-1 mb-2.5">
+                THANH TOÁN THÀNH CÔNG • BẢO HỘ ESCROW
               </Badge>
-              <h1 className="text-xl font-black text-white mb-2">Đã nhận thanh toán!</h1>
-              <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                Đơn hàng <span className="font-mono font-bold text-orange-400">#{orderCode}</span> đã được ghi nhận vào hệ thống. Số tiền được bảo lãnh an toàn trong Quỹ Escrow FPT.
+              <h1 className="text-xl font-black text-slate-900 mb-2">Đã nhận thanh toán!</h1>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">
+                Đơn hàng <span className="font-mono font-bold text-orange-600">#{orderCode}</span> đã được ghi nhận. Toàn bộ tiền cọc được Quỹ Escrow FPT bảo lãnh 100% cho đến khi bạn nhận và kiểm tra hàng.
               </p>
+              <div className="bg-emerald-50/70 border border-emerald-100/80 rounded-xl px-3.5 py-2 mb-4 text-[11.5px] font-medium text-emerald-800 flex items-center justify-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Bảo hiểm giao dịch 48h • Đổi trả nếu có sự cố</span>
+              </div>
             </>
           ) : (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
-                <Clock className="w-9 h-9" />
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
+                <Clock className="w-9 h-9 stroke-[2.2]" />
               </div>
-              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-300 font-bold text-xs uppercase px-3 py-1 mb-3">
-                Đang chờ thanh toán
+              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 font-bold text-[11px] uppercase px-3 py-1 mb-2.5">
+                ĐANG CHỜ THANH TOÁN
               </Badge>
-              <h1 className="text-xl font-black text-white mb-2">Đang chờ xử lý</h1>
-              <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                Đơn hàng <span className="font-mono font-bold text-orange-400">#{orderCode}</span> đang chờ hoàn tất giao dịch.
+              <h1 className="text-xl font-black text-slate-900 mb-2">Đang chờ xử lý</h1>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">
+                Đơn hàng <span className="font-mono font-bold text-orange-600">#{orderCode}</span> đang chờ hệ thống đối soát từ PayOS.
               </p>
             </>
           )}
 
-          <div className="space-y-3">
+          {/* Mini Receipt Summary */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-5 text-left text-xs space-y-2">
+            <div className="flex justify-between items-center text-slate-500">
+              <span>Mã đơn hàng:</span>
+              <span className="font-mono font-bold text-slate-800">#{orderCode}</span>
+            </div>
+            {productData?.title && (
+              <div className="flex justify-between items-center text-slate-500">
+                <span>Sản phẩm:</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[180px]">{productData.title}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-slate-500">
+              <span>Số tiền:</span>
+              <span className="font-bold text-orange-600 text-sm">{amountVal.toLocaleString('vi-VN')} đ</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-500 pt-1 border-t border-slate-200/60">
+              <span>Cổng thanh toán:</span>
+              <span className="font-medium text-slate-700">VietQR Napas247 (PayOS)</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2.5">
             <button
               type="button"
               onClick={() => {
                 window.location.href = `fu-market://order/${orderCode}`;
                 setTimeout(() => {
                   try { window.close(); } catch {}
-                }, 500);
+                }, 600);
               }}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-sm shadow-lg shadow-orange-500/25 active:scale-95 transition cursor-pointer"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-lg shadow-orange-500/20 active:scale-98 transition cursor-pointer flex items-center justify-center gap-2"
             >
-              Quay lại ứng dụng Chợ FPT
+              <span>Quay lại ứng dụng Chợ FPT</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => {
                 try { window.close(); } catch {}
               }}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition cursor-pointer"
             >
               Đóng cửa sổ này
             </button>
@@ -450,12 +508,12 @@ function OrderSuccessContent() {
         <Card
           className={`mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-xs ${
             isCancelledByPayos || (payosWasCancelled && !isPaid)
-              ? 'border-rose-200/80 bg-gradient-to-br from-rose-500 via-rose-600 to-slate-900 text-white'
+              ? 'border-rose-300/60 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white shadow-lg shadow-rose-500/10'
               : isPaid
-              ? 'border-emerald-200/80 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 text-white'
+              ? 'border-emerald-300/60 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/10'
               : paymentMethod === 'vietqr'
-              ? 'border-amber-200/80 bg-gradient-to-br from-amber-500 via-orange-600 to-slate-900 text-white'
-              : 'border-orange-200/80 bg-gradient-to-br from-fpt-orange via-amber-600 to-slate-900 text-white'
+              ? 'border-amber-300/60 bg-gradient-to-r from-amber-600 via-orange-500 to-amber-700 text-white shadow-lg shadow-amber-500/10'
+              : 'border-orange-300/60 bg-gradient-to-r from-fpt-orange via-amber-600 to-orange-600 text-white shadow-lg shadow-orange-500/10'
           }`}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -529,7 +587,7 @@ function OrderSuccessContent() {
 
             {/* Quick Action Badges */}
             <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2.5 shrink-0">
-              <div className="rounded-xl bg-black/25 backdrop-blur-xs px-3.5 py-2 border border-white/15 text-left md:text-right">
+              <div className="rounded-xl bg-white/20 backdrop-blur-sm px-3.5 py-2 border border-white/25 text-left md:text-right">
                 <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider block">
                   MÃ ĐƠN HÀNG
                 </span>
