@@ -91,6 +91,7 @@ function ChatContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [isTypingOther, setIsTypingOther] = useState(false);
+  const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -284,7 +285,7 @@ function ChatContent() {
             },
             messages: storeMsgs.length > 0
               ? (() => {
-                  return storeMsgs.map((m, idx) => {
+                  const mappedList = storeMsgs.map((m, idx) => {
                     const isAcceptMsg = Boolean(
                       m.text?.includes('[OFFER_ACCEPTED]') ||
                       m.text?.toLowerCase().includes('đồng ý mức giá') ||
@@ -295,6 +296,29 @@ function ChatContent() {
                       m.text?.toLowerCase().includes('từ chối đề xuất') ||
                       m.text?.toLowerCase().includes('chưa phù hợp')
                     );
+
+                    // Kiểm tra xem tin nhắn này có phải là tin nhắn phản hồi [OFFER_ACCEPTED] hoặc [OFFER_REJECTED]
+                    // cho một tin nhắn đề xuất giá đã tồn tại trước đó hay không.
+                    // Nếu đã có tin đề xuất trước đó, tin đề xuất đó sẽ tự chuyển thành thẻ xanh/đỏ tương ứng.
+                    // Tin nhắn phản hồi này không cần render thêm một thẻ trùng lặp (tránh hiển thị 2 thẻ chốt giá).
+                    if (isAcceptMsg || isRejectMsg) {
+                      const earlierMsgs = storeMsgs.slice(0, idx);
+                      const earlierOffers = earlierMsgs.filter((em) => {
+                        const emIsAcceptOrReject = Boolean(
+                          em.text?.includes('[OFFER_ACCEPTED]') ||
+                          em.text?.includes('[OFFER_REJECTED]') ||
+                          em.text?.toLowerCase().includes('đồng ý mức giá') ||
+                          em.text?.toLowerCase().includes('đồng ý chốt') ||
+                          em.text?.toLowerCase().includes('từ chối đề xuất') ||
+                          em.text?.toLowerCase().includes('chưa phù hợp')
+                        );
+                        return (Boolean(em.offerPrice) || em.messageType === 'OFFER_PRICE') && !emIsAcceptOrReject;
+                      });
+                      const lastPriorOffer = earlierOffers[earlierOffers.length - 1];
+                      if (lastPriorOffer) {
+                        return null;
+                      }
+                    }
 
                     const hasOfferPrice = Boolean(m.offerPrice || m.messageType === 'OFFER_PRICE');
 
@@ -396,6 +420,7 @@ function ChatContent() {
                       productTicket: m.productTicket,
                     };
                   });
+                  return mappedList.filter(Boolean) as ChatMessage[];
                 })()
               : [],
           };
@@ -519,7 +544,10 @@ function ChatContent() {
   };
 
   const handleAcceptOffer = (msgId: string, offerPrice: number) => {
-    if (!activeConv) return;
+    if (!activeConv || submittingOfferId === msgId) return;
+    setSubmittingOfferId(msgId);
+    setTimeout(() => setSubmittingOfferId(null), 1500);
+
     const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
     const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
 
@@ -536,7 +564,7 @@ function ChatContent() {
             time: timeStr,
             messages: c.messages.map((m) =>
               m.id === msgId || (m.offerPrice && !m.isOfferAccepted && !m.isOfferRejected)
-                ? { ...m, isOfferAccepted: true, isOfferRejected: false }
+                ? { ...m, isOfferAccepted: true, isOfferRejected: false, offerAcceptedAt: Date.now() }
                 : m
             ),
           };
@@ -557,7 +585,10 @@ function ChatContent() {
   };
 
   const handleRejectOffer = (msgId: string, offerPrice: number) => {
-    if (!activeConv) return;
+    if (!activeConv || submittingOfferId === msgId) return;
+    setSubmittingOfferId(msgId);
+    setTimeout(() => setSubmittingOfferId(null), 1500);
+
     const formattedPrice = offerPrice > 0 ? `${offerPrice.toLocaleString('vi-VN')} đ` : `${offerPrice} đ`;
     const rejectText = `[OFFER_REJECTED] Mức giá ${formattedPrice} chưa phù hợp bạn nhé. Bạn có thể thương lượng lại hoặc mua theo giá niêm yết nhé!`;
 

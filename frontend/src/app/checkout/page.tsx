@@ -97,7 +97,7 @@ function CheckoutContent() {
     title: 'Màn hình phụ di động 15.6 inch Type-C FHD IPS (Fullbox cáp zin)',
     price: 1200000,
     imageUrl: '/products/monitor-dell-24.jpg',
-    campus: 'HCM',
+    campus: 'HOL',
     conditionBadge: 'Like New 95%',
     description: 'Đầy đủ phụ kiện cáp C-to-C, HDMI mini, bao da kiêm giá đỡ. Màn Full HD IPS 60Hz hiển thị code/tài liệu mượt mà, pass lại để về quê thực tập.',
     sellerName: 'Nguyễn Văn An',
@@ -210,11 +210,23 @@ function CheckoutContent() {
   const isSameCampus = originCode === destinationCode;
   const isMeetup = typeParam === 'meetup' || isSameCampus;
 
-  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví & đồng bộ loại bỏ voucher đã USED
+  // Tự động gợi ý voucher Freeship cho đơn liên campus nếu có trong ví & đồng bộ loại bỏ voucher đã USED hoặc không hợp lệ cho đơn meetup
   useEffect(() => {
     if (!myVouchers || myVouchers.length === 0) return;
 
     if (selectedVoucher) {
+      const isSelectedShipping =
+        selectedVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+        selectedVoucher.voucher.partner === 'OTHER' ||
+        selectedVoucher.voucher.title.toLowerCase().includes('ship') ||
+        selectedVoucher.voucher.title.toLowerCase().includes('vận chuyển');
+
+      // Đơn Meetup / cùng Campus không có cước ship -> Tự động gỡ voucher freeship
+      if (isMeetup && isSelectedShipping) {
+        setSelectedVoucher(null);
+        return;
+      }
+
       const latestSelected = myVouchers.find((v) => v.voucherCode === selectedVoucher.voucherCode);
       if (latestSelected && latestSelected.status !== 'UNUSED') {
         const nextUnusedShip = !isMeetup
@@ -365,6 +377,19 @@ function CheckoutContent() {
       }
 
       let createdBackendOrder: any = null;
+      // An toàn: chỉ gửi voucherCode nếu voucher hợp lệ (không gửi voucher freeship cho đơn meetup / không phí ship)
+      const isSelectedShipping = Boolean(
+        selectedVoucher && (
+          selectedVoucher.voucher.partner === 'CAMPUS_SHIP' ||
+          selectedVoucher.voucher.partner === 'OTHER' ||
+          selectedVoucher.voucher.title.toLowerCase().includes('ship') ||
+          selectedVoucher.voucher.title.toLowerCase().includes('vận chuyển')
+        )
+      );
+      const eligibleVoucherCode = selectedVoucher && (!isSelectedShipping || (!isMeetup && shippingFee > 0))
+        ? selectedVoucher.voucherCode
+        : undefined;
+
       try {
         createdBackendOrder = await orderService.createOrder({
           productId: productData.id,
@@ -375,7 +400,7 @@ function CheckoutContent() {
           meetupLocation: isMeetup ? selectedHub : undefined,
           safePoint: isMeetup ? selectedHub : undefined,
           appointmentTime: appointmentIso,
-          voucherCode: selectedVoucher ? selectedVoucher.voucherCode : undefined,
+          voucherCode: eligibleVoucherCode,
           paymentMethod: paymentMethod === 'payos' ? 'PAYOS_WEB' : 'CASH',
           shipping: isMeetup
             ? undefined
@@ -1389,6 +1414,17 @@ function CheckoutContent() {
                 if (!code) return;
                 const matched = myVouchers.find((v) => v.voucherCode.toUpperCase() === code && v.status === 'UNUSED');
                 if (matched) {
+                  const isShipMatched =
+                    matched.voucher.partner === 'CAMPUS_SHIP' ||
+                    matched.voucher.partner === 'OTHER' ||
+                    matched.voucher.title.toLowerCase().includes('ship') ||
+                    matched.voucher.title.toLowerCase().includes('vận chuyển');
+
+                  if (isMeetup && isShipMatched) {
+                    showToast('❌ Voucher Freeship chỉ áp dụng cho đơn hàng vận chuyển liên Campus!');
+                    return;
+                  }
+
                   const minOrder = matched.voucher.minOrderValue || 0;
                   if (minOrder > 0 && productData.price < minOrder) {
                     showToast(`❌ Voucher này yêu cầu đơn tối thiểu ${minOrder.toLocaleString('vi-VN')} đ (Đơn hiện tại: ${productData.price.toLocaleString('vi-VN')} đ)`);
@@ -1448,7 +1484,8 @@ function CheckoutContent() {
                       item.voucher.title.toLowerCase().includes('vận chuyển');
 
                     const minOrder = item.voucher.minOrderValue || 0;
-                    const isEligible = productData.price >= minOrder;
+                    const isMinOrderMet = productData.price >= minOrder;
+                    const isEligible = isMinOrderMet && (!isMeetup || !isShip);
 
                     return (
                       <div
@@ -1475,17 +1512,22 @@ function CheckoutContent() {
                             </span>
                             {minOrder > 0 ? (
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                isEligible
+                                isMinOrderMet
                                   ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                   : 'bg-rose-50 text-rose-700 border border-rose-200'
                               }`}>
-                                {isEligible
+                                {isMinOrderMet
                                   ? `Đơn từ ${minOrder.toLocaleString('vi-VN')} đ`
                                   : `Cần đơn từ ${minOrder.toLocaleString('vi-VN')} đ (Thiếu ${(minOrder - productData.price).toLocaleString('vi-VN')} đ)`}
                               </span>
                             ) : (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 Mọi đơn hàng
+                              </span>
+                            )}
+                            {isMeetup && isShip && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                                Chỉ áp dụng đơn liên campus
                               </span>
                             )}
                           </div>
@@ -1523,9 +1565,13 @@ function CheckoutContent() {
                               type="button"
                               disabled
                               className="rounded-lg px-2.5 py-1 text-[11px] font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                              title={`Đơn hàng cần tối thiểu ${minOrder.toLocaleString('vi-VN')} đ`}
+                              title={
+                                isMeetup && isShip
+                                  ? 'Voucher Freeship chỉ áp dụng cho đơn vận chuyển liên Campus'
+                                  : `Đơn hàng cần tối thiểu ${minOrder.toLocaleString('vi-VN')} đ`
+                              }
                             >
-                              Chưa đủ đ/k
+                              {isMeetup && isShip ? 'Không khả dụng' : 'Chưa đủ đ/k'}
                             </button>
                           )}
                         </div>

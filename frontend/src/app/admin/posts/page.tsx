@@ -31,6 +31,7 @@ import {
   Tag,
   MapPin,
   Truck,
+  Send,
 } from 'lucide-react';
 import { ProductService } from '@/services/productService';
 import { formatCampusTag, extractImageUrl } from '@/lib/adapters';
@@ -1363,7 +1364,7 @@ export default function AdminPostsPage() {
                   <span className="text-rose-500 font-normal">({lockModalTarget.id})</span>
                 </div>
                 <div className="text-rose-600 text-[11px]">
-                  Người bán: <strong>{lockModalTarget.sellerName}</strong> ({lockModalTarget.sellerRollNumber})
+                  Người bán: <strong>{lockModalTarget.seller}</strong> ({lockModalTarget.mssv})
                 </div>
               </div>
 
