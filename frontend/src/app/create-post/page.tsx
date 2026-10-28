@@ -783,7 +783,7 @@ export default function CreatePostPage() {
                 Đăng bán sản phẩm mới
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Tiếp cận hơn 12.000 sinh viên tại 5 Campus FPT nhanh chóng. Giao dịch trực tiếp, không phí sàn, tiện lợi ngay trong khuôn viên trường.
+                Tiếp cận hơn 12.000 sinh viên tại 5 Campus FPT nhanh chóng. Bảo vệ thanh toán Escrow 100%, phí dịch vụ sàn chỉ 5% khi bán thành công.
               </p>
             </div>
 
@@ -1220,6 +1220,23 @@ export default function CreatePostPage() {
                         đ
                       </span>
                     </div>
+
+                    {Number(price) > 0 && (
+                      <div className="rounded-xl bg-orange-50/80 border border-orange-200/80 p-2.5 text-xs text-orange-950 flex flex-col gap-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-500 font-medium">Phí sàn bảo trợ & Safe-Point (5%):</span>
+                          <span className="font-semibold text-orange-800">
+                            -{Math.round(Number(price) * 0.05).toLocaleString('vi-VN')} đ
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-orange-200/60 font-bold">
+                          <span className="text-emerald-800">Dự kiến thực nhận về ví:</span>
+                          <span className="text-emerald-700">
+                            +{(Number(price) - Math.round(Number(price) * 0.05)).toLocaleString('vi-VN')} đ
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
                       <input
