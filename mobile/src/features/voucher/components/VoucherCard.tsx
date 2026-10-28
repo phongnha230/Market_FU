@@ -25,32 +25,28 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
           bg: '#ECFDF5',
           border: '#A7F3D0',
           text: '#059669',
-          iconName: 'cafe-outline' as const,
+          iconName: 'cafe' as const,
           label: 'Passio Coffee',
+          shortLabel: 'Passio',
         };
       case 'SEVEN_ELEVEN':
         return {
           bg: '#EFF6FF',
           border: '#BFDBFE',
           text: '#2563EB',
-          iconName: 'storefront-outline' as const,
+          iconName: 'storefront' as const,
           label: '7-Eleven FPT',
+          shortLabel: '7-Eleven',
         };
       case 'CAMPUS_SHIP':
-        return {
-          bg: '#F5F3FF',
-          border: '#DDD6FE',
-          text: '#7C3AED',
-          iconName: 'car-outline' as const,
-          label: 'FPT CampusShip',
-        };
       case 'OTHER':
         return {
           bg: '#F5F3FF',
           border: '#DDD6FE',
           text: '#7C3AED',
-          iconName: 'car-outline' as const,
-          label: 'CampusShip Express',
+          iconName: 'bicycle' as const,
+          label: 'CampusShip',
+          shortLabel: 'CampusShip',
         };
       case 'CANTEEN':
       default:
@@ -58,8 +54,9 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
           bg: '#FFF7ED',
           border: '#FED7AA',
           text: '#EA580C',
-          iconName: 'restaurant-outline' as const,
+          iconName: 'restaurant' as const,
           label: 'Căn Tin FPT',
+          shortLabel: 'Căn Tin',
         };
     }
   };
@@ -67,218 +64,271 @@ export const VoucherCard: React.FC<VoucherCardProps> = ({
   const theme = getPartnerTheme(voucher.partner);
   const canAfford = !isAuthenticated || userCoins >= voucher.coinCost;
 
+  const discountFormatted =
+    voucher.discountValue >= 1000
+      ? `-${Math.round(voucher.discountValue / 1000)}k`
+      : `-${voucher.discountValue}đ`;
+
+  const minSpendFormatted = voucher.minOrderValue
+    ? voucher.minOrderValue >= 1000
+      ? `Đơn từ ${Math.round(voucher.minOrderValue / 1000)}k`
+      : `Đơn từ ${voucher.minOrderValue}đ`
+    : 'Mọi đơn';
+
   return (
-    <View style={[styles.card, { borderColor: theme.border }]}>
-      {/* Top Banner Tag */}
-      <View style={styles.topRow}>
-        <View style={[styles.partnerBadge, { backgroundColor: theme.bg }]}>
-          <Ionicons name={theme.iconName} size={13} color={theme.text} />
-          <Text style={[styles.partnerText, { color: theme.text }]}>
-            {(voucher.partnerLabel || theme.label).toUpperCase()}
+    <View style={styles.cardWrapper}>
+      <View style={[styles.card, { borderColor: theme.border }]}>
+        {/* ================= LEFT STUB (Cuống vé Shopee) ================= */}
+        <View style={[styles.stub, { backgroundColor: theme.bg }]}>
+          {/* Semicircular notches at the ticket perforation line */}
+          <View style={styles.notchTop} />
+          <View style={styles.notchBottom} />
+
+          <View style={[styles.iconBox, { backgroundColor: '#FFFFFF' }]}>
+            <Ionicons name={theme.iconName} size={18} color={theme.text} />
+          </View>
+          <Text
+            style={[styles.stubDiscount, { color: theme.text }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {discountFormatted}
+          </Text>
+          <Text
+            style={[styles.stubPartner, { color: theme.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {theme.shortLabel}
           </Text>
         </View>
 
-        <Text style={[styles.discountTag, { color: theme.text }]}>
-          Giảm {voucher.discountValue.toLocaleString('vi-VN')}đ
-        </Text>
-      </View>
+        {/* ================= RIGHT BODY (Nội dung nhỏ nhắn không tràn chữ) ================= */}
+        <View style={styles.body}>
+          {/* Top row: Campus tag + Expiry */}
+          <View style={styles.topRow}>
+            <View style={styles.tagBadge}>
+              <Text style={styles.tagText} numberOfLines={1}>CAMPUS VOUCHER</Text>
+            </View>
+            <Text style={styles.expiryText} numberOfLines={1} ellipsizeMode="tail">
+              HSD: {voucher.validDays || 30} ngày
+            </Text>
+          </View>
 
-      {/* Main Content */}
-      <View style={styles.body}>
-        <View style={[styles.iconCircle, { backgroundColor: theme.bg }]}>
-          <Ionicons name={theme.iconName} size={24} color={theme.text} />
-        </View>
-
-        <View style={styles.info}>
-          <Text style={styles.title} numberOfLines={2}>
+          {/* Title */}
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
             {voucher.title}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginVertical: 3 }}>
-            <View style={styles.coinCostPill}>
-              <Text style={styles.coinCostPillText}>
-                Đổi bằng {voucher.coinCost} Coins
-              </Text>
+
+          {/* Condition & Stock info */}
+          <Text style={styles.conditionText} numberOfLines={1} ellipsizeMode="tail">
+            {minSpendFormatted} • Còn {voucher.quantity} lượt
+          </Text>
+
+          {/* Bottom row: Coin cost & Compact Action Button */}
+          <View style={styles.bottomRow}>
+            <View style={styles.coinBox}>
+              <Ionicons name="sparkles" size={12} color="#F59E0B" />
+              <Text style={styles.coinAmount} numberOfLines={1}>{voucher.coinCost}</Text>
+              <Text style={styles.coinUnit}>Coins</Text>
             </View>
-            {voucher.minOrderValue && voucher.minOrderValue > 0 ? (
-              <View style={[styles.coinCostPill, { backgroundColor: '#F3E8FF' }]}>
-                <Text style={[styles.coinCostPillText, { color: '#7E22CE' }]}>
-                  Đơn từ {voucher.minOrderValue.toLocaleString('vi-VN')}đ
-                </Text>
-              </View>
-            ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.redeemBtn,
+                isAuthenticated && !canAfford && styles.btnDisabled,
+                isRedeemed && styles.btnRedeemed,
+              ]}
+              disabled={isAuthenticated && !canAfford}
+              activeOpacity={0.75}
+              delayPressIn={0}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              onPress={() => onRedeem(voucher)}
+            >
+              <Text
+                style={[
+                  styles.btnText,
+                  isAuthenticated && !canAfford && styles.btnTextDisabled,
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {!isAuthenticated
+                  ? 'Đổi'
+                  : !canAfford
+                  ? `Thiếu ${voucher.coinCost - userCoins}`
+                  : isRedeemed
+                  ? 'Đổi thêm'
+                  : 'Đổi ngay'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.desc} numberOfLines={2}>
-            {voucher.description || 'Áp dụng tại quầy đối tác Campus FPT'}
-          </Text>
         </View>
-      </View>
-
-      {/* Usage meta & progress */}
-      <View style={styles.metaRow}>
-        <Text style={styles.stockText}>
-          Còn {voucher.quantity} lượt đổi trong kho
-        </Text>
-        <Text style={styles.hsdText}>
-          HSD: {voucher.validDays || 30} ngày
-        </Text>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <View style={styles.priceContainer}>
-          <Ionicons name="sparkles" size={14} color="#F59E0B" />
-          <Text style={styles.coinPriceText}>{voucher.coinCost} Coins</Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.redeemBtn,
-            isAuthenticated && !canAfford && styles.btnDisabled,
-            isRedeemed && styles.btnRedeemed,
-          ]}
-          disabled={isAuthenticated && !canAfford}
-          activeOpacity={0.85}
-          onPress={() => onRedeem(voucher)}
-        >
-          <Text style={[styles.btnText, isAuthenticated && !canAfford && styles.btnTextDisabled]}>
-            {!isAuthenticated
-              ? 'Đổi ngay'
-              : !canAfford
-              ? `Thiếu ${voucher.coinCost - userCoins} Xu`
-              : isRedeemed
-              ? 'Đổi thêm'
-              : 'Đổi ngay'}
-          </Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
+  cardWrapper: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 14,
+    marginBottom: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
+    overflow: 'hidden',
+    minHeight: 96,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
+  },
+  stub: {
+    width: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderRightWidth: 1,
+    borderRightColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    position: 'relative',
+  },
+  notchTop: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 2,
+  },
+  notchBottom: {
+    position: 'absolute',
+    right: -6,
+    bottom: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 2,
+  },
+  iconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  stubDiscount: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+    lineHeight: 16,
+    maxWidth: 76,
+    textAlign: 'center',
+  },
+  stubPartner: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    opacity: 0.85,
+    marginTop: 1,
+    maxWidth: 76,
+    textAlign: 'center',
+  },
+  body: {
+    flex: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    justifyContent: 'space-between',
+    minWidth: 0, // prevents flex overflow in RN
   },
   topRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-    paddingBottom: 8,
-    marginBottom: 10,
+    gap: 6,
   },
-  partnerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  tagBadge: {
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    flexShrink: 0,
   },
-  partnerText: {
-    fontSize: 10.5,
+  tagText: {
+    fontSize: 8.5,
     fontWeight: '800',
+    color: '#EA580C',
     letterSpacing: 0.3,
   },
-  discountTag: {
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
-  body: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  info: {
-    flex: 1,
+  expiryText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   title: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 18,
-    marginBottom: 4,
+    lineHeight: 16,
+    marginVertical: 2,
   },
-  coinCostPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 4,
+  conditionText: {
+    fontSize: 10.5,
+    color: '#64748B',
+    lineHeight: 14,
+    marginBottom: 3,
   },
-  coinCostPillText: {
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  coinBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  coinAmount: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#EA580C',
+  },
+  coinUnit: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
-  },
-  desc: {
-    fontSize: 11,
-    color: '#64748B',
-    lineHeight: 15,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  stockText: {
-    fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  hsdText: {
-    fontSize: 10.5,
-    color: '#EA580C',
-    fontWeight: '700',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-    paddingTop: 8,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  coinPriceText: {
-    fontSize: 15,
-    fontWeight: '900',
     color: '#EA580C',
   },
   redeemBtn: {
     backgroundColor: '#EA580C',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    minWidth: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   btnDisabled: {
     backgroundColor: '#F1F5F9',
@@ -288,7 +338,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   btnTextDisabled: {

@@ -154,6 +154,7 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
         /* ================= VIEW 1: KHO ĐỔI VOUCHER ================= */
         <FlatList
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
@@ -245,6 +246,7 @@ export const VoucherScreen: React.FC<VoucherScreenProps> = ({ onGoBack }) => {
         /* ================= VIEW 2: VÍ VOUCHER CỦA TÔI ================= */
         <FlatList
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
