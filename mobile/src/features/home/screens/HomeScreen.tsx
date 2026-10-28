@@ -304,6 +304,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl

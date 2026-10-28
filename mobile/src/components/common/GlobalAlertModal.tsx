@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,11 +16,16 @@ export const GlobalAlertModal: React.FC = () => {
   if (!visible) return null;
 
   const handleButtonPress = (btn: AlertButton) => {
+    const callback = btn.onPress;
     hideAlert();
-    if (btn.onPress) {
+    if (callback) {
       setTimeout(() => {
-        btn.onPress?.();
-      }, 100);
+        try {
+          callback();
+        } catch (e) {
+          console.error('[GlobalAlertModal] Button callback error:', e);
+        }
+      }, 50);
     }
   };
 
@@ -68,65 +72,75 @@ export const GlobalAlertModal: React.FC = () => {
     }
   };
 
+  const displayButtons = buttons && buttons.length > 0 ? buttons : [{ text: 'Đã hiểu', style: 'default' as const }];
+
   return (
     <Modal
       transparent
       visible={visible}
       animationType="fade"
       onRequestClose={handleBackdropPress}
+      statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={handleBackdropPress}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={styles.card}>
-              {/* Header Icon */}
-              {renderIcon()}
+      <View style={styles.backdrop}>
+        {/* Fullscreen Backdrop Touchable: closes alert when tapping outside card */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleBackdropPress}
+          accessible={false}
+        />
 
-              {/* Title & Message */}
-              <Text style={styles.title} numberOfLines={2}>
-                {title}
-              </Text>
+        {/* Modal Card: pure View without touch interceptors so children buttons respond on first touch */}
+        <View style={styles.card}>
+          {/* Header Icon */}
+          {renderIcon()}
 
-              {!!message && (
-                <Text style={styles.message}>
-                  {message}
-                </Text>
-              )}
+          {/* Title & Message */}
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
 
-              {/* Action Buttons */}
-              <View style={[styles.buttonRow, buttons.length > 2 && styles.buttonCol]}>
-                {buttons.map((btn, index) => {
-                  const isCancel = btn.style === 'cancel' || (buttons.length === 2 && index === 0);
-                  const isDestructive = btn.style === 'destructive';
+          {!!message && (
+            <Text style={styles.message}>
+              {message}
+            </Text>
+          )}
 
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.button,
-                        isCancel ? styles.cancelButton : isDestructive ? styles.destructiveButton : styles.primaryButton,
-                        buttons.length === 2 && { flex: 1 },
-                      ]}
-                      activeOpacity={0.82}
-                      onPress={() => handleButtonPress(btn)}
-                    >
-                      <Text
-                        style={[
-                          styles.buttonText,
-                          isCancel ? styles.cancelButtonText : styles.primaryButtonText,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {btn.text || 'Xác nhận'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
+          {/* Action Buttons */}
+          <View style={[styles.buttonRow, displayButtons.length > 2 && styles.buttonCol]}>
+            {displayButtons.map((btn, index) => {
+              const isCancel = btn.style === 'cancel' || (displayButtons.length === 2 && index === 0);
+              const isDestructive = btn.style === 'destructive';
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.button,
+                    isCancel ? styles.cancelButton : isDestructive ? styles.destructiveButton : styles.primaryButton,
+                    displayButtons.length === 2 && { flex: 1 },
+                  ]}
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => handleButtonPress(btn)}
+                >
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      isCancel ? styles.cancelButtonText : styles.primaryButtonText,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {btn.text || 'Xác nhận'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };

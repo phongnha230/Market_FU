@@ -66,6 +66,10 @@ export type RootStackParamList = {
         isDifferentCampus?: boolean;
         fromCampus?: string;
         toCampus?: string;
+        isSeller?: boolean;
+        orderStatus?: string;
+        trackingCode?: string;
+        shippingPartner?: string;
         paymentPending?: boolean;
         paymentCheckoutUrl?: string;
       }
@@ -119,6 +123,10 @@ export type RootStackParamList = {
         product?: any;
         fromCampus?: string;
         toCampus?: string;
+        isSeller?: boolean;
+        orderStatus?: string;
+        trackingCode?: string;
+        shippingPartner?: string;
       }
     | undefined;
   PublicSellerProfile:

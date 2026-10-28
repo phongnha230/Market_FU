@@ -22,7 +22,9 @@ export const ProfileCtaButton: React.FC<ProfileCtaButtonProps> = React.memo(({
       <TouchableOpacity
         style={[styles.actionBtn, styles.sellerBtn]}
         onPress={onSellerPress}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        delayPressIn={0}
       >
         <Ionicons name="speedometer-outline" size={15} color="#FFFFFF" />
         <Text style={styles.actionBtnText}>Kênh Người Bán (Hub)</Text>
@@ -35,7 +37,9 @@ export const ProfileCtaButton: React.FC<ProfileCtaButtonProps> = React.memo(({
       <TouchableOpacity
         style={[styles.actionBtn, styles.pendingBtn]}
         onPress={() => onKycPress && onKycPress('STUDENT')}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        delayPressIn={0}
       >
         <Ionicons name="time-outline" size={15} color="#B45309" />
         <Text style={[styles.actionBtnText, { color: '#B45309' }]}>Chi tiết hồ sơ KYC</Text>
@@ -48,7 +52,9 @@ export const ProfileCtaButton: React.FC<ProfileCtaButtonProps> = React.memo(({
       <TouchableOpacity
         style={[styles.actionBtn, styles.upgradeSellerBtn]}
         onPress={() => onKycPress && onKycPress('SELLER')}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        delayPressIn={0}
       >
         <Ionicons name="storefront-outline" size={15} color="#FFFFFF" />
         <Text style={styles.actionBtnText}>Đăng ký mở Người bán</Text>
@@ -60,7 +66,9 @@ export const ProfileCtaButton: React.FC<ProfileCtaButtonProps> = React.memo(({
     <TouchableOpacity
       style={[styles.actionBtn, styles.verifyStudentBtn]}
       onPress={() => onKycPress && onKycPress('STUDENT')}
-      activeOpacity={0.85}
+      activeOpacity={0.7}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      delayPressIn={0}
     >
       <Ionicons name="shield-checkmark" size={15} color="#FFFFFF" />
       <Text style={styles.actionBtnText}>Xác thực Thẻ Sinh Viên</Text>

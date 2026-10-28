@@ -38,6 +38,8 @@ const FilterChipItem: React.FC<FilterChipItemProps> = React.memo(({ item, isActi
     <TouchableOpacity
       style={[styles.filterChip, isActive && styles.filterChipActive]}
       activeOpacity={0.75}
+      delayPressIn={0}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       onPress={handlePress}
     >
       <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
@@ -171,6 +173,7 @@ export const NotificationScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.headerBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          delayPressIn={0}
           onPress={handleBack}
         >
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
@@ -190,6 +193,7 @@ export const NotificationScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.markReadBtn}
               activeOpacity={0.7}
+              delayPressIn={0}
               onPress={handleMarkAllRead}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -200,6 +204,7 @@ export const NotificationScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            delayPressIn={0}
             onPress={handleGoHome}
           >
             <Ionicons name="home-outline" size={22} color="#0F172A" />
@@ -247,6 +252,7 @@ export const NotificationScreen: React.FC = () => {
           data={filteredList}
           keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />

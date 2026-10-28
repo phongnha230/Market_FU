@@ -17,6 +17,8 @@ export const NotificationCardItem: React.FC<NotificationCardItemProps> = React.m
     <TouchableOpacity
       style={[styles.itemCard, item.unread && styles.itemCardUnread]}
       activeOpacity={0.75}
+      delayPressIn={0}
+      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
       onPress={handlePress}
     >
       {/* Icon */}
