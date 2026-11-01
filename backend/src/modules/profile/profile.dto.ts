@@ -97,7 +97,7 @@ export const buyBadgeSchema = z.object({
 export type BuyBadgeInput = z.infer<typeof buyBadgeSchema>;
 
 export const createWithdrawalSchema = z.object({
-  amount: z.coerce.number().int().min(50000, 'Số tiền rút tối thiểu là 50.000 VNĐ'),
+  amount: z.coerce.number().int().min(10000, 'Số tiền rút tối thiểu là 10.000 VNĐ'),
 });
 export type CreateWithdrawalInput = z.infer<typeof createWithdrawalSchema>;
 

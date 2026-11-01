@@ -347,7 +347,7 @@ export default function SellerWalletCard({ onShowToast }: SellerWalletCardProps)
             <button
               type="button"
               onClick={handleOpenWithdraw}
-              disabled={availableVnd < 50000}
+              disabled={availableVnd < 10000}
               className="w-full sm:w-auto rounded-xl bg-fpt-orange hover:bg-fpt-orange-hover text-white px-5 py-2.5 text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-98"
             >
               <CreditCard className="h-4 w-4" />

@@ -162,7 +162,7 @@ export const profileMobileService = {
     }
 
     const res = await apiClient.post<ApiResponse<any>>('/profile/withdrawals', {
-      amount: Math.max(50000, Number(payload.amount)),
+      amount: Math.max(10000, Number(payload.amount)),
     });
     return res.data.data;
   },

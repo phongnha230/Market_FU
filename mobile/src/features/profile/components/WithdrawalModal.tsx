@@ -77,8 +77,8 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
       return;
     }
 
-    if (amount < 50000) {
-      Alert.alert('Hạn mức tối thiểu', 'Số tiền rút tối thiểu là 50.000đ theo quy định tài vụ.');
+    if (amount < 10000) {
+      Alert.alert('Hạn mức tối thiểu', 'Số tiền rút tối thiểu là 10.000đ theo quy định tài vụ.');
       return;
     }
 
@@ -189,7 +189,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
 
             {/* Quick Amount Pills */}
             <View style={styles.quickPillsRow}>
-              {[50000, 100000, 200000, 500000].map((val) => (
+              {[10000, 50000, 100000, 200000].map((val) => (
                 <TouchableOpacity
                   key={val}
                   style={styles.quickPill}

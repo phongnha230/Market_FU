@@ -314,7 +314,7 @@ export default function WithdrawalModal({
 
                 {/* Quick Selection Chips */}
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {[50000, 100000, 200000, 500000].map((val) => (
+                  {[10000, 50000, 100000, 200000, 500000].map((val) => (
                     <button
                       key={val}
                       type="button"
@@ -407,7 +407,7 @@ export default function WithdrawalModal({
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || availableVnd < 50000}
+                disabled={isSubmitting || availableVnd < 10000}
                 className="w-full rounded-xl bg-fpt-orange py-3 text-sm font-bold text-white shadow-md hover:bg-fpt-orange-hover transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-98"
               >
                 {isSubmitting ? (
