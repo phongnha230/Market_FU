@@ -8,6 +8,8 @@ interface InterCampusRouteBannerProps {
   toCampus: string;
   fromSafePoint: string;
   toSafePoint: string;
+  isShipped?: boolean;
+  shippingPartner?: string;
 }
 
 export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
@@ -15,7 +17,18 @@ export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
   toCampus,
   fromSafePoint,
   toSafePoint,
+  isShipped = false,
+  shippingPartner,
 }) => {
+  const isGhn = !shippingPartner || shippingPartner.toUpperCase().includes('GHN');
+  const isBus = Boolean(shippingPartner?.toUpperCase().includes('BUS') || shippingPartner?.toUpperCase().includes('FPT'));
+
+  const bannerTagText = isGhn
+    ? 'GHN EXPRESS LIÊN CAMPUS'
+    : isBus
+    ? 'FPT BUS LIÊN CAMPUS'
+    : `${(shippingPartner || 'VẬN CHUYỂN').toUpperCase()} LIÊN CAMPUS`;
+
   return (
     <LinearGradient
       colors={['#1E3A8A', '#1D4ED8', '#2563EB']}
@@ -23,19 +36,19 @@ export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
       end={{ x: 1, y: 1 }}
       style={styles.routeBanner}
     >
-      {/* Top Header Pill Row */}
+      {/* Top Header Pill Row - Không bao giờ tràn chữ */}
       <View style={styles.routeTopLine}>
         <View style={styles.routePill}>
-          <Ionicons name="bus" size={13} color="#FED7AA" />
-          <Text style={styles.routePillText}>CHUYÊN TUYẾN FPT BUS LIÊN CƠ SỞ</Text>
+          <Ionicons name={isGhn ? 'cube-outline' : 'bus'} size={12} color="#FED7AA" />
+          <Text style={styles.routePillText} numberOfLines={1}>{bannerTagText}</Text>
         </View>
         <View style={styles.escrowSafePill}>
-          <Ionicons name="shield-checkmark" size={13} color="#FFFFFF" />
-          <Text style={styles.escrowSafeText}>Escrow Bảo Hộ 100%</Text>
+          <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+          <Text style={styles.escrowSafeText} numberOfLines={1}>Escrow 100%</Text>
         </View>
       </View>
 
-      {/* Cities and Bus Path */}
+      {/* Cities and Path */}
       <View style={styles.routeCitiesRow}>
         <View style={styles.cityCol}>
           <Text style={styles.cityRole}>CƠ SỞ GỬI</Text>
@@ -46,7 +59,7 @@ export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
         <View style={styles.busIndicator}>
           <View style={styles.busDashLine} />
           <View style={styles.busIconCircle}>
-            <Ionicons name="bus" size={17} color="#EA580C" />
+            <Ionicons name={isGhn ? 'cube' : 'bus'} size={17} color="#EA580C" />
           </View>
           <View style={styles.busDashLine} />
         </View>
@@ -58,28 +71,43 @@ export const InterCampusRouteBanner: React.FC<InterCampusRouteBannerProps> = ({
         </View>
       </View>
 
-      {/* Bus Meta Box - Chia 2 hàng rõ ràng, chống tràn chữ 100% */}
+      {/* Carrier Meta Box - Hiển thị chuẩn theo hãng vận chuyển (GHN vs FPT Bus) */}
       <View style={styles.routeBusMetaBox}>
-        <View style={styles.metaRow}>
-          <Ionicons name="cube-outline" size={14} color="#BFDBFE" />
-          <Text style={styles.busMetaText} numberOfLines={1}>
-            Chuyến xe: <Text style={styles.busMetaBold}>FPT-BUS-LINE-02</Text> • Biển: <Text style={styles.busMetaBold}>29B-512.44</Text>
-          </Text>
-        </View>
+        {isShipped ? (
+          <>
+            <View style={styles.metaRow}>
+              <Ionicons name="cube-outline" size={14} color="#BFDBFE" />
+              <Text style={styles.busMetaText} numberOfLines={1} ellipsizeMode="tail">
+                Đơn vị: <Text style={styles.busMetaBold}>{isGhn ? 'Giao Hàng Nhanh (GHN Express)' : isBus ? 'Tuyến Xe Buýt FPT Bus' : (shippingPartner || 'GHN Express')}</Text>
+              </Text>
+            </View>
 
-        <View style={styles.metaDivider} />
+            <View style={styles.metaDivider} />
 
-        <View style={styles.metaTimeRow}>
-          <View style={styles.timeTag}>
-            <Ionicons name="time-outline" size={13} color="#047857" />
-            <Text style={styles.timeTagText}>Dự kiến đến trạm: 17:30</Text>
+            <View style={styles.metaTimeRow}>
+              <View style={styles.timeTag}>
+                <Ionicons name="time-outline" size={13} color="#047857" />
+                <Text style={styles.timeTagText} numberOfLines={1}>
+                  {isGhn ? 'Dự kiến: 2 - 3 ngày KTX' : 'Dự kiến đến trạm: 17:30'}
+                </Text>
+              </View>
+
+              <View style={styles.sealTag}>
+                <Ionicons name="lock-closed" size={11} color="#1E40AF" />
+                <Text style={styles.sealTagText} numberOfLines={1}>Tem Seal niêm phong</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.metaWaitingRow}>
+            <Ionicons name="time-outline" size={15} color="#BFDBFE" style={{ marginRight: 6 }} />
+            <Text style={styles.waitingNoticeText} numberOfLines={1} ellipsizeMode="tail">
+              {isGhn
+                ? 'Đơn vị: GHN Express • Bưu tá sẽ tiếp nhận sau khi người bán đóng gói'
+                : 'Chuyến xe liên cơ sở khởi hành sau khi tiếp nhận kiện hàng'}
+            </Text>
           </View>
-
-          <View style={styles.sealTag}>
-            <Ionicons name="lock-closed" size={11} color="#1E40AF" />
-            <Text style={styles.sealTagText}>Tem Seal bảo mật</Text>
-          </View>
-        </View>
+        )}
       </View>
     </LinearGradient>
   );
@@ -93,12 +121,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    boxShadow: '0 6px 14px rgba(30, 58, 138, 0.25)',
+    shadowColor: '#1E3A8A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   routeTopLine: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 12,
   },
   routePill: {
@@ -111,6 +144,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+    flexShrink: 1,
   },
   routePillText: {
     fontSize: 9.5,
@@ -128,6 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#34D399',
+    flexShrink: 0,
   },
   escrowSafeText: {
     fontSize: 9.5,
@@ -138,22 +173,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    marginBottom: 14,
   },
   cityCol: {
     flex: 1,
   },
   cityRole: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '800',
-    color: '#BFDBFE',
+    color: '#93C5FD',
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
   cityName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '900',
     color: '#FFFFFF',
-    marginTop: 2,
+    letterSpacing: -0.3,
   },
   stationName: {
     fontSize: 11,
@@ -167,8 +203,8 @@ const styles = StyleSheet.create({
   },
   busDashLine: {
     width: 14,
-    height: 1.5,
-    backgroundColor: '#93C5FD',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   busIconCircle: {
     width: 32,
@@ -178,25 +214,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 3,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   routeBusMetaBox: {
-    marginTop: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.32)',
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 7,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   busMetaText: {
-    fontSize: 11,
-    color: '#DBEAFE',
+    fontSize: 11.5,
+    color: '#E0E7FF',
     flex: 1,
   },
   busMetaBold: {
@@ -205,23 +243,24 @@ const styles = StyleSheet.create({
   },
   metaDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginVertical: 8,
   },
   metaTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   timeTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#ECFDF5',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
     borderRadius: 6,
+    flexShrink: 1,
   },
   timeTagText: {
     fontSize: 10.5,
@@ -231,15 +270,28 @@ const styles = StyleSheet.create({
   sealTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
     borderRadius: 6,
+    flexShrink: 0,
   },
   sealTagText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 10.5,
+    fontWeight: '800',
     color: '#1E40AF',
   },
+  metaWaitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  waitingNoticeText: {
+    fontSize: 11,
+    color: '#E0E7FF',
+    fontWeight: '600',
+    flex: 1,
+  },
 });
+
+export default InterCampusRouteBanner;

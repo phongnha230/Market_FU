@@ -449,6 +449,13 @@ export const OrderDetailScreen: React.FC = () => {
     } as unknown as OrderItem;
   }, [activeOrder, orderId, product, isSeller, user, safePoint, isReviewed]);
 
+  const hasTrackingCode = Boolean(
+    activeOrder?.trackingCode ||
+    activeOrder?.shipping?.trackingCode ||
+    fetchedOrder?.trackingCode ||
+    fetchedOrder?.shipping?.trackingCode
+  );
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <View style={styles.header}>
@@ -474,7 +481,11 @@ export const OrderDetailScreen: React.FC = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
-        <OrderStatusTimeline orderStatus={orderStatus} isInterCampus={isInterCampus} />
+        <OrderStatusTimeline
+          orderStatus={orderStatus}
+          isInterCampus={isInterCampus}
+          hasTrackingCode={hasTrackingCode}
+        />
         <OrderProductSummaryCard
           product={product}
           isSeller={Boolean(isSeller)}
@@ -539,7 +550,10 @@ export const OrderDetailScreen: React.FC = () => {
 
         {/* Chỉ hiện banner liên campus khi là đơn luân chuyển liên campus */}
         {isInterCampus && (
-          <OrderInterCampusBanner onPress={handleNavigateInterCampus} />
+          <OrderInterCampusBanner
+            shippingPartner={activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner}
+            onPress={handleNavigateInterCampus}
+          />
         )}
 
         {/* Thông tin vận đơn / Hành trình liên campus */}
@@ -600,6 +614,7 @@ export const OrderDetailScreen: React.FC = () => {
           onOpenShipModal={() => setShowShipModal(true)}
           onOpenDisputeDetail={() => setShowDisputeDetailModal(true)}
           isInterCampus={isInterCampus}
+          shippingPartner={activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner}
           hasTrackingCode={Boolean(activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode || fetchedOrder?.trackingCode || fetchedOrder?.shipping?.trackingCode)}
           isReviewed={isReviewed}
           isSubmitting={isSubmitting}

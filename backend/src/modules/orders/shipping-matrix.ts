@@ -87,23 +87,23 @@ export function calculateShippingFee(params: {
   const matrix = CAMPUS_RATES[fromCampus]?.[toCampus] || {
     fee: 30000,
     days: '2 - 3 ngày',
-    hub: 'FPT Central Hub',
+    hub: 'Kho trung chuyển GHN',
   };
 
   const isSameCampus = fromCampus === toCampus;
   const routeTitle = isSameCampus
     ? `Chuyển phát nội bộ KTX ${CAMPUS_NAMES[fromCampus]}`
-    : `Tuyến FPT Express Hub (${CAMPUS_NAMES[fromCampus]} ➔ ${CAMPUS_NAMES[toCampus]})`;
+    : `Tuyến GHN Express (${CAMPUS_NAMES[fromCampus]} ➔ ${CAMPUS_NAMES[toCampus]})`;
 
   return {
     shippingFee: matrix.fee,
     estimatedDays: matrix.days,
     routeTitle,
-    transitHub: matrix.hub,
+    transitHub: matrix.hub || 'Kho trung chuyển GHN',
     trackingSteps: [
-      { title: 'Bưu cục KTX tiếp nhận', desc: `Tiếp nhận tại ${CAMPUS_NAMES[fromCampus]}` },
+      { title: 'Bưu cục tiếp nhận', desc: `Tiếp nhận tại ${CAMPUS_NAMES[fromCampus]}` },
       { title: 'Đóng thùng niêm phong', desc: 'Bọc xốp chống sốc đồ sinh viên' },
-      { title: 'Trung chuyển qua Hub', desc: matrix.hub },
+      { title: 'Trung chuyển qua Hub GHN', desc: matrix.hub || 'Kho trung chuyển GHN' },
       { title: 'Phát tới KTX người nhận', desc: `Bàn giao tại ${CAMPUS_NAMES[toCampus]}` },
     ],
   };

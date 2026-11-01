@@ -1725,7 +1725,7 @@ export class OrderService {
     }
 
     const trackingCode = order.shipping?.trackingCode || '';
-    const partner = order.shipping?.shippingPartner || 'GHTK';
+    const partner = order.shipping?.shippingPartner || 'GHN Express';
     const isGhn = partner.toUpperCase().includes('GHN') || trackingCode.startsWith('GHN');
 
     let ghnData: any = null;
@@ -1870,7 +1870,9 @@ export class OrderService {
           },
           {
             title: 'Trung chuyển liên Campus',
-            desc: isShipped ? (ghnData?.currentLocation || matrixInfo.transitHub) : `Tuyến ${matrixInfo.routeTitle}`,
+            desc: isShipped
+              ? (ghnData?.currentLocation || matrixInfo.transitHub)
+              : (matrixInfo.routeTitle.startsWith('Tuyến') ? matrixInfo.routeTitle : `Tuyến ${matrixInfo.routeTitle}`),
             status: isDelivered ? 'completed' : isShipped ? 'current' : 'pending',
           },
           {

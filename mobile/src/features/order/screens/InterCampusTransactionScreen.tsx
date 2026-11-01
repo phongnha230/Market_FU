@@ -28,67 +28,76 @@ const createInterCampusSteps = (
   currentStep: number,
   fromSafePoint: string,
   toSafePoint: string,
-  shippingPartner: string = 'FPT Bus Express',
+  shippingPartner: string = 'GHN Express',
   trackingCode?: string
-): InterCampusStep[] => [
-  {
-    step: 1,
-    title: 'Tiếp nhận đơn & Ký quỹ Escrow',
-    desc: 'Người mua đã thanh toán cọc bảo hộ 100% trong ví ký quỹ an toàn FPT Pay.',
-    time: 'Đã hoàn tất',
-    completed: currentStep > 1,
-    active: currentStep === 1,
-    badge: 'ĐÃ BẢO LÃNH',
-    badgeColor: '#059669',
-    badgeBg: '#ECFDF5',
-  },
-  {
-    step: 2,
-    title: 'Đóng gói & Bàn giao bưu tá / Trạm gửi',
-    desc: trackingCode
-      ? `Người bán đã bàn giao kiện hàng cho ${shippingPartner}. Mã vận đơn: ${trackingCode}.`
-      : `Người bán đóng gói kiện hàng và bàn giao tại trạm ${fromSafePoint} hoặc bưu cục GHN.`,
-    time: currentStep > 2 ? 'Đã hoàn tất' : currentStep === 2 ? 'Đang tiến hành' : 'Chờ xử lý',
-    completed: currentStep > 2,
-    active: currentStep === 2,
-    badge: trackingCode ? `MÃ: ${trackingCode}` : 'CHỜ BÀN GIAO',
-    badgeColor: trackingCode ? '#2563EB' : '#D97706',
-    badgeBg: trackingCode ? '#EFF6FF' : '#FFFBEB',
-  },
-  {
-    step: 3,
-    title: 'Vận chuyển liên Campus',
-    desc: `Hàng đang được luân chuyển chuyên tuyến qua ${shippingPartner}. Lộ trình vận chuyển liên cơ sở được giám sát an toàn.`,
-    time: currentStep > 3 ? 'Đã hoàn tất' : currentStep === 3 ? 'Đang di chuyển' : 'Chờ xử lý',
-    completed: currentStep > 3,
-    active: currentStep === 3,
-    badge: currentStep > 3 ? 'ĐÃ ĐẾN NƠI' : currentStep === 3 ? 'ĐANG VẬN CHUYỂN 🚌' : 'CHỜ KHỞI HÀNH',
-    badgeColor: currentStep === 3 ? '#7C3AED' : '#64748B',
-    badgeBg: currentStep === 3 ? '#F3E8FF' : '#F1F5F9',
-  },
-  {
-    step: 4,
-    title: 'Giao hàng tới KTX / Safe-Point điểm đến',
-    desc: `Xe buýt cập bến, kiện hàng được lưu vào tủ an ninh thông minh tại ${toSafePoint} và phát tới sảnh KTX.`,
-    time: currentStep > 4 ? 'Đã hoàn tất' : currentStep === 4 ? 'Chờ kiểm tra' : 'Dự kiến 2-3 ngày',
-    completed: currentStep > 4,
-    active: currentStep === 4,
-    badge: currentStep > 4 ? 'ĐÃ NHẬN' : currentStep === 4 ? 'ĐÃ TỚI KTX' : 'CHỜ CẬP BẾN',
-    badgeColor: currentStep === 4 ? '#2563EB' : '#64748B',
-    badgeBg: currentStep === 4 ? '#EFF6FF' : '#F1F5F9',
-  },
-  {
-    step: 5,
-    title: 'Người mua nhận hàng & Giải ngân Escrow',
-    desc: 'Người mua quét mã QR mở hòm, kiểm tra trước camera đối chứng 24/7 và giải ngân tiền cho người bán.',
-    time: currentStep === 5 ? 'Đã hoàn tất' : 'Chờ nhận hàng',
-    completed: currentStep >= 5,
-    active: currentStep === 5,
-    badge: currentStep >= 5 ? 'HOÀN TẤT' : 'BẢO VỆ 48H',
-    badgeColor: currentStep >= 5 ? '#059669' : '#64748B',
-    badgeBg: currentStep >= 5 ? '#ECFDF5' : '#F1F5F9',
-  },
-];
+): InterCampusStep[] => {
+  const isGhn = !shippingPartner || shippingPartner.toUpperCase().includes('GHN');
+  return [
+    {
+      step: 1,
+      title: 'Tiếp nhận đơn & Ký quỹ Escrow',
+      desc: 'Người mua đã thanh toán cọc bảo hộ 100% trong ví ký quỹ an toàn FPT Pay.',
+      time: 'Đã hoàn tất',
+      completed: currentStep > 1,
+      active: currentStep === 1,
+      badge: 'ĐÃ BẢO LÃNH',
+      badgeColor: '#059669',
+      badgeBg: '#ECFDF5',
+    },
+    {
+      step: 2,
+      title: 'Đóng gói & Bàn giao bưu tá / Trạm gửi',
+      desc: trackingCode
+        ? `Người bán đã bàn giao kiện hàng cho ${shippingPartner}. Mã vận đơn: ${trackingCode}.`
+        : isGhn
+        ? `Người bán đóng gói kiện hàng và bàn giao cho bưu tá GHN hoặc điểm gửi ${fromSafePoint}.`
+        : `Người bán đóng gói kiện hàng và bàn giao tại trạm ${fromSafePoint}.`,
+      time: currentStep > 2 ? 'Đã hoàn tất' : currentStep === 2 ? 'Đang tiến hành' : 'Chờ xử lý',
+      completed: currentStep > 2,
+      active: currentStep === 2,
+      badge: trackingCode ? `MÃ: ${trackingCode}` : 'CHỜ BÀN GIAO',
+      badgeColor: trackingCode ? '#2563EB' : '#D97706',
+      badgeBg: trackingCode ? '#EFF6FF' : '#FFFBEB',
+    },
+    {
+      step: 3,
+      title: 'Vận chuyển liên Campus',
+      desc: isGhn
+        ? `Hàng đang được luân chuyển chuyên tuyến qua bưu tá ${shippingPartner}. Tra cứu lộ trình realtime an toàn.`
+        : `Hàng đang được luân chuyển chuyên tuyến qua ${shippingPartner}. Lộ trình vận chuyển liên cơ sở được giám sát an toàn.`,
+      time: currentStep > 3 ? 'Đã hoàn tất' : currentStep === 3 ? 'Đang di chuyển' : 'Chờ xử lý',
+      completed: currentStep > 3,
+      active: currentStep === 3,
+      badge: currentStep > 3 ? 'ĐÃ ĐẾN NƠI' : currentStep === 3 ? (isGhn ? 'ĐANG VẬN CHUYỂN 🚚' : 'ĐANG VẬN CHUYỂN 🚌') : 'CHỜ KHỞI HÀNH',
+      badgeColor: currentStep === 3 ? '#7C3AED' : '#64748B',
+      badgeBg: currentStep === 3 ? '#F3E8FF' : '#F1F5F9',
+    },
+    {
+      step: 4,
+      title: 'Giao hàng tới KTX / Safe-Point điểm đến',
+      desc: isGhn
+        ? `Bưu tá ${shippingPartner} phát hàng tới sảnh KTX hoặc lưu tủ thông minh tại ${toSafePoint}.`
+        : `Xe buýt cập bến, kiện hàng được lưu vào tủ an ninh thông minh tại ${toSafePoint} và phát tới sảnh KTX.`,
+      time: currentStep > 4 ? 'Đã hoàn tất' : currentStep === 4 ? 'Chờ kiểm tra' : 'Dự kiến 2-3 ngày',
+      completed: currentStep > 4,
+      active: currentStep === 4,
+      badge: currentStep > 4 ? 'ĐÃ NHẬN' : currentStep === 4 ? 'ĐÃ TỚI KTX' : 'CHỜ PHÁT HÀNG',
+      badgeColor: currentStep === 4 ? '#2563EB' : '#64748B',
+      badgeBg: currentStep === 4 ? '#EFF6FF' : '#F1F5F9',
+    },
+    {
+      step: 5,
+      title: 'Người mua nhận hàng & Giải ngân Escrow',
+      desc: 'Người mua kiểm tra kiện hàng, đối chiếu mã tem niêm phong và giải ngân tiền cho người bán.',
+      time: currentStep === 5 ? 'Đã hoàn tất' : 'Chờ nhận hàng',
+      completed: currentStep >= 5,
+      active: currentStep === 5,
+      badge: currentStep >= 5 ? 'HOÀN TẤT' : 'BẢO VỆ 48H',
+      badgeColor: currentStep >= 5 ? '#059669' : '#64748B',
+      badgeBg: currentStep >= 5 ? '#ECFDF5' : '#F1F5F9',
+    },
+  ];
+};
 
 export const InterCampusTransactionScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -166,7 +175,7 @@ export const InterCampusTransactionScreen: React.FC = () => {
       matchedOrder?.shippingPartner ||
       matchedOrder?.shipping?.shippingPartner ||
       route.params?.shippingPartner ||
-      'FPT Bus Express'
+      'GHN Express'
     );
   }, [trackingData?.shippingPartner, matchedOrder?.shippingPartner, matchedOrder?.shipping?.shippingPartner, route.params?.shippingPartner]);
 
@@ -179,16 +188,17 @@ export const InterCampusTransactionScreen: React.FC = () => {
   const isCompleted = normalizedStatus === 'COMPLETED';
   const isDelivered = normalizedStatus === 'DELIVERED';
   const hasTrackingCode = Boolean(trackingCode && trackingCode.trim().length > 0);
+  const isShipped = hasTrackingCode && (normalizedStatus === 'SHIPPING' || normalizedStatus === 'HANDOVER_CONFIRMED' || isDelivered || isCompleted);
 
   // Tính toán step tiến trình hiện tại
   const currentStep = useMemo(() => {
     if (isCompleted) return 5;
     if (isDelivered) return 4;
-    if (hasTrackingCode && (normalizedStatus === 'SHIPPING' || normalizedStatus === 'HANDOVER_CONFIRMED')) {
+    if (isShipped) {
       return 3;
     }
     return 2; // Đang đóng gói & chuẩn bị bàn giao bưu tá
-  }, [isCompleted, isDelivered, hasTrackingCode, normalizedStatus]);
+  }, [isCompleted, isDelivered, isShipped]);
 
   const fetchTracking = useCallback(async () => {
     try {
@@ -236,7 +246,7 @@ export const InterCampusTransactionScreen: React.FC = () => {
     return createInterCampusSteps(currentStep, product.fromSafePoint, product.toSafePoint, shippingPartner, trackingCode);
   }, [trackingData, currentStep, product.fromSafePoint, product.toSafePoint, shippingPartner, trackingCode]);
 
-  const activeSealCode = trackingData?.sealCode || 'FPT-88921';
+  const activeSealCode = trackingData?.sealCode || (isShipped && trackingCode ? `SEAL-${trackingCode.slice(-5)}` : undefined);
   const ghnLogs = trackingData?.ghnLogs || [];
 
   // Seller cập nhật mã vận đơn thành công
@@ -404,6 +414,8 @@ export const InterCampusTransactionScreen: React.FC = () => {
           toCampus={toCampus}
           fromSafePoint={product.fromSafePoint}
           toSafePoint={product.toSafePoint}
+          isShipped={isShipped}
+          shippingPartner={shippingPartner}
         />
 
         <InterCampusProductCard
@@ -411,6 +423,7 @@ export const InterCampusTransactionScreen: React.FC = () => {
           priceStr={product.priceStr}
           image={product.image}
           sealCode={activeSealCode}
+          isShipped={isShipped}
           onViewSealPhoto={() => setIsProofModalVisible(true)}
         />
 

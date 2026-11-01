@@ -151,6 +151,7 @@ interface PrimaryActionButtonProps {
   isSeller: boolean;
   isInterCampus?: boolean;
   hasTrackingCode?: boolean;
+  shippingPartner?: string;
   isReviewed: boolean;
   isSubmitting: boolean;
   isDisputed: boolean;
@@ -168,6 +169,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
   isSeller,
   isInterCampus,
   hasTrackingCode,
+  shippingPartner,
   isReviewed,
   isSubmitting,
   isDisputed,
@@ -328,11 +330,14 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
     }
 
     // Với đơn liên campus đang vận chuyển, hiển thị trạng thái vận chuyển gọn gàng chống tràn chữ
+    const isGhn = !shippingPartner || shippingPartner.toUpperCase().includes('GHN');
+    const carrierLabel = isGhn ? 'GHN Express' : shippingPartner.toUpperCase().includes('BUS') ? 'Tuyến FPT Bus' : shippingPartner;
+
     return (
       <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 12, height: 44 }]}>
-        <Ionicons name="bus-outline" size={18} color="#EA580C" style={styles.mr6} />
+        <Ionicons name={isGhn ? "cube-outline" : "bus-outline"} size={18} color="#EA580C" style={styles.mr6} />
         <Text style={[styles.confirmReceivedText, { color: '#334155', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
-          Đơn liên campus • Tuyến FPT Bus
+          Đơn liên campus • {carrierLabel}
         </Text>
       </View>
     );
@@ -478,6 +483,7 @@ export interface OrderActionButtonsProps {
   isSeller: boolean;
   isInterCampus?: boolean;
   hasTrackingCode?: boolean;
+  shippingPartner?: string;
   isReviewed: boolean;
   isSubmitting: boolean;
   cancelledBy?: string | null;
@@ -502,6 +508,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   isSeller,
   isInterCampus,
   hasTrackingCode,
+  shippingPartner,
   isReviewed,
   isSubmitting,
   cancelledBy,
@@ -525,9 +532,19 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
   const isDelivered = status === 'delivered';
   const isCompleted = status === 'completed';
   const isEscrow = status === 'escrow_holding' || status === 'escrow_paid';
+  const isShipping = status === 'shipping' || status === 'handover_confirmed';
 
   const canDispute = !isSeller && !isCancelled && !isDisputed && (isDelivered || isCompleted);
-  const canCancel = !isCancelled && !isDisputed && (isEscrow || isPending) && !(isSeller && isPending);
+  // Tuyệt đối không cho phép Hủy giao dịch một khi hàng đã được giao cho bưu tá / xe buýt (isShipping / hasTrackingCode) hoặc đã tới nơi (isDelivered / isCompleted)
+  const canCancel =
+    !isCancelled &&
+    !isDisputed &&
+    !isDelivered &&
+    !isCompleted &&
+    !isShipping &&
+    !hasTrackingCode &&
+    (isEscrow || isPending) &&
+    !(isSeller && isPending);
 
   const cancelLabel = isSeller && isPending
     ? 'Từ chối đơn hàng'
@@ -558,6 +575,7 @@ export const OrderActionButtons: React.FC<OrderActionButtonsProps> = React.memo(
         isSeller={isSeller}
         isInterCampus={isInterCampus}
         hasTrackingCode={hasTrackingCode}
+        shippingPartner={shippingPartner}
         isReviewed={isReviewed}
         isSubmitting={isSubmitting}
         isDisputed={isDisputed}

@@ -364,7 +364,7 @@ export const orderMobileService = {
         receiverPhone: payload.shipping?.receiverPhone || '0901234567',
         shippingAddress: payload.shipping?.shippingAddress || payload.safePoint || 'Trạm Safe-Point Sảnh KTX Dom A',
         destinationCampus: toBackendCampus(payload.shipping?.destinationCampus),
-        shippingPartner: payload.shipping?.shippingPartner || 'GHTK',
+        shippingPartner: payload.shipping?.shippingPartner || 'GHN Express',
       };
     }
 
@@ -488,7 +488,7 @@ export const orderMobileService = {
         return {
           fee: typeof raw.shippingFee === 'number' ? raw.shippingFee : (typeof raw.fee === 'number' ? raw.fee : 0),
           estimatedDelivery: raw.estimatedDays || raw.estimatedDelivery || '1 - 2 ngày',
-          shippingPartner: raw.transitHub || raw.shippingPartner || 'FPT Bus',
+          shippingPartner: raw.transitHub || raw.shippingPartner || 'GHN Express',
         };
       }
     } catch (e: any) {
@@ -497,7 +497,7 @@ export const orderMobileService = {
     return {
       fee: params.orderType === 'MEETUP' ? 0 : 30000,
       estimatedDelivery: params.orderType === 'MEETUP' ? 'Trong ngày' : '1 - 2 ngày',
-      shippingPartner: 'FPT Bus',
+      shippingPartner: params.orderType === 'MEETUP' ? 'Safe-Point FPT' : 'GHN Express',
     };
   },
 

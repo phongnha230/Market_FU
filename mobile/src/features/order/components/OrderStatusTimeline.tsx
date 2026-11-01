@@ -5,29 +5,44 @@ import { Ionicons } from '@expo/vector-icons';
 interface OrderStatusTimelineProps {
   orderStatus: string;
   isInterCampus?: boolean;
+  hasTrackingCode?: boolean;
 }
 
 export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.memo(({
   orderStatus,
   isInterCampus = false,
+  hasTrackingCode = false,
 }) => {
-  const isPending = orderStatus === 'pending' || orderStatus === 'PENDING_SAFEPOINT';
-  const isHolding = orderStatus === 'escrow_holding' || orderStatus === 'ESCROW_PAID';
-  const isShipping = orderStatus === 'shipping' || orderStatus === 'HANDOVER_CONFIRMED';
-  const isDelivered = orderStatus === 'delivered' || orderStatus === 'DELIVERED';
-  const isCompleted = orderStatus === 'completed' || orderStatus === 'COMPLETED';
-  const isCancelled = orderStatus === 'cancelled' || orderStatus === 'CANCELLED';
-  const isDisputed = orderStatus === 'disputed' || orderStatus === 'DISPUTED';
+  const normStatus = String(orderStatus || '').toLowerCase();
+  const isPending = normStatus === 'pending' || normStatus === 'pending_safepoint';
+  const isHolding = normStatus === 'escrow_holding' || normStatus === 'escrow_paid';
+  const isShipping = normStatus === 'shipping' || normStatus === 'handover_confirmed';
+  const isDelivered = normStatus === 'delivered';
+  const isCompleted = normStatus === 'completed';
+  const isCancelled = normStatus === 'cancelled';
+  const isDisputed = normStatus === 'disputed';
+
+  const isInTransit = isInterCampus
+    ? ((isShipping && Boolean(hasTrackingCode)) || isDelivered || isCompleted)
+    : (isShipping || isDelivered || isCompleted);
+  const isPackaging = isInterCampus
+    ? (isPending || isHolding || (isShipping && !hasTrackingCode))
+    : (isPending || isHolding);
 
   const getStatusText = () => {
     if (isCancelled) return '❌ Đã hủy đơn hàng';
     if (isDisputed) return isInterCampus ? '⚠️ Khiếu nại vận chuyển' : '⚠️ Đang giải quyết khiếu nại';
     if (isCompleted) return isInterCampus ? '✅ Giao thành công & Hoàn tất' : '✅ Đã hoàn tất & Giải ngân';
-    if (isDelivered) return isInterCampus ? '🛵 Đã tới KTX (48h bao test)' : '🛡️ Đã bàn giao';
-    if (isShipping) return isInterCampus ? '🚚 Đang vận chuyển liên Campus' : '🛡️ Chờ bàn giao Safe-Point';
-    if (isHolding) return isInterCampus ? '🚚 Đang vận chuyển liên Campus' : '🛡️ Chờ bàn giao Safe-Point';
-    if (isPending) return isInterCampus ? '📦 Chờ người bán gửi hàng' : '⏳ Chờ người bán xác nhận';
-    return isInterCampus ? '🚚 Đơn liên Campus' : '⏳ Chờ xác nhận';
+    if (isDelivered) return isInterCampus ? '🛵 Đã tới KTX (48h bao test)' : '🛡️ Đã bàn giao Safe-Point';
+    if (isInterCampus) {
+      if (isInTransit) return '🚚 Đang vận chuyển liên Campus';
+      if (isPending) return '⏳ Chờ người bán xác nhận';
+      return '📦 Người bán đang đóng gói';
+    }
+    if (isShipping) return '🛡️ Chờ bàn giao Safe-Point';
+    if (isHolding) return '🛡️ Đã thanh toán Escrow';
+    if (isPending) return '⏳ Chờ người bán xác nhận';
+    return '⏳ Chờ xác nhận';
   };
 
   return (
@@ -50,7 +65,8 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
             isCancelled && { color: '#64748B' },
             isCompleted && { color: '#059669' },
             isPending && { color: '#D97706' },
-            (isShipping || isHolding) && { color: isInterCampus ? '#2563EB' : '#059669' },
+            isHolding && { color: isInterCampus ? '#EA580C' : '#059669' },
+            isShipping && { color: isInterCampus ? '#2563EB' : '#059669' },
             isDelivered && { color: '#10B981' },
             isDisputed && { color: '#DC2626' },
           ]}
@@ -73,34 +89,34 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
         <View
           style={[
             styles.stepLine,
-            !isCancelled && (isPending || isShipping || isHolding || isDelivered || isCompleted) && styles.stepLineDone,
+            !isCancelled && (isPending || isHolding || isShipping || isDelivered || isCompleted) && styles.stepLineDone,
           ]}
         />
 
-        {/* Step 2: Gửi hàng (Liên campus) / Chốt hẹn (Safe-point) */}
+        {/* Step 2: Đóng gói (Liên campus) / Chốt hẹn (Safe-point) */}
         <View style={styles.stepCol}>
           <View
             style={[
               styles.stepDot,
-              isPending && styles.stepDotActive,
-              (isShipping || isHolding || isDelivered || isCompleted) && styles.stepDotDone,
-              (!isPending && !isShipping && !isHolding && !isDelivered && !isCompleted) && styles.stepDotPending,
+              isPackaging && styles.stepDotActive,
+              isInTransit && styles.stepDotDone,
+              (!isPackaging && !isInTransit) && styles.stepDotPending,
             ]}
           >
-            {isShipping || isHolding || isDelivered || isCompleted ? (
+            {isInTransit ? (
               <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-            ) : isPending ? (
-              <Ionicons name="time" size={12} color="#FFFFFF" />
+            ) : isPackaging ? (
+              <Ionicons name={isInterCampus ? 'cube-outline' : 'time'} size={12} color="#FFFFFF" />
             ) : (
               <Ionicons name="checkmark" size={12} color="#94A3B8" />
             )}
           </View>
-          <Text style={styles.stepLabel}>{isInterCampus ? 'Gửi hàng' : 'Chốt hẹn'}</Text>
+          <Text style={styles.stepLabel}>{isInterCampus ? 'Đóng gói' : 'Chốt hẹn'}</Text>
         </View>
         <View
           style={[
             styles.stepLine,
-            !isCancelled && (isShipping || isHolding || isDelivered || isCompleted) && styles.stepLineDone,
+            !isCancelled && isInTransit && styles.stepLineDone,
           ]}
         />
 
@@ -109,17 +125,17 @@ export const OrderStatusTimeline: React.FC<OrderStatusTimelineProps> = React.mem
           <View
             style={[
               styles.stepDot,
-              (isShipping || isHolding) && styles.stepDotActive,
+              (isInterCampus ? (isShipping && Boolean(hasTrackingCode)) : isShipping) && styles.stepDotActive,
               (isDelivered || isCompleted) && styles.stepDotDone,
-              (!isShipping && !isHolding && !isDelivered && !isCompleted) && styles.stepDotPending,
+              (!isInTransit || (isInterCampus && !hasTrackingCode)) && styles.stepDotPending,
             ]}
           >
             {isDelivered || isCompleted ? (
               <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-            ) : isShipping || isHolding ? (
-              <Ionicons name={isInterCampus ? 'bus' : 'location'} size={12} color="#FFFFFF" />
+            ) : (isInterCampus ? (isShipping && Boolean(hasTrackingCode)) : isShipping) ? (
+              <Ionicons name={isInterCampus ? 'cube' : 'location'} size={12} color="#FFFFFF" />
             ) : (
-              <Ionicons name={isInterCampus ? 'bus-outline' : 'location-outline'} size={12} color="#94A3B8" />
+              <Ionicons name={isInterCampus ? 'cube-outline' : 'location-outline'} size={12} color="#94A3B8" />
             )}
           </View>
           <Text style={styles.stepLabel}>{isInterCampus ? 'Vận chuyển' : 'Safe-Point'}</Text>
@@ -161,9 +177,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    marginTop: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   timelineHeader: {
     flexDirection: 'row',
@@ -175,17 +196,15 @@ const styles = StyleSheet.create({
   escrowTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    gap: 4,
     flexShrink: 0,
   },
   interCampusTag: {
     backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
   },
   escrowTagText: {
     fontSize: 11,
@@ -196,7 +215,7 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
   statusName: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#EA580C',
     flexShrink: 1,
@@ -206,17 +225,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
   stepCol: {
     alignItems: 'center',
     width: 60,
   },
   stepDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
   stepDotDone: {
     backgroundColor: '#059669',
@@ -225,21 +246,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#EA580C',
   },
   stepDotPending: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
   },
   stepLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 10.5,
     color: '#475569',
-    marginTop: 4,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   stepLine: {
     flex: 1,
     height: 2,
     backgroundColor: '#E2E8F0',
-    top: -10,
+    marginBottom: 20,
   },
   stepLineDone: {
     backgroundColor: '#059669',
   },
 });
+
+export default OrderStatusTimeline;
