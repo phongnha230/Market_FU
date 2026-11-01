@@ -7,6 +7,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -251,7 +253,16 @@ export const ReviewScreen: React.FC = () => {
         <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top > 0 ? insets.top + 20 : 64) : 0}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollBody, { paddingBottom: Math.max(insets.bottom, 24) + 40 }]}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Compact Product & Rating Card */}
         <View style={styles.combinedCard}>
           <View style={styles.productMiniRow}>
@@ -398,7 +409,8 @@ export const ReviewScreen: React.FC = () => {
               : 'Hoàn tất đánh giá'}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

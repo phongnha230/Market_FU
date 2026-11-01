@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,17 +57,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       {/* 2 dải viền sóng lượn (Top & Bottom Curves) theo bản vẽ tay */}
       <AuthWaveBackground />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: Math.max(insets.top, 16) + 8,
-            paddingBottom: Math.max(insets.bottom, 20) + 24,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top, 16) + 8,
+              paddingBottom: Math.max(insets.bottom, 20) + 24,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <AuthTopBar onGoBack={ctrl.handleGoBack} onGoHome={ctrl.handleGoHome} />
 
         <AuthHeader
@@ -122,6 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         <LoginFooter />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <OtpVerificationModal
         visible={ctrl.showOtpModal}

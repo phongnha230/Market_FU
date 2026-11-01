@@ -10,6 +10,8 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,41 +93,46 @@ export const WithdrawDisputeModal: React.FC<WithdrawDisputeModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.modalContent,
-            { paddingBottom: Math.max(insets.bottom, 20) },
-          ]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleWrap}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="refresh-circle" size={22} color="#059669" />
-              </View>
-              <View>
-                <Text style={styles.headerTitle}>Rút Đơn Khiếu Nại</Text>
-                <Text style={styles.headerSubtitle}>
-                  {orderCode ? `Đơn #${orderCode}` : `Mã đơn #${orderId}`}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={22} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollBody}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { paddingBottom: Math.max(insets.bottom, 20) },
+            ]}
+            onPress={(e) => e.stopPropagation()}
           >
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerTitleWrap}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="refresh-circle" size={22} color="#059669" />
+                </View>
+                <View>
+                  <Text style={styles.headerTitle}>Rút Đơn Khiếu Nại</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {orderCode ? `Đơn #${orderCode}` : `Mã đơn #${orderId}`}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollBody}
+            >
             {/* Notice */}
             <View style={styles.noticeCard}>
               <Ionicons name="information-circle" size={17} color="#0284C7" />
@@ -215,6 +222,7 @@ export const WithdrawDisputeModal: React.FC<WithdrawDisputeModalProps> = ({
           </ScrollView>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

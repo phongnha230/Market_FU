@@ -76,10 +76,12 @@ export const EditListingScreen: React.FC = () => {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top > 0 ? insets.top : 20) : 0}
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.scrollBody, { paddingBottom: insets.bottom + 80 }]}
         >
           {isRejected && (

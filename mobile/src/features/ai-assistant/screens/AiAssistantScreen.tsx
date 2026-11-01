@@ -7,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -237,6 +238,29 @@ export const AiAssistantScreen: React.FC = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Theo dõi bàn phím để tự động cuộn và nâng khung chat giống màn hình tin nhắn
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 80);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 1. Đọc số câu hỏi guest từ AsyncStorage
   useEffect(() => {
@@ -718,7 +742,8 @@ export const AiAssistantScreen: React.FC = () => {
 
       <KeyboardAvoidingView
         style={styles.chatArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top > 0 ? insets.top + 20 : 64) : 0}
       >
         <FlatList
           ref={flatListRef}
@@ -728,6 +753,7 @@ export const AiAssistantScreen: React.FC = () => {
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.chatScrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
 
@@ -742,7 +768,8 @@ export const AiAssistantScreen: React.FC = () => {
               'Đang lắng nghe... Hãy nói tên món đồ bạn muốn tìm.'
             )
           }
-          insetsBottom={insets.bottom}
+          insetsBottom={isKeyboardVisible ? 6 : insets.bottom}
+          isKeyboardVisible={isKeyboardVisible}
         />
       </KeyboardAvoidingView>
 

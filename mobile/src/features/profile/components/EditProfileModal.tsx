@@ -96,12 +96,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.modalSheet}>
           <EditProfileHeader onClose={onClose} />
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollBody}
+          >
             <EditProfileAvatarSection
               avatar={form.avatar}
               name={form.name}

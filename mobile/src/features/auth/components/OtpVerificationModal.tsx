@@ -160,7 +160,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     >
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.card}>
           {/* Header Bar */}

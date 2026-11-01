@@ -9,6 +9,7 @@ interface AiAssistantInputBarProps {
   onScanVision: () => void;
   onVoiceInput: () => void;
   insetsBottom: number;
+  isKeyboardVisible?: boolean;
 }
 
 export const AiAssistantInputBar: React.FC<AiAssistantInputBarProps> = ({
@@ -18,9 +19,10 @@ export const AiAssistantInputBar: React.FC<AiAssistantInputBarProps> = ({
   onScanVision,
   onVoiceInput,
   insetsBottom,
+  isKeyboardVisible = false,
 }) => {
   return (
-    <View style={[styles.inputBarWrapper, { paddingBottom: Math.max(insetsBottom, 12) + 60 }]}>
+    <View style={[styles.inputBarWrapper, { paddingBottom: isKeyboardVisible ? 8 : Math.max(insetsBottom, 12) }]}>
       <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.75} onPress={onScanVision}>
         <Ionicons name="camera-outline" size={21} color="#64748B" />
       </TouchableOpacity>

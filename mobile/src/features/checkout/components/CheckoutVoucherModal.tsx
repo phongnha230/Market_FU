@@ -9,6 +9,8 @@ import {
   FlatList,
   ActivityIndicator,
   ListRenderItemInfo,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserVoucher } from '../../../stores/voucherStore';
@@ -154,7 +156,10 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={[styles.modalSheet, { paddingBottom: Math.max(insetsBottom, 16) }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Voucher & Mã giảm giá</Text>
@@ -206,6 +211,7 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
             <FlatList
               style={styles.voucherList}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               data={myVouchers
                 .filter((v) => v.status === 'UNUSED')
                 .sort((a, b) => {
@@ -230,7 +236,7 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

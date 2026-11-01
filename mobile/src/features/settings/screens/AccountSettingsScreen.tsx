@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -100,7 +102,15 @@ export const AccountSettingsScreen: React.FC = () => {
         <HeaderNavButton icon="home-outline" size={22} onPress={handleGoHome} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollBody}
+        >
         {/* Verification Status Banner */}
         <AccountVerificationBanner user={user} isVerified={Boolean(isVerified)} />
 
@@ -140,6 +150,7 @@ export const AccountSettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

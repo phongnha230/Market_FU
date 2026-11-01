@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -107,7 +108,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
         <View style={styles.backdrop}>
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.modalContent}
             >
               {/* Header */}
@@ -121,7 +122,12 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.title}>Đề xuất giá với người bán</Text>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                <Text style={styles.title}>Đề xuất giá với người bán</Text>
               <Text style={styles.subTitle} numberOfLines={1}>
                 {productTitle} • Người bán: {sellerName}
               </Text>
@@ -254,6 +260,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
                   {hasError ? 'Mức giá không hợp lệ (Quá 50%)' : `Gửi đề xuất ${formatPrice(offerPrice)} qua Chat`}
                 </Text>
               </TouchableOpacity>
+              </ScrollView>
             </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
         </View>
@@ -275,6 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
+    maxHeight: '90%',
   },
   header: {
     flexDirection: 'row',

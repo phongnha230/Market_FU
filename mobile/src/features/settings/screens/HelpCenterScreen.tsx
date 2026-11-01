@@ -102,7 +102,11 @@ export const HelpCenterScreen: React.FC = () => {
         <HeaderNavBtn icon="home-outline" size={22} onPress={handleGoHome} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollBody}
+      >
         {/* Support Banner */}
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>Chúng mình có thể giúp gì cho bạn?</Text>

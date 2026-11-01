@@ -126,7 +126,7 @@ export const OrderShipModal: React.FC<OrderShipModalProps> = ({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.card}>
           {/* Header */}
@@ -149,7 +149,11 @@ export const OrderShipModal: React.FC<OrderShipModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.body}
+          >
             {/* Error banner */}
             {!!errorMsg && (
               <View style={styles.errorBox}>

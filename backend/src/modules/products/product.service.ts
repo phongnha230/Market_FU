@@ -8,6 +8,7 @@ import { trendingService } from '../analytics/trending.service';
 import { validateProductContent } from '../../utils/profanityFilter';
 import { notificationService } from '../notifications/notification.service';
 import { broadcastEvent } from '../../utils/socket';
+import { sendPostCreatedEmail } from '../../config/mail';
 
 /**
  * Cấu hình select thông tin người bán an toàn cho các API công khai (B1-1: Bảo vệ PII)
@@ -232,6 +233,40 @@ export class ProductService {
       try {
         broadcastEvent('product:created', sanitizeProductSeller(product));
       } catch {}
+    }
+
+    // Bắn thông báo và gửi email xác nhận đăng tin cho người bán
+    try {
+      const sellerUser = await prisma.user.findUnique({
+        where: { id: sellerId },
+        select: { email: true, profile: { select: { fullName: true } } },
+      });
+      const sellerEmail = sellerUser?.email;
+      const sellerName = sellerUser?.profile?.fullName || 'Sinh viên FU';
+
+      if (sellerEmail) {
+        sendPostCreatedEmail(
+          sellerEmail,
+          product.title,
+          product.price,
+          sellerName,
+          product.status,
+          product.id
+        ).catch((err) => console.warn('⚠️ [Product Email Warning]:', err.message));
+      }
+
+      await notificationService.sendNotification({
+        userId: sellerId,
+        title: product.status === 'AVAILABLE' ? 'Tin đăng đã được duyệt! 🎉' : 'Tin đăng đang chờ duyệt ⏳',
+        body: product.status === 'AVAILABLE'
+          ? `Món đồ "${product.title}" của bạn đã được xuất bản công khai trên sàn MarketFU!`
+          : `Món đồ "${product.title}" của bạn đã được tiếp nhận và đang chờ BQT phê duyệt.`,
+        type: 'SYSTEM',
+        targetUrl: `/posts/${product.id}`,
+        skipEmail: true,
+      });
+    } catch (e: any) {
+      console.warn('⚠️ [Product Notification Warning]:', e.message);
     }
 
     return sanitizeProductSeller(product);

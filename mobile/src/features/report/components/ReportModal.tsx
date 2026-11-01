@@ -58,7 +58,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalOverlay}
       >
         <View style={styles.sheetContainer}>
@@ -84,7 +84,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Reason selector */}
             <ReportReasonSelector
               reasons={reasons}

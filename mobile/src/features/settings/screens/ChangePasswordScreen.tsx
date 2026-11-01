@@ -115,7 +115,7 @@ export const ChangePasswordScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -132,6 +132,7 @@ export const ChangePasswordScreen: React.FC = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollBody,
           { paddingBottom: Math.max(insets.bottom, 20) + 20 },

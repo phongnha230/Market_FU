@@ -304,7 +304,7 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.modalSheet}>
           <KycHeaderTabs
@@ -315,7 +315,11 @@ export const KycRegistrationModal: React.FC<KycRegistrationModalProps> = ({
             isSellerVerified={isSellerApproved}
           />
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollBody}
+          >
             {status === 'PENDING' && <KycPendingNotice />}
 
             {activeTab === 'STUDENT' ? (

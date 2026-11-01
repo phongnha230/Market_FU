@@ -314,7 +314,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
         onRequestClose={() => setAppealItem(null)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
           <View style={styles.modalCard}>
@@ -329,7 +329,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
             </View>
 
             {appealItem && (
-              <View style={styles.modalBody}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={styles.modalBody}>
                 <Text style={styles.modalItemTitle} numberOfLines={1}>
                   {appealItem.title}
                 </Text>
@@ -379,7 +379,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
                     )}
                   </TouchableOpacity>
                 </View>
-              </View>
+              </ScrollView>
             )}
           </View>
         </KeyboardAvoidingView>
@@ -425,6 +425,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '90%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,

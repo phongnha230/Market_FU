@@ -133,7 +133,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.modalSheet}>
           {/* Header Bar */}
@@ -155,6 +155,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
 
           <ScrollView
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollBody}
           >
             {/* Balance Card */}

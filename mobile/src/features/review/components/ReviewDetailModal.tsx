@@ -10,6 +10,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +50,16 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
   const [selectedFullImage, setSelectedFullImage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  // Tự động cuộn xuống khung phản hồi khi người bán bấm nút Phản hồi
+  useEffect(() => {
+    if (isReplying) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 150);
+    }
+  }, [isReplying]);
   const replyOrderReview = useOrderStore((s) => s.replyOrderReview);
 
   const [fetchedReview, setFetchedReview] = useState<OrderReviewData | null>(null);
@@ -171,6 +183,11 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
           )}
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        >
         {isLoadingReview && !hasReview ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
             <ActivityIndicator size="large" color="#EA580C" />
@@ -179,7 +196,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
             </Text>
           </View>
         ) : !hasReview || !review ? (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
             {/* Thẻ tóm tắt sản phẩm & Đối tác */}
             <View style={styles.productCard}>
               <Image
@@ -238,7 +255,12 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
             </View>
           </ScrollView>
         ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+        <ScrollView
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollBody, { paddingBottom: 60 }]}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* 1. Trạng thái Đánh giá công khai Banner */}
           <View style={[styles.statusBanner, styles.statusBannerPublic]}>
             <View style={styles.statusHeaderRow}>
@@ -498,6 +520,7 @@ export const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
           )}
         </ScrollView>
         )}
+        </KeyboardAvoidingView>
 
         {/* Modal xem ảnh full screen */}
         {selectedFullImage && (

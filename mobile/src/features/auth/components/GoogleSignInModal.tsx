@@ -110,7 +110,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.googleIconBadge}>

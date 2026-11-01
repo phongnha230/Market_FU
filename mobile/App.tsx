@@ -1,5 +1,5 @@
 import './global.css';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LogBox, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { NotificationConsentModal } from './src/components/common/NotificationCo
 import { GlobalAlertModal } from './src/components/common/GlobalAlertModal';
 import { BiometricLockGuard } from './src/components/common/BiometricLockGuard';
 import { installCustomAlert } from './src/services/customAlertService';
+import { setupNotificationListeners, registerForPushNotificationsAsync } from './src/services/notificationMobileService';
 
 // Cài đặt custom alert giao diện đẹp thay thế toàn bộ Alert.alert native
 installCustomAlert();
@@ -58,6 +59,14 @@ class AppErrorBoundary extends React.Component<
 }
 
 export default function App() {
+  useEffect(() => {
+    const cleanup = setupNotificationListeners();
+    registerForPushNotificationsAsync().catch(() => {});
+    return () => {
+      cleanup?.();
+    };
+  }, []);
+
   return (
     <AppErrorBoundary>
       <SafeAreaProvider>

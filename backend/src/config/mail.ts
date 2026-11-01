@@ -17,6 +17,9 @@ const createMailTransporter = () => {
 
   return nodemailer.createTransport({
     service: 'gmail',
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
     auth: {
       user: ENV.EMAIL_USER,
       pass: ENV.EMAIL_APP_PASSWORD,
@@ -241,6 +244,76 @@ export const sendOrderCompletedReceiptEmail = async (
     return await mailTransporter.sendMail(mailOptions);
   } catch (error) {
     console.warn(`⚠️ [MAIL WARNING] Không thể gửi biên lai tới ${toEmail}:`, (error as Error).message);
+    return null;
+  }
+};
+
+
+/**
+ * Gửi email xác nhận khi người bán đăng tin mới thành công
+ */
+export const sendPostCreatedEmail = async (
+  toEmail: string,
+  productTitle: string,
+  price: number,
+  fullName = 'Sinh viên FU',
+  status: 'AVAILABLE' | 'PENDING_APPROVAL' | string = 'PENDING_APPROVAL',
+  productId?: string
+) => {
+  const isApproved = status === 'AVAILABLE';
+  const postUrl = productId
+    ? `${ENV.CLIENT_URL.replace(/\/$/, '')}/products/${productId}`
+    : `${ENV.CLIENT_URL.replace(/\/$/, '')}/products`;
+
+  const statusBox = isApproved
+    ? `
+      <div style="background-color: #e8f5e9; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #c8e6c9;">
+        <p style="margin: 0; color: #2e7d32; font-weight: bold;">🎉 Tin đăng đã hiển thị công khai!</p>
+        <p style="margin: 5px 0 0 0; color: #1b5e20; font-size: 13px;">Món đồ của bạn đã được duyệt và đang hiển thị trên chợ để các sinh viên khác tìm mua.</p>
+      </div>
+    `
+    : `
+      <div style="background-color: #fff8e1; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #ffe082;">
+        <p style="margin: 0; color: #f57f17; font-weight: bold;">⏳ Tin đăng đang chờ Ban Quản Trị phê duyệt</p>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">Hệ thống sẽ gửi email và thông báo cho bạn ngay khi tin đăng được kiểm duyệt (thường trong vòng 1-2 giờ làm việc).</p>
+      </div>
+    `;
+
+  const mailOptions = {
+    from: ENV.EMAIL_FROM || `"Campus Marketplace FU" <${ENV.EMAIL_USER || 'no-reply@marketfu.com'}>`,
+    to: toEmail,
+    subject: isApproved
+      ? `[MarketFU] 🎉 Tin đăng "${productTitle}" đã được đăng thành công`
+      : `[MarketFU] ⏳ Tin đăng "${productTitle}" đang được kiểm duyệt`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #F27024; text-align: center;">SÀN ĐỒ CŨ SINH VIÊN FU (MARKETFU)</h2>
+        <p>Xin chào <strong>${fullName}</strong>,</p>
+        <p>Cảm ơn bạn đã đăng tin trao đổi đồ tại MarketFU. Chi tiết tin đăng:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Món đồ:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${productTitle}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Giá niêm yết:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #F27024;">${price.toLocaleString()} VNĐ</td>
+          </tr>
+        </table>
+        ${statusBox}
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${postUrl}" style="background-color: #F27024; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Xem Tin Đăng</a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px; text-align: center;">Email này được gửi tự động từ hệ thống Campus Marketplace FPT University.</p>
+      </div>
+    `,
+  };
+
+  try {
+    return await mailTransporter.sendMail(mailOptions);
+  } catch (error) {
+    console.warn(`⚠️ [MAIL WARNING] Không thể gửi email xác nhận đăng tin tới ${toEmail}:`, (error as Error).message);
     return null;
   }
 };

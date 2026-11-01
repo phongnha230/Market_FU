@@ -18,8 +18,9 @@ export interface CreateNotificationParams {
   // Hỗ trợ FCM Multicast: gửi đến 1 hoặc nhiều thiết bị cùng lúc
   fcmTokens?: string[];
   // Hỗ trợ gửi Email HTML song song (Nodemailer)
+  skipEmail?: boolean;
   email?: {
-    to: string;
+    to?: string;
     subject?: string;
     html?: string;
   };
@@ -242,7 +243,23 @@ export class NotificationService {
     }
 
     // ─── Kênh D: Gửi Email HTML qua Nodemailer với 1-time Retry (Backoff) ───
-    if (email && email.to) {
+    if (params.skipEmail || type === 'CHAT') return;
+    let recipientEmail = email?.to;
+    if (!recipientEmail && userId) {
+      try {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+        if (targetUser?.email && targetUser.email.includes('@')) {
+          recipientEmail = targetUser.email;
+        }
+      } catch (lookupErr: any) {
+        console.warn('⚠️ [Notification Email Lookup Warning]:', lookupErr.message);
+      }
+    }
+
+    if (recipientEmail) {
       const sendEmailAttempt = async () => {
         const escapeHtml = (text: string) =>
           text.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m] || m));
@@ -258,10 +275,10 @@ export class NotificationService {
 
         await mailTransporter.sendMail({
           from: ENV.EMAIL_FROM || `"Campus Marketplace FU" <${ENV.EMAIL_USER || 'no-reply@marketfu.com'}>`,
-          to: email.to,
-          subject: email.subject || `[MarketFU] ${safeTitle}`,
+          to: recipientEmail,
+          subject: email?.subject || `[MarketFU] ${safeTitle}`,
           html:
-            email.html ||
+            email?.html ||
             `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
               <h2 style="color: #F27024; text-align: center;">SÀN ĐỒ CŨ SINH VIÊN FU (MARKETFU)</h2>
