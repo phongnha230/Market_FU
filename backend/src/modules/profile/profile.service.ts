@@ -43,6 +43,56 @@ export class ProfileService {
       throw new AppError('Không tìm thấy thông tin hồ sơ người dùng', 404, 'PROFILE_NOT_FOUND');
     }
 
+    // Tối ưu BFF (Backend For Frontend): Tính toán thống kê badge đơn hàng nhanh qua DB index
+    const userRole = profile.user.role;
+    const isSeller = userRole === 'SELLER';
+    const orderFilter = isSeller
+      ? { OR: [{ sellerId: userId }, { buyerId: userId }] }
+      : { buyerId: userId };
+
+    const [pendingCount, handoffCount, shippingCount, completedOrders, disputedCount] = await Promise.all([
+      prisma.order.count({
+        where: {
+          ...orderFilter,
+          status: 'PENDING',
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...orderFilter,
+          status: 'PAID',
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...orderFilter,
+          status: { in: ['SHIPPING', 'DELIVERED'] },
+        },
+      }),
+      prisma.order.findMany({
+        where: {
+          ...orderFilter,
+          status: 'COMPLETED',
+        },
+        select: {
+          id: true,
+          reviews: {
+            where: { reviewerId: userId },
+            select: { id: true },
+          },
+        },
+        take: 50,
+      }),
+      prisma.order.count({
+        where: {
+          ...orderFilter,
+          status: 'DISPUTED',
+        },
+      }),
+    ]);
+
+    const unreviewedCount = completedOrders.filter((o) => !o.reviews || o.reviews.length === 0).length;
+
     return {
       id: profile.userId,
       profileId: profile.id,
@@ -63,6 +113,13 @@ export class ProfileService {
       isActive: profile.user.isActive,
       kyc: profile.kyc,
       bankAccount: profile.bankAccount,
+      orderSummary: {
+        pending: pendingCount,
+        handoff: handoffCount,
+        shipping: shippingCount,
+        unreviewed: unreviewedCount,
+        disputed: disputedCount,
+      },
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };

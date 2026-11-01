@@ -13,7 +13,6 @@ import { EditProfileModal } from '../components/EditProfileModal';
 import { DepositCoinModal } from '../components/DepositCoinModal';
 import { MyReportsModal } from '../../report/components/MyReportsModal';
 import { TrustScoreModal } from '../components/TrustScoreModal';
-import { useKho } from '../../../context/KhoContext';
 import { useWalletStore } from '../../../stores/walletStore';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
@@ -32,7 +31,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     syncProfileFromBackend,
     handleLogout,
   } = useProfile();
-  const { inventoryStats, refreshKhoHang } = useKho();
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefreshAll = async () => {
@@ -44,7 +42,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       await Promise.race([
         Promise.allSettled([
           syncProfileFromBackend(),
-          refreshKhoHang(),
           useWalletStore.getState().fetchWalletBalances(),
         ]),
         timeoutPromise,
@@ -55,10 +52,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       setRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    useWalletStore.getState().fetchWalletBalances().catch(() => {});
-  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -256,43 +249,55 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </ScrollView>
 
       {/* TrustScore Reputation Detail Modal */}
-      <TrustScoreModal
-        visible={showTrustScoreModal}
-        onClose={() => setShowTrustScoreModal(false)}
-        user={user}
-      />
+      {showTrustScoreModal && (
+        <TrustScoreModal
+          visible={showTrustScoreModal}
+          onClose={() => setShowTrustScoreModal(false)}
+          user={user}
+        />
+      )}
 
       {/* Quick Edit Profile Modal */}
-      <EditProfileModal
-        visible={showEditModal}
-        onClose={() => setShowEditModal(false)}
-      />
+      {showEditModal && (
+        <EditProfileModal
+          visible={showEditModal}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
 
       {/* KYC Registration Modal (Student KYC & Seller KYC 2-in-1) */}
-      <KycRegistrationModal
-        visible={showKycModal}
-        initialRole={kycRole}
-        onClose={() => setShowKycModal(false)}
-      />
+      {showKycModal && (
+        <KycRegistrationModal
+          visible={showKycModal}
+          initialRole={kycRole}
+          onClose={() => setShowKycModal(false)}
+        />
+      )}
 
       {/* Seller Withdrawal Modal */}
-      <WithdrawalModal
-        visible={showWithdrawModal}
-        onClose={() => setShowWithdrawModal(false)}
-      />
+      {showWithdrawModal && (
+        <WithdrawalModal
+          visible={showWithdrawModal}
+          onClose={() => setShowWithdrawModal(false)}
+        />
+      )}
 
       {/* Deposit Coin / Wallet VietQR Modal */}
-      <DepositCoinModal
-        visible={showDepositModal}
-        onClose={() => setShowDepositModal(false)}
-        userId={user?.id || 'acc_me'}
-      />
+      {showDepositModal && (
+        <DepositCoinModal
+          visible={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+          userId={user?.id || 'acc_me'}
+        />
+      )}
 
       {/* My Reports History Modal */}
-      <MyReportsModal
-        visible={showMyReportsModal}
-        onClose={() => setShowMyReportsModal(false)}
-      />
+      {showMyReportsModal && (
+        <MyReportsModal
+          visible={showMyReportsModal}
+          onClose={() => setShowMyReportsModal(false)}
+        />
+      )}
     </View>
   );
 };

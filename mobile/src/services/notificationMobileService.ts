@@ -17,16 +17,16 @@ function getNotificationsModule(): any | null {
 
 const Notifications = getNotificationsModule();
 
-// Cấu hình thông báo Foreground: Tắt Heads-up mặc định của OS (tránh màu đen thùi lùi) để hiển thị In-App Banner trắng cao cấp
+// Cấu hình thông báo Foreground: Cho phép hiển thị Banner Native và chuông thông báo chuẩn xác
 if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: false, // Tắt banner native đen thui của hệ điều hành Android
-        shouldPlaySound: true,  // Vẫn phát chuông âm thanh êm dịu
+        shouldShowAlert: true,  // Hiển thị banner native của hệ điều hành
+        shouldPlaySound: true,  // Phát chuông âm thanh êm dịu
         shouldSetBadge: true,   // Cập nhật số badge trên icon
-        shouldShowBanner: false,
-        shouldShowList: true,   // Vẫn lưu trữ vào danh sách kéo xuống của Android
+        shouldShowBanner: true, // Cho phép hiển thị heads-up banner
+        shouldShowList: true,   // Lưu trữ vào danh sách kéo xuống của Android/iOS
       }),
     });
   } catch {}
@@ -47,14 +47,9 @@ export async function displayLocalPushNotification(params: {
   data?: any;
   channelId?: string;
 }) {
-  try {
-    if (!useNotificationStore.getState().pushPermissionGranted) {
-      return; // Người dùng chưa đồng ý nhận thông báo -> Không phát
-    }
-  } catch {}
-
   if (Notifications && typeof Notifications.scheduleNotificationAsync === 'function') {
     try {
+      const channelId = params.channelId || NOTIFICATION_CHANNELS.SYSTEM;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: params.title,
@@ -63,6 +58,7 @@ export async function displayLocalPushNotification(params: {
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority?.MAX ?? 'max',
           vibrate: [0, 250, 250, 250],
+          ...(Platform.OS === 'android' ? { channelId } : {}),
         },
         trigger: null,
       });
@@ -164,6 +160,10 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       return null;
     }
 
+    try {
+      useNotificationStore.getState().setPushPermissionGranted(true);
+    } catch {}
+
     let token: string | null = null;
 
     if (Notifications && typeof Notifications.getDevicePushTokenAsync === 'function') {
@@ -173,11 +173,24 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       } catch (e: any) {
         if (typeof Notifications.getExpoPushTokenAsync === 'function') {
           try {
-            const expoTokenData = await Notifications.getExpoPushTokenAsync();
+            const expoTokenData = await Notifications.getExpoPushTokenAsync({
+              projectId: '64579c58-c93c-4eed-bb47-db519499c10c',
+            });
             token = expoTokenData?.data || null;
-          } catch (err: any) {}
+          } catch (err: any) {
+            console.log('ℹ️ [Expo Push Token Error]:', err?.message);
+          }
         }
       }
+    }
+
+    if (!token && Notifications && typeof Notifications.getExpoPushTokenAsync === 'function') {
+      try {
+        const expoTokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '64579c58-c93c-4eed-bb47-db519499c10c',
+        });
+        token = expoTokenData?.data || null;
+      } catch (err: any) {}
     }
 
     if (token) {

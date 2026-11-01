@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, RefreshControl, FlatList, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import HomeHeader from '../../../components/common/HomeHeader';
@@ -33,10 +33,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { inventoryStats, refreshKhoHang } = useKho();
   const { fetchProducts } = useProductStore();
   const { refreshing: homeRefreshing, onRefresh: onHomeRefresh } = useSafeRefresh(async () => {
-    await Promise.allSettled([
-      fetchProducts(campuses[selectedCampus] || 'ALL'),
-      refreshKhoHang(),
-    ]);
+    await fetchProducts(campuses[selectedCampus] || 'ALL');
   }, 2000);
   const unreadNotificationCount = useNotificationStore((state) =>
     state.notifications.filter((n) => n.unread).length
@@ -279,42 +276,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Danh sách tin mới tại campus đang chọn
   const campusProducts = useMemo(() => {
-    return availableProducts.slice(0, 8);
+    return availableProducts.slice(0, 16);
   }, [availableProducts]);
 
-  return (
-    <View style={styles.screen}>
-      {/* Top Header kèm Dropdown 5 Campus và Search Icon */}
-      <HomeHeader
-        userName={isAuthenticated && user?.name ? user.name : 'Bạn'}
-        campusName={currentCampusName}
-        selectedCampusIndex={selectedCampus}
-        avatarUrl={isAuthenticated ? user?.avatar || user?.avatarUrl : undefined}
-        isAuthenticated={isAuthenticated}
-        isSeller={isSeller}
-        unreadNotificationCount={unreadNotificationCount}
-        khoCount={isSeller ? khoAttentionCount : 0}
-        onSearchPress={handleOpenSearch}
-        onNotificationPress={handleOpenNotification}
-        onKhoPress={handleOpenKho}
-        onAvatarPress={handleAvatarPress}
-        onCampusChangePress={handleNextCampus}
-        onCampusSelect={(idx) => setSelectedCampus(idx)}
+  const renderProductItem = useCallback(
+    ({ item }: { item: any }) => (
+      <ProductCard
+        key={`campus-${item.id}`}
+        {...item}
+        onPress={handleProductPress}
       />
+    ),
+    [handleProductPress]
+  );
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={homeRefreshing}
-            onRefresh={onHomeRefresh}
-            colors={['#EA580C']}
-            tintColor="#EA580C"
-          />
-        }
-      >
+  const renderListHeader = useMemo(
+    () => (
+      <View>
         {/* Thanh chọn nhanh Campus */}
         <CampusSelector campuses={campuses} selectedIndex={selectedCampus} onSelect={setSelectedCampus} />
 
@@ -426,21 +404,80 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.emptyFeedButtonText}>Khám phá toàn quốc (TẤT CẢ)</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.productGrid}>
-            {campusProducts.map((item) => (
-              <ProductCard
-                key={`campus-${item.id}`}
-                {...item}
-                onPress={handleProductPress}
-              />
-            ))}
-          </View>
-        )}
+        ) : null}
+      </View>
+    ),
+    [
+      campuses,
+      selectedCampus,
+      quickShortcuts,
+      categories,
+      trendingProducts,
+      currentCampusName,
+      isLoading,
+      campusProducts.length,
+      isAuthenticated,
+      handleCategoryPress,
+      handleProductPress,
+      navigation,
+      setSelectedCampus,
+    ]
+  );
 
+  const renderListFooter = useMemo(
+    () => (
+      <View>
         <SafePointWidget onMapPress={() => navigation.navigate('SafePointHubs')} />
         <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </View>
+    ),
+    [navigation]
+  );
+
+  return (
+    <View style={styles.screen}>
+      {/* Top Header kèm Dropdown 5 Campus và Search Icon */}
+      <HomeHeader
+        userName={isAuthenticated && user?.name ? user.name : 'Bạn'}
+        campusName={currentCampusName}
+        selectedCampusIndex={selectedCampus}
+        avatarUrl={isAuthenticated ? user?.avatar || user?.avatarUrl : undefined}
+        isAuthenticated={isAuthenticated}
+        isSeller={isSeller}
+        unreadNotificationCount={unreadNotificationCount}
+        khoCount={isSeller ? khoAttentionCount : 0}
+        onSearchPress={handleOpenSearch}
+        onNotificationPress={handleOpenNotification}
+        onKhoPress={handleOpenKho}
+        onAvatarPress={handleAvatarPress}
+        onCampusChangePress={handleNextCampus}
+        onCampusSelect={(idx) => setSelectedCampus(idx)}
+      />
+
+      <FlatList
+        data={isLoading && campusProducts.length === 0 ? [] : campusProducts}
+        numColumns={2}
+        keyExtractor={(item) => `campus-${item.id}`}
+        renderItem={renderProductItem}
+        columnWrapperStyle={styles.columnWrapper}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={renderListFooter}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+        refreshControl={
+          <RefreshControl
+            refreshing={homeRefreshing}
+            onRefresh={onHomeRefresh}
+            colors={['#EA580C']}
+            tintColor="#EA580C"
+          />
+        }
+      />
 
       {/* Modal Chặn truy cập cho Khách */}
       <RequireAuthModal
@@ -500,6 +537,10 @@ const styles = StyleSheet.create({
   horizontalCardWrapper: {
     width: 175,
     marginRight: 12,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
   productGrid: {
     flexDirection: 'row',

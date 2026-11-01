@@ -27,6 +27,13 @@ export interface UserProfile {
     accountNo: string;
     accountName: string;
   };
+  orderSummary?: {
+    pending: number;
+    handoff: number;
+    shipping: number;
+    unreviewed: number;
+    disputed: number;
+  };
 }
 
 export interface AccountRecord {

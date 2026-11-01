@@ -110,11 +110,9 @@ export const useKhoValue = (): KhoContextType => {
       return;
     }
 
-    fetchMySellerProducts().catch(() => {});
-    fetchOrders().catch(() => {});
-    useWalletStore.getState().fetchWalletBalances().catch(() => {});
-    useNotificationStore.getState().fetchNotifications().catch(() => {});
-    useChatStore.getState().fetchConversations().catch(() => {});
+    // Tối ưu hóa bộ nhớ: Triệt tiêu việc tải dồn dập 5-6 API cùng lúc khi vừa mở app.
+    // Các màn hình (Đơn hàng, Chat, Thông báo, Ví tiền) sẽ tự lazy-fetch theo nhu cầu (On-Demand)
+    // khi người dùng thực sự điều hướng tới màn hình đó.
 
     // Kiểm tra và hiển thị Form Xin đồng ý nhận thông báo nếu người dùng mới vào app lần đầu
     let consentTimer: any = null;

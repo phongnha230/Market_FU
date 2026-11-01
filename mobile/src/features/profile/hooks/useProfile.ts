@@ -18,17 +18,19 @@ export const useProfile = () => {
   const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
   const { currentCampus } = useCampusStore();
   const orders = useOrderStore((s) => s.orders);
-  const fetchOrders = useOrderStore((s) => s.fetchOrders);
   const unreadNotifsCount = useNotificationStore(
     (s) => s.notifications.filter((n) => n.unread).length
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const userId = user?.id;
+
   /**
    * Đồng bộ hồ sơ mới nhất từ Backend (bao gồm kết quả phê duyệt từ Admin)
+   * Sử dụng userId thay vì user object để tránh tạo vòng lặp re-render vô tận
    */
   const syncProfileFromBackend = useCallback(async () => {
-    if (!user || !user.id) return;
+    if (!userId) return;
     try {
       const latestProfile = await profileMobileService.getMyProfile();
       if (latestProfile) {
@@ -37,13 +39,11 @@ export const useProfile = () => {
           const { useWalletStore } = require('../../../stores/walletStore');
           useWalletStore.getState().addCoins(0);
         }
-        console.log('🔄 [Mobile Profile]: Đã đồng bộ trạng thái mới nhất từ Backend:', latestProfile.kycStatus, latestProfile.role, 'Coins:', latestProfile.coins);
       }
     } catch (err: any) {
       // Offline fallback: giữ nguyên trạng thái local store hiện có
-      console.log('ℹ️ [Mobile Profile]: Không thể tải profile từ backend (chế độ offline):', err?.message);
     }
-  }, [user, updateUserProfile]);
+  }, [userId, updateUserProfile]);
 
   /**
    * Kéo xuống để làm mới (Pull-to-refresh) với cơ chế timeout an toàn
@@ -54,10 +54,7 @@ export const useProfile = () => {
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2500));
     try {
       await Promise.race([
-        Promise.allSettled([
-          syncProfileFromBackend(),
-          fetchOrders(),
-        ]),
+        syncProfileFromBackend(),
         timeoutPromise,
       ]);
     } catch (err) {
@@ -65,7 +62,7 @@ export const useProfile = () => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, syncProfileFromBackend, fetchOrders]);
+  }, [isRefreshing, syncProfileFromBackend]);
 
   /**
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
@@ -74,7 +71,6 @@ export const useProfile = () => {
     if (!user || !user.id) return;
     // 1. Tự động đồng bộ 1 lần khi màn hình khởi tạo
     syncProfileFromBackend();
-    fetchOrders().catch(() => {});
 
     // 2. Đăng ký listener sự kiện Socket từ Admin Backend
     const unsubscribe = socketMobileService.onKycStatusUpdated(async (data) => {
@@ -114,13 +110,13 @@ export const useProfile = () => {
     return () => {
       unsubscribe();
     };
-  }, [syncProfileFromBackend, fetchOrders, updateUserProfile, user?.coins]);
+  }, [syncProfileFromBackend, updateUserProfile, user?.coins]);
 
   const isSeller = user?.role === 'SELLER';
-  const userId = user?.id || '';
 
   /**
    * Tính toán số lượng đơn hàng theo dữ liệu thực tế của user (không dùng mock data ảo)
+   * Ưu tiên sử dụng orderSummary từ Backend BFF
    * Riêng "Đã hoàn tất" chỉ hiện badge khi có đơn hoàn tất CHƯA ĐÁNH GIÁ (đánh giá xong thì badge biến mất)
    */
   const dynamicOrderStats = useMemo(() => {
@@ -133,7 +129,16 @@ export const useProfile = () => {
       ];
     }
 
-    // Nếu là Seller: tính đơn bán của mình hoặc đơn mua. Nếu là Buyer: chỉ tính đơn mua của mình.
+    if (user?.orderSummary) {
+      return [
+        { id: 'o1', label: isSeller ? 'Chờ duyệt' : 'Chờ xác nhận', count: user.orderSummary.pending || 0, icon: 'time-outline' },
+        { id: 'o2', label: 'Chờ Handoff', count: user.orderSummary.handoff || 0, icon: 'hand-left-outline' },
+        { id: 'o3', label: 'Đang giao', count: user.orderSummary.shipping || 0, icon: 'bicycle-outline' },
+        { id: 'o4', label: 'Chờ đánh giá', count: user.orderSummary.unreviewed || 0, icon: 'star-outline' },
+      ];
+    }
+
+    // Fallback: Nếu chưa có orderSummary thì đếm từ mảng orders
     const myOrders = orders.filter((o) =>
       isSeller ? (o.sellerId === userId || o.buyerId === userId) : (o.buyerId === userId)
     );
@@ -161,15 +166,17 @@ export const useProfile = () => {
       { id: 'o3', label: 'Đang giao', count: shippingCount, icon: 'bicycle-outline' },
       { id: 'o4', label: 'Chờ đánh giá', count: unreviewedCompletedCount, icon: 'star-outline' },
     ];
-  }, [orders, userId, isSeller]);
+  }, [orders, userId, isSeller, user?.orderSummary]);
 
   /**
    * Đồng bộ badge động cho danh sách Tùy chọn & Cài đặt trong Profile
    */
   const dynamicSettingItems = useMemo(() => {
-    const disputedCount = orders.filter(
-      (o) => (isSeller ? o.sellerId === userId : o.buyerId === userId) && o.status === 'DISPUTED'
-    ).length;
+    const disputedCount = user?.orderSummary
+      ? user.orderSummary.disputed || 0
+      : orders.filter(
+          (o) => (isSeller ? o.sellerId === userId : o.buyerId === userId) && o.status === 'DISPUTED'
+        ).length;
 
     return SETTING_ITEMS.map((item) => {
       // 1. Xác thực Thẻ SV & KYC

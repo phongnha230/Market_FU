@@ -110,13 +110,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
   // 2. Badge Kho hàng: Chỉ hiện khi có tin cần người bán chú ý (tin bị từ chối cần sửa hoặc tin chờ duyệt)
   const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      useChatStore.getState().fetchConversations().catch(() => {});
-      useFavoriteStore.getState().fetchFavorites().catch(() => {});
-    }
-  }, [isAuthenticated]);
-
   const handleTabPress = useCallback(
     (route: any, isFocused: boolean) => {
       // 1. Kiểm tra Guest Mode (Chưa đăng nhập)
@@ -289,7 +282,7 @@ export const BottomTabNavigator = () => {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
       backBehavior="history"
-      detachInactiveScreens={false}
+      detachInactiveScreens={true}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
 

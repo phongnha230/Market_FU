@@ -27,7 +27,8 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
 
   // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở
   useEffect(() => {
-    fetchProducts().catch(() => {});
+    const campusParam = toBackendCampus(currentCampus);
+    fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
   }, [fetchProducts, currentCampus]);
 
   // Lắng nghe Realtime Socket: Khi Web (hoặc thiết bị khác) đăng/cập nhật sản phẩm

@@ -103,6 +103,10 @@ export const useUserStore = create<UserState>()(
               });
               syncUserToStores(backendRes.user.id);
               get().loadRegisteredAccounts().catch(() => {});
+              try {
+                const { notificationMobileService } = require('../services/notificationMobileService');
+                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
+              } catch {}
               return {
                 success: true,
                 message: 'Đăng nhập thành công qua Backend API!',

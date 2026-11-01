@@ -195,6 +195,9 @@ export const useProductStore = create<ProductState>()(
     {
       name: 'fu_products_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        products: (state.products || []).slice(0, 30),
+      }),
     }
   )
 );

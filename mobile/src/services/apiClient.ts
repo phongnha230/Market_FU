@@ -62,7 +62,7 @@ export const getApiBaseUrl = (): string => {
 
 export const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 8000, // 8 giây timeout để kịp fallback offline nếu backend chưa bật
+  timeout: 6000, // 6 giây timeout để phản hồi nhanh chóng
   headers: {
     'Content-Type': 'application/json',
   },
@@ -88,7 +88,6 @@ const processQueue = (error: any) => {
 // 1. Request Interceptor: Tự động gán JWT Bearer token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    console.log('[API Request]', config.method?.toUpperCase(), `${config.baseURL || ''}${config.url || ''}`);
     try {
       const authStore = getAuthStore();
       const token = authStore?.getState()?.token;
@@ -101,7 +100,6 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.log('[API Request Error]', error);
     return Promise.reject(error);
   }
 );
@@ -109,7 +107,6 @@ apiClient.interceptors.request.use(
 // 2. Response Interceptor: Tự động xử lý Refresh Token khi gặp mã 401
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('[API Response Success]', response.config.url, response.status);
     return response;
   },
   async (error: AxiosError<{ success?: boolean; error?: ApiError }>) => {

@@ -91,6 +91,7 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
     avatarUrl,
     avatarBadge: role === 'SELLER' ? 'TOP_SELLER' : undefined,
     bankAccount,
+    orderSummary: user.orderSummary || profile.orderSummary,
   };
 };
 

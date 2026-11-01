@@ -19,7 +19,8 @@
 9. [Flow 8: Đánh giá Công Khai Tức Thì &amp; Điểm Uy Tín (Review &amp; Reputation Flow)](#flow-8-đánh-giá-công-khai-tức-thì--điểm-uy-tín)
 10. [Flow 9: Gamification, Ví Campus Coin &amp; Đổi Voucher (Coin, Rewards &amp; Vouchers)](#flow-9-gamification-ví-campus-coin--đổi-voucher)
 11. [Flow 10: Báo cáo Vi phạm &amp; Trạm An Toàn Safe-Handoff (Report &amp; Safe-Handoff Hubs)](#flow-10-báo-cáo-vi-phạm--trạm-an-toàn-safe-handoff)
-12. [Bảng Ma Trận Tổng Hợp Sự Kiện Socket.IO &amp; API Endpoints](#12-bảng-ma-trận-tổng-hợp-sự-kiện-socketio--api-endpoints)
+12. [Flow 11: Hệ Thống Thông Báo Thời Gian Thực &amp; Đa Kênh Trên Web (Realtime Web Notifications)](#flow-11-hệ-thống-thông-báo-thời-gian-thực--đa-kênh-trên-web)
+13. [Bảng Ma Trận Tổng Hợp Sự Kiện Socket.IO &amp; API Endpoints](#13-bảng-ma-trận-tổng-hợp-sự-kiện-socketio--api-endpoints)
 
 ---
 
@@ -495,7 +496,146 @@ sequenceDiagram
 
 ---
 
-## 12. BẢNG MA TRẬN TỔNG HỢP SỰ KIỆN SOCKET.IO & API ENDPOINTS
+## FLOW 11: HỆ THỐNG THÔNG BÁO THỜI GIAN THỰC & ĐA KÊNH TRÊN WEB
+
+Hệ thống thông báo của sàn MarketFU Web kết hợp **4 kênh phân phối (Multi-channel Delivery Architecture)**:
+* **Kênh A (In-App Database):** Lưu bản ghi thông báo vào MongoDB Atlas (`Notification` model) với trạng thái `isRead: false`, dùng để hiển thị trên Bell Icon, Badge đỏ và Dropdown lịch sử.
+* **Kênh B (Realtime WebSocket Socket.IO):** Bắn tức thời (< 1ms) vào room `user_{userId}`. Khi người dùng đang mở tab Web, icon chuông lập tức nhảy số đỏ, pop Toast nổi và phát chuông âm thanh Web Audio API (`playNotificationChime`).
+* **Kênh C (Web Push W3C / VAPID):** Gửi thông báo đẩy chuẩn Native OS (Desktop Banner Windows/macOS) qua Service Worker (`firebase-messaging-sw.js`), tiếp cận được cả khi người dùng thu nhỏ trình duyệt hoặc đang mở tab khác.
+* **Kênh D (Email HTML Nodemailer SMTP):** Gửi email cho các biến cố giao dịch quan trọng (`ORDER`, thanh toán Escrow, duyệt `KYC`). Riêng tin nhắn `CHAT` được cách ly hoàn toàn, không gửi email để tránh spam.
+
+### 11.1. Luồng Khởi tạo, Đăng ký Web Push VAPID & Kết nối Socket.IO
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor SV as Sinh viên trên Trình duyệt Web
+    participant WebUI as Web Client (Next.js 16)
+    participant SW as Service Worker (Browser Push)
+    participant SocketGW as Realtime Socket.IO Gateway
+    participant NotifAPI as Backend Notification Controller
+    participant DB as MongoDB Atlas (Prisma)
+
+    SV->>WebUI: Đăng nhập thành công vào Web MarketFU
+    WebUI->>SocketGW: Kết nối WebSocket (wss://) kèm JWT Access Token
+    SocketGW->>SocketGW: Xác thực JWT & Auto-join room "user_{userId}"
+    SocketGW-->>WebUI: Kết nối thành công (connected: true)
+
+    WebUI->>NotifAPI: GET /api/notifications/unread-count
+    NotifAPI->>DB: Đếm số bản ghi { userId, isRead: false }
+    DB-->>NotifAPI: unreadCount: 3
+    NotifAPI-->>WebUI: Trả về unreadCount (Hiển thị Badge đỏ trên biểu tượng Chuông)
+
+    opt Đăng ký Web Push Desktop (Lần đầu truy cập hoặc bật thông báo)
+        WebUI->>SV: Xin quyền thông báo: Notification.requestPermission()
+        SV-->>WebUI: Bấm "Cho phép" (permission = 'granted')
+        WebUI->>NotifAPI: GET /api/notifications/vapid-public-key
+        NotifAPI-->>WebUI: Trả về vapidPublicKey
+        WebUI->>SW: Đăng ký Service Worker (/firebase-messaging-sw.js)
+        SW-->>WebUI: ServiceWorkerRegistration sẵn sàng
+        WebUI->>SW: registration.pushManager.subscribe({ applicationServerKey })
+        SW-->>WebUI: Sinh PushSubscription (endpoint, keys: p256dh, auth)
+        WebUI->>NotifAPI: POST /api/notifications/device-token { token: JSON.stringify(sub), deviceType: 'WEB' }
+        NotifAPI->>DB: Lưu / Cập nhật DeviceToken (upsert token)
+        NotifAPI-->>WebUI: Đăng ký Web Push thành công (200 OK)
+    end
+```
+
+### 11.2. Luồng Bắn Thông Báo Realtime & Điều Phối Đa Kênh Khi Có Sự Kiện
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant EventSource as Nghiệp vụ nguồn (Order / Chat / KYC)
+    participant NotifService as Backend NotificationService
+    participant DB as MongoDB Atlas (Prisma)
+    participant SocketGW as Realtime Socket.IO Gateway
+    participant WebUI as Web Client (Đang mở tab)
+    participant WebPush as Web Push VAPID Service
+    participant MailService as Email Service (Nodemailer SMTP)
+    actor SV as Sinh viên nhận thông báo
+
+    Note over EventSource,NotifService: Phát sinh sự kiện: Đơn hàng mới / Tin nhắn / Phê duyệt KYC
+    EventSource->>NotifService: sendNotification({ userId, title, body, type, targetUrl, email })
+    
+    rect rgb(240, 248, 255)
+        Note over NotifService,DB: [Kênh A] Lưu In-App Database (~3ms)
+        NotifService->>DB: prisma.notification.create({ userId, title, body, type, isRead: false })
+        DB-->>NotifService: Bản ghi notification mới (id, createdAt, ...)
+    end
+
+    rect rgb(245, 255, 245)
+        Note over NotifService,WebUI: [Kênh B] Phát Realtime WebSocket (<1ms)
+        NotifService->>SocketGW: emitToUser(userId, 'new_notification', notification)
+        SocketGW->>WebUI: Bắn sự kiện 'new_notification' tới room "user_{userId}"
+        WebUI->>WebUI: Zustand Store cập nhật: Thêm item vào đầu list & unreadCount + 1
+        WebUI->>WebUI: Phát âm thanh Web Audio API (playNotificationChime)
+        WebUI->>WebUI: Hiển thị Toast Popup nổi góc màn hình
+    end
+
+    rect rgb(255, 250, 240)
+        Note over NotifService,WebPush: [Kênh C & D] Non-blocking Worker (setImmediate)
+        NotifService->>DB: Lấy danh sách DeviceToken của user (deviceType: 'WEB')
+        DB-->>NotifService: webTokens (JSON subscriptions)
+        
+        opt Nếu user có đăng ký Web Push
+            NotifService->>WebPush: webpush.sendNotification(subscription, payload)
+            WebPush->>SV: Đẩy Native Desktop Banner (Dù tab đang ẩn/thu nhỏ)
+        end
+        
+        opt Nếu có cấu hình Email & Type != 'CHAT'
+            NotifService->>MailService: sendMail({ to, subject, html })
+            MailService->>SV: Gửi Email thông báo chính thức vào hộp thư FPT
+        end
+    end
+```
+
+### 11.3. Luồng Tương tác của Người Dùng trên Web: Xem, Đọc Thông Báo & Điều Hướng
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor SV as Sinh viên
+    participant WebUI as Web Client (Navbar / Dropdown)
+    participant NotifStore as Zustand Notification Store
+    participant NotifAPI as Backend Notification Controller
+    participant DB as MongoDB Atlas (Prisma)
+
+    SV->>WebUI: Click vào icon Chuông trên Navbar
+    WebUI->>NotifAPI: GET /api/notifications?page=1&limit=20
+    NotifAPI->>DB: prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } })
+    DB-->>NotifAPI: Danh sách thông báo
+    NotifAPI-->>WebUI: Trả về mảng notifications
+    WebUI->>WebUI: Mở NotificationDropdown (Tab: Tất cả / Đơn hàng / Tin nhắn / KYC)
+
+    alt Sinh viên click vào 1 thông báo cụ thể
+        SV->>WebUI: Click item thông báo (Ví dụ: "Đơn hàng #ORD-88231 đã được xác nhận")
+        WebUI->>NotifAPI: PATCH /api/notifications/:id/read
+        NotifAPI->>DB: prisma.notification.update({ where: { id }, data: { isRead: true } })
+        DB-->>NotifAPI: Cập nhật thành công
+        NotifAPI-->>WebUI: Trả về notification đã đọc
+        WebUI->>NotifStore: Giảm unreadCount (-1), đổi trạng thái item isRead: true
+        WebUI->>WebUI: Next.js Router điều hướng tức thì tới targetUrl (/orders/ORD-88231)
+    else Sinh viên bấm "Đánh dấu tất cả đã đọc"
+        SV->>WebUI: Bấm "Đánh dấu tất cả đã đọc" (Mark all as read)
+        WebUI->>NotifAPI: PATCH /api/notifications/read-all
+        NotifAPI->>DB: prisma.notification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } })
+        DB-->>NotifAPI: Số lượng bản ghi cập nhật
+        NotifAPI-->>WebUI: { success: true, count: N }
+        WebUI->>NotifStore: Đặt unreadCount = 0, toàn bộ items isRead: true
+    else Sinh viên xóa 1 thông báo
+        SV->>WebUI: Bấm icon thùng rác xóa thông báo
+        WebUI->>NotifAPI: DELETE /api/notifications/:id
+        NotifAPI->>DB: prisma.notification.delete({ where: { id, userId } })
+        DB-->>NotifAPI: Xóa thành công
+        NotifAPI-->>WebUI: { success: true }
+        WebUI->>NotifStore: Lọc bỏ item khỏi danh sách hiển thị
+    end
+```
+
+---
+
+## 13. BẢNG MA TRẬN TỔNG HỢP SỰ KIỆN SOCKET.IO & API ENDPOINTS
 
 ### 12.1. Danh mục API Endpoints Cốt Lõi (Khớp 100% Codebase)
 

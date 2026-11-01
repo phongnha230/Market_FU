@@ -6,6 +6,7 @@ import { mailTransporter } from '../../config/mail';
 import { ENV } from '../../config/env';
 import { QueryNotificationsInput } from './notification.dto';
 import { webpush } from '../../config/webpush';
+import axios from 'axios';
 
 export interface CreateNotificationParams {
   userId: string;
@@ -131,96 +132,112 @@ export class NotificationService {
       }
     }
 
-    // C2: Gửi FCM Multicast đến thiết bị di động (Android / iOS)
-    if (firebaseMessaging && mobileTokens && mobileTokens.length > 0) {
-      // Lọc bỏ token rỗng
-      const validTokens = mobileTokens.filter((t) => t && t.trim() !== '');
+    // C2: Phân luồng Token Mobile: Tách riêng Expo Push Tokens và Native FCM Tokens
+    const isExpoToken = (token: string) => /^(ExponentPushToken|ExpoPushToken)\[.*\]$/.test(token.trim());
+    const validMobileTokens = (mobileTokens || []).filter((t) => t && t.trim() !== '');
+    const expoTokens = validMobileTokens.filter(isExpoToken);
+    const nativeFcmTokens = validMobileTokens.filter((t) => !isExpoToken(t));
 
-      if (validTokens.length > 0) {
-        try {
-          const channelId =
-            type === 'ORDER' ? 'orders_channel' : type === 'CHAT' ? 'chat_channel' : 'system_channel';
+    const channelId =
+      type === 'ORDER' ? 'orders_channel' : type === 'CHAT' ? 'chat_channel' : 'system_channel';
 
-          const fcmNotificationPayload = {
-            title,
-            body,
+    // C2.1: Gửi qua Expo Push Service (Nếu là token ExponentPushToken)
+    if (expoTokens.length > 0) {
+      this.sendExpoPushNotifications(
+        expoTokens,
+        title,
+        body,
+        {
+          notificationId: String(notification.id || ''),
+          type: String(type || 'SYSTEM'),
+          ...(targetUrl && { targetUrl: String(targetUrl) }),
+        },
+        channelId
+      ).catch(() => {});
+    }
+
+    // C2.2: Gửi Native FCM qua Firebase Admin (Chỉ cho native token hợp lệ)
+    if (firebaseMessaging && nativeFcmTokens.length > 0) {
+      try {
+        const fcmNotificationPayload = {
+          title,
+          body,
+          ...(params.imageUrl && { imageUrl: params.imageUrl }),
+        };
+
+        const fcmDataPayload: Record<string, string> = {
+          notificationId: String(notification.id || ''),
+          type: String(type || 'SYSTEM'),
+          ...(targetUrl && { targetUrl: String(targetUrl) }),
+        };
+
+        const androidOptions = {
+          priority: 'high' as const,
+          notification: {
+            channelId,
+            sound: 'default',
+            priority: 'max' as const,
+            defaultSound: true,
+            defaultVibrateTimings: true,
             ...(params.imageUrl && { imageUrl: params.imageUrl }),
-          };
+          },
+        };
 
-          const fcmDataPayload: Record<string, string> = {
-            notificationId: notification.id,
-            type,
-            ...(targetUrl && { targetUrl }),
-          };
-
-          const androidOptions = {
-            priority: 'high' as const,
-            notification: {
-              channelId,
+        const apnsOptions = {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
               sound: 'default',
-              priority: 'max' as const,
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              ...(params.imageUrl && { imageUrl: params.imageUrl }),
+              badge: 1,
             },
-          };
+          },
+        };
 
-          const apnsOptions = {
-            headers: {
-              'apns-priority': '10',
-            },
-            payload: {
-              aps: {
-                sound: 'default',
-                badge: 1,
-              },
-            },
-          };
+        if (nativeFcmTokens.length === 1) {
+          // Gửi đến 1 thiết bị duy nhất
+          await firebaseMessaging.send({
+            token: nativeFcmTokens[0],
+            notification: fcmNotificationPayload,
+            data: fcmDataPayload,
+            android: androidOptions,
+            apns: apnsOptions,
+          });
+        } else {
+          // FCM Multicast: Gửi đồng thời đến nhiều thiết bị (tối đa 500 token/lần)
+          const multicastRes = await firebaseMessaging.sendEachForMulticast({
+            tokens: nativeFcmTokens,
+            notification: fcmNotificationPayload,
+            data: fcmDataPayload,
+            android: androidOptions,
+            apns: apnsOptions,
+          });
 
-          if (validTokens.length === 1) {
-            // Gửi đến 1 thiết bị duy nhất
-            await firebaseMessaging.send({
-              token: validTokens[0],
-              notification: fcmNotificationPayload,
-              data: fcmDataPayload,
-              android: androidOptions,
-              apns: apnsOptions,
-            });
-          } else {
-            // FCM Multicast: Gửi đồng thời đến nhiều thiết bị (tối đa 500 token/lần)
-            const multicastRes = await firebaseMessaging.sendEachForMulticast({
-              tokens: validTokens,
-              notification: fcmNotificationPayload,
-              data: fcmDataPayload,
-              android: androidOptions,
-              apns: apnsOptions,
-            });
-
-            // Tự động dọn dẹp các token bị lỗi / đã hết hạn / uninstalled
-            const deadTokens: string[] = [];
-            multicastRes.responses.forEach((resp, idx) => {
-              if (!resp.success && resp.error) {
-                const code = resp.error.code;
-                if (
-                  code === 'messaging/invalid-registration-token' ||
-                  code === 'messaging/registration-token-not-registered'
-                ) {
-                  deadTokens.push(validTokens[idx]);
-                }
+          // Tự động dọn dẹp các token bị lỗi / đã hết hạn / uninstalled
+          const deadTokens: string[] = [];
+          multicastRes.responses.forEach((resp, idx) => {
+            if (!resp.success && resp.error) {
+              const code = resp.error.code;
+              if (
+                code === 'messaging/invalid-registration-token' ||
+                code === 'messaging/registration-token-not-registered'
+              ) {
+                deadTokens.push(nativeFcmTokens[idx]);
               }
-            });
-
-            if (deadTokens.length > 0) {
-              await prisma.deviceToken
-                .deleteMany({
-                  where: { token: { in: deadTokens } },
-                })
-                .catch(() => {});
             }
+          });
+
+          if (deadTokens.length > 0) {
+            await prisma.deviceToken
+              .deleteMany({
+                where: { token: { in: deadTokens } },
+              })
+              .catch(() => {});
           }
-        } catch (fcmError: any) {
-          console.warn('⚠️ [FCM Multicast Warning] Không thể gửi Push Notification:', fcmError.message);
         }
+      } catch (fcmError: any) {
+        console.warn('⚠️ [FCM Multicast Warning] Không thể gửi Push Notification:', fcmError.message);
       }
     }
 
@@ -274,86 +291,167 @@ export class NotificationService {
   }
 
   /**
-   * Push notification trực tiếp tới thiết bị không qua bản ghi DB (dùng cho chat ping realtime)
+   * Helper gửi Push Notification qua Expo Push Service (dành cho Expo Go / Expo App)
    */
-  async sendPushOnly(userId: string, title: string, body: string, data?: Record<string, string>) {
-    if (!firebaseMessaging) return;
+  private async sendExpoPushNotifications(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: any,
+    channelId?: string
+  ) {
+    if (!tokens || tokens.length === 0) return;
+    try {
+      const messages = tokens.map((token) => ({
+        to: token,
+        sound: 'default',
+        title,
+        body,
+        data: data || {},
+        channelId: channelId || 'system_channel',
+        priority: 'high',
+      }));
 
+      for (let i = 0; i < messages.length; i += 100) {
+        const chunk = messages.slice(i, i + 100);
+        const res = await axios.post('https://exp.host/--/api/v2/push/send', chunk, {
+          headers: {
+            Accept: 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          timeout: 6000,
+        });
+
+        const tickets = res.data?.data;
+        if (Array.isArray(tickets)) {
+          const deadTokens: string[] = [];
+          tickets.forEach((ticket: any, idx: number) => {
+            if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+              deadTokens.push(chunk[idx].to);
+            }
+          });
+          if (deadTokens.length > 0) {
+            await prisma.deviceToken
+              .deleteMany({ where: { token: { in: deadTokens } } })
+              .catch(() => {});
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('⚠️ [Expo Push Service Warning]:', err?.message);
+    }
+  }
+
+  /**
+   * Push notification trực tiếp tới thiết bị không qua bản ghi DB (dùng cho chat ping realtime)
+   * Hỗ trợ đồng thời cả Expo Push Service (Expo Go/App) và Firebase FCM Multicast
+   */
+  async sendPushOnly(userId: string, title: string, body: string, data?: Record<string, any>) {
     try {
       const storedTokens = await prisma.deviceToken.findMany({
         where: { userId },
-        select: { token: true },
+        select: { token: true, deviceType: true },
       });
-      const validTokens = storedTokens.map((t) => t.token).filter((t) => t && t.trim() !== '');
+      const validTokens = storedTokens
+        .map((t) => t.token.trim())
+        .filter((t) => t !== '' && !t.startsWith('{'));
+
       if (validTokens.length === 0) return;
+
+      const isExpoToken = (token: string) => /^(ExponentPushToken|ExpoPushToken)\[.*\]$/.test(token);
+      const expoTokens = validTokens.filter(isExpoToken);
+      const nativeFcmTokens = validTokens.filter((t) => !isExpoToken(t));
 
       const pushChannelId =
         data?.type === 'ORDER' ? 'orders_channel' : data?.type === 'CHAT' ? 'chat_channel' : 'system_channel';
 
-      const pushAndroidOptions = {
-        priority: 'high' as const,
-        notification: {
-          channelId: pushChannelId,
-          sound: 'default',
-          priority: 'max' as const,
-          defaultSound: true,
-          defaultVibrateTimings: true,
-          ...(data?.imageUrl && { imageUrl: data.imageUrl }),
-        },
-      };
+      // 1. Gửi qua Expo Push Service nếu user dùng Expo
+      if (expoTokens.length > 0) {
+        this.sendExpoPushNotifications(expoTokens, title, body, data, pushChannelId).catch(() => {});
+      }
 
-      const pushApnsOptions = {
-        headers: {
-          'apns-priority': '10',
-        },
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-          },
-        },
-      };
+      // 2. Gửi qua Native Firebase Admin nếu có FCM Token
+      if (firebaseMessaging && nativeFcmTokens.length > 0) {
+        try {
+          const pushAndroidOptions = {
+            priority: 'high' as const,
+            notification: {
+              channelId: pushChannelId,
+              sound: 'default',
+              priority: 'max' as const,
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              ...(data?.imageUrl && { imageUrl: String(data.imageUrl) }),
+            },
+          };
 
-      if (validTokens.length === 1) {
-        await firebaseMessaging.send({
-          token: validTokens[0],
-          notification: { title, body },
-          data: data || {},
-          android: pushAndroidOptions,
-          apns: pushApnsOptions,
-        });
-      } else {
-        const res = await firebaseMessaging.sendEachForMulticast({
-          tokens: validTokens,
-          notification: { title, body },
-          data: data || {},
-          android: pushAndroidOptions,
-          apns: pushApnsOptions,
-        });
+          const pushApnsOptions = {
+            headers: {
+              'apns-priority': '10',
+            },
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+              },
+            },
+          };
 
-        const deadTokens: string[] = [];
-        res.responses.forEach((resp, idx) => {
-          if (!resp.success && resp.error) {
-            const code = resp.error.code;
-            if (
-              code === 'messaging/invalid-registration-token' ||
-              code === 'messaging/registration-token-not-registered'
-            ) {
-              deadTokens.push(validTokens[idx]);
+          // Sanitize: Toàn bộ key-value trong data gửi FCM bắt buộc là chuỗi
+          const fcmDataPayload: Record<string, string> = {};
+          if (data && typeof data === 'object') {
+            for (const [key, value] of Object.entries(data)) {
+              if (value !== undefined && value !== null) {
+                fcmDataPayload[key] = String(value);
+              }
             }
           }
-        });
 
-        if (deadTokens.length > 0) {
-          await prisma.deviceToken
-            .deleteMany({
-              where: { token: { in: deadTokens } },
-            })
-            .catch(() => {});
+          if (nativeFcmTokens.length === 1) {
+            await firebaseMessaging.send({
+              token: nativeFcmTokens[0],
+              notification: { title, body },
+              data: fcmDataPayload,
+              android: pushAndroidOptions,
+              apns: pushApnsOptions,
+            });
+          } else {
+            const res = await firebaseMessaging.sendEachForMulticast({
+              tokens: nativeFcmTokens,
+              notification: { title, body },
+              data: fcmDataPayload,
+              android: pushAndroidOptions,
+              apns: pushApnsOptions,
+            });
+
+            const deadTokens: string[] = [];
+            res.responses.forEach((resp, idx) => {
+              if (!resp.success && resp.error) {
+                const code = resp.error.code;
+                if (
+                  code === 'messaging/invalid-registration-token' ||
+                  code === 'messaging/registration-token-not-registered'
+                ) {
+                  deadTokens.push(nativeFcmTokens[idx]);
+                }
+              }
+            });
+
+            if (deadTokens.length > 0) {
+              await prisma.deviceToken
+                .deleteMany({
+                  where: { token: { in: deadTokens } },
+                })
+                .catch(() => {});
+            }
+          }
+        } catch (fcmError: any) {
+          console.warn('⚠️ [FCM PushOnly Warning]:', fcmError.message);
         }
       }
-    } catch (fcmError: any) {
-      console.warn('⚠️ [FCM PushOnly Warning]:', fcmError.message);
+    } catch (pushErr: any) {
+      console.warn('⚠️ [sendPushOnly Exception]:', pushErr?.message);
     }
   }
 

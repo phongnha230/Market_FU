@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useKho } from '../../../context/KhoContext';
 import { useUserStore } from '../../../stores/userStore';
 import { useWalletStore } from '../../../stores/walletStore';
 
@@ -18,10 +17,11 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
   onKycPress,
 }) => {
   const navigation = useNavigation<any>();
-  const { user, isSeller, availableBalance, escrowBalance, coins, depositToWallet } = useKho();
-  const userStoreCoins = useUserStore((s) => s.user?.coins) ?? 0;
+  const user = useUserStore((s) => s.user);
+  const isSeller = user?.role === 'SELLER';
+  const userStoreCoins = user?.coins ?? 0;
   const walletCoins = useWalletStore((s) => s.getWallet().coins) ?? 0;
-  const displayCoins = Math.max(userStoreCoins, user?.coins ?? 0, coins ?? 0, walletCoins, 0);
+  const displayCoins = Math.max(userStoreCoins, walletCoins, 0);
 
   const handleDeposit = () => {
     if (onDepositPress) {
