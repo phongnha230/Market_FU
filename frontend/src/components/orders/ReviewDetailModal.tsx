@@ -183,13 +183,22 @@ export default function ReviewDetailModal({
     const cleanReply = replyText.trim();
     setIsSubmittingReply(true);
     try {
-      replyOrderReview(order.code, cleanReply);
-      const nowIso = new Date().toISOString();
+      const targetOrderId = (order.id || order.code || '').replace(/^#/, '');
+      await orderService.replyReview(targetOrderId, cleanReply);
+
+      // Cập nhật store cục bộ an toàn sau khi API backend đã nhận
       try {
-        await orderService.replyReview(order.code, cleanReply);
-      } catch {
-        // Mock / offline fallback
+        if (replyOrderReview) {
+          replyOrderReview(order.code, cleanReply);
+          if (order.id && order.id !== order.code) {
+            replyOrderReview(order.id, cleanReply);
+          }
+        }
+      } catch (storeErr) {
+        console.warn('⚠️ [ReviewDetailModal] Lỗi cập nhật local orderStore:', storeErr);
       }
+
+      const nowIso = new Date().toISOString();
       setLoadedReview((prev) => {
         if (!prev) {
           return {
@@ -207,8 +216,14 @@ export default function ReviewDetailModal({
       showToast('🎉 Đã gửi phản hồi công khai thành công!');
       setIsReplying(false);
       setReplyText('');
-    } catch {
-      showToast('Không thể gửi phản hồi lúc này.');
+    } catch (err: any) {
+      console.error('❌ [ReviewDetailModal] Lỗi khi gửi phản hồi review:', err);
+      const apiMsg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể gửi phản hồi lúc này.';
+      showToast(`⚠️ ${apiMsg}`);
     } finally {
       setIsSubmittingReply(false);
     }

@@ -63,20 +63,37 @@ export default function OrderShipModal({
       return;
     }
 
+    let updateSuccess = false;
+    const finalTracking = trackingCode.trim().toUpperCase();
     try {
       setSubmitting(true);
       setErrorMsg(null);
-      await orderService.updateShippingStatus(order.id, {
+      const targetOrderId = (order.id || order.code || '').replace(/^#/, '');
+      await orderService.updateShippingStatus(targetOrderId, {
         status: 'SHIPPING',
-        trackingCode: trackingCode.trim().toUpperCase(),
+        trackingCode: finalTracking,
         shippingPartner: partner,
       });
-      onSuccess(order.id, trackingCode.trim().toUpperCase());
-      onClose();
+      updateSuccess = true;
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.error?.message || 'Cập nhật vận đơn thất bại.');
+      console.error('❌ [OrderShipModal] Lỗi API cập nhật vận đơn:', err);
+      setErrorMsg(
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err?.message ||
+        'Cập nhật vận đơn thất bại.'
+      );
     } finally {
       setSubmitting(false);
+    }
+
+    if (updateSuccess) {
+      try {
+        onSuccess(order.id, finalTracking);
+      } catch (uiErr) {
+        console.warn('⚠️ [OrderShipModal] Lỗi callback onSuccess:', uiErr);
+      }
+      onClose();
     }
   };
 

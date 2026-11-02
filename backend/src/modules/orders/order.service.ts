@@ -1148,26 +1148,30 @@ export class OrderService {
     });
 
     // Bắn thông báo tới người mua
-    const notifBody = `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${finalTrackingCode}).`;
+    try {
+      const notifBody = `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${finalTrackingCode}).`;
 
-    await notificationService.sendNotification({
-      userId: order.buyerId,
-      title: 'Đơn hàng đang vận chuyển',
-      body: notifBody,
-      type: 'ORDER',
-      targetUrl: '/orders',
-    });
+      await notificationService.sendNotification({
+        userId: order.buyerId,
+        title: 'Đơn hàng đang vận chuyển',
+        body: notifBody,
+        type: 'ORDER',
+        targetUrl: '/orders',
+      });
 
-    emitToUser(order.buyerId, 'order_shipping_updated', {
-      orderId,
-      status,
-      trackingCode: trackingCode || currentShipping.trackingCode,
-    });
-    emitToUser(order.sellerId, 'order_shipping_updated', {
-      orderId,
-      status,
-      trackingCode: trackingCode || currentShipping.trackingCode,
-    });
+      emitToUser(order.buyerId, 'order_shipping_updated', {
+        orderId,
+        status,
+        trackingCode: trackingCode || currentShipping.trackingCode,
+      });
+      emitToUser(order.sellerId, 'order_shipping_updated', {
+        orderId,
+        status,
+        trackingCode: trackingCode || currentShipping.trackingCode,
+      });
+    } catch (notifErr: any) {
+      console.warn('⚠️ [Shipping Notification Warning]: Không thể gửi thông báo realtime:', notifErr?.message || notifErr);
+    }
 
     return updated;
   }

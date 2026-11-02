@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 import { ProductItem, ProductDetail } from '@/types/product';
 
 const INITIAL_PRODUCTS: ProductItem[] = [];
@@ -111,7 +112,7 @@ export const useProductStore = create<ProductState>()(
     }),
     {
       name: 'fu_market_products_storage_v2',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
     }
   )
 );

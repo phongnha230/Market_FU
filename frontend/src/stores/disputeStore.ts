@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useOrderStore } from './orderStore';
 import { useWalletStore } from './walletStore';
 import { reportService, BackendDispute } from '@/services/reportService';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type DisputeStatus = 'PENDING' | 'INVESTIGATING' | 'REFUNDED' | 'REJECTED' | 'CANCELLED';
 
@@ -118,8 +119,12 @@ export const useDisputeStore = create<DisputeState>()(
             disputes: [newDispute, ...state.disputes],
           }));
 
-          // Cập nhật trạng thái đơn hàng trên orderStore
-          useOrderStore.getState().updateOrderStatus(orderId, 'disputed', 'Đang tranh chấp Escrow');
+          // Cập nhật trạng thái đơn hàng trên orderStore an toàn
+          try {
+            useOrderStore.getState().updateOrderStatus(orderId, 'disputed', 'Đang tranh chấp Escrow');
+          } catch (storeErr) {
+            console.warn('⚠️ [DisputeStore] Lỗi cập nhật local orderStore:', storeErr);
+          }
 
           return {
             success: true,
@@ -159,11 +164,15 @@ export const useDisputeStore = create<DisputeState>()(
             ),
           }));
 
-          // Cập nhật trạng thái đơn hàng
-          if (action === 'REFUND') {
-            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Đã phán quyết hoàn tiền cọc');
-          } else {
-            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Khiếu nại bị bác bỏ');
+          // Cập nhật trạng thái đơn hàng an toàn
+          try {
+            if (action === 'REFUND') {
+              useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Đã phán quyết hoàn tiền cọc');
+            } else {
+              useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Khiếu nại bị bác bỏ');
+            }
+          } catch (storeErr) {
+            console.warn('⚠️ [DisputeStore] Lỗi cập nhật local orderStore:', storeErr);
           }
 
           return { success: true, message: `Đã xử lý khiếu nại thành công: ${newStatus}` };
@@ -192,7 +201,11 @@ export const useDisputeStore = create<DisputeState>()(
           }));
 
           if (target) {
-            useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Người mua đã rút khiếu nại');
+            try {
+              useOrderStore.getState().updateOrderStatus(target.orderId, 'completed', 'Người mua đã rút khiếu nại');
+            } catch (storeErr) {
+              console.warn('⚠️ [DisputeStore] Lỗi cập nhật local orderStore:', storeErr);
+            }
           }
 
           return { success: true, message: res?.message || 'Đã rút khiếu nại thành công! Đơn hàng được cập nhật hoàn tất.' };
@@ -216,7 +229,7 @@ export const useDisputeStore = create<DisputeState>()(
     }),
     {
       name: 'fu_market_disputes_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.disputes = (state.disputes || []).filter(

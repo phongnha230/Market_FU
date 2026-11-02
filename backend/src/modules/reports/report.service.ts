@@ -407,27 +407,29 @@ export class ReportService {
       return newDispute;
     });
 
-    // Thông báo cho Người bán
-    await notificationService.sendNotification({
-      userId: order.sellerId,
-      title: '⚠️ Đơn hàng có khiếu nại từ Người mua',
-      body: `Đơn hàng #${order.orderCode} ("${order.product.title}") vừa nhận được khiếu nại. Ban Quản Trị đang tiến hành đối soát video bằng chứng.`,
-      type: 'ORDER',
-      targetUrl: `/orders/${order.id}`,
-    });
+    // Thông báo cho Người bán & Người mua (bọc an toàn tránh rollback/500 sau khi DB đã lưu)
+    try {
+      await notificationService.sendNotification({
+        userId: order.sellerId,
+        title: '⚠️ Đơn hàng có khiếu nại từ Người mua',
+        body: `Đơn hàng #${order.orderCode} ("${order.product.title}") vừa nhận được khiếu nại. Ban Quản Trị đang tiến hành đối soát video bằng chứng.`,
+        type: 'ORDER',
+        targetUrl: `/orders/${order.id}`,
+      });
 
-    // Thông báo cho Người mua
-    await notificationService.sendNotification({
-      userId: buyerId,
-      title: '📋 Khiếu nại đã được tiếp nhận',
-      body: `Khiếu nại cho đơn hàng #${order.orderCode} đã được gửi lên BQT. Chúng tôi sẽ phân xử trong vòng 24 giờ.`,
-      type: 'ORDER',
-      targetUrl: `/orders/${order.id}`,
-    });
+      await notificationService.sendNotification({
+        userId: buyerId,
+        title: '📋 Khiếu nại đã được tiếp nhận',
+        body: `Khiếu nại cho đơn hàng #${order.orderCode} đã được gửi lên BQT. Chúng tôi sẽ phân xử trong vòng 24 giờ.`,
+        type: 'ORDER',
+        targetUrl: `/orders/${order.id}`,
+      });
 
-    // Phát sự kiện realtime cập nhật trạng thái đơn sang DISPUTED
-    emitToUser(order.sellerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
-    emitToUser(buyerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
+      emitToUser(order.sellerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
+      emitToUser(buyerId, 'order_disputed', { orderId: order.id, orderCode: order.orderCode });
+    } catch (notifErr: any) {
+      console.warn('⚠️ [Dispute Notification Warning]: Không thể gửi thông báo realtime:', notifErr?.message || notifErr);
+    }
 
     return dispute;
   }
@@ -759,33 +761,37 @@ export class ReportService {
       ? `Khiếu nại đơn hàng #${dispute.order.orderCode} được BQT phán quyết hoàn tiền cho Người mua. Ghi chú: ${adminNote || 'Hàng lỗi/không đúng mô tả'}.`
       : `Khiếu nại đơn hàng #${dispute.order.orderCode} đã bị BQT bác bỏ. Đơn hàng hoàn tất và bạn sẽ nhận được thanh toán.`;
 
-    await Promise.all([
-      notificationService.sendNotification({
-        userId: dispute.order.buyerId,
-        title: isRefund ? '🎉 Khiếu nại được chấp thuận' : '❌ Khiếu nại bị từ chối',
-        body: buyerMsg,
-        type: 'ORDER',
-        targetUrl: `/orders/${orderId}`,
-      }),
-      notificationService.sendNotification({
-        userId: dispute.order.sellerId,
-        title: isRefund ? '⚠️ Đơn hàng bị hoàn tiền' : '✅ Khiếu nại đã được giải quyết',
-        body: sellerMsg,
-        type: 'ORDER',
-        targetUrl: `/orders/${orderId}`,
-      }),
-    ]);
+    try {
+      await Promise.all([
+        notificationService.sendNotification({
+          userId: dispute.order.buyerId,
+          title: isRefund ? '🎉 Khiếu nại được chấp thuận' : '❌ Khiếu nại bị từ chối',
+          body: buyerMsg,
+          type: 'ORDER',
+          targetUrl: `/orders/${orderId}`,
+        }),
+        notificationService.sendNotification({
+          userId: dispute.order.sellerId,
+          title: isRefund ? '⚠️ Đơn hàng bị hoàn tiền' : '✅ Khiếu nại đã được giải quyết',
+          body: sellerMsg,
+          type: 'ORDER',
+          targetUrl: `/orders/${orderId}`,
+        }),
+      ]);
 
-    // Bắn realtime socket cập nhật trạng thái đơn hàng tức thì cho cả Web & Mobile
-    const eventName = isRefund ? 'order_cancelled' : 'order_completed';
-    const statusPayload = {
-      orderId,
-      orderCode: dispute.order.orderCode,
-      status: isRefund ? 'CANCELLED' : 'COMPLETED',
-      decision,
-    };
-    emitToUser(dispute.order.buyerId, eventName, statusPayload);
-    emitToUser(dispute.order.sellerId, eventName, statusPayload);
+      // Bắn realtime socket cập nhật trạng thái đơn hàng tức thì cho cả Web & Mobile
+      const eventName = isRefund ? 'order_cancelled' : 'order_completed';
+      const statusPayload = {
+        orderId,
+        orderCode: dispute.order.orderCode,
+        status: isRefund ? 'CANCELLED' : 'COMPLETED',
+        decision,
+      };
+      emitToUser(dispute.order.buyerId, eventName, statusPayload);
+      emitToUser(dispute.order.sellerId, eventName, statusPayload);
+    } catch (notifErr: any) {
+      console.warn('⚠️ [Dispute Resolve Notification Warning]:', notifErr?.message || notifErr);
+    }
 
     return {
       message: `Phân xử thành công: ${isRefund ? 'Hoàn tiền cho Người mua' : 'Chuyển tiền cho Người bán'}`,

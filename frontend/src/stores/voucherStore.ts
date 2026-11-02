@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 import { useWalletStore } from './walletStore';
 import { voucherService, BackendVoucher, BackendUserVoucher } from '@/services/voucherService';
 
@@ -348,7 +349,7 @@ export const useVoucherStore = create<VoucherState>()(
     }),
     {
       name: 'fu_market_vouchers_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (!state.activeUserId) {

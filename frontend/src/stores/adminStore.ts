@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type AdminRole = 'superadmin' | 'moderator' | 'campus_admin';
 export type AdminCampus = 'all' | 'hola' | 'hcm' | 'danang' | 'cantho' | 'quynhon';
@@ -115,9 +116,7 @@ export const useAdminStore = create<AdminState>()(
     }),
     {
       name: 'fu_admin_session',
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined' ? localStorage : dummyStorage
-      ),
+      storage: createJSONStorage(() => safeLocalStorage),
     }
   )
 );

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 import { ProductItem } from '@/types/product';
 
 import { productService } from '@/services/productService';
@@ -308,7 +309,7 @@ export const useFavoriteStore = create<FavoriteState>()(
     }),
     {
       name: 'fu_market_favorites_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // Clean legacy mock favorites

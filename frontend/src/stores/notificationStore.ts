@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type NotificationType = 'CHAT' | 'ORDER' | 'KYC' | 'SYSTEM';
 
@@ -270,7 +271,7 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'fu_market_notifications_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (!state.notificationsByUser || typeof state.notificationsByUser !== 'object') {

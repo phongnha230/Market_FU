@@ -241,7 +241,11 @@ function ReviewContent() {
           images: reviewMediaList.map((m) => m.url),
           proofVideoUrl: proofVideoUrl.trim() || null,
         });
-        updateOrderReview(orderCode, partialData);
+        try {
+          updateOrderReview(orderCode, partialData);
+        } catch (storeErr) {
+          console.warn('⚠️ [ReviewPage] Lỗi cập nhật local store:', storeErr);
+        }
         showToast('✅ Đã cập nhật đánh giá thành công!');
         setTimeout(() => {
           router.push('/orders');
@@ -278,8 +282,12 @@ function ReviewContent() {
         }
       }
 
-      markOrderReviewed(orderCode, fullReviewData);
-      addCoins(earnedCoins);
+      try {
+        markOrderReviewed(orderCode, fullReviewData);
+        addCoins(earnedCoins);
+      } catch (storeErr) {
+        console.warn('⚠️ [ReviewPage] Lỗi cập nhật local store:', storeErr);
+      }
       showToast(`🎉 Cảm ơn bạn! Đã gửi đánh giá và nhận +${earnedCoins} Xu.`);
       setTimeout(() => {
         router.push('/orders');

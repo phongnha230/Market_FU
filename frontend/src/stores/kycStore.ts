@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { reportService, BackendKycVerification } from '@/services/reportService';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type KycType = 'student' | 'seller'; // Sinh viên (Người mua) vs Người bán (Seller)
 export type KycStatus = 'pending' | 'approved' | 'rejected' | 'reupload_required';
@@ -297,7 +298,7 @@ export const useKycStore = create<KycStoreState>()(
     }),
     {
       name: 'fu_kyc_store',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.applications = (state.applications || []).filter(

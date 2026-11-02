@@ -30,6 +30,8 @@ function OrdersPageInner() {
   const router = useRouter();
   const { orders, updateOrderStatus, products: allProducts, showToast } = useMarket();
   const userData = useUserStore((state) => state.user);
+  const accessToken = useUserStore((state) => state.accessToken);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   // Phân tách chuẩn xác Đơn Mua vs Đơn Bán theo định danh user
   const buyingOrders = React.useMemo(() => {
@@ -53,7 +55,7 @@ function OrdersPageInner() {
   const isSeller =
     userData.role === 'SELLER' ||
     userData.role === 'ADMIN' ||
-    userData.kycStatus === 'approved_seller';
+    userData.kycStatus === 'approved_seller' || sellingOrders.length > 0;
 
   // Lấy mã sinh viên chính xác từ hồ sơ tài khoản hiện tại
   const currentStudentId =
@@ -80,6 +82,13 @@ function OrdersPageInner() {
     VALID_TABS.includes(tabFromUrl as MainTab) ? (tabFromUrl as MainTab) : 'buying'
   );
   const [activeProgressFilter, setActiveProgressFilter] = useState<string>(filterFromUrl);
+
+  useEffect(() => {
+    if (tabFromUrl && VALID_TABS.includes(tabFromUrl as MainTab)) {
+      setActiveMainTab(tabFromUrl as MainTab);
+    }
+  }, [tabFromUrl]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ORDERS_PER_PAGE = 5;
 
@@ -298,14 +307,15 @@ function OrdersPageInner() {
   useEffect(() => {
     const cleanupOrderSockets = useOrderStore.getState().initSocketListeners();
     const cleanupNotifSockets = useNotificationStore.getState().initSocketListeners();
-    useOrderStore.getState().fetchOrders();
+    setIsLoadingOrders(true);
+    useOrderStore.getState().fetchOrders().finally(() => setIsLoadingOrders(false));
     useNotificationStore.getState().fetchNotifications();
 
     return () => {
       cleanupOrderSockets();
       cleanupNotifSockets();
     };
-  }, []);
+  }, [accessToken, userData?.id]);
 
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + ' đ';
@@ -495,7 +505,12 @@ function OrdersPageInner() {
             {/* DYNAMIC ORDERS LIST FOR BUYING TAB */}
             {activeMainTab === 'buying' && (
               <div className="space-y-4">
-                {buyingOrders.length === 0 ? (
+                {isLoadingOrders && buyingOrders.length === 0 ? (
+                  <Card className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center text-xs text-slate-500 space-y-3">
+                    <Loader2 className="h-7 w-7 animate-spin text-fpt-orange mx-auto" />
+                    <p className="font-semibold text-slate-700">Đang đồng bộ danh sách đơn mua...</p>
+                  </Card>
+                ) : buyingOrders.length === 0 ? (
                   <Card className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-xs text-slate-500 space-y-2">
                     <p className="font-semibold text-slate-700">Bạn chưa có đơn mua nào.</p>
                     <p>Hãy dạo quanh chợ sinh viên FPT để tìm giáo trình, đồ công nghệ hoặc đồ dùng KTX ưng ý!</p>
@@ -671,7 +686,12 @@ function OrdersPageInner() {
                     </div>
                   </Card>
 
-                  {sellingOrders.length === 0 ? (
+                  {isLoadingOrders && sellingOrders.length === 0 ? (
+                    <Card className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center text-xs text-slate-500 space-y-3">
+                      <Loader2 className="h-7 w-7 animate-spin text-fpt-orange mx-auto" />
+                      <p className="font-semibold text-slate-700">Đang đồng bộ danh sách đơn bán...</p>
+                    </Card>
+                  ) : sellingOrders.length === 0 ? (
                     <Card className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-xs text-slate-500 space-y-2">
                       <p className="font-semibold text-slate-700">Bạn chưa có đơn bán nào cần đóng gói hoặc gửi hàng.</p>
                       <p>Khi có bạn sinh viên khác đặt mua món đồ của bạn, đơn sẽ hiển thị tại đây.</p>

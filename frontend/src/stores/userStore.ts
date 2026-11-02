@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '@/utils/safeStorage';
 import { useFavoriteStore } from './favoriteStore';
 import { useVoucherStore } from './voucherStore';
 import { useOrderStore } from './orderStore';
@@ -292,7 +293,7 @@ export const useUserStore = create<UserState>()(
     },
     {
       name: 'fu_market_user_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
       onRehydrateStorage: () => (state) => {
         if (!state?.accessToken || !state?.isLoggedIn || state?.user?.email?.includes('quanlmse17****')) {
           state?.logout();

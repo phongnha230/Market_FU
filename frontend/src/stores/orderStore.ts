@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { orderService, BackendOrder } from '@/services/orderService';
 import { socketClient } from '@/services/socketClient';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export interface OrderStep {
   title: string;
@@ -148,11 +149,17 @@ export const useOrderStore = create<OrderState>()(
       setActiveUser: (userId) => {
         const uId = userId ? String(userId).trim() : null;
         const state = get();
-        const userOrders = uId && state.ordersByUser[uId] ? state.ordersByUser[uId] : [];
+        const userOrders =
+          uId && state.ordersByUser?.[uId] && state.ordersByUser[uId].length > 0
+            ? state.ordersByUser[uId]
+            : (state.orders && state.orders.length > 0 ? state.orders : []);
         set({
           activeUserId: uId,
           orders: userOrders,
         });
+        if (uId) {
+          get().fetchOrders().catch(() => {});
+        }
       },
 
       fetchOrders: async () => {
@@ -445,7 +452,9 @@ export const useOrderStore = create<OrderState>()(
         };
 
         set((state) => {
-          const updatedOrders = state.orders.map((o) => {
+          const currentOrders = Array.isArray(state?.orders) ? state.orders : [];
+          const updatedOrders = currentOrders.map((o) => {
+            if (!o) return o;
             if (isMatch(o)) {
               let color = 'text-fpt-orange';
               if (status === 'delivered' || status === 'completed') color = 'text-emerald-600';
@@ -463,8 +472,8 @@ export const useOrderStore = create<OrderState>()(
           return {
             orders: updatedOrders,
             ordersByUser: activeUid
-              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
-              : state.ordersByUser,
+              ? { ...(state.ordersByUser || {}), [activeUid]: updatedOrders }
+              : (state.ordersByUser || {}),
           };
         });
       },
@@ -490,7 +499,9 @@ export const useOrderStore = create<OrderState>()(
         };
 
         set((state) => {
-          const updatedOrders = state.orders.map((o) => {
+          const currentOrders = Array.isArray(state?.orders) ? state.orders : [];
+          const updatedOrders = currentOrders.map((o) => {
+            if (!o) return o;
             if (isMatch(o)) {
               return {
                 ...o,
@@ -507,8 +518,8 @@ export const useOrderStore = create<OrderState>()(
           return {
             orders: updatedOrders,
             ordersByUser: activeUid
-              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
-              : state.ordersByUser,
+              ? { ...(state.ordersByUser || {}), [activeUid]: updatedOrders }
+              : (state.ordersByUser || {}),
           };
         });
       },
@@ -524,7 +535,9 @@ export const useOrderStore = create<OrderState>()(
         };
 
         set((state) => {
-          const updatedOrders = state.orders.map((o) => {
+          const currentOrders = Array.isArray(state?.orders) ? state.orders : [];
+          const updatedOrders = currentOrders.map((o) => {
+            if (!o) return o;
             if (isMatch(o)) {
               const currentRev = o.reviewData || {
                 rating: partialData.rating || 5,
@@ -551,24 +564,27 @@ export const useOrderStore = create<OrderState>()(
           return {
             orders: updatedOrders,
             ordersByUser: activeUid
-              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
-              : state.ordersByUser,
+              ? { ...(state.ordersByUser || {}), [activeUid]: updatedOrders }
+              : (state.ordersByUser || {}),
           };
         });
       },
 
       replyOrderReview: (idOrCode, replyComment) => {
         const activeUid = get().activeUserId;
-        const target = String(idOrCode).trim();
+        const target = String(idOrCode || '').trim();
         const cleanTarget = target.replace(/^#/, '').toLowerCase();
         const isMatch = (o: OrderItem) => {
+          if (!o) return false;
           const oCodeClean = (o.code || '').replace(/^#/, '').toLowerCase();
           const oIdClean = (o.id || '').replace(/^#/, '').toLowerCase();
           return o.id === target || o.code === target || oCodeClean === cleanTarget || oIdClean === cleanTarget;
         };
 
         set((state) => {
-          const updatedOrders = state.orders.map((o) => {
+          const currentOrders = Array.isArray(state?.orders) ? state.orders : [];
+          const updatedOrders = currentOrders.map((o) => {
+            if (!o) return o;
             if (isMatch(o)) {
               const currentRev = o.reviewData || {
                 rating: 5,
@@ -592,8 +608,8 @@ export const useOrderStore = create<OrderState>()(
           return {
             orders: updatedOrders,
             ordersByUser: activeUid
-              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
-              : state.ordersByUser,
+              ? { ...(state.ordersByUser || {}), [activeUid]: updatedOrders }
+              : (state.ordersByUser || {}),
           };
         });
       },
@@ -609,7 +625,9 @@ export const useOrderStore = create<OrderState>()(
         };
 
         set((state) => {
-          const updatedOrders = state.orders.map((o) => {
+          const currentOrders = Array.isArray(state?.orders) ? state.orders : [];
+          const updatedOrders = currentOrders.map((o) => {
+            if (!o) return o;
             if (isMatch(o)) {
               if (o.reviewData) {
                 const nextPublic = !o.reviewData.isPublic;
@@ -628,8 +646,8 @@ export const useOrderStore = create<OrderState>()(
           return {
             orders: updatedOrders,
             ordersByUser: activeUid
-              ? { ...state.ordersByUser, [activeUid]: updatedOrders }
-              : state.ordersByUser,
+              ? { ...(state.ordersByUser || {}), [activeUid]: updatedOrders }
+              : (state.ordersByUser || {}),
           };
         });
       },
@@ -672,13 +690,16 @@ export const useOrderStore = create<OrderState>()(
     }),
     {
       name: 'fu_market_orders_storage',
-      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : dummyStorage)),
+      storage: createJSONStorage(() => safeLocalStorage),
+      partialize: (state) => ({
+        activeUserId: state.activeUserId,
+        ordersByUser: state.ordersByUser || {},
+        orders: Array.isArray(state.orders) ? state.orders.slice(0, 50) : [],
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          if (!state.activeUserId) {
-            state.orders = [];
-          } else {
-            state.orders = state.ordersByUser?.[state.activeUserId] || [];
+          if (state.activeUserId && state.ordersByUser?.[state.activeUserId]?.length) {
+            state.orders = state.ordersByUser[state.activeUserId];
           }
         }
       },

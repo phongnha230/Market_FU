@@ -127,15 +127,19 @@ export class ReviewService {
     }
 
     // 6. Gửi thông báo Realtime & Push ngay lập tức cho Người Bán
-    await notificationService.sendNotification({
-      userId: revieweeId,
-      title: '🎉 Bạn nhận được đánh giá mới!',
-      body: `Người mua vừa đánh giá ${rating}★ cho đơn hàng #${order.orderCode}: "${comment || 'Rất hài lòng & uy tín'}"`,
-      type: 'ORDER',
-      targetUrl: `/orders`,
-    });
-    emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
-    emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
+    try {
+      await notificationService.sendNotification({
+        userId: revieweeId,
+        title: '🎉 Bạn nhận được đánh giá mới!',
+        body: `Người mua vừa đánh giá ${rating}★ cho đơn hàng #${order.orderCode}: "${comment || 'Rất hài lòng & uy tín'}"`,
+        type: 'ORDER',
+        targetUrl: `/orders`,
+      });
+      emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
+      emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
+    } catch (notifErr: any) {
+      console.warn('⚠️ [Review Notification Warning]: Không thể gửi thông báo realtime:', notifErr?.message || notifErr);
+    }
 
     return newReview;
   }
