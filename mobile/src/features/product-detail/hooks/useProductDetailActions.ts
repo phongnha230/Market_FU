@@ -15,7 +15,12 @@ export function useProductDetailActions(
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
 
   const isSeller = user?.role === 'SELLER';
-  const isVerified = (user?.isKycVerified || isSeller) && user?.kycStatus !== 'PENDING';
+  const isVerified = Boolean(
+    isAuthenticated &&
+      (user?.isKycVerified || user?.kycStatus === 'APPROVED' || isSeller) &&
+      user?.kycStatus !== 'PENDING' &&
+      user?.kycStatus !== 'REJECTED'
+  );
 
   const isSameCampus = useMemo(() => {
     if (!user?.campus || !product?.campus) return true;
@@ -38,7 +43,7 @@ export function useProductDetailActions(
   const showKycRequiredAlert = useCallback((actionName: string) => {
     Alert.alert(
       'Yêu cầu Xác thực Thẻ Sinh Viên',
-      `Theo quy định an toàn chợ Market FU, bạn cần xác thực Thẻ Sinh Viên FPT (KYC) để ${actionName}.\n\nBạn có muốn đến trang Cá nhân để nộp ảnh thẻ SV ngay không?`,
+      `Theo quy chế an toàn cộng đồng Market FU, bạn cần xác thực Thẻ Sinh Viên FPT (KYC) để ${actionName}.\n\nBạn có muốn nộp ảnh thẻ SV để xác thực ngay không?`,
       [
         { text: 'Để sau', style: 'cancel' },
         {
@@ -87,6 +92,14 @@ export function useProductDetailActions(
       navigation.navigate('MainTabs', { screen: 'Home' });
     }
   }, [navigation]);
+
+  const handleViewSellerProfile = useCallback(() => {
+    if (!checkActionEligibility('xem hồ sơ và shop của người bán')) return;
+    navigation.navigate('PublicSellerProfile', {
+      userId: product.seller?.id || product.sellerId || '',
+      sellerName: product.seller?.name || product.sellerName || '',
+    });
+  }, [checkActionEligibility, navigation, product]);
 
   const handleOpenBuyNow = useCallback((mode?: 'meetup' | 'shipping') => {
     if (!checkActionEligibility('đặt cọc giao dịch ký quỹ Escrow')) return;
@@ -146,7 +159,7 @@ export function useProductDetailActions(
         image: product.images?.[0] || product.image,
       },
     });
-  }, [checkActionEligibility, navigation, product]);
+  }, [checkActionEligibility, navigation, product, isSameCampus]);
 
   const handleOpenOfferModal = useCallback(() => {
     if (!checkActionEligibility('gửi đề xuất trả giá')) return;
@@ -203,7 +216,7 @@ export function useProductDetailActions(
         originalPrice: numericPrice,
       },
     });
-  }, [navigation, product]);
+  }, [navigation, product, isSameCampus]);
 
   return {
     isOfferModalVisible,
@@ -212,6 +225,7 @@ export function useProductDetailActions(
     isOwnProduct,
     handleBack,
     handleGoHome,
+    handleViewSellerProfile,
     handleOpenBuyNow,
     handleOpenChat,
     handleOpenOfferModal,

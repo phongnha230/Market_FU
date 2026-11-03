@@ -32,7 +32,13 @@ export const PublicSellerProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { user: currentUser } = useUserStore();
+  const { user: currentUser, isAuthenticated } = useUserStore();
+  const isVerified = Boolean(
+    isAuthenticated &&
+      (currentUser?.isKycVerified || currentUser?.kycStatus === 'APPROVED' || currentUser?.role === 'SELLER') &&
+      currentUser?.kycStatus !== 'PENDING' &&
+      currentUser?.kycStatus !== 'REJECTED'
+  );
 
   const paramUserId = route.params?.userId;
   const paramSellerName = route.params?.sellerName || '';
@@ -205,6 +211,33 @@ export const PublicSellerProfileScreen: React.FC = () => {
   }, [currentUser?.id, currentUser?.name, profile?.userId, profile?.id, profile?.fullName, targetIdOrName]);
 
   const handleOpenChat = useCallback(() => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập bằng tài khoản FPT để nhắn tin với người bán.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Yêu cầu Xác thực Thẻ Sinh Viên',
+        'Theo quy chế an toàn Market FU, chỉ sinh viên FPT đã xác thực thẻ SV mới được nhắn tin và giao dịch trên sàn.\n\nBạn có muốn nộp ảnh thẻ SV để xác thực ngay không?',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Xác thực ngay',
+            onPress: () => navigation.navigate('MainTabs', { screen: 'Profile' }),
+          },
+        ]
+      );
+      return;
+    }
+
     if (!isOtherUser) {
       Alert.alert('Thông báo', 'Bạn không thể tự nhắn tin cho chính mình!');
       return;
@@ -218,7 +251,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
       },
       product: products[0] || undefined,
     });
-  }, [navigation, isOtherUser, profile?.userId, profile?.id, profile?.fullName, profile?.campus, paramSellerName, targetIdOrName, products]);
+  }, [navigation, isAuthenticated, isVerified, isOtherUser, profile?.userId, profile?.id, profile?.fullName, profile?.campus, paramSellerName, targetIdOrName, products]);
 
   const { orders, toggleReviewPublic } = useOrderStore();
   const [selectedReviewOrder, setSelectedReviewOrder] = useState<OrderItem | null>(null);
@@ -339,7 +372,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
           <TouchableOpacity style={styles.headerBtn} onPress={handleShare} activeOpacity={0.7}>
             <Ionicons name="share-social-outline" size={19} color="#0F172A" />
           </TouchableOpacity>
-          {isOtherUser && (
+          {isOtherUser && isAuthenticated && isVerified && (
             <TouchableOpacity style={styles.headerBtn} onPress={handleOpenReport} activeOpacity={0.7}>
               <Ionicons name="flag-outline" size={19} color="#DC2626" />
             </TouchableOpacity>
@@ -347,7 +380,52 @@ export const PublicSellerProfileScreen: React.FC = () => {
         </View>
       </View>
 
-      {loading ? (
+      {!isAuthenticated || !isVerified ? (
+        <View style={styles.lockedContainer}>
+          <View style={styles.lockedIconCircle}>
+            <Ionicons name="shield-checkmark" size={44} color="#EA580C" />
+          </View>
+          <Text style={styles.lockedTitle}>Hồ Sơ Được Bảo Vệ Bởi Market FU</Text>
+          <Text style={styles.lockedDesc}>
+            {!isAuthenticated
+              ? 'Theo quy chế an toàn, bạn cần đăng nhập bằng tài khoản sinh viên FPT để xem hồ sơ và kết nối với Người bán này.'
+              : 'Theo quy chế an toàn Market FU, chỉ sinh viên FPT đã hoàn tất xác thực Thẻ Sinh Viên (KYC) mới có quyền xem thông tin cá nhân và nhắn tin với Người bán.'}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.lockedActionBtn}
+            activeOpacity={0.85}
+            onPress={() => {
+              if (!isAuthenticated) {
+                navigation.navigate('Login');
+              } else {
+                navigation.navigate('MainTabs', { screen: 'Profile' });
+              }
+            }}
+          >
+            <Ionicons
+              name={!isAuthenticated ? 'log-in-outline' : 'card-outline'}
+              size={18}
+              color="#FFFFFF"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.lockedActionBtnText}>
+              {!isAuthenticated ? 'Đăng Nhập Tài Khoản FPT' : 'Xác Thực Thẻ Sinh Viên Ngay'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.lockedBackBtn}
+            activeOpacity={0.75}
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+              else navigation.navigate('MainTabs', { screen: 'Home' });
+            }}
+          >
+            <Text style={styles.lockedBackBtnText}>Quay lại trang trước</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color="#EA580C" />
           <Text style={styles.loadingText}>Đang tải thông tin người bán...</Text>
@@ -460,7 +538,7 @@ export const PublicSellerProfileScreen: React.FC = () => {
       )}
 
       {/* Bottom Sticky Action Bar */}
-      {isOtherUser && (
+      {isOtherUser && isAuthenticated && isVerified && (
         <SellerBottomBar onOpenChat={handleOpenChat} insetsBottom={insets.bottom} />
       )}
 
@@ -542,4 +620,61 @@ const styles = StyleSheet.create({
   guaranteeTextCol: { flex: 1 },
   guaranteeTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A', marginBottom: 3 },
   guaranteeDesc: { fontSize: 11, color: '#64748B', lineHeight: 16 },
+  lockedContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 40,
+  },
+  lockedIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  lockedTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockedDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  lockedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EA580C',
+    paddingVertical: 13,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    width: '100%',
+  },
+  lockedActionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  lockedBackBtn: {
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  lockedBackBtnText: {
+    color: '#64748B',
+    fontWeight: '600',
+    fontSize: 13,
+  },
 });

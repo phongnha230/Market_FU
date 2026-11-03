@@ -1,23 +1,66 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { ProductDetailData } from '../types/product-detail.types';
 import { resolveAvatarImage } from '../../../lib/imageResolver';
+import { useUserStore } from '../../../stores/userStore';
 
 interface ProductSellerSafePointProps {
   seller: ProductDetailData['seller'];
   safePointInfo: ProductDetailData['safePointInfo'];
+  onViewShop?: () => void;
 }
 
 export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
   seller,
   safePointInfo,
+  onViewShop,
 }) => {
   const navigation = useNavigation<any>();
+  const { user, isAuthenticated } = useUserStore();
 
-  const handleViewShop = () => {
+  const isVerified = Boolean(
+    isAuthenticated &&
+      (user?.isKycVerified || user?.kycStatus === 'APPROVED' || user?.role === 'SELLER') &&
+      user?.kycStatus !== 'PENDING' &&
+      user?.kycStatus !== 'REJECTED'
+  );
+
+  const handlePressShop = () => {
+    if (onViewShop) {
+      onViewShop();
+      return;
+    }
+
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập bằng tài khoản FPT để xem trang cá nhân và shop của Người bán.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Yêu cầu Xác thực Thẻ Sinh Viên',
+        'Theo quy chế an toàn Market FU, chỉ sinh viên FPT đã xác thực thẻ SV mới được xem hồ sơ người bán và tương tác giao dịch.\n\nBạn có muốn nộp ảnh thẻ SV để xác thực ngay không?',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Xác thực ngay',
+            onPress: () => navigation.navigate('MainTabs', { screen: 'Profile' }),
+          },
+        ]
+      );
+      return;
+    }
+
     navigation.navigate('PublicSellerProfile', {
       userId: (seller as any).id || (seller as any).userId || '',
       sellerName: seller.name,
@@ -36,7 +79,7 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
       <TouchableOpacity
         style={styles.sellerCard}
         activeOpacity={0.8}
-        onPress={handleViewShop}
+        onPress={handlePressShop}
       >
         <View style={styles.avatar}>
           {sellerAvatar ? (
@@ -72,7 +115,7 @@ export const ProductSellerSafePoint: React.FC<ProductSellerSafePointProps> = ({
             </Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.viewShopBtn} onPress={handleViewShop} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.viewShopBtn} onPress={handlePressShop} activeOpacity={0.7}>
           <Text style={styles.viewShopText}>Xem shop</Text>
         </TouchableOpacity>
       </TouchableOpacity>

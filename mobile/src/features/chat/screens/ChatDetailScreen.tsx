@@ -24,6 +24,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useChatStore } from '../../../stores/chatStore';
 import { getSafeAvatar } from '../../../lib/imageResolver';
 import { toBackendCampus } from '../../../lib/backendMappers';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 const QUICK_REPLIES = [
@@ -55,7 +56,13 @@ export const ChatDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const flatListRef = useRef<FlatList>(null);
-  const { user } = useUserStore();
+  const { user, isAuthenticated } = useUserStore();
+  const isVerified = Boolean(
+    isAuthenticated &&
+      (user?.isKycVerified || user?.kycStatus === 'APPROVED' || user?.role === 'SELLER') &&
+      user?.kycStatus !== 'PENDING' &&
+      user?.kycStatus !== 'REJECTED'
+  );
   const currentUserId = user?.id || 'me';
 
   const routePartner = route.params?.partner;
@@ -637,6 +644,33 @@ export const ChatDetailScreen: React.FC = () => {
   }, [initialOffer, conversationId, product.price]);
 
   const handleSendMessage = useCallback((textToSend?: string) => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập bằng tài khoản FPT để gửi tin nhắn.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Yêu cầu Xác thực Thẻ Sinh Viên',
+        'Theo quy chế an toàn Market FU, chỉ sinh viên FPT đã xác thực thẻ SV mới được nhắn tin trao đổi đồ dùng.\n\nBạn có muốn nộp ảnh thẻ SV để xác thực ngay không?',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Xác thực ngay',
+            onPress: () => navigation.navigate('MainTabs', { screen: 'Profile' }),
+          },
+        ]
+      );
+      return;
+    }
+
     const text = (textToSend || inputTextRef.current).trim();
     if (!text) return;
 
@@ -867,6 +901,30 @@ export const ChatDetailScreen: React.FC = () => {
   }, [handleSendSafePoint]);
 
   const handleAttachPhoto = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập để gửi ảnh trong cuộc trò chuyện.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập ngay', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Yêu cầu Xác thực Thẻ Sinh Viên',
+        'Bạn cần xác thực Thẻ Sinh Viên FPT trước khi gửi ảnh.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Xác thực ngay', onPress: () => navigation.navigate('MainTabs', { screen: 'Profile' }) },
+        ]
+      );
+      return;
+    }
+
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -1041,6 +1099,28 @@ export const ChatDetailScreen: React.FC = () => {
           </View>
         ) : null}
 
+        {!isAuthenticated || !isVerified ? (
+          <View style={styles.authLockBanner}>
+            <Ionicons name="shield-outline" size={17} color="#EA580C" style={{ marginRight: 6 }} />
+            <Text style={styles.authLockText} numberOfLines={1}>
+              {!isAuthenticated
+                ? 'Đăng nhập bằng email FPT để gửi tin nhắn.'
+                : 'Cần xác thực Thẻ Sinh Viên FPT để nhắn tin.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.authLockBtn}
+              onPress={() => {
+                if (!isAuthenticated) navigation.navigate('Login');
+                else navigation.navigate('MainTabs', { screen: 'Profile' });
+              }}
+            >
+              <Text style={styles.authLockBtnText}>
+                {!isAuthenticated ? 'Đăng nhập' : 'Xác thực SV'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <ChatDetailInputBar
           inputText={inputText}
           onChangeText={(val) => {
@@ -1062,6 +1142,33 @@ export const ChatDetailScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  authLockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderTopWidth: 1,
+    borderTopColor: '#FED7AA',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  authLockText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9A3412',
+  },
+  authLockBtn: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  authLockBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   messagesList: { paddingHorizontal: 16, paddingVertical: 14 },
   typingFooter: {
     paddingHorizontal: 16,

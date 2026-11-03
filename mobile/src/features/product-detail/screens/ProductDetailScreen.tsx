@@ -107,6 +107,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         <ProductSellerSafePoint
           seller={product.seller}
           safePointInfo={product.safePointInfo}
+          onViewShop={actions.handleViewSellerProfile}
         />
         <ProductRelatedSection
           currentProductId={product.id}

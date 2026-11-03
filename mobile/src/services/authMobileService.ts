@@ -41,12 +41,14 @@ export const adaptBackendUserToMobile = (user: any): UserProfile => {
     kycStatus = 'PENDING';
   } else if (statusUpper === 'REJECTED') {
     kycStatus = 'REJECTED';
-  } else if (statusUpper === 'APPROVED' || isEdu) {
+  } else if (statusUpper === 'APPROVED') {
     kycStatus = 'APPROVED';
+  } else {
+    kycStatus = 'NONE';
   }
 
   const role: 'BUYER' | 'SELLER' | 'ADMIN' = user.role === 'SELLER' ? 'SELLER' : 'BUYER';
-  const isKycVerified = (kycStatus === 'APPROVED' || role === 'SELLER') && kycStatus !== 'PENDING';
+  const isKycVerified = kycStatus === 'APPROVED' || (role === 'SELLER' && kycStatus !== 'PENDING' && kycStatus !== 'REJECTED');
 
   const rawBank = profile.bankAccount || user.bankAccount;
   const bankAccount = rawBank?.accountNo
