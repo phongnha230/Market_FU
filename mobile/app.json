@@ -41,6 +41,12 @@
           "color": "#F27024",
           "defaultChannel": "system_channel"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép FU SecondHand truy cập Camera để quét mã QR Handshake và chụp ảnh định giá AI."
+        }
       ]
     ],
     "extra": {

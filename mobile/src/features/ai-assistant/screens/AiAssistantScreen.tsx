@@ -22,6 +22,7 @@ import { AiAssistantInputBar } from '../components/AiAssistantInputBar';
 import { AiAssistantHistoryModal } from '../components/AiAssistantHistoryModal';
 import { aiMobileService, AiSessionItem } from '../../../services/aiMobileService';
 import { productMobileService } from '../../../services/productMobileService';
+import { CameraSubsystemModal } from '../../../components/camera/CameraSubsystemModal';
 
 export type { ChatMessage, SuggestedProductItem };
 
@@ -236,6 +237,10 @@ export const AiAssistantScreen: React.FC = () => {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [sessionsList, setSessionsList] = useState<AiSessionItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Camera Subsystem Modal cho AI Vision
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
+  const lastVisionResultRef = useRef<any>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -627,6 +632,8 @@ export const AiAssistantScreen: React.FC = () => {
     (chipId: string) => {
       if (chipId === 'login_now' || chipId === 'register_now') {
         navigation.navigate('Login');
+      } else if (chipId === 'post_item_ai') {
+        navigation.navigate('PostItem', lastVisionResultRef.current || {});
       } else if (chipId === 'compare') {
         Alert.alert(
           '📊 So sánh thiết bị',
@@ -666,19 +673,74 @@ export const AiAssistantScreen: React.FC = () => {
   };
 
   const handleScanVision = () => {
-    Alert.alert(
-      '📷 Quét định giá bằng AI Vision',
-      'Tính năng quét ảnh món đồ bằng Gemini Vision: Tự động nhận diện tình trạng máy, tra cứu giá đồ cũ quanh KTX và soạn sẵn bài đăng trong 3 giây!',
-      [
-        { text: 'Đóng', style: 'cancel' },
-        {
-          text: 'Mở đăng tin AI ngay',
-          onPress: () => {
-            navigation.navigate('PostItem');
-          },
-        },
-      ]
-    );
+    setCameraModalVisible(true);
+  };
+
+  const handleCameraCapture = async (photoUri: string) => {
+    setCameraModalVisible(false);
+
+    // 1. Thêm tin nhắn ảnh của User
+    const userMsg: ChatMessage = {
+      id: `user_${Date.now()}`,
+      sender: 'user',
+      time: 'Vừa xong',
+      text: '📸 [Đã chụp ảnh món đồ cần AI định giá]',
+    };
+
+    // 2. Thêm tin nhắn phản hồi tạm thời của AI
+    const loadingAiId = `ai_${Date.now() + 1}`;
+    const loadingAiMsg: ChatMessage = {
+      id: loadingAiId,
+      sender: 'ai',
+      time: 'Vừa xong',
+      campusHeader: `GEMINI AI VISION - ${currentCampus}`,
+      text: '🔍 Cóc AI đang phân tích ảnh qua Gemini Multimodal Vision: Kiểm tra ngoại quan, tra cứu mặt bằng giá KTX và soạn thông tin...',
+    };
+
+    const nextMsgs = [...messages, userMsg, loadingAiMsg];
+    setMessages(nextMsgs);
+    flatListRef.current?.scrollToEnd({ animated: true });
+
+    try {
+      const scanRes = await aiMobileService.scanProductImage(photoUri);
+      const title = scanRes?.title || 'Món đồ sinh viên FPT';
+      const cond = scanRes?.condition || 'Tốt 90%';
+      const estPrice = scanRes?.estimatedPrice ? Number(scanRes.estimatedPrice).toLocaleString('vi-VN') : '150.000';
+
+      lastVisionResultRef.current = {
+        initialTitle: title,
+        initialPrice: scanRes?.estimatedPrice ? String(scanRes.estimatedPrice) : '',
+        initialDescription: scanRes?.description || `${title} - Tình trạng: ${cond}`,
+        initialImage: photoUri,
+      };
+
+      const completedAiMsg: ChatMessage = {
+        id: loadingAiId,
+        sender: 'ai',
+        time: 'Vừa xong',
+        campusHeader: `GEMINI AI VISION - ${currentCampus}`,
+        text: `📷 **Phân tích hình ảnh hoàn tất!**\n\n• **Món đồ nhận diện:** ${title}\n• **Tình trạng máy:** ${cond}\n• **Giá đề xuất KTX:** ${estPrice} đ\n\nBạn có muốn mở form đăng bán để tự động điền các thông tin này không?`,
+        actionChips: [
+          { id: 'post_item_ai', label: 'Tạo bài đăng ngay', icon: 'create-outline', color: '#EA580C' },
+          { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#059669' },
+        ],
+      };
+
+      setMessages((prev) => prev.map((m) => (m.id === loadingAiId ? completedAiMsg : m)));
+      saveChatState([...messages, userMsg, completedAiMsg], sessionId);
+    } catch (e: any) {
+      const errorAiMsg: ChatMessage = {
+        id: loadingAiId,
+        sender: 'ai',
+        time: 'Vừa xong',
+        campusHeader: `GEMINI AI - ${currentCampus}`,
+        text: '⚠️ Không thể phân tích được ảnh lúc này. Bạn có thể tự mở form đăng bài để điền thông tin thủ công.',
+        actionChips: [
+          { id: 'post_item_ai', label: 'Mở đăng tin', icon: 'create-outline', color: '#EA580C' },
+        ],
+      };
+      setMessages((prev) => prev.map((m) => (m.id === loadingAiId ? errorAiMsg : m)));
+    }
   };
 
   const handleBack = () => {
@@ -782,6 +844,16 @@ export const AiAssistantScreen: React.FC = () => {
         onClose={() => setHistoryModalVisible(false)}
         onSelectSession={handleSelectSession}
         onNewChat={handleStartNewChat}
+      />
+
+      {/* Camera Subsystem: Chụp ảnh quét định giá Gemini Vision */}
+      <CameraSubsystemModal
+        visible={cameraModalVisible}
+        mode="capture"
+        title="Camera AI Vision"
+        subtitle="Chụp ảnh món đồ để Gemini nhận diện & định giá KTX"
+        onClose={() => setCameraModalVisible(false)}
+        onCapture={handleCameraCapture}
       />
     </View>
   );

@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Alert } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { PostCategory, PostCondition, PostImageItem } from '../types/post-item.types';
 import { useProductStore } from '../../../stores/productStore';
@@ -48,6 +49,32 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
   const [images, setImages] = useState<PostImageItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+
+  // Hỗ trợ tự động điền form khi được chuyển tiếp từ Camera AI / Trợ lý Gemini
+  let routeParams: any = {};
+  try {
+    const route = useRoute<any>();
+    routeParams = route?.params || {};
+  } catch {
+    // Trường hợp hook được gọi ngoài React Navigation tree
+  }
+
+  useEffect(() => {
+    if (routeParams.initialTitle) setTitle(routeParams.initialTitle);
+    if (routeParams.initialPrice) setPrice(String(routeParams.initialPrice));
+    if (routeParams.initialDescription) setDescription(routeParams.initialDescription);
+    if (routeParams.initialCategory) setSelectedCategory(routeParams.initialCategory);
+    if (routeParams.initialCondition) setSelectedCondition(routeParams.initialCondition);
+    if (routeParams.initialImage) {
+      setImages([
+        {
+          id: `img_ai_${Date.now()}`,
+          source: { uri: routeParams.initialImage },
+          isCover: true,
+        },
+      ]);
+    }
+  }, [routeParams.initialTitle, routeParams.initialImage, routeParams.initialPrice]);
 
   const handleAddImage = async () => {
     Alert.alert('Thêm ảnh sản phẩm', 'Chọn nguồn ảnh thực tế của món đồ', [
