@@ -134,6 +134,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -211,7 +212,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               ))}
             </View>
 
-            <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              activeOpacity={0.7}
+              delayPressIn={0}
+              onPress={handleLogout}
+            >
               <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
               <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
             </TouchableOpacity>

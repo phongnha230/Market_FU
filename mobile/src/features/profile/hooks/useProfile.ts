@@ -68,7 +68,7 @@ export const useProfile = () => {
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
    */
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!userId) return;
     // 1. Tự động đồng bộ 1 lần khi màn hình khởi tạo
     syncProfileFromBackend();
 
@@ -78,12 +78,13 @@ export const useProfile = () => {
 
       if (data.status === 'APPROVED') {
         const isSellerKyc = data.type === 'SELLER';
-        await updateUserProfile({
+        const currentCoins = useAuthStore.getState().user?.coins || 0;
+        await useAuthStore.getState().updateUserProfile({
           isKycVerified: true,
           kycStatus: 'APPROVED',
           role: isSellerKyc ? 'SELLER' : 'BUYER',
           avatarBadge: isSellerKyc ? 'TOP_SELLER' : undefined,
-          coins: (user?.coins || 0) + (data.bonusCoins || 200),
+          coins: currentCoins + (data.bonusCoins || 200),
         });
 
         // Cập nhật KycStore
@@ -95,7 +96,7 @@ export const useProfile = () => {
           `Chúc mừng bạn! Admin đã duyệt hồ sơ ${isSellerKyc ? 'Người Bán (Seller)' : 'Sinh viên FPT'}. Bạn được nhận ngay +${data.bonusCoins || 200} Xu vào ví!`
         );
       } else if (data.status === 'REJECTED') {
-        await updateUserProfile({
+        await useAuthStore.getState().updateUserProfile({
           isKycVerified: false,
           kycStatus: 'REJECTED',
         });
@@ -110,7 +111,7 @@ export const useProfile = () => {
     return () => {
       unsubscribe();
     };
-  }, [syncProfileFromBackend, updateUserProfile, user?.coins]);
+  }, [userId]);
 
   const isSeller = user?.role === 'SELLER';
 
@@ -228,7 +229,7 @@ export const useProfile = () => {
     });
   }, [user, orders, userId, isSeller, unreadNotifsCount]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
       { text: 'Hủy', style: 'cancel' },
       {
@@ -242,7 +243,7 @@ export const useProfile = () => {
         },
       },
     ]);
-  };
+  }, [logout, navigation]);
 
   return {
     user,

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAlertStore, AlertButton, AlertType } from '../../stores/alertStore';
@@ -78,7 +79,7 @@ export const GlobalAlertModal: React.FC = () => {
     <Modal
       transparent
       visible={visible}
-      animationType="fade"
+      animationType={Platform.OS === 'ios' ? 'fade' : 'none'}
       onRequestClose={handleBackdropPress}
       statusBarTranslucent
     >

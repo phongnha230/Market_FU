@@ -95,7 +95,11 @@ export const SettingsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollBody}
+      >
         {/* Profile Summary Mini */}
         <View style={styles.userCard}>
           <View style={styles.avatarBox}>
@@ -201,7 +205,12 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          activeOpacity={0.7}
+          delayPressIn={0}
+          onPress={handleLogout}
+        >
           <Ionicons name="log-out-outline" size={20} color="#DC2626" />
           <Text style={styles.logoutText}>Đăng xuất khỏi thiết bị này</Text>
         </TouchableOpacity>
