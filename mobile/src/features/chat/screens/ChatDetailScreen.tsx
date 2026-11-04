@@ -107,6 +107,54 @@ export const ChatDetailScreen: React.FC = () => {
     return cid ? useChatStore.getState().getConversationById(cid) : undefined;
   }, [conversationId, initialConvId]);
 
+  // Tự động đồng bộ tên & avatar đối tác từ store/API khi vào phòng chat từ Push Notification
+  useEffect(() => {
+    const cid = conversationId || initialConvId;
+    if (!cid) return;
+
+    const syncPartnerInfo = async () => {
+      let conv: any = useChatStore.getState().getConversationById(cid);
+      const convPartnerName = conv?.partnerName || conv?.participantName;
+      if (!conv || !convPartnerName || convPartnerName === 'Sinh viên FPT') {
+        try {
+          const list = await chatMobileService.getConversations();
+          conv = list.find((c: any) => c.id === cid);
+        } catch (_) {}
+      }
+
+      const finalPartnerName = conv?.partnerName || conv?.participantName;
+      const finalPartnerAvatar = conv?.partnerAvatar || conv?.participantAvatar;
+      const finalPartnerId = conv?.partnerId || conv?.participantId;
+
+      if (conv && finalPartnerName) {
+        setPartner((prev) => {
+          const isPlaceholder =
+            !prev.name ||
+            prev.name === 'Người bán FPT' ||
+            prev.name === 'Người mua FPT' ||
+            prev.name === 'Sinh viên FPT' ||
+            prev.name === 'u-partner';
+
+          if (isPlaceholder || !routePartner?.name) {
+            return {
+              ...prev,
+              id: finalPartnerId || prev.id,
+              name: finalPartnerName,
+              avatar: getSafeAvatar(finalPartnerAvatar || prev.avatar, finalPartnerName),
+            };
+          }
+          return prev;
+        });
+
+        if (conv.buyerId && currentUserId && currentUserId !== 'me') {
+          setIsBuyer(conv.buyerId === currentUserId);
+        }
+      }
+    };
+
+    syncPartnerInfo();
+  }, [conversationId, initialConvId, currentUserId, routePartner?.name]);
+
   const product = useMemo(() => {
     const base = routeProduct || (storedConv && storedConv.productId ? {
       id: storedConv.productId,
@@ -263,14 +311,27 @@ export const ChatDetailScreen: React.FC = () => {
 
             const isProductUnavailable = Boolean((product as any)?.status && (product as any).status !== 'AVAILABLE');
 
-            const mapped: MessageItem[] = uniqueRemote.map((m, idx) => {
+            const mapped = uniqueRemote.map((m, idx) => {
+              const text = m.message || '';
+              const isAcceptMsg = /\[OFFER_ACCEPTED\]|đồng ý chốt/i.test(text);
+              const isRejectMsg = /\[OFFER_REJECTED\]|từ chối đề xuất|chưa phù hợp/i.test(text);
+
+              // Giống Web: Nếu đã có một thẻ đề xuất giá trước đó, thẻ đề xuất đó sẽ tự chuyển sang màu xanh/đỏ.
+              // Tin nhắn phản hồi này không cần render thêm một thẻ trùng lặp (tránh hiển thị 2 thẻ chốt giá).
+              if (isAcceptMsg || isRejectMsg) {
+                const hasPriorOffer = uniqueRemote.slice(0, idx).some((em) => em.messageType === 'OFFER_PRICE' || Boolean(em.offerPrice));
+                if (hasPriorOffer) {
+                  return null;
+                }
+              }
+
               const isImg = m.messageType === 'IMAGE' || Boolean(m.imageUrl);
-              const isOrder = Boolean(m.message?.startsWith('[ORDER_CREATED]'));
+              const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));
               const msgType: any = isOrder
                 ? 'order'
                 : isImg
                 ? 'image'
-                : m.messageType === 'OFFER_PRICE'
+                : (m.messageType === 'OFFER_PRICE' && !isAcceptMsg && !isRejectMsg)
                 ? 'offer'
                 : m.messageType === 'MEETUP_LOCATION'
                 ? 'safepoint'
@@ -327,6 +388,8 @@ export const ChatDetailScreen: React.FC = () => {
               };
             });
 
+            const validMapped = mapped.filter(Boolean) as MessageItem[];
+
             setMessages((prev) => {
               // Giữ lại các tin nhắn optimistic đang chờ gửi nếu remote chưa có
               const pendingOptimistic = prev.filter(
@@ -340,7 +403,7 @@ export const ChatDetailScreen: React.FC = () => {
                 }
                 return true;
               });
-              return [...mapped, ...filteredPending];
+              return [...validMapped, ...filteredPending];
             });
           }
         } catch (err: any) {
@@ -410,7 +473,7 @@ export const ChatDetailScreen: React.FC = () => {
         ? 'order'
         : isImg
         ? 'image'
-        : rawMsg.messageType === 'OFFER_PRICE'
+        : (rawMsg.messageType === 'OFFER_PRICE' && !isAccept && !isReject)
         ? 'offer'
         : rawMsg.messageType === 'MEETUP_LOCATION'
         ? 'safepoint'
@@ -437,6 +500,11 @@ export const ChatDetailScreen: React.FC = () => {
       setMessages((prev) => {
         // Tránh trùng lặp tin nhắn theo ID đã có
         if (prev.some((m) => m.id === incoming.id)) return prev;
+
+        // Nếu tin nhắn là [OFFER_ACCEPTED] hoặc [OFFER_REJECTED] và trong chat đã có thẻ offer trước đó, triệt tiêu bong bóng trùng lặp
+        if ((isAccept || isReject) && prev.some((m) => m.type === 'offer')) {
+          return prev;
+        }
 
         // Nếu là tin nhắn mặc cả từ chính mình -> Reconcile / thay thế tin nhắn optimistic
         if (isMe && incoming.type === 'offer') {
@@ -779,7 +847,7 @@ export const ChatDetailScreen: React.FC = () => {
       if (conversationId && offeredPrice > 0) {
         const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
         chatMobileService
-          .sendMessage(conversationId, acceptText, 'OFFER_PRICE', offeredPrice)
+          .sendMessage(conversationId, acceptText, 'TEXT')
           .catch(() => {});
       }
       Alert.alert('Thành công', `Bạn đã chấp nhận đề xuất giá ${formattedPrice}!`);

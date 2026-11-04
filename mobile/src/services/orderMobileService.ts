@@ -398,11 +398,13 @@ export const orderMobileService = {
   /**
    * Xác thực mã OTP 4 số tại trạm Safe-Point chuẩn Backend regex /^\d{4}$/
    */
-  async verifyHandshake(orderId: string, otp: string): Promise<{ success: boolean; message: string }> {
-    const cleanOtp = otp.replace(/\s/g, '').trim();
-    const res = await apiClient.post<ApiResponse<any>>(`/orders/${orderId}/handshake`, {
-      handshakeOtp: cleanOtp,
-    });
+  async verifyHandshake(orderId: string, credential: string): Promise<{ success: boolean; message: string }> {
+    const clean = credential.replace(/\s/g, '').trim();
+    const isOtp = /^\d{4,6}$/.test(clean);
+    const payload = isOtp ? { handshakeOtp: clean } : { handshakeToken: clean };
+
+    const cleanOrderId = orderId.replace(/^#/, '').trim();
+    const res = await apiClient.post<ApiResponse<any>>(`/orders/${cleanOrderId}/handshake`, payload);
     return {
       success: true,
       message: res.data?.data?.message || 'Bàn giao thành công! Tiền cọc đã được giải phóng vào ví của bạn.',

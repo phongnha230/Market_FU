@@ -58,7 +58,7 @@ export interface KhoContextType {
   mySellOrders: OrderItem[];
   pendingOrdersCount: number;
   createOrderInKho: (order: Omit<OrderItem, 'id' | 'createdAt' | 'isReviewed'>) => OrderItem;
-  verifySafePointOtp: (orderId: string, otp: string) => { success: boolean; message: string };
+  verifySafePointOtp: (orderId: string, otp: string) => Promise<{ success: boolean; message: string }>;
   refreshOrders: () => Promise<void>;
 
   // === 5. KHO VÍ TIỀN & BẢO CHỨNG ESCROW (Wallet Repository) ===

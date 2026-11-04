@@ -131,10 +131,11 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   timelineHeading: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 14,
+    flex: 1,
+    marginRight: 8,
   },
   timelineList: {
     paddingLeft: 4,
@@ -195,18 +196,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 4,
+    gap: 6,
   },
   stepTitle: {
     fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
+    flex: 1,
+    marginRight: 6,
   },
   stepBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 5,
+    flexShrink: 0,
   },
   stepBadgeText: {
     fontSize: 9,
@@ -237,6 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
   },
   partnerBadgeText: {
     fontSize: 10.5,

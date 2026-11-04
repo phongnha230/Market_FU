@@ -509,6 +509,7 @@ export class ChatService {
                 productId: conversation.productId,
                 type: 'CHAT',
                 senderAvatar,
+                senderName,
               })
               .catch(() => {});
           }
@@ -520,6 +521,7 @@ export class ChatService {
               productId: conversation.productId,
               type: 'CHAT',
               senderAvatar,
+              senderName,
             })
             .catch(() => {});
         });

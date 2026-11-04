@@ -369,7 +369,7 @@ export const CheckoutSuccessScreen: React.FC = () => {
                     <Ionicons name="bus" size={13} color="#7C3AED" />
                     <Text style={styles.interCampusBadgeText}>VẬN ĐƠN LIÊN CAMPUS</Text>
                   </View>
-                  <Text style={styles.interCampusRouteText}>
+                  <Text style={styles.interCampusRouteText} numberOfLines={1} ellipsizeMode="tail">
                     {fromCampus} ➔ {toCampus}
                   </Text>
                 </View>
@@ -827,6 +827,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginBottom: 6,
   },
   interCampusBadge: {
@@ -837,6 +838,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
   },
   interCampusBadgeText: {
     fontSize: 10.5,
@@ -847,6 +849,8 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#6B21A8',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   interCampusDesc: {
     fontSize: 11.5,

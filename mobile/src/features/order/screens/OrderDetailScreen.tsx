@@ -174,18 +174,18 @@ export const OrderDetailScreen: React.FC = () => {
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
   const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
   const isSeller = Boolean(
-    route.params?.isSeller ??
-    (
-      (user?.id && (activeOrder?.buyerId === user.id || matchedOrder?.buyerId === user.id || (activeOrder as any)?.buyer?.id === user.id))
-        ? false
-        : (
-            (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id || (activeOrder as any)?.seller?.id === user.id)) ||
-            (user?.email && ((activeOrder as any)?.sellerEmail === user.email || (activeOrder as any)?.seller?.email === user.email)) ||
-            (user?.studentId && ((activeOrder as any)?.sellerStudentId === user.studentId || (activeOrder as any)?.seller?.studentId === user.studentId)) ||
-            (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name || (activeOrder as any)?.seller?.profile?.fullName === user.name)) ||
-            (user?.role === 'SELLER')
-          )
-    )
+    typeof route.params?.isSeller === 'boolean'
+      ? route.params.isSeller
+      : (
+          (user?.id && (activeOrder?.buyerId === user.id || matchedOrder?.buyerId === user.id || (activeOrder as any)?.buyer?.id === user.id))
+            ? false
+            : (
+                (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id || (activeOrder as any)?.seller?.id === user.id)) ||
+                (user?.email && ((activeOrder as any)?.sellerEmail === user.email || (activeOrder as any)?.seller?.email === user.email)) ||
+                (user?.studentId && ((activeOrder as any)?.sellerStudentId === user.studentId || (activeOrder as any)?.seller?.studentId === user.studentId)) ||
+                (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name || (activeOrder as any)?.seller?.profile?.fullName === user.name))
+              )
+        )
   );
 
   const handleResumePayOs = async () => {
@@ -380,8 +380,11 @@ export const OrderDetailScreen: React.FC = () => {
       sellerName: product.sellerName,
       price: product.priceStr || '1.450.000đ',
       isCod: false,
+      isSeller: Boolean(isSeller),
+      order: activeOrder || matchedOrder,
+      dispute: activeOrder?.dispute || matchedOrder?.dispute,
     });
-  }, [navigation, orderId, product]);
+  }, [navigation, orderId, product, isSeller, activeOrder, matchedOrder]);
 
   const handleOpenReview = useCallback(() => {
     navigation.navigate('Review', {
@@ -600,10 +603,13 @@ export const OrderDetailScreen: React.FC = () => {
             <OrderSafePointQrCard
               safePoint={safePoint}
               orderId={orderId}
+              orderCode={activeOrder?.orderNumber || orderId}
               timeSlot={timeSlot}
               note={deliveryNote}
               isConfirmed={orderStatus !== 'pending' && orderStatus !== 'PENDING_SAFEPOINT'}
               isSeller={Boolean(isSeller)}
+              handshakeOtp={activeOrder?.handshakeOtp || (activeOrder as any)?.handshake?.handshakeOtp}
+              handshakeToken={(activeOrder as any)?.handshake?.handshakeToken}
             />
           </>
         )}

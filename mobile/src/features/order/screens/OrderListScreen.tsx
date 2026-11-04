@@ -45,11 +45,12 @@ const OrderTabChip: React.FC<{
 const OrderCardItem: React.FC<{
   item: OrderItem;
   currentUserId: string;
+  userName?: string;
   onPress: (item: OrderItem) => void;
   onDispute: (item: OrderItem) => void;
   onReview: (item: OrderItem) => void;
   onViewReview: (item: OrderItem) => void;
-}> = React.memo(({ item, currentUserId, onPress, onDispute, onReview, onViewReview }) => {
+}> = React.memo(({ item, currentUserId, userName, onPress, onDispute, onReview, onViewReview }) => {
   const [imgError, setImgError] = React.useState(false);
 
   React.useEffect(() => {
@@ -57,7 +58,10 @@ const OrderCardItem: React.FC<{
   }, [item.id, item.productImage]);
 
   const imageSource = imgError ? DEFAULT_PRODUCT_FALLBACK : resolveProductImage(item.productImage);
-  const isSaleForCurrent = item.sellerId === currentUserId;
+  const isSaleForCurrent = Boolean(
+    (currentUserId && item.sellerId === currentUserId) ||
+    (userName && item.sellerName === userName)
+  );
   const isBuyer = !isSaleForCurrent;
   const isCompleted = item.status === 'COMPLETED';
   const dispute = item.dispute;
@@ -136,20 +140,79 @@ const OrderCardItem: React.FC<{
         </View>
       </TouchableOpacity>
 
-      {/* Banner kết quả trả hàng & hoàn tiền (Chuẩn Web Ảnh 4) */}
-      {(item.status === 'CANCELLED' || disputeStatus === 'REFUNDED') && (
-        <TouchableOpacity
-          style={styles.refundBannerCard}
-          activeOpacity={0.85}
-          onPress={handleDispute}
-        >
-          <Ionicons name="close-circle" size={14} color="#DC2626" style={{ marginRight: 6 }} />
-          <Text style={styles.refundBannerText} numberOfLines={1}>
-            Yêu cầu trả hàng đã được BQT chấp thuận • Tiền Escrow & Xu đã được xử lý hoàn trả
-          </Text>
-          <Text style={styles.refundBannerLink}>Xem hồ sơ →</Text>
-        </TouchableOpacity>
-      )}
+      {/* Banner trạng thái đơn hủy / hoàn tiền chuẩn Web (Đồng bộ theo cancelledBy, tối ưu gọn gàng cho Mobile) */}
+      {(item.status === 'CANCELLED' || disputeStatus === 'REFUNDED') && (() => {
+        const isDispute =
+          item.cancelledBy === 'DISPUTE' ||
+          disputeStatus === 'REFUNDED' ||
+          disputeStatus === 'RESOLVED';
+        const isShipper = item.cancelledBy === 'SHIPPER';
+        const isSellerCancel = item.cancelledBy === 'SELLER';
+        const isSystem = item.cancelledBy === 'SYSTEM';
+        const carrier = item.shippingPartner || 'GHN';
+
+        const bannerText = isDispute
+          ? isSaleForCurrent
+            ? 'BQT duyệt hoàn tiền • Bài đăng đã ẩn'
+            : 'BQT duyệt trả hàng • Đã hoàn Escrow & Xu'
+          : isShipper
+          ? isSaleForCurrent
+            ? `${carrier} hủy giao • Đã mở bán lại`
+            : `${carrier} hủy giao • ${item.isPaid ? 'Đã hoàn cọc Escrow' : 'Đơn COD đã đóng'}`
+          : isSellerCancel
+          ? isSaleForCurrent
+            ? 'Bạn từ chối đơn • Đã mở bán lại'
+            : `Người bán từ chối • ${item.isPaid ? 'Đã hoàn cọc Escrow' : 'Đơn đã đóng'}`
+          : isSystem
+          ? isSaleForCurrent
+            ? 'Hết hạn thanh toán 15p • Đã mở bán lại'
+            : 'Tự động hủy (Quá hạn thanh toán 15p)'
+          : isSaleForCurrent
+          ? 'Người mua hủy đơn • Đã mở bán lại'
+          : `Đã hủy đơn • ${item.isPaid ? 'Đã hoàn cọc Escrow' : 'Đơn đã đóng'}`;
+
+        const linkText = isDispute ? 'Hồ sơ →' : isShipper ? 'Vận đơn →' : 'Chi tiết →';
+        const actionPress = isDispute ? handleDispute : handlePress;
+
+        return (
+          <TouchableOpacity
+            style={[
+              styles.refundBannerCard,
+              isShipper && { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+              !isDispute && !isShipper && { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
+            ]}
+            activeOpacity={0.85}
+            onPress={actionPress}
+          >
+            <Ionicons
+              name={isDispute ? 'close-circle' : isShipper ? 'bus-outline' : 'alert-circle-outline'}
+              size={13}
+              color={isDispute ? '#DC2626' : isShipper ? '#D97706' : '#64748B'}
+              style={{ marginRight: 5 }}
+            />
+            <Text
+              style={[
+                styles.refundBannerText,
+                isShipper && { color: '#92400E' },
+                !isDispute && !isShipper && { color: '#475569' },
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {bannerText}
+            </Text>
+            <Text
+              style={[
+                styles.refundBannerLink,
+                isShipper && { color: '#D97706' },
+                !isDispute && !isShipper && { color: '#64748B' },
+              ]}
+            >
+              {linkText}
+            </Text>
+          </TouchableOpacity>
+        );
+      })()}
 
       {/* Card Footer */}
       <View style={styles.cardFooter}>
@@ -354,9 +417,13 @@ export const OrderListScreen: React.FC = () => {
   );
 
   const handleNavigateDetail = React.useCallback((item: OrderItem) => {
+    const isCurrentOrderSeller = Boolean(
+      (currentUserId && item.sellerId === currentUserId) ||
+      (user?.name && item.sellerName === user.name)
+    );
     navigation.navigate('OrderDetail', {
       orderId: item.orderNumber || item.id,
-      isSeller,
+      isSeller: isCurrentOrderSeller,
       product: {
         id: item.productId,
         title: item.productTitle,
@@ -372,9 +439,13 @@ export const OrderListScreen: React.FC = () => {
       isReviewed: item.isReviewed,
       totalAmount: item.totalAmount,
     });
-  }, [navigation, isSeller]);
+  }, [navigation, currentUserId, user?.name]);
 
   const handleDispute = React.useCallback((item: OrderItem) => {
+    const isCurrentOrderSeller = Boolean(
+      (currentUserId && item.sellerId === currentUserId) ||
+      (user?.name && item.sellerName === user.name)
+    );
     navigation.navigate('Dispute', {
       orderId: item.orderNumber || item.id,
       dispute: item.dispute,
@@ -383,13 +454,9 @@ export const OrderListScreen: React.FC = () => {
       price: formatPrice(item.totalAmount || item.price),
       isCod: item.orderType === 'SHIP_COD',
       order: item,
-      isSeller: Boolean(
-        (currentUserId && item.sellerId === currentUserId) ||
-        (user?.name && item.sellerName === user.name) ||
-        isSeller
-      ),
+      isSeller: isCurrentOrderSeller,
     });
-  }, [navigation]);
+  }, [navigation, currentUserId, user?.name]);
 
   const handleReview = React.useCallback((item: OrderItem) => {
     navigation.navigate('Review', {

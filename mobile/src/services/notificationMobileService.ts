@@ -276,7 +276,14 @@ export function setupNotificationListeners() {
             iconBg: data?.type === 'CHAT' ? '#FFF7ED' : '#ECFDF5',
             avatarUrl: data?.senderAvatar || data?.avatarUrl || undefined,
             targetScreen: data?.type === 'CHAT' ? 'ChatDetail' : data?.type === 'ORDER' ? 'OrderDetail' : undefined,
-            targetParams: data?.conversationId ? { conversationId: data.conversationId } : undefined,
+            targetParams: data?.conversationId ? {
+              conversationId: data.conversationId,
+              partner: {
+                id: data.senderId || data.conversationId,
+                name: data.senderName || content?.title,
+                avatar: data.senderAvatar || data.avatarUrl,
+              },
+            } : undefined,
           });
         } catch {}
       });
@@ -311,7 +318,16 @@ export function handleNotificationNavigation(data: any) {
   if (type === 'ORDER' || orderId) {
     navigate('OrderDetail', { orderId: orderId || extractIdFromUrl(targetUrl) });
   } else if (type === 'CHAT' || conversationId) {
-    navigate('ChatDetail', { partner: { id: conversationId } });
+    const pName = data?.senderName || (data?.title && data?.title !== 'Tin nhắn mới' ? data?.title : undefined);
+    const pAvatar = data?.senderAvatar || data?.avatarUrl;
+    navigate('ChatDetail', {
+      conversationId,
+      partner: {
+        id: data?.senderId || conversationId,
+        name: pName,
+        avatar: pAvatar,
+      },
+    });
   } else if (type === 'KYC') {
     navigate('AccountSettings');
   } else if (productId) {

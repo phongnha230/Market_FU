@@ -234,8 +234,8 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
 
     if (isInterCampus) {
       if (isShipping) {
-        return (
-          <View style={{ gap: 8 }}>
+        if (!hasTrackingCode) {
+          return (
             <TouchableOpacity
               style={[styles.confirmReceivedBtn, { backgroundColor: '#EA580C' }]}
               activeOpacity={0.88}
@@ -244,15 +244,18 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
             >
               <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
               <Text style={styles.confirmReceivedText}>
-                {hasTrackingCode ? 'Sửa mã vận đơn' : 'Bàn giao bưu cục (Tạo mã)'}
+                Bàn giao bưu cục (Tạo mã)
               </Text>
             </TouchableOpacity>
-            <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: 12, height: 44 }]}>
-              <Ionicons name="cube-outline" size={18} color="#2563EB" style={styles.mr6} />
-              <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
-                {hasTrackingCode ? 'Kiện hàng đang luân chuyển' : 'Đã tiếp nhận • Chờ đóng gói'}
-              </Text>
-            </View>
+          );
+        }
+
+        return (
+          <View style={[styles.confirmReceivedBtn, { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: 12, height: 44 }]}>
+            <Ionicons name="cube-outline" size={18} color="#2563EB" style={styles.mr6} />
+            <Text style={[styles.confirmReceivedText, { color: '#1E40AF', fontSize: 12.5, fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
+              Kiện hàng đang luân chuyển
+            </Text>
           </View>
         );
       }

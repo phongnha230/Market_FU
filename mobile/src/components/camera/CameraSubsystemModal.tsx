@@ -10,7 +10,9 @@ import {
   TextInput,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 
@@ -46,6 +48,7 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
   const [torch, setTorch] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const insets = useSafeAreaInsets();
   const [manualOtp, setManualOtp] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
@@ -211,53 +214,73 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
             {/* Overlay Viewfinder HUD */}
             <View style={styles.hudOverlay}>
               {mode === 'qr' ? (
-                <>
-                  <View style={styles.viewfinderBox}>
-                    <View style={[styles.corner, styles.tl]} />
-                    <View style={[styles.corner, styles.tr]} />
-                    <View style={[styles.corner, styles.bl]} />
-                    <View style={[styles.corner, styles.br]} />
-                    <View style={styles.scanLaser} />
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                  style={styles.qrHudContainer}
+                  keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+                >
+                  <View style={styles.viewfinderCenterWrap}>
+                    <View style={styles.viewfinderBox}>
+                      <View style={[styles.corner, styles.tl]} />
+                      <View style={[styles.corner, styles.tr]} />
+                      <View style={[styles.corner, styles.bl]} />
+                      <View style={[styles.corner, styles.br]} />
+                      <View style={styles.scanLaser} />
+                    </View>
+                    <Text style={styles.viewfinderHint}>
+                      Căn chỉnh mã QR Handshake vào trong khung ngắm
+                    </Text>
                   </View>
-                  <Text style={styles.viewfinderHint}>
-                    Căn chỉnh mã QR Handshake vào trong khung ngắm
-                  </Text>
 
-                  {/* Fallback & Simulator Quick Test */}
-                  <View style={styles.qrBottomCard}>
-                    {expectedOtp && (
-                      <TouchableOpacity
-                        style={styles.quickTestBtn}
-                        onPress={() => {
-                          setManualOtp(expectedOtp);
-                          if (onBarcodeScanned) onBarcodeScanned(expectedOtp);
-                        }}
-                      >
-                        <Ionicons name="flash-outline" size={14} color="#EA580C" />
-                        <Text style={styles.quickTestText}>Quét thử mẫu ({expectedOtp})</Text>
-                      </TouchableOpacity>
-                    )}
+                  {/* Khối Nhập Mã OTP Cân Đối Ở Đáy */}
+                  <View style={[styles.qrBottomCardWrapper, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
+                    <View style={styles.qrBottomCard}>
+                      <View style={styles.cardHeaderRow}>
+                        <Ionicons name="key" size={15} color="#FB923C" />
+                        <Text style={styles.cardHeaderTitle}>HOẶC NHẬP MÃ OTP TỪ NGƯỜI MUA</Text>
+                      </View>
 
-                    <View style={styles.otpManualRow}>
-                      <TextInput
-                        style={styles.otpCompactInput}
-                        placeholder="Nhập OTP 4-6 số"
-                        placeholderTextColor="#94A3B8"
-                        keyboardType="numeric"
-                        maxLength={6}
-                        value={manualOtp}
-                        onChangeText={setManualOtp}
-                      />
-                      <TouchableOpacity
-                        style={styles.otpVerifyBtn}
-                        onPress={handleManualSubmit}
-                        disabled={isProcessing}
-                      >
-                        <Text style={styles.otpVerifyBtnText}>Khớp Mã</Text>
-                      </TouchableOpacity>
+                      {Boolean(__DEV__) && !!expectedOtp && /^[0-9]{4,6}$/.test(expectedOtp) ? (
+                        <TouchableOpacity
+                          style={styles.quickTestBtn}
+                          onPress={() => {
+                            setManualOtp(expectedOtp);
+                            if (onBarcodeScanned) onBarcodeScanned(expectedOtp);
+                          }}
+                        >
+                          <Ionicons name="flash-outline" size={14} color="#EA580C" />
+                          <Text style={styles.quickTestText}>Quét thử mẫu ({expectedOtp})</Text>
+                        </TouchableOpacity>
+                      ) : null}
+
+                      <View style={styles.otpManualRow}>
+                        <TextInput
+                          style={styles.otpCompactInput}
+                          placeholder="Mã OTP 4 số..."
+                          placeholderTextColor="#64748B"
+                          keyboardType="numeric"
+                          maxLength={6}
+                          value={manualOtp}
+                          onChangeText={setManualOtp}
+                        />
+                        <TouchableOpacity
+                          style={[styles.otpVerifyBtn, isProcessing && { opacity: 0.7 }]}
+                          onPress={handleManualSubmit}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                              <Text style={styles.otpVerifyBtnText}>Khớp Mã</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
-                </>
+                </KeyboardAvoidingView>
               ) : (
                 /* AI Capture Overlay */
                 <View style={styles.captureHud}>
@@ -398,16 +421,42 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
+  qrHudContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  viewfinderCenterWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  qrBottomCardWrapper: {
+    width: '100%',
+    paddingHorizontal: 16,
+    zIndex: 20,
+  },
   qrBottomCard: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 36 : 20,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+    borderRadius: 18,
     padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  cardHeaderTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#CBD5E1',
+    letterSpacing: 0.5,
   },
   quickTestBtn: {
     flexDirection: 'row',
@@ -426,32 +475,37 @@ const styles = StyleSheet.create({
   },
   otpManualRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    alignItems: 'center',
   },
   otpCompactInput: {
     flex: 1,
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    borderRadius: 12,
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    height: 42,
+    fontSize: 16,
+    fontWeight: '900',
+    paddingHorizontal: 14,
+    height: 48,
     textAlign: 'center',
-    letterSpacing: 2,
+    letterSpacing: 4,
   },
   otpVerifyBtn: {
     backgroundColor: '#059669',
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    height: 42,
+    height: 48,
+    boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)',
   },
   otpVerifyBtnText: {
     color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
+    fontWeight: '900',
+    fontSize: 14,
   },
   captureHud: {
     flex: 1,

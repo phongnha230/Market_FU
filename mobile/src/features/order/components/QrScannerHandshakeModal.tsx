@@ -20,29 +20,48 @@ export const QrScannerHandshakeModal: React.FC<QrScannerHandshakeModalProps> = (
 }) => {
   const { verifyHandshakeOtp } = useOrderStore();
 
-  const handleVerify = (scannedCode: string) => {
+  const handleVerify = async (scannedCode: string) => {
     let cleanCode = (scannedCode || '').trim();
 
-    // Nếu scan ra URL hoặc chuỗi json chứa orderId / handshakeOtp
-    if (cleanCode.startsWith('http')) {
+    // 1. Nếu scan ra chuỗi JSON từ QR Handshake của người mua
+    if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
       try {
-        const url = new URL(cleanCode);
-        cleanCode = url.searchParams.get('otp') || url.searchParams.get('code') || cleanCode;
+        const parsed = JSON.parse(cleanCode);
+        cleanCode = parsed.otp || parsed.handshakeOtp || parsed.token || parsed.handshakeToken || cleanCode;
       } catch {
         // Giữ nguyên
       }
     }
+
+    // 2. Nếu scan ra URL hoặc query string chứa otp/token/code
+    if (cleanCode.startsWith('http')) {
+      try {
+        const url = new URL(cleanCode);
+        cleanCode = url.searchParams.get('otp') || url.searchParams.get('token') || url.searchParams.get('code') || cleanCode;
+      } catch {
+        // Giữ nguyên
+      }
+    }
+
+    // 3. Gỡ bỏ tiền tố OTP- hoặc # nếu có
+    cleanCode = cleanCode.replace(/^OTP-/, '').trim();
 
     if (!cleanCode) {
       Alert.alert('Chưa có mã', 'Không đọc được dữ liệu mã QR hoặc mã OTP.');
       return;
     }
 
-    const res = verifyHandshakeOtp(orderId, cleanCode);
+    const res = await verifyHandshakeOtp(orderId, cleanCode);
     if (res.success) {
-      Alert.alert('🎉 Bàn giao thành công!', res.message);
-      onClose();
-      if (onSuccess) onSuccess();
+      Alert.alert('🎉 Bàn giao thành công!', res.message, [
+        {
+          text: 'Đã hiểu',
+          onPress: () => {
+            onClose();
+            if (onSuccess) onSuccess();
+          },
+        },
+      ]);
     } else {
       Alert.alert('Xác thực thất bại', res.message);
     }

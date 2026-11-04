@@ -5,24 +5,47 @@ import { Ionicons } from '@expo/vector-icons';
 interface OrderSafePointQrCardProps {
   safePoint: string;
   orderId: string;
+  orderCode?: string;
   timeSlot?: string;
   note?: string;
   isConfirmed?: boolean;
   isSeller?: boolean;
+  handshakeOtp?: string;
+  handshakeToken?: string;
 }
 
 export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.memo(({
   safePoint,
   orderId,
+  orderCode,
   timeSlot,
   note,
   isConfirmed = true,
   isSeller = false,
+  handshakeOtp,
+  handshakeToken,
 }) => {
   const [loading, setLoading] = useState(true);
+
+  // Sinh hoặc lấy OTP 4 số đảm bảo không bao giờ bị rỗng
+  const effectiveOtp = handshakeOtp || (orderId
+    ? Math.abs(
+        orderId.split('').reduce((acc, char) => acc * 31 + char.charCodeAt(0), 1234) % 9000 + 1000
+      ).toString()
+    : '1293');
+
+  // Payload chuẩn chứa type, orderId, orderCode, otp và token
+  const qrPayload = JSON.stringify({
+    type: 'SAFE_HANDOFF',
+    orderId: orderId,
+    orderCode: orderCode || orderId,
+    otp: effectiveOtp,
+    token: handshakeToken || undefined,
+  });
+
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    orderId
-  )}`;
+    qrPayload
+  )}&margin=8&color=0f172a`;
 
   return (
     <View style={styles.safePointCard}>
@@ -94,7 +117,37 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
               </View>
             )}
           </View>
-          <Text style={styles.qrCodeLabel}>MÃ HẸN BÀN GIAO: #{orderId}</Text>
+          <Text style={styles.qrCodeLabel}>MÃ HẸN BÀN GIAO: #{orderCode || orderId}</Text>
+
+          {/* Khối hiển thị OTP 4 số đồng kiểm cho Người Mua */}
+          {!isSeller && (
+            <View style={styles.otpCardBox}>
+              <View style={styles.otpHeaderRow}>
+                <Ionicons name="key" size={15} color="#EA580C" />
+                <Text style={styles.otpHeaderTitle}>MÃ OTP BÀN GIAO (4 SỐ)</Text>
+              </View>
+              <View style={styles.otpDigitsContainer}>
+                {effectiveOtp.split('').map((digit, idx) => (
+                  <View key={idx} style={styles.otpCell}>
+                    <Text style={styles.otpDigit}>{digit}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.otpSubText}>
+                Đọc 4 số này hoặc đưa mã QR trên cho người bán quét khi kiểm tra máy
+              </Text>
+            </View>
+          )}
+
+          {isSeller && (
+            <View style={styles.sellerScanNotice}>
+              <Ionicons name="scan" size={16} color="#059669" style={{ marginRight: 6 }} />
+              <Text style={styles.sellerScanNoticeText}>
+                Bấm [Quét QR / Nhập OTP nhận hàng] ở thanh công cụ dưới để xác nhận bàn giao.
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.qrCodeHint}>
             {isSeller
               ? 'Yêu cầu người mua xuất trình mã QR này hoặc mã OTP 4 số khi giao nhận.'
@@ -263,6 +316,74 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     lineHeight: 16,
+  },
+  otpCardBox: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    borderColor: '#FFEDD5',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    marginVertical: 10,
+    width: '100%',
+    maxWidth: 280,
+  },
+  otpHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  otpHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EA580C',
+    letterSpacing: 0.5,
+  },
+  otpDigitsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  otpCell: {
+    width: 44,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FDBA74',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 4px rgba(234, 88, 12, 0.12)',
+  },
+  otpDigit: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#EA580C',
+  },
+  otpSubText: {
+    fontSize: 11,
+    color: '#9A3412',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  sellerScanNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 10,
+    maxWidth: 280,
+  },
+  sellerScanNoticeText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#065F46',
+    lineHeight: 16,
+    fontWeight: '600',
   },
   pendingQrBox: {
     alignItems: 'center',

@@ -129,6 +129,12 @@ export const InterCampusTransactionScreen: React.FC = () => {
 
     const rawProdSellerName = route.params?.product?.sellerName;
 
+    // Nếu người dùng hiện tại là người mua thì chắc chắn không phải người bán
+    const matchedBuyerId = matchedOrder?.buyerId || (matchedOrder as any)?.buyer?.id;
+    if (currentUserId && matchedBuyerId && currentUserId === matchedBuyerId) {
+      return false;
+    }
+
     return Boolean(
       (currentUserId && matchedSellerId && currentUserId === matchedSellerId) ||
       (currentEmail && matchedSellerEmail && currentEmail === matchedSellerEmail) ||
@@ -325,6 +331,9 @@ export const InterCampusTransactionScreen: React.FC = () => {
       productTitle: product.title,
       sellerName: product.sellerName,
       price: product.priceStr,
+      isSeller: Boolean(isSeller),
+      order: matchedOrder,
+      dispute: matchedOrder?.dispute,
     });
   };
 
@@ -362,7 +371,9 @@ export const InterCampusTransactionScreen: React.FC = () => {
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Hành Trình Vận Đơn Liên Campus</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+            Hành Trình Vận Đơn Liên Campus
+          </Text>
           <View style={styles.headerRoleRow}>
             <View style={[styles.roleBadge, { backgroundColor: isSeller ? '#FFF7ED' : '#EFF6FF' }]}>
               <Ionicons
@@ -1002,6 +1013,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     color: '#065F46',
+    flex: 1,
   },
   completedDesc: {
     fontSize: 11.5,

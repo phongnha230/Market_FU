@@ -153,35 +153,44 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
               </View>
 
               {/* Input: Nhập phần trăm muốn giảm & Giá đề xuất */}
-              <View style={styles.inputsContainer}>
-                <View style={styles.inputCol}>
-                  <Text style={styles.inputLabel}>
-                    Nhập % muốn giảm <Text style={styles.labelHint}>(Tối đa 50%)</Text>:
-                  </Text>
-                  <View style={[styles.inputWrapper, numPct > 50 && styles.inputWrapperError]}>
-                    <TextInput
-                      style={styles.fieldInput}
-                      value={discountPercent}
-                      onChangeText={handlePercentChange}
-                      placeholder="VD: 15"
-                      keyboardType="numeric"
-                      maxLength={3}
-                    />
-                    <Text style={styles.inputSuffix}>%</Text>
+              <View style={styles.inputsSection}>
+                <View style={styles.labelsRow}>
+                  <View style={styles.labelCol}>
+                    <Text style={styles.colInputLabel}>
+                      % muốn giảm <Text style={styles.labelHint}>(Tối đa 50%)</Text>:
+                    </Text>
+                  </View>
+                  <View style={styles.labelCol}>
+                    <Text style={styles.colInputLabel}>Số tiền đề xuất:</Text>
                   </View>
                 </View>
 
-                <View style={styles.inputCol}>
-                  <Text style={styles.inputLabel}>Số tiền đề xuất:</Text>
-                  <View style={[styles.inputWrapper, (isOverLimit || isInvalidPrice) && styles.inputWrapperError]}>
-                    <TextInput
-                      style={styles.fieldInput}
-                      value={offerPrice > 0 ? offerPrice.toLocaleString('vi-VN') : ''}
-                      onChangeText={handlePriceChange}
-                      placeholder="Nhập số tiền..."
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.inputSuffix}>đ</Text>
+                <View style={styles.inputsRow}>
+                  <View style={styles.inputCol}>
+                    <View style={[styles.inputWrapper, numPct > 50 && styles.inputWrapperError]}>
+                      <TextInput
+                        style={styles.fieldInput}
+                        value={discountPercent}
+                        onChangeText={handlePercentChange}
+                        placeholder="VD: 15"
+                        keyboardType="numeric"
+                        maxLength={3}
+                      />
+                      <Text style={styles.inputSuffix}>%</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputCol}>
+                    <View style={[styles.inputWrapper, (isOverLimit || isInvalidPrice) && styles.inputWrapperError]}>
+                      <TextInput
+                        style={styles.fieldInput}
+                        value={offerPrice > 0 ? offerPrice.toLocaleString('vi-VN') : ''}
+                        onChangeText={handlePriceChange}
+                        placeholder="Nhập số tiền..."
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.inputSuffix}>đ</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -322,10 +331,29 @@ const styles = StyleSheet.create({
     color: '#16A34A',
     marginTop: 2,
   },
-  inputsContainer: {
+  inputsSection: {
+    marginBottom: 10,
+  },
+  labelsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 10,
+    alignItems: 'flex-end',
+    marginBottom: 6,
+  },
+  labelCol: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  colInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    lineHeight: 16,
+  },
+  inputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
   },
   inputCol: {
     flex: 1,
@@ -343,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     backgroundColor: '#F8FAFC',
-    height: 42,
+    height: 44,
   },
   inputWrapperError: {
     borderColor: '#DC2626',
@@ -351,10 +379,13 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     flex: 1,
+    height: '100%',
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
     padding: 0,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
   },
   inputSuffix: {
     fontSize: 13,

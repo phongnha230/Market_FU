@@ -284,7 +284,7 @@ export const useKhoValue = (): KhoContextType => {
       notificationMobileService.displayLocalPushNotification({
         title,
         body,
-        data: { conversationId: d?.conversationId, type: 'CHAT', senderAvatar: avatarUrl },
+        data: { conversationId: d?.conversationId, type: 'CHAT', senderName: d?.senderName, senderAvatar: avatarUrl },
       });
     });
 

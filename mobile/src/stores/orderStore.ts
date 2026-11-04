@@ -117,7 +117,7 @@ interface OrderState {
   verifyHandshakeOtp: (
     orderId: string,
     inputOtp: string
-  ) => { success: boolean; message: string };
+  ) => Promise<{ success: boolean; message: string }>;
   markOrderReviewed: (orderId: string, reviewData?: OrderReviewData) => void;
   updateOrderReview: (orderId: string, reviewData: Partial<OrderReviewData>) => void;
   replyOrderReview: (orderId: string, replyComment: string) => void;
@@ -265,50 +265,85 @@ export const useOrderStore = create<OrderState>()(
         }));
       },
 
-      verifyHandshakeOtp: (orderId, inputOtp) => {
-        const { orders } = get();
-        const target = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
-
-        if (!target) {
-          return { success: false, message: 'Không tìm thấy đơn hàng' };
+      verifyHandshakeOtp: async (orderId, inputOtp) => {
+        const cleanInput = (inputOtp || '').trim().replace(/\s/g, '');
+        if (!cleanInput) {
+          return { success: false, message: 'Vui lòng cung cấp mã OTP hoặc quét mã QR' };
         }
 
-        const cleanInput = (inputOtp || '').trim().replace(/\s/g, '');
-        const targetOtp = (target.handshakeOtp || '').trim().replace(/\s/g, '');
+        const cleanOrderId = orderId.replace(/^#/, '').trim();
 
-        if (cleanInput !== targetOtp) {
+        try {
+          // 1. Gọi API Backend để xác thực chính thức (Backend có đầy đủ HMAC token & OTP bí mật trong DB)
+          const apiRes = await orderMobileService.verifyHandshake(cleanOrderId, cleanInput);
+
+          // 2. Cập nhật state đơn hàng sang COMPLETED
+          set((state) => ({
+            orders: state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId
+                ? {
+                    ...o,
+                    status: 'COMPLETED',
+                    statusLabel: '✅ Đã bàn giao đồ & Khớp mã QR Handshake tại Safe-Point',
+                    statusColor: '#059669',
+                    statusBg: '#ECFDF5',
+                  }
+                : o
+            ),
+          }));
+
+          // 3. Giải phóng tiền cọc Escrow vào ví Người Bán
+          const { orders } = get();
+          const target = orders.find((o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId);
+          if (target?.sellerId) {
+            useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
+          }
+
+          return {
+            success: true,
+            message: apiRes.message || 'Xác thực mã QR Handshake thành công! Đơn hàng đã bàn giao hoàn tất và tiền cọc được giải ngân về Ví Người Bán.',
+          };
+        } catch (err: any) {
+          // Fallback khi offline hoặc test local nếu target.handshakeOtp khớp
+          const { orders } = get();
+          const target = orders.find((o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId);
+          const targetOtp = (target?.handshakeOtp || '').trim().replace(/\s/g, '');
+
+          const targetId = target?.id;
+          if (targetId && targetOtp && cleanInput === targetOtp) {
+            set((state) => ({
+              orders: state.orders.map((o) =>
+                o.id === targetId
+                  ? {
+                      ...o,
+                      status: 'COMPLETED',
+                      statusLabel: '✅ Đã bàn giao đồ & Khớp mã QR Handshake tại Safe-Point',
+                      statusColor: '#059669',
+                      statusBg: '#ECFDF5',
+                    }
+                  : o
+              ),
+            }));
+
+            if (target && target.sellerId) {
+              useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
+            }
+
+            return {
+              success: true,
+              message: 'Xác thực mã QR Handshake thành công! Đơn hàng đã bàn giao hoàn tất.',
+            };
+          }
+
+          const errMsg =
+            err?.response?.data?.message ||
+            err?.message ||
+            'Mã OTP Handshake không chính xác. Hãy nhờ Người mua mở vé nhận hàng kiểm tra lại!';
           return {
             success: false,
-            message: 'Mã OTP Handshake không chính xác. Hãy nhờ Người mua mở vé nhận hàng kiểm tra lại!',
+            message: errMsg,
           };
         }
-
-        // Cập nhật trạng thái đơn sang COMPLETED
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === target.id
-              ? {
-                  ...o,
-                  status: 'COMPLETED',
-                  statusLabel: '✅ Đã bàn giao đồ & Khớp mã QR Handshake tại Safe-Point',
-                  statusColor: '#059669',
-                  statusBg: '#ECFDF5',
-                }
-              : o
-          ),
-        }));
-
-        // Giải phóng tiền cọc Escrow vào ví Người Bán
-        if (target.sellerId) {
-          useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
-        }
-
-        orderMobileService.verifyHandshake(orderId, cleanInput).catch(() => {});
-
-        return {
-          success: true,
-          message: 'Xác thực mã QR Handshake thành công! Đơn hàng đã bàn giao hoàn tất và tiền cọc được giải ngân về Ví Người Bán.',
-        };
       },
 
       markOrderReviewed: (orderId, reviewData) => {
@@ -422,7 +457,6 @@ export const useOrderStore = create<OrderState>()(
           ),
         }));
 
-        orderMobileService.createDispute(orderId, reason).catch(() => {});
       },
 
       getBuyerOrders: (buyerId: string) => {

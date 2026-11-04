@@ -1111,9 +1111,14 @@ export class OrderService {
     const currentShipping = order.shipping;
     let finalPartner = input.shippingPartner || currentShipping.shippingPartner || 'GHN';
     let finalTrackingCode = trackingCode || currentShipping.trackingCode;
+    const isFirstTimeShipping = order.status !== 'SHIPPING';
+    const isTrackingCodeChanged = Boolean(
+      (finalTrackingCode && finalTrackingCode !== currentShipping.trackingCode) ||
+      (finalPartner && finalPartner !== currentShipping.shippingPartner)
+    );
 
-    // Tích hợp trực tiếp với GHN Logistics API v2 khi Seller bấm chuyển đơn sang SHIPPING
-    if (status === 'SHIPPING' && ghnService.isConfigured() && finalPartner.toUpperCase().includes('GHN')) {
+    // Tích hợp trực tiếp với GHN Logistics API v2 khi Seller bấm chuyển đơn sang SHIPPING lần đầu (chưa có mã vận đơn)
+    if (isFirstTimeShipping && !currentShipping.trackingCode && ghnService.isConfigured() && finalPartner.toUpperCase().includes('GHN')) {
       try {
         const ghnResult = await ghnService.createShippingOrder({
           orderCode: order.orderCode,
@@ -1147,27 +1152,37 @@ export class OrderService {
       },
     });
 
-    // Bắn thông báo tới người mua
+    // Bắn thông báo tới người mua (tránh spam thông báo bàn giao khi chỉ sửa mã vận đơn)
     try {
-      const notifBody = `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${finalTrackingCode}).`;
-
-      await notificationService.sendNotification({
-        userId: order.buyerId,
-        title: 'Đơn hàng đang vận chuyển',
-        body: notifBody,
-        type: 'ORDER',
-        targetUrl: '/orders',
-      });
+      if (isFirstTimeShipping) {
+        const notifBody = `Đơn hàng #${order.orderCode} đang trên đường giao (Mã vận đơn: ${finalTrackingCode}).`;
+        await notificationService.sendNotification({
+          userId: order.buyerId,
+          title: 'Đơn hàng đang vận chuyển',
+          body: notifBody,
+          type: 'ORDER',
+          targetUrl: '/orders',
+        });
+      } else if (isTrackingCodeChanged) {
+        const notifBody = `Mã vận đơn #${order.orderCode} đã được người bán cập nhật: ${finalTrackingCode} (${finalPartner}).`;
+        await notificationService.sendNotification({
+          userId: order.buyerId,
+          title: 'Cập nhật mã vận đơn',
+          body: notifBody,
+          type: 'ORDER',
+          targetUrl: '/orders',
+        });
+      }
 
       emitToUser(order.buyerId, 'order_shipping_updated', {
         orderId,
         status,
-        trackingCode: trackingCode || currentShipping.trackingCode,
+        trackingCode: finalTrackingCode,
       });
       emitToUser(order.sellerId, 'order_shipping_updated', {
         orderId,
         status,
-        trackingCode: trackingCode || currentShipping.trackingCode,
+        trackingCode: finalTrackingCode,
       });
     } catch (notifErr: any) {
       console.warn('⚠️ [Shipping Notification Warning]: Không thể gửi thông báo realtime:', notifErr?.message || notifErr);

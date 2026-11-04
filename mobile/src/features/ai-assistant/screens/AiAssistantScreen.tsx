@@ -23,6 +23,8 @@ import { AiAssistantHistoryModal } from '../components/AiAssistantHistoryModal';
 import { aiMobileService, AiSessionItem } from '../../../services/aiMobileService';
 import { productMobileService } from '../../../services/productMobileService';
 import { CameraSubsystemModal } from '../../../components/camera/CameraSubsystemModal';
+import { resolveProductImage } from '../../../lib/imageResolver';
+import { fromBackendCategory } from '../../../lib/backendMappers';
 
 export type { ChatMessage, SuggestedProductItem };
 
@@ -55,20 +57,11 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
       conditionText = p.condition;
     }
 
-    let imageSource: any;
-    const firstImg = Array.isArray(p.images) && p.images.length > 0
-      ? p.images[0]
-      : (p.imageUrl || p.coverImage);
-
-    if (firstImg && typeof firstImg === 'object' && firstImg.uri) {
-      imageSource = firstImg;
-    } else if (firstImg && typeof firstImg === 'string' && (firstImg.startsWith('http') || firstImg.startsWith('data:'))) {
-      imageSource = { uri: firstImg };
-    } else if (typeof firstImg === 'number') {
-      imageSource = firstImg;
-    } else {
-      imageSource = require('../../../../assets/products/book-prf192.jpg');
-    }
+    const rawImage =
+      Array.isArray(p.images) && p.images.length > 0
+        ? p.images[0]
+        : (p.imageUrl || p.coverImage || p.image);
+    const imageSource = resolveProductImage(rawImage);
 
     return {
       id: p.id || `prod_${Date.now()}_${idx}`,
@@ -79,8 +72,8 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
         : (p.seller?.isKycVerified || p.seller?.role === 'SELLER' ? '100% MSSV' : 'Đã duyệt'),
       title: p.title || 'Món đồ sinh viên FPT',
       sellerInfo: p.categoryType
-        ? `Danh mục: ${p.categoryType}`
-        : (p.category ? `Danh mục: ${p.category}` : `Sinh viên FPT ${p.campus || ''}`),
+        ? `Danh mục: ${fromBackendCategory(p.categoryType)}`
+        : (p.category ? `Danh mục: ${fromBackendCategory(p.category)}` : `Sinh viên FPT ${p.campus || ''}`),
       price:
         typeof p.price === 'number'
           ? `${p.price.toLocaleString('vi-VN')} đ`

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,16 +22,55 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
   const sellerName = route.params?.sellerName;
   const price = route.params?.price;
   const isCod = route.params?.isCod ?? false;
-  const passedDispute = route.params?.dispute;
+  const order = route.params?.order;
+  const rawPassedDispute = route.params?.dispute || order?.dispute;
+  const isDisputeRefund = order?.cancelledBy === 'DISPUTE';
+
+  const passedDispute = rawPassedDispute || (
+    isDisputeRefund
+      ? {
+          id: `DSP-${String(order?.orderNumber || order?.id || orderId || '').replace('#', '')}`,
+          reason: order?.cancelReason || 'Yêu cầu trả hàng & hoàn tiền 100%',
+          details: 'Ban Quản Trị Campus đã thẩm định khiếu nại và chấp thuận hoàn trả tiền bảo hộ Escrow.',
+          status: 'REFUNDED' as const,
+          createdAt: order?.createdAt || 'Gần đây',
+          adminNote: 'BQT FPT Campus đã duyệt yêu cầu hoàn tiền cho Người mua. Tiền cọc Escrow và Xu đã được hoàn trả về ví.',
+        }
+      : null
+  );
 
   const { user } = useAuth();
   const routeIsSeller = route.params?.isSeller;
-  const isSeller = Boolean(
-    routeIsSeller ||
-    (user?.id && (route.params?.order?.sellerId === user.id || route.params?.sellerId === user.id)) ||
-    (user?.name && (sellerName === user.name || route.params?.order?.sellerName === user.name)) ||
-    (user?.email && route.params?.order?.sellerEmail === user.email)
-  );
+  const isSeller = useMemo(() => {
+    if (typeof routeIsSeller === 'boolean') {
+      return routeIsSeller;
+    }
+    const currentUserId = user?.id;
+    const currentName = user?.name;
+    const currentEmail = user?.email;
+
+    const orderBuyerId = route.params?.order?.buyerId || route.params?.buyerId;
+    if (currentUserId && orderBuyerId && currentUserId === orderBuyerId) {
+      return false;
+    }
+
+    const orderSellerId = route.params?.order?.sellerId || route.params?.sellerId;
+    if (currentUserId && orderSellerId && currentUserId === orderSellerId) {
+      return true;
+    }
+
+    const orderSellerName = sellerName || route.params?.order?.sellerName;
+    if (currentName && orderSellerName && currentName === orderSellerName) {
+      return true;
+    }
+
+    const orderSellerEmail = route.params?.order?.sellerEmail;
+    if (currentEmail && orderSellerEmail && currentEmail === orderSellerEmail) {
+      return true;
+    }
+
+    return false;
+  }, [routeIsSeller, user, sellerName, route.params]);
 
   const handleBack = () => {
     if (onGoBack) {
@@ -57,7 +96,7 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
     handleSubmit,
   } = useDispute(handleBack, orderId, productTitle, sellerName, isCod);
 
-  // Nếu Seller mở đơn chưa có khiếu nại -> Không hiển thị form tạo khiếu nại
+  // 1. Nếu Seller mở đơn chưa có khiếu nại -> Không hiển thị form tạo khiếu nại
   if (isSeller && !passedDispute) {
     return (
       <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
@@ -78,7 +117,77 @@ export const DisputeScreen: React.FC<DisputeScreenProps> = ({ onGoBack }) => {
             onPress={handleBack}
           >
             <Ionicons name="arrow-back" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.backToListBtnText}>Quay lại</Text>
+            <Text style={styles.backToListBtnText}>Quay lại danh sách đơn hàng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 2. Chặn Người mua mở form tạo khiếu nại nếu đơn hàng đã bị HỦY (không qua dispute)
+  if (order?.status === 'CANCELLED' && !passedDispute) {
+    const isShipper = order?.cancelledBy === 'SHIPPER';
+    const isSellerCancel = order?.cancelledBy === 'SELLER';
+    const isSystem = order?.cancelledBy === 'SYSTEM';
+
+    return (
+      <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
+        <DisputeHeader onGoBack={handleBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: isShipper ? '#FFFBEB' : '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: isShipper ? '#FDE68A' : '#E2E8F0' }}>
+            <Ionicons name={isShipper ? 'bus-outline' : 'close-circle-outline'} size={32} color={isShipper ? '#D97706' : '#64748B'} />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+            {isShipper
+              ? 'Đơn hàng đã được đơn vị vận chuyển hủy giao'
+              : isSellerCancel
+              ? 'Người bán đã từ chối nhận đơn'
+              : isSystem
+              ? 'Đơn hàng tự động hủy do quá hạn thanh toán'
+              : 'Đơn hàng đã hủy'}
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+            {isShipper
+              ? `Đơn vị vận chuyển (${order?.shippingPartner || 'GHN'}) đã hủy giao / hoàn trả kiện hàng. Tiền cọc Escrow (nếu có) và Xu đã được hoàn trả đầy đủ về ví. Đơn hàng không còn hiệu lực để mở khiếu nại.`
+              : isSellerCancel
+              ? 'Người bán đã từ chối tiếp nhận đơn / lịch hẹn này. Tiền cọc Escrow (nếu có) và Xu đã hoàn lại 100%. Không thể tạo khiếu nại cho đơn đã hủy.'
+              : 'Đơn hàng này đã dừng xử lý và hủy thành công trước khi giao nhận nên không phát sinh khiếu nại trả hàng.'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.backToListBtn, { alignSelf: 'stretch' }]}
+            activeOpacity={0.85}
+            onPress={handleBack}
+          >
+            <Ionicons name="arrow-back" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.backToListBtnText}>Quay lại danh sách đơn hàng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // 3. Chặn Người mua mở form khiếu nại nếu đơn hàng chưa giao đến nơi (PENDING / SHIPPING / SAFEPOINT)
+  if (order && !['DELIVERED', 'COMPLETED', 'DISPUTED'].includes(order.status) && !passedDispute) {
+    return (
+      <View style={[styles.screen, { paddingTop: Math.max(insets.top, 0) }]}>
+        <DisputeHeader onGoBack={handleBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+            <Ionicons name="time-outline" size={32} color="#EA580C" />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+            Chưa thể mở khiếu nại trả hàng
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+            Bạn chỉ có thể tạo yêu cầu Khiếu nại & Trả hàng sau khi đã nhận được sản phẩm tại điểm hẹn Safe-Point hoặc từ shipper (trong thời hạn bao test 48h).
+          </Text>
+          <TouchableOpacity
+            style={[styles.backToListBtn, { alignSelf: 'stretch' }]}
+            activeOpacity={0.85}
+            onPress={handleBack}
+          >
+            <Ionicons name="arrow-back" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.backToListBtnText}>Quay lại danh sách đơn hàng</Text>
           </TouchableOpacity>
         </View>
       </View>
