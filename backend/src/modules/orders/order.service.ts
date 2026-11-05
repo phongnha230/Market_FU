@@ -257,29 +257,83 @@ export class OrderService {
       }
       try {
         const offerExpiryThreshold = new Date(Date.now() - 30 * 60 * 1000);
-        const acceptedOffer = {
-          conversation: { productId, buyerId },
-          senderId: product.sellerId,
-          offerPrice: agreedPrice,
-          text: { contains: '[OFFER_ACCEPTED]' },
-        } as const;
-        const verifiedOffer = await prisma.message.findFirst({
-          where: { ...acceptedOffer, createdAt: { gte: offerExpiryThreshold } },
+
+        // 1. Tìm cuộc hội thoại giữa người mua và người bán cho sản phẩm này
+        const conversation = await prisma.conversation.findFirst({
+          where: {
+            productId,
+            buyerId,
+            sellerId: product.sellerId,
+          },
           select: { id: true },
         });
-        if (!verifiedOffer) {
-          const expiredOffer = await prisma.message.findFirst({
-            where: { ...acceptedOffer, createdAt: { lt: offerExpiryThreshold } },
-            select: { id: true },
-          });
+
+        if (!conversation) {
+          throw new AppError('Chưa có cuộc hội thoại thương lượng giá cho sản phẩm này.', 409, 'OFFER_NOT_ACCEPTED');
+        }
+
+        // 2. Tìm tin nhắn chấp thuận [OFFER_ACCEPTED] từ người bán
+        const sellerAcceptMessage = await prisma.message.findFirst({
+          where: {
+            conversationId: conversation.id,
+            senderId: product.sellerId,
+            OR: [
+              { text: { contains: '[OFFER_ACCEPTED]' } },
+              { text: { contains: 'đồng ý chốt mức giá' } },
+              { offerPrice: agreedPrice },
+            ],
+          },
+          select: { id: true, createdAt: true, text: true, offerPrice: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // 3. Tìm tin nhắn đề xuất giá (offer) trong hội thoại khớp với agreedPrice
+        const offerMessage = await prisma.message.findFirst({
+          where: {
+            conversationId: conversation.id,
+            offerPrice: agreedPrice,
+          },
+          select: { id: true, createdAt: true, text: true, offerPrice: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Hợp lệ nếu:
+        // - Người bán có tin nhắn xác nhận [OFFER_ACCEPTED]
+        // - VÀ có bằng chứng mức giá này (offerPrice trong tin nhắn offer/accept hoặc số tiền xuất hiện trong nội dung chat)
+        const isPriceMentionedInText = Boolean(
+          sellerAcceptMessage?.text && (
+            sellerAcceptMessage.text.includes(String(agreedPrice)) ||
+            sellerAcceptMessage.text.includes(agreedPrice.toLocaleString('vi-VN')) ||
+            sellerAcceptMessage.text.replace(/[^\d]/g, '').includes(String(agreedPrice))
+          )
+        );
+
+        const hasValidOfferAgreement = Boolean(
+          sellerAcceptMessage && (
+            sellerAcceptMessage.offerPrice === agreedPrice ||
+            isPriceMentionedInText ||
+            offerMessage
+          )
+        );
+
+        if (!hasValidOfferAgreement) {
           throw new AppError(
-            expiredOffer
-              ? 'Mức giá thỏa thuận đã hết hiệu lực. Vui lòng thương lượng lại hoặc mua theo giá niêm yết.'
-              : 'Người bán chưa chấp nhận đúng mức giá này. Vui lòng kiểm tra lại trong chat.',
+            'Người bán chưa chấp nhận đúng mức giá này. Vui lòng kiểm tra lại trong chat.',
             409,
-            expiredOffer ? 'OFFER_EXPIRED' : 'OFFER_NOT_ACCEPTED'
+            'OFFER_NOT_ACCEPTED'
           );
         }
+
+        // 4. Kiểm tra thời hạn 30 phút từ thời điểm người bán đồng ý (hoặc thời điểm tạo offer)
+        const agreementTime = sellerAcceptMessage?.createdAt || offerMessage?.createdAt || new Date(0);
+        if (agreementTime < offerExpiryThreshold) {
+          throw new AppError(
+            'Mức giá thỏa thuận đã hết hiệu lực (ưu đãi 30 phút). Vui lòng thương lượng lại hoặc mua theo giá niêm yết.',
+            409,
+            'OFFER_EXPIRED'
+          );
+        }
+
         finalProductPrice = agreedPrice;
       } catch (checkErr) {
         if (checkErr instanceof AppError) throw checkErr;

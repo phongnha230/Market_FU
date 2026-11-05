@@ -129,9 +129,18 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       addNotification: (item) => {
+        const currentNotifications = get().notifications;
+        // Chống thông báo trùng lặp (Deduplication): Nếu trong 5 thông báo gần nhất đã có tin nhắn cùng title & body
+        const isDuplicate = currentNotifications.slice(0, 5).some(
+          (n) => n.title === item.title && n.body === item.body
+        );
+        if (isDuplicate) {
+          return;
+        }
+
         const newNotif: NotificationItem = {
           ...item,
-          id: `notif_${Date.now()}`,
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           time: 'Vừa xong',
           unread: true,
         };

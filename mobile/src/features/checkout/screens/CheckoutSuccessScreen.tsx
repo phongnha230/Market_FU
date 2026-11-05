@@ -782,12 +782,14 @@ const styles = StyleSheet.create({
   },
   safePointMeta: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 6,
   },
   safeTag: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
     gap: 3,
   },
   safeTagText: {
@@ -827,6 +829,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 6,
   },

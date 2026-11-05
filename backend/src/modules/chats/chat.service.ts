@@ -510,6 +510,7 @@ export class ChatService {
                 type: 'CHAT',
                 senderAvatar,
                 senderName,
+                senderId: userId,
               })
               .catch(() => {});
           }
@@ -522,6 +523,7 @@ export class ChatService {
               type: 'CHAT',
               senderAvatar,
               senderName,
+              senderId: userId,
             })
             .catch(() => {});
         });

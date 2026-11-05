@@ -68,17 +68,26 @@ export const ChatDetailScreen: React.FC = () => {
   const routePartner = route.params?.partner;
   const routeProduct = route.params?.product;
 
+  const initialOffer = route.params?.initialOffer;
+  const initialConvId = route.params?.conversationId || route.params?.id;
+  const preloadedConv = initialConvId ? useChatStore.getState().getConversationById(initialConvId) : undefined;
+
   const rawPartnerAvatar =
     routePartner?.avatar ||
+    preloadedConv?.partnerAvatar ||
     routeProduct?.seller?.avatarUrl ||
     routeProduct?.seller?.avatar ||
     routeProduct?.sellerAvatar ||
     '';
 
-  const initialPartnerName = routePartner?.name || routeProduct?.sellerName || 'Người bán FPT';
+  const initialPartnerName =
+    routePartner?.name ||
+    preloadedConv?.partnerName ||
+    routeProduct?.sellerName ||
+    'Sinh viên FPT';
 
   const [partner, setPartner] = useState(() => ({
-    id: routePartner?.id || routeProduct?.sellerId || 'u-partner',
+    id: routePartner?.id || preloadedConv?.partnerId || routeProduct?.sellerId || 'u-partner',
     name: initialPartnerName,
     avatar: getSafeAvatar(rawPartnerAvatar, initialPartnerName),
     cohort: routePartner?.cohort || routeProduct?.sellerCohort || 'Sinh viên FPT',
@@ -98,8 +107,6 @@ export const ChatDetailScreen: React.FC = () => {
   }, [routePartner]);
 
   const [fetchedProductMeta, setFetchedProductMeta] = useState<any>(null);
-  const initialOffer = route.params?.initialOffer;
-  const initialConvId = route.params?.conversationId || route.params?.id;
   const [conversationId, setConversationId] = useState<string | null>(initialConvId || null);
 
   const storedConv = useMemo(() => {
@@ -393,13 +400,19 @@ export const ChatDetailScreen: React.FC = () => {
             setMessages((prev) => {
               // Giữ lại các tin nhắn optimistic đang chờ gửi nếu remote chưa có
               const pendingOptimistic = prev.filter(
-                (p) => (p.id.startsWith('offer-') || p.id.startsWith('m-')) && !seenIds.has(p.id)
+                (p) => (p.id.startsWith('offer-') || p.id.startsWith('m-') || p.id.startsWith('safe-')) && !seenIds.has(p.id)
               );
               const filteredPending = pendingOptimistic.filter((opt) => {
                 if (opt.type === 'offer') {
                   return !uniqueRemote.some(
                     (r) => r.messageType === 'OFFER_PRICE' && r.offerPrice === opt.offerData?.offeredPrice
                   );
+                }
+                if (opt.type === 'text') {
+                  return !uniqueRemote.some((r) => (r.message || '').trim() === (opt.text || '').trim());
+                }
+                if (opt.type === 'safepoint') {
+                  return !uniqueRemote.some((r) => r.meetupLocation === opt.safePointData?.location);
                 }
                 return true;
               });
@@ -435,7 +448,11 @@ export const ChatDetailScreen: React.FC = () => {
       socketMobileService.markMessageRead(conversationId);
       useChatStore.getState().markConversationAsRead(conversationId);
 
-      const isMe = rawMsg.senderId === currentUserId;
+      const myIdStr = String(currentUserId || user?.id || '').trim();
+      const rawSenderIdStr = String(rawMsg.senderId || rawMsg.sender?.id || rawMsg.sender?._id || '').trim();
+      const isIdMatch = Boolean(myIdStr && myIdStr !== 'me' && rawSenderIdStr === myIdStr);
+      const isMe = isIdMatch || Boolean(rawMsg.isMe);
+
       const text = rawMsg.text || rawMsg.content || rawMsg.message || '';
       const isAccept = text.includes('[OFFER_ACCEPTED]') || text.toLowerCase().includes('đồng ý chốt mức giá');
       const isReject = text.includes('[OFFER_REJECTED]') || text.toLowerCase().includes('từ chối đề xuất') || text.toLowerCase().includes('chưa phù hợp');
@@ -487,7 +504,7 @@ export const ChatDetailScreen: React.FC = () => {
         imageUrl: rawMsg.mediaUrl || rawMsg.imageUrl,
         time: rawMsg.createdAt ? new Date(rawMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
         offerData: rawMsg.offerPrice ? {
-          originalPrice: product.originalPrice || (typeof product.price === 'number' ? product.price : 500000),
+          originalPrice: product?.originalPrice || (typeof product?.price === 'number' ? product.price : 500000),
           offeredPrice: rawMsg.offerPrice,
           status: 'pending',
         } : undefined,
@@ -506,43 +523,61 @@ export const ChatDetailScreen: React.FC = () => {
           return prev;
         }
 
-        // Nếu là tin nhắn mặc cả từ chính mình -> Reconcile / thay thế tin nhắn optimistic
-        if (isMe && incoming.type === 'offer') {
-          const pendingIdx = prev.findIndex(
-            (m) =>
-              m.type === 'offer' &&
-              m.sender === 'me' &&
-              (m.id.startsWith('offer-') || m.id.startsWith('pending-'))
-          );
-          if (pendingIdx !== -1) {
-            const next = [...prev];
-            next[pendingIdx] = incoming;
-            return next;
-          }
+        // Kiểm tra xem tin nhắn đến có khớp với một tin nhắn optimistic đang pending gửi đi từ chính máy này không
+        // Nếu khớp text hoặc offer từ pending 'me' -> CHẮC CHẮN là tin nhắn của chính mình vừa gửi xong quay về
+        const pendingTextIdx = incoming.type === 'text'
+          ? prev.findIndex(
+              (m) =>
+                m.type === 'text' &&
+                m.sender === 'me' &&
+                (m.id.startsWith('m-') || m.id === incoming.id) &&
+                (m.text || '').trim() === (incoming.text || '').trim()
+            )
+          : -1;
+
+        if (pendingTextIdx !== -1) {
+          const next = [...prev];
+          next[pendingTextIdx] = {
+            ...incoming,
+            sender: 'me', // Ép buộc luôn hiển thị bên phải (màu cam) của người gửi
+          };
+          return next;
         }
 
-        // Nếu là tin nhắn text từ chính mình -> Reconcile tin nhắn optimistic có cùng nội dung
-        if (isMe && incoming.type === 'text') {
-          const pendingIdx = prev.findIndex(
-            (m) => m.type === 'text' && m.sender === 'me' && m.id.startsWith('m-') && m.text === incoming.text
-          );
-          if (pendingIdx !== -1) {
-            const next = [...prev];
-            next[pendingIdx] = incoming;
-            return next;
-          }
+        const pendingOfferIdx = incoming.type === 'offer'
+          ? prev.findIndex(
+              (m) =>
+                m.type === 'offer' &&
+                m.sender === 'me' &&
+                (m.id.startsWith('offer-') || m.id.startsWith('pending-') || m.id === incoming.id)
+            )
+          : -1;
+
+        if (pendingOfferIdx !== -1) {
+          const next = [...prev];
+          next[pendingOfferIdx] = {
+            ...incoming,
+            sender: 'me',
+          };
+          return next;
         }
 
-        // Nếu là tin nhắn điểm hẹn từ chính mình -> Reconcile tin nhắn safepoint optimistic
-        if (isMe && incoming.type === 'safepoint') {
-          const pendingIdx = prev.findIndex(
-            (m) => m.type === 'safepoint' && m.sender === 'me' && m.id.startsWith('safe-')
-          );
-          if (pendingIdx !== -1) {
-            const next = [...prev];
-            next[pendingIdx] = incoming;
-            return next;
-          }
+        const pendingSafeIdx = incoming.type === 'safepoint'
+          ? prev.findIndex(
+              (m) =>
+                m.type === 'safepoint' &&
+                m.sender === 'me' &&
+                (m.id.startsWith('safe-') || m.id === incoming.id)
+            )
+          : -1;
+
+        if (pendingSafeIdx !== -1) {
+          const next = [...prev];
+          next[pendingSafeIdx] = {
+            ...incoming,
+            sender: 'me',
+          };
+          return next;
         }
 
         return [...prev, incoming];
@@ -597,54 +632,85 @@ export const ChatDetailScreen: React.FC = () => {
             if (remoteMsgs && remoteMsgs.length > 0) {
               setMessages((prev) => {
                 const existingIds = new Set(prev.map((m) => m.id));
-                const newItems: MessageItem[] = [];
+                let hasChanges = false;
+                const next = [...prev];
+
                 remoteMsgs.forEach((rm: any) => {
-                  if (!existingIds.has(rm.id)) {
-                    const isMe = rm.isMe || rm.senderId === currentUserId;
-                    const text = rm.message || rm.text || '';
-                    const isImg = rm.messageType === 'IMAGE' || Boolean(rm.imageUrl);
-                    const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));
-                    newItems.push({
+                  const text = (rm.message || rm.text || '').trim();
+
+                  // 1. Reconcile tin nhắn optimistic trùng khớp nội dung
+                  const pendingOptIdx = next.findIndex(
+                    (m) =>
+                      (m.id.startsWith('m-') || m.id.startsWith('offer-') || m.id.startsWith('safe-')) &&
+                      ((m.type === 'text' && (m.text || '').trim() === text) ||
+                        (m.type === 'offer' && m.offerData?.offeredPrice === rm.offerPrice) ||
+                        (m.type === 'safepoint' && m.safePointData?.location === rm.meetupLocation))
+                  );
+
+                  if (pendingOptIdx !== -1) {
+                    next[pendingOptIdx] = {
+                      ...next[pendingOptIdx],
                       id: rm.id,
-                      sender: isMe ? 'me' : 'partner',
-                      type: isOrder
-                        ? 'order'
-                        : isImg
-                        ? 'image'
-                        : rm.messageType === 'OFFER_PRICE'
-                        ? 'offer'
-                        : rm.messageType === 'MEETUP_LOCATION'
-                        ? 'safepoint'
-                        : 'text',
-                      text,
-                      imageUrl: rm.imageUrl,
-                      time: rm.createdAt
-                        ? new Date(rm.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : 'Vừa xong',
-                      offerData: rm.offerPrice
-                        ? {
-                            originalPrice: product.originalPrice || (typeof product.price === 'number' ? product.price : 500000),
-                            offeredPrice: rm.offerPrice,
-                            status: 'pending',
-                          }
-                        : undefined,
-                      safePointData: rm.meetupLocation
-                        ? {
-                            location: rm.meetupLocation,
-                            timeSlot: 'Hẹn gặp giao dịch',
-                          }
-                        : undefined,
-                    });
+                      sender: 'me',
+                    };
+                    existingIds.add(rm.id);
+                    hasChanges = true;
+                    return;
                   }
+
+                  // 2. Nếu tin nhắn đã có trong danh sách -> bỏ qua
+                  if (existingIds.has(rm.id)) return;
+
+                  // 3. Nếu là tin nhắn mới hoàn toàn từ đối tác
+                  const myIdStr = String(currentUserId || user?.id || '').trim();
+                  const sIdStr = String(rm.senderId || rm.sender?.id || '').trim();
+                  const isMe = rm.isMe || (myIdStr && myIdStr !== 'me' && sIdStr === myIdStr);
+                  const isImg = rm.messageType === 'IMAGE' || Boolean(rm.imageUrl);
+                  const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));
+
+                  next.push({
+                    id: rm.id,
+                    sender: isMe ? 'me' : 'partner',
+                    type: isOrder
+                      ? 'order'
+                      : isImg
+                      ? 'image'
+                      : rm.messageType === 'OFFER_PRICE'
+                      ? 'offer'
+                      : rm.messageType === 'MEETUP_LOCATION'
+                      ? 'safepoint'
+                      : 'text',
+                    text: rm.message || rm.text || '',
+                    imageUrl: rm.imageUrl,
+                    time: rm.createdAt
+                      ? new Date(rm.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : 'Vừa xong',
+                    offerData: rm.offerPrice
+                      ? {
+                          originalPrice: product?.originalPrice || (typeof product?.price === 'number' ? product.price : 500000),
+                          offeredPrice: rm.offerPrice,
+                          status: 'pending',
+                        }
+                      : undefined,
+                    safePointData: rm.meetupLocation
+                      ? {
+                          location: rm.meetupLocation,
+                          timeSlot: 'Hẹn gặp giao dịch',
+                        }
+                      : undefined,
+                  });
+                  existingIds.add(rm.id);
+                  hasChanges = true;
                 });
-                if (newItems.length > 0) {
+
+                if (hasChanges) {
                   try {
                     Vibration.vibrate(30);
                   } catch (_) {}
                   setTimeout(() => {
                     flatListRef.current?.scrollToEnd({ animated: true });
                   }, 100);
-                  return [...prev, ...newItems];
+                  return next;
                 }
                 return prev;
               });
@@ -769,9 +835,13 @@ export const ChatDetailScreen: React.FC = () => {
       chatMobileService
         .sendMessage(conversationId, text, 'TEXT')
         .then((sentMsg) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === optimisticId ? { ...m, id: sentMsg.id } : m))
-          );
+          setMessages((prev) => {
+            const alreadyHasServerId = prev.some((m) => m.id === sentMsg.id);
+            if (alreadyHasServerId) {
+              return prev.filter((m) => m.id !== optimisticId);
+            }
+            return prev.map((m) => (m.id === optimisticId ? { ...m, id: sentMsg.id } : m));
+          });
         })
         .catch(() => {});
     }
@@ -847,7 +917,7 @@ export const ChatDetailScreen: React.FC = () => {
       if (conversationId && offeredPrice > 0) {
         const acceptText = `[OFFER_ACCEPTED] Mình đồng ý chốt mức giá ${formattedPrice} nhé! Bạn có thể bấm nút "Đặt mua ngay" bên dưới để tiến hành thanh toán qua sàn FPT.`;
         chatMobileService
-          .sendMessage(conversationId, acceptText, 'TEXT')
+          .sendMessage(conversationId, acceptText, 'TEXT', offeredPrice)
           .catch(() => {});
       }
       Alert.alert('Thành công', `Bạn đã chấp nhận đề xuất giá ${formattedPrice}!`);

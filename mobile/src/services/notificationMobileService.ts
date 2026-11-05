@@ -291,8 +291,14 @@ export function setupNotificationListeners() {
 
     if (typeof Notifications.addNotificationResponseReceivedListener === 'function') {
       responseListener = Notifications.addNotificationResponseReceivedListener((response: any) => {
-        const data = response?.notification?.request?.content?.data;
-        handleNotificationNavigation(data);
+        const content = response?.notification?.request?.content;
+        const data = content?.data || {};
+        const title = content?.title;
+        handleNotificationNavigation({
+          ...data,
+          senderName: data?.senderName || (title && title !== 'Tin nhắn mới' ? title : undefined),
+          title: data?.senderName || title,
+        });
       });
     }
   } catch (e: any) {

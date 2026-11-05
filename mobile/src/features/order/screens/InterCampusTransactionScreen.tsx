@@ -699,6 +699,7 @@ const styles = StyleSheet.create({
   headerRoleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginTop: 2,
   },

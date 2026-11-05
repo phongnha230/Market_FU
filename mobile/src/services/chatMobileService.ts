@@ -115,8 +115,14 @@ export const chatMobileService = {
         : [];
 
       if (rawMessages.length > 0 || Array.isArray(rawData?.messages)) {
+        const myIdStr = String(currentUserId || '').trim();
         return rawMessages.map((m: any) => {
           const senderId = m.senderId || m.sender?.id || m.sender?._id;
+          const sIdStr = String(senderId || '').trim();
+          const senderObjIdStr = String(m.sender?.id || m.sender?._id || '').trim();
+          const isMe = Boolean(
+            myIdStr && myIdStr !== 'me' && (sIdStr === myIdStr || senderObjIdStr === myIdStr)
+          );
           return {
             id: m.id || m._id,
             senderId,
@@ -127,7 +133,7 @@ export const chatMobileService = {
             offerPrice: m.offerPrice,
             meetupLocation: m.meetupLocation,
             createdAt: m.createdAt,
-            isMe: senderId === currentUserId,
+            isMe,
             imageUrl: m.mediaUrl || m.imageUrl,
           };
         });
