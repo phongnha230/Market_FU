@@ -21,6 +21,14 @@ const syncUserToStores = (userId: string | null) => {
     useKycStore.getState().setActiveUser(userId);
     useWalletStore.getState().setActiveUser(userId);
     useChatStore.getState().setActiveUser(userId);
+    try {
+      const { useNotificationStore } = require('./notificationStore');
+      if (userId) {
+        useNotificationStore.getState().fetchNotifications().catch(() => {});
+      } else {
+        useNotificationStore.getState().hideBanner();
+      }
+    } catch {}
   } catch (e) {
     // Non-blocking sync error prevention
   }

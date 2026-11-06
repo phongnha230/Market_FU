@@ -86,22 +86,41 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           set({ isLoading: true });
           const res = await apiClient.get('/notifications');
-          if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
-            set({
-              notifications: res.data.data.map((n: any) => ({
-                id: n.id || n._id,
-                category: n.category || 'system',
-                title: n.title,
-                body: n.body || n.content,
-                time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
-                unread: !n.isRead,
-                icon: n.icon || 'notifications-outline',
-                iconColor: '#EA580C',
-                iconBg: '#FFF7ED',
-                targetScreen: n.targetScreen,
-                targetParams: n.targetParams,
-              })),
-            });
+          const raw = res.data?.data;
+          const list = Array.isArray(raw) ? raw : Array.isArray(raw?.notifications) ? raw.notifications : [];
+          if (list.length > 0) {
+            const mapped = list.map((n: any) => ({
+              id: n.id || n._id,
+              category: n.category || 'system',
+              title: n.title,
+              body: n.body || n.content,
+              time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
+              unread: !n.isRead,
+              icon: n.icon || 'notifications-outline',
+              iconColor: '#EA580C',
+              iconBg: '#FFF7ED',
+              targetScreen: n.targetScreen,
+              targetParams: n.targetParams,
+            }));
+            set({ notifications: mapped });
+
+            // Khi người dùng chuyển qua tài khoản có thông báo chưa đọc, tự động kích hoạt banner UI trên máy điện thoại
+            const unreadItems = mapped.filter((n: any) => n.unread);
+            if (unreadItems.length > 0) {
+              const latest = unreadItems[0];
+              get().showBanner(latest);
+              try {
+                const { displayLocalPushNotification } = require('../services/notificationMobileService');
+                displayLocalPushNotification({
+                  title: latest.title,
+                  body: latest.body,
+                  data: {
+                    targetScreen: latest.targetScreen,
+                    targetParams: latest.targetParams,
+                  },
+                });
+              } catch (_) {}
+            }
           }
         } catch (e: any) {
           console.log('⚠️ [Backend Notifications offline]:', e?.message);

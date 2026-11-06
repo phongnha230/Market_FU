@@ -118,6 +118,41 @@ export const useChatStore = create<ChatState>()(
                   }
                 : state.conversationsByUser,
             }));
+
+            // Khi đăng nhập vào tài khoản có tin nhắn chưa đọc, kích hoạt ngay banner UI & thông báo trên máy
+            const unreadChat = mapped.find((c) => c.unreadCount > 0);
+            if (unreadChat) {
+              try {
+                const { useNotificationStore } = require('./notificationStore');
+                const { displayLocalPushNotification } = require('../services/notificationMobileService');
+                const notifItem = {
+                  id: `chat_${unreadChat.id}_${Date.now()}`,
+                  title: unreadChat.partnerName,
+                  body: unreadChat.lastMessage || 'Bạn có tin nhắn mới',
+                  category: 'chat' as const,
+                  time: 'Vừa xong',
+                  unread: true,
+                  icon: 'chatbubble-ellipses',
+                  iconColor: '#EA580C',
+                  iconBg: '#FFF7ED',
+                  targetScreen: 'ChatDetail',
+                  targetParams: {
+                    conversationId: unreadChat.id,
+                    partner: {
+                      id: unreadChat.partnerId,
+                      name: unreadChat.partnerName,
+                      avatar: unreadChat.partnerAvatar,
+                    },
+                  },
+                };
+                useNotificationStore.getState().showBanner(notifItem);
+                displayLocalPushNotification({
+                  title: notifItem.title,
+                  body: notifItem.body,
+                  data: notifItem.targetParams,
+                });
+              } catch (_) {}
+            }
           }
         } catch (e: any) {
           console.log('⚠️ [Backend chats offline]:', e?.message);
