@@ -63,7 +63,7 @@ export const SellerDashboardScreen: React.FC = () => {
   const [analytics, setAnalytics] = useState<SellerAnalyticsData | null>(null);
 
   const { orders } = useOrderStore();
-  const currentUserId = user?.id || '';
+  const currentUserId = user?.id || (user as any)?._id || '';
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );
@@ -103,7 +103,7 @@ export const SellerDashboardScreen: React.FC = () => {
   }, [analytics?.counts, myListings]);
   const shippingCount = useMemo(() => (analytics?.counts ? analytics.counts.shipping : 0), [analytics?.counts]);
 
-  const totalRevenue = useMemo(() => analytics?.monthlyRevenue ?? availableBalance ?? 0, [analytics?.monthlyRevenue, availableBalance]);
+  const totalRevenue = useMemo(() => analytics?.totalRevenue ?? analytics?.monthlyRevenue ?? availableBalance ?? 0, [analytics?.totalRevenue, analytics?.monthlyRevenue, availableBalance]);
   const pendingEscrowAmount = useMemo(() => analytics?.pendingEscrow ?? escrowBalance ?? 0, [analytics?.pendingEscrow, escrowBalance]);
   const completionRate = useMemo(() => {
     if (analytics?.completionRate !== undefined) return analytics.completionRate;

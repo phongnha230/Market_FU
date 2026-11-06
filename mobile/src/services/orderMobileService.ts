@@ -420,13 +420,11 @@ export const orderMobileService = {
     proofVideoUrl?: string
   ): Promise<any> {
     const validReason = reason.trim().length >= 5 ? reason.trim() : `${reason.trim()} - Khiếu nại tại Safe-Point`;
-    const validUrl = proofVideoUrl?.startsWith('http')
-      ? proofVideoUrl
-      : 'https://marketfu.fpt.edu.vn/proof/video-unbox-safepoint.mp4';
+    const validUrl = proofVideoUrl?.startsWith('http') ? proofVideoUrl : undefined;
 
     const res = await apiClient.post<ApiResponse<any>>(`/orders/${orderId}/dispute`, {
       reason: validReason,
-      proofVideoUrl: validUrl,
+      ...(validUrl ? { proofVideoUrl: validUrl } : {}),
     });
     return res.data?.data;
   },

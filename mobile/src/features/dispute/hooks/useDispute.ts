@@ -113,7 +113,7 @@ export const useDispute = (
             proofUrl = rawUri;
           } else {
             const uploaded = await reviewMobileService.uploadMedia(rawUri, Boolean(primaryItem?.isVideo));
-            proofUrl = uploaded || rawUri;
+            if (uploaded && (uploaded.startsWith('http://') || uploaded.startsWith('https://'))) proofUrl = uploaded;
           }
         }
 

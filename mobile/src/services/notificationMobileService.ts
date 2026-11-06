@@ -41,12 +41,26 @@ export const NOTIFICATION_CHANNELS = {
 /**
  * 0. Phát thông báo Heads-up trực tiếp lên thanh trạng thái / Header điện thoại
  */
+const recentPushTimestamps = new Map<string, number>();
+
 export async function displayLocalPushNotification(params: {
   title: string;
   body: string;
   data?: any;
   channelId?: string;
 }) {
+  const dedupKey = `${(params.title || '').trim()}_${(params.body || '').trim()}`;
+  const now = Date.now();
+  const lastTime = recentPushTimestamps.get(dedupKey);
+  if (lastTime && now - lastTime < 4000) {
+    return;
+  }
+  recentPushTimestamps.set(dedupKey, now);
+  if (recentPushTimestamps.size > 20) {
+    recentPushTimestamps.clear();
+    recentPushTimestamps.set(dedupKey, now);
+  }
+
   if (Notifications && typeof Notifications.scheduleNotificationAsync === 'function') {
     try {
       const channelId = params.channelId || NOTIFICATION_CHANNELS.SYSTEM;

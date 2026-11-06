@@ -151,7 +151,7 @@ export const ReviewScreen: React.FC = () => {
           cleanImages.push(m.uri);
         } else {
           const uploadedUrl = await reviewMobileService.uploadMedia(m.uri, false);
-          cleanImages.push(uploadedUrl || m.uri);
+          if (uploadedUrl && (uploadedUrl.startsWith('http://') || uploadedUrl.startsWith('https://'))) cleanImages.push(uploadedUrl);
         }
       }
 
@@ -162,7 +162,7 @@ export const ReviewScreen: React.FC = () => {
           videoUri = rawVideo;
         } else {
           const uploadedVideoUrl = await reviewMobileService.uploadMedia(rawVideo, true);
-          videoUri = uploadedVideoUrl || rawVideo;
+          if (uploadedVideoUrl && (uploadedVideoUrl.startsWith('http://') || uploadedVideoUrl.startsWith('https://'))) videoUri = uploadedVideoUrl;
         }
       }
 

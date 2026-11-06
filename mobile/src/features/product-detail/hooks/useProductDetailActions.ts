@@ -33,12 +33,13 @@ export function useProductDetailActions(
   }, [user?.campus, product?.campus]);
 
   const isOwnProduct = useMemo(() => {
-    if (!user || !product?.seller) return false;
-    return Boolean(
-      (product.seller.id && user.id === product.seller.id) ||
-      (product.seller.name && user.name === product.seller.name)
-    );
-  }, [user, product?.seller]);
+    if (!user) return false;
+    const myId = String(user.id || (user as any)?._id || '');
+    const myName = String(user.name || '').trim().toLowerCase();
+    const sId = String(product?.sellerId || product?.seller?.id || (product?.seller as any)?._id || '');
+    const sName = String(product?.sellerName || product?.seller?.name || '').trim().toLowerCase();
+    return Boolean((myId && sId && myId === sId) || (myName && sName && myName === sName));
+  }, [user, product?.sellerId, product?.sellerName, product?.seller]);
 
   const showKycRequiredAlert = useCallback((actionName: string) => {
     Alert.alert(
@@ -102,6 +103,10 @@ export function useProductDetailActions(
   }, [checkActionEligibility, navigation, product]);
 
   const handleOpenBuyNow = useCallback((mode?: 'meetup' | 'shipping') => {
+    if (isOwnProduct) {
+      Alert.alert('Không thể đặt mua', 'Theo quy chế cộng đồng Market FU, bạn không thể tự đặt mua sản phẩm của chính mình.');
+      return;
+    }
     if (!checkActionEligibility('đặt cọc giao dịch ký quỹ Escrow')) return;
 
     const numericPrice =
@@ -130,6 +135,10 @@ export function useProductDetailActions(
   }, [checkActionEligibility, navigation, product, isSameCampus]);
 
   const handleOpenChat = useCallback(() => {
+    if (isOwnProduct) {
+      Alert.alert('Thông báo', 'Đây là sản phẩm của chính bạn.');
+      return;
+    }
     if (!checkActionEligibility('nhắn tin trao đổi với người bán')) return;
 
     const numericPrice =
@@ -162,6 +171,10 @@ export function useProductDetailActions(
   }, [checkActionEligibility, navigation, product, isSameCampus]);
 
   const handleOpenOfferModal = useCallback(() => {
+    if (isOwnProduct) {
+      Alert.alert('Thông báo', 'Bạn không thể tự trả giá sản phẩm của chính mình.');
+      return;
+    }
     if (!checkActionEligibility('gửi đề xuất trả giá')) return;
     setIsOfferModalVisible(true);
   }, [checkActionEligibility]);
