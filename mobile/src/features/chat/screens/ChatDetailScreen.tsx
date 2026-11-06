@@ -1006,11 +1006,14 @@ export const ChatDetailScreen: React.FC = () => {
 
   const handleViewOrder = useCallback((orderCode?: string) => {
     if (orderCode) {
-      navigation.navigate('OrderDetail', { orderId: orderCode, product });
+      const myIdStr = String(currentUserId || '').trim();
+      const sId = String(product?.sellerId || (product as any)?.seller?.id || '').trim();
+      const isSeller = Boolean(myIdStr && myIdStr !== 'me' && sId && myIdStr === sId);
+      navigation.navigate('OrderDetail', { orderId: orderCode, product, isSeller });
     } else {
       navigation.navigate('OrderList');
     }
-  }, [navigation, product]);
+  }, [navigation, product, currentUserId]);
 
   const handlePickSafePoint = useCallback(() => {
     Alert.alert(

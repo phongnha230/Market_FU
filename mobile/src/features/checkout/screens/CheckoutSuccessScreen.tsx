@@ -439,6 +439,7 @@ export const CheckoutSuccessScreen: React.FC = () => {
               safePoint,
               isDifferentCampus,
               totalAmount,
+              isSeller: false,
             })
           }
           activeOpacity={0.85}

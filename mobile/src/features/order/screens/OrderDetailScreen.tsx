@@ -175,14 +175,15 @@ export const OrderDetailScreen: React.FC = () => {
   const safePoint = activeOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
   const deliveryNote = activeOrder?.deliveryNote || route.params?.note || '';
+  const currentUserId = String(user?.id || (user as any)?._id || '').trim();
   const isSeller = Boolean(
     typeof route.params?.isSeller === 'boolean'
       ? route.params.isSeller
       : (
-          (user?.id && (activeOrder?.buyerId === user.id || matchedOrder?.buyerId === user.id || (activeOrder as any)?.buyer?.id === user.id))
+          (currentUserId && (activeOrder?.buyerId === currentUserId || matchedOrder?.buyerId === currentUserId || (activeOrder as any)?.buyer?.id === currentUserId || (activeOrder as any)?.buyer?._id === currentUserId))
             ? false
             : (
-                (user?.id && (sellerId === user.id || activeOrder?.sellerId === user.id || (activeOrder as any)?.seller?.id === user.id)) ||
+                (currentUserId && (sellerId === currentUserId || activeOrder?.sellerId === currentUserId || (activeOrder as any)?.seller?.id === currentUserId || (activeOrder as any)?.seller?._id === currentUserId)) ||
                 (user?.email && ((activeOrder as any)?.sellerEmail === user.email || (activeOrder as any)?.seller?.email === user.email)) ||
                 (user?.studentId && ((activeOrder as any)?.sellerStudentId === user.studentId || (activeOrder as any)?.seller?.studentId === user.studentId)) ||
                 (user?.name && (product.sellerName === user.name || activeOrder?.sellerName === user.name || (activeOrder as any)?.seller?.profile?.fullName === user.name))
