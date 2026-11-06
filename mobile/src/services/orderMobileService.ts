@@ -134,8 +134,8 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (backendStatus === 'DISPUTED') {
     status = 'DISPUTED';
   } else if (backendStatus === 'PAID' || backendStatus === 'ESCROW_PAID') {
-    status = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? 'PENDING_SAFEPOINT' : 'ESCROW_PAID';
-  } else if (backendStatus === 'SHIPPING') {
+    status = 'ESCROW_PAID';
+  } else if (backendStatus === 'SHIPPING' || backendStatus === 'HANDOVER_CONFIRMED') {
     status = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? 'ESCROW_PAID' : 'HANDOVER_CONFIRMED';
   } else if (backendStatus === 'CANCELLED') {
     status = 'CANCELLED';
@@ -158,7 +158,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (status === 'ESCROW_PAID') {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
-    statusLabel = '🛡️ Chờ bàn giao';
+    statusLabel = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? '🛡️ Chờ gặp bàn giao' : '🛡️ Đã ký quỹ Escrow';
   } else if (status === 'HANDOVER_CONFIRMED') {
     statusColor = '#2563EB';
     statusBg = '#EFF6FF';

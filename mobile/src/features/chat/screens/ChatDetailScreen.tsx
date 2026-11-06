@@ -63,7 +63,7 @@ export const ChatDetailScreen: React.FC = () => {
       user?.kycStatus !== 'PENDING' &&
       user?.kycStatus !== 'REJECTED'
   );
-  const currentUserId = user?.id || 'me';
+  const currentUserId = user?.id || (user as any)?._id || 'me';
 
   const routePartner = route.params?.partner;
   const routeProduct = route.params?.product;
@@ -448,7 +448,7 @@ export const ChatDetailScreen: React.FC = () => {
       socketMobileService.markMessageRead(conversationId);
       useChatStore.getState().markConversationAsRead(conversationId);
 
-      const myIdStr = String(currentUserId || user?.id || '').trim();
+      const myIdStr = String(currentUserId || user?.id || (user as any)?._id || '').trim();
       const rawSenderIdStr = String(rawMsg.senderId || rawMsg.sender?.id || rawMsg.sender?._id || '').trim();
       const isIdMatch = Boolean(myIdStr && myIdStr !== 'me' && rawSenderIdStr === myIdStr);
       const isMe = isIdMatch || Boolean(rawMsg.isMe);
@@ -662,8 +662,8 @@ export const ChatDetailScreen: React.FC = () => {
                   if (existingIds.has(rm.id)) return;
 
                   // 3. Nếu là tin nhắn mới hoàn toàn từ đối tác
-                  const myIdStr = String(currentUserId || user?.id || '').trim();
-                  const sIdStr = String(rm.senderId || rm.sender?.id || '').trim();
+                  const myIdStr = String(currentUserId || user?.id || (user as any)?._id || '').trim();
+                  const sIdStr = String(rm.senderId || rm.sender?.id || rm.sender?._id || '').trim();
                   const isMe = rm.isMe || (myIdStr && myIdStr !== 'me' && sIdStr === myIdStr);
                   const isImg = rm.messageType === 'IMAGE' || Boolean(rm.imageUrl);
                   const isOrder = Boolean(text.startsWith('[ORDER_CREATED]'));

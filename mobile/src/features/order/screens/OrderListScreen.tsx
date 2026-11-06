@@ -323,12 +323,20 @@ const OrderListEmptyState: React.FC<{ activeTab: string; onExplore: () => void }
 const filterOrders = (
   orders: OrderItem[],
   currentUserId: string,
+  userName: string,
   isSeller: boolean,
   activeTab: string
 ): OrderItem[] => {
   return orders.filter((o) => {
-    const isMySale = o.sellerId === currentUserId;
-    const isMyBuy = o.buyerId === currentUserId;
+    const isMySale = Boolean(
+      (currentUserId && o.sellerId === currentUserId) ||
+      (userName && o.sellerName === userName)
+    );
+    const isMyBuy = Boolean(
+      (currentUserId && o.buyerId === currentUserId) ||
+      (userName && (o as any).buyerName === userName) ||
+      !isMySale
+    );
     const matchesUser = isSeller ? (isMySale || isMyBuy) : isMyBuy;
     if (!matchesUser) return false;
 
@@ -339,10 +347,14 @@ const filterOrders = (
         return isMyBuy;
       case 'escrow':
         return o.status === 'ESCROW_PAID' || o.status === 'PENDING_SAFEPOINT';
+      case 'shipping':
+        return o.status === 'HANDOVER_CONFIRMED' || o.status === 'DELIVERED';
       case 'completed':
         return o.status === 'COMPLETED';
       case 'disputed':
         return o.status === 'DISPUTED';
+      case 'cancelled':
+        return o.status === 'CANCELLED';
       default:
         return true;
     }
@@ -383,7 +395,8 @@ export const OrderListScreen: React.FC = () => {
   }, [fetchOrders]);
 
   const isSeller = user?.role === 'SELLER';
-  const currentUserId = user?.id || '';
+  const currentUserId = user?.id || (user as any)?._id || '';
+  const userName = user?.name || '';
   const [activeTab, setActiveTab] = useState<string>(route.params?.initialTab || 'all');
 
   useEffect(() => {
@@ -399,21 +412,25 @@ export const OrderListScreen: React.FC = () => {
         { key: 'my_sales', label: 'Đơn Bán Của Tôi' },
         { key: 'my_buys', label: 'Đơn Mua Của Tôi' },
         { key: 'escrow', label: 'Chờ Bàn Giao' },
+        { key: 'shipping', label: 'Đang Vận Chuyển' },
         { key: 'completed', label: 'Đã Hoàn Tất' },
         { key: 'disputed', label: 'Khiếu Nại' },
+        { key: 'cancelled', label: 'Đã Hủy' },
       ];
     }
     return [
       { key: 'all', label: 'Tất cả' },
       { key: 'escrow', label: 'Chờ Bàn Giao' },
+      { key: 'shipping', label: 'Đang Vận Chuyển' },
       { key: 'completed', label: 'Đã Hoàn Tất' },
       { key: 'disputed', label: 'Khiếu Nại' },
+      { key: 'cancelled', label: 'Đã Hủy' },
     ];
   }, [isSeller]);
 
   const filteredOrders = React.useMemo(
-    () => filterOrders(orders, currentUserId, isSeller, activeTab),
-    [orders, currentUserId, isSeller, activeTab]
+    () => filterOrders(orders, currentUserId, userName, isSeller, activeTab),
+    [orders, currentUserId, userName, isSeller, activeTab]
   );
 
   const handleNavigateDetail = React.useCallback((item: OrderItem) => {

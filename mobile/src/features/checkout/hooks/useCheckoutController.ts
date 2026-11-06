@@ -443,6 +443,7 @@ export function useCheckoutController() {
 
       // Lưu đơn vào local store sau khi đã thanh toán (hoặc khi chọn tiền mặt)
       addOrder(finalizedOrder);
+      useOrderStore.getState().fetchOrders().catch(() => {});
       if (product.id) {
         useProductStore.getState().updateProduct(product.id, { status: 'RESERVED' });
       }

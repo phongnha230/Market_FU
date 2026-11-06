@@ -148,6 +148,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+let activeDeviceToken: string | null = null;
+
 /**
  * 2. Đăng ký nhận Push Notifications và lấy Device Token
  */
@@ -194,6 +196,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     }
 
     if (token) {
+      activeDeviceToken = token;
       await syncTokenWithBackend(token);
     }
 
@@ -226,16 +229,18 @@ export async function syncTokenWithBackend(token: string) {
 /**
  * 4. Xóa Device Token khi đăng xuất
  */
-export async function unregisterDeviceToken(token: string) {
+export async function unregisterDeviceToken(token?: string) {
   try {
     const authState = useAuthStore.getState();
     const jwtToken = authState.token;
 
-    if (!jwtToken) return;
+    const targetToken = token || activeDeviceToken;
+    if (!jwtToken || !targetToken) return;
 
     await apiClient.delete('/notifications/device-token', {
-      data: { token },
+      data: { token: targetToken },
     });
+    activeDeviceToken = null;
     console.log('✅ [Push Notification] Đã hủy đăng ký Device Token');
   } catch (error: any) {
     console.warn('⚠️ [Device Token Unregister Error]:', error?.message);

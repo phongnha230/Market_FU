@@ -102,6 +102,10 @@ export const useUserStore = create<UserState>()(
                 hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
+              try {
+                const { socketMobileService } = require('../services/socketMobileService');
+                socketMobileService?.updateAuthToken(backendRes.token);
+              } catch {}
               get().loadRegisteredAccounts().catch(() => {});
               try {
                 const { notificationMobileService } = require('../services/notificationMobileService');
@@ -163,6 +167,14 @@ export const useUserStore = create<UserState>()(
                 hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
+              try {
+                const { socketMobileService } = require('../services/socketMobileService');
+                socketMobileService?.updateAuthToken(backendRes.token);
+              } catch {}
+              try {
+                const { notificationMobileService } = require('../services/notificationMobileService');
+                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
+              } catch {}
               await get().loadRegisteredAccounts();
               return {
                 success: true,
@@ -214,6 +226,14 @@ export const useUserStore = create<UserState>()(
                 hasCompletedOnboarding: true,
               });
               syncUserToStores(backendRes.user.id);
+              try {
+                const { socketMobileService } = require('../services/socketMobileService');
+                socketMobileService?.updateAuthToken(backendRes.token);
+              } catch {}
+              try {
+                const { notificationMobileService } = require('../services/notificationMobileService');
+                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
+              } catch {}
               await get().loadRegisteredAccounts();
               return {
                 success: true,
@@ -327,6 +347,10 @@ export const useUserStore = create<UserState>()(
             // Ignored
           }
         }
+        try {
+          const { notificationMobileService } = require('../services/notificationMobileService');
+          notificationMobileService?.unregisterDeviceToken?.().catch(() => {});
+        } catch {}
         try {
           const { signOutGoogle } = require('../services/googleSignIn');
           signOutGoogle().catch(() => {});

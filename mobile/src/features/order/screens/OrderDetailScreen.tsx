@@ -83,17 +83,19 @@ export const OrderDetailScreen: React.FC = () => {
   const initialStatus =
     activeOrder?.status === 'COMPLETED'
       ? 'completed'
-      : matchedOrder?.status === 'DELIVERED'
+      : activeOrder?.status === 'DELIVERED'
       ? 'delivered'
-      : matchedOrder?.status === 'HANDOVER_CONFIRMED'
+      : activeOrder?.status === 'HANDOVER_CONFIRMED'
       ? 'shipping'
-      : matchedOrder?.status === 'CANCELLED'
+      : activeOrder?.status === 'CANCELLED'
       ? 'cancelled'
-      : matchedOrder?.status === 'DISPUTED'
+      : activeOrder?.status === 'DISPUTED'
       ? 'disputed'
-      : matchedOrder?.status === 'PENDING_SAFEPOINT'
+      : activeOrder?.status === 'PENDING_SAFEPOINT'
       ? 'pending'
-      : route.params?.status === 'escrow_holding' ? 'escrow_holding' : 'pending';
+      : activeOrder?.status === 'ESCROW_PAID' || route.params?.status === 'escrow_holding'
+      ? 'escrow_holding'
+      : 'pending';
 
   const [orderStatus, setOrderStatus] = useState<string>(initialStatus);
   const [isReviewed, setIsReviewed] = useState<boolean>(matchedOrder?.isReviewed ?? (route.params?.isReviewed || false));
