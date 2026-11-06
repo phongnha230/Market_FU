@@ -127,7 +127,11 @@ interface OrderState {
   getSellerOrders: (sellerId: string) => OrderItem[];
   getOrdersForUser: (userId: string) => OrderItem[];
   isLoading: boolean;
-  fetchOrders: () => Promise<OrderItem[]>;
+  isFetchingMore: boolean;
+  currentPage: number;
+  hasMore: boolean;
+  fetchOrders: (page?: number) => Promise<OrderItem[]>;
+  fetchMoreOrders: () => Promise<void>;
 }
 
 let inFlightOrdersPromise: Promise<OrderItem[]> | null = null;
@@ -138,6 +142,9 @@ export const useOrderStore = create<OrderState>()(
       orders: [],
       activeUserId: null,
       isLoading: false,
+      isFetchingMore: false,
+      currentPage: 1,
+      hasMore: true,
 
       setActiveUser: (userId) => {
         const uId = userId ? String(userId).trim() : null;
@@ -150,7 +157,7 @@ export const useOrderStore = create<OrderState>()(
         }
       },
 
-      fetchOrders: async () => {
+      fetchOrders: async (page = 1) => {
         if (inFlightOrdersPromise) {
           return inFlightOrdersPromise;
         }
@@ -158,9 +165,13 @@ export const useOrderStore = create<OrderState>()(
         inFlightOrdersPromise = (async () => {
           try {
             set({ isLoading: true });
-            const liveOrders = await orderMobileService.getOrders();
+            const liveOrders = await orderMobileService.getOrders({ page, limit: 20 });
             if (Array.isArray(liveOrders)) {
-              set({ orders: liveOrders });
+              set({
+                orders: liveOrders,
+                currentPage: 1,
+                hasMore: liveOrders.length >= 20,
+              });
               return liveOrders;
             }
           } catch (e: any) {
@@ -173,6 +184,32 @@ export const useOrderStore = create<OrderState>()(
         })();
 
         return inFlightOrdersPromise;
+      },
+
+      fetchMoreOrders: async () => {
+        const { currentPage, hasMore, isFetchingMore, orders } = get();
+        if (!hasMore || isFetchingMore) return;
+
+        try {
+          set({ isFetchingMore: true });
+          const nextPage = currentPage + 1;
+          const nextOrders = await orderMobileService.getOrders({ page: nextPage, limit: 20 });
+          if (Array.isArray(nextOrders) && nextOrders.length > 0) {
+            const existingIds = new Set(orders.map((o) => o.id));
+            const uniqueNext = nextOrders.filter((o) => !existingIds.has(o.id));
+            set({
+              orders: [...orders, ...uniqueNext],
+              currentPage: nextPage,
+              hasMore: nextOrders.length >= 20,
+            });
+          } else {
+            set({ hasMore: false });
+          }
+        } catch (e: any) {
+          console.log('⚠️ [Fetch more orders error]:', e?.message);
+        } finally {
+          set({ isFetchingMore: false });
+        }
       },
 
       createOrder: (orderData) => {
@@ -474,6 +511,10 @@ export const useOrderStore = create<OrderState>()(
     {
       name: 'fu_orders_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        orders: (state.orders || []).slice(0, 30),
+        activeUserId: state.activeUserId,
+      }),
     }
   )
 );

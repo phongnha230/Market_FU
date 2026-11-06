@@ -173,7 +173,7 @@ export const useNotificationStore = create<NotificationState>()(
       name: 'fu_notifications_storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        notifications: state.notifications,
+        notifications: (state.notifications || []).slice(0, 30),
         hasPromptedPermission: state.hasPromptedPermission,
         pushPermissionGranted: state.pushPermissionGranted,
       }),

@@ -104,9 +104,9 @@ export const chatMobileService = {
   /**
    * Lấy tin nhắn trong cuộc trò chuyện
    */
-  async getMessages(conversationId: string, currentUserId: string): Promise<ChatMessage[]> {
+  async getMessages(conversationId: string, currentUserId: string, params?: { page?: number; limit?: number }): Promise<ChatMessage[]> {
     try {
-      const res = await apiClient.get<ApiResponse<any>>(`/chats/conversations/${conversationId}/messages`);
+      const res = await apiClient.get<ApiResponse<any>>(`/chats/conversations/${conversationId}/messages`, { params });
       const rawData = res.data?.data;
       const rawMessages = Array.isArray(rawData)
         ? rawData

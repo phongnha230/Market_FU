@@ -224,6 +224,21 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'fu_chats_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => {
+        const trimmed: Record<string, any> = {};
+        if (state.conversationsByUser && typeof state.conversationsByUser === 'object') {
+          Object.entries(state.conversationsByUser).forEach(([userId, convs]) => {
+            trimmed[userId] = (convs || []).slice(0, 20).map((c) => ({
+              ...c,
+              messages: (c.messages || []).slice(-30),
+            }));
+          });
+        }
+        return {
+          conversationsByUser: trimmed,
+          activeUserId: state.activeUserId,
+        };
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (!state.conversationsByUser || typeof state.conversationsByUser !== 'object') {

@@ -208,6 +208,24 @@ export const useKycStore = create<KycState>()(
     {
       name: 'fu_kyc_storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => {
+        const sanitizedByUser: Record<string, any> = {};
+        if (state.kycByUser) {
+          Object.entries(state.kycByUser).forEach(([uId, record]) => {
+            sanitizedByUser[uId] = {
+              ...record,
+              // Không lưu chuỗi Base64 khổng lồ vào AsyncStorage cục bộ
+              cardImageUrl: record.cardImageUrl && record.cardImageUrl.startsWith('data:')
+                ? null
+                : record.cardImageUrl,
+            };
+          });
+        }
+        return {
+          kycByUser: sanitizedByUser,
+          activeUserId: state.activeUserId,
+        };
+      },
     }
   )
 );

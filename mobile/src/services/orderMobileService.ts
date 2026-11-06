@@ -374,14 +374,13 @@ export const orderMobileService = {
   },
 
   /**
-   * Lấy danh sách đơn hàng của người dùng hiện tại
+   * Lấy danh sách đơn hàng của người dùng hiện tại (hỗ trợ phân trang)
    */
-  async getOrders(): Promise<OrderItem[]> {
-    const res = await apiClient.get<ApiResponse<any[]>>('/orders');
-    if (res.data?.data && Array.isArray(res.data.data)) {
-      return res.data.data.map(adaptBackendOrderToMobile);
-    }
-    return [];
+  async getOrders(params?: { page?: number; limit?: number; status?: string; role?: string }): Promise<OrderItem[]> {
+    const res = await apiClient.get<ApiResponse<any>>('/orders', { params });
+    const raw = res.data?.data;
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.orders) ? raw.orders : [];
+    return list.map(adaptBackendOrderToMobile);
   },
 
   /**

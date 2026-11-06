@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -366,7 +367,7 @@ export const OrderListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useUserStore();
-  const { orders, fetchOrders } = useOrderStore();
+  const { orders, fetchOrders, fetchMoreOrders, isFetchingMore, hasMore } = useOrderStore();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -390,9 +391,13 @@ export const OrderListScreen: React.FC = () => {
 
   const onRefresh = React.useCallback(async () => {
     await withRefreshTimeout(fetchOrders, setRefreshing, 2000);
-
-
   }, [fetchOrders]);
+
+  const handleLoadMore = React.useCallback(() => {
+    if (hasMore && !isFetchingMore && !refreshing) {
+      fetchMoreOrders().catch(() => {});
+    }
+  }, [hasMore, isFetchingMore, refreshing, fetchMoreOrders]);
 
   const isSeller = user?.role === 'SELLER';
   const currentUserId = user?.id || (user as any)?._id || '';
@@ -586,8 +591,18 @@ export const OrderListScreen: React.FC = () => {
         renderItem={renderOrderItem}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#EA580C']} />
+        }
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="small" color="#EA580C" />
+              <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>Đang tải đơn cũ hơn...</Text>
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <OrderListEmptyState activeTab={activeTab} onExplore={handleGoHome} />
