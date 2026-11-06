@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { useWalletStore } from './walletStore';
 
 const getUserStore = () => {
@@ -357,7 +357,7 @@ export const useVoucherStore = create<VoucherState>()(
     }),
     {
       name: 'fu-voucher-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
     }
   )
 );

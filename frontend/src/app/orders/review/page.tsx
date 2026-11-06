@@ -115,8 +115,11 @@ function ReviewContent() {
     }
 
     setReviewMediaList((prev) => [...prev, ...newItems]);
-    if (hasVideo) {
-      setProofVideoUrl('uploaded-local-video');
+    const validCloudVideo = newItems.find((item) => item.isVideo && (item.url.startsWith('http://') || item.url.startsWith('https://')));
+    if (validCloudVideo) {
+      setProofVideoUrl(validCloudVideo.url);
+    } else if (!proofVideoUrl || !proofVideoUrl.startsWith('http')) {
+      setProofVideoUrl('');
     }
     showToast(`Đã tải lên ${newItems.length} tệp hình ảnh / video thực tế!`);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -226,20 +229,28 @@ function ReviewContent() {
     try {
       const rawOrderId = currentOrder?.id || orderCode.replace('#', '');
 
+      const validImages = reviewMediaList
+        .map((m) => m.url)
+        .filter((url) => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://')));
+      const validProofVideoUrl =
+        proofVideoUrl && (proofVideoUrl.startsWith('http://') || proofVideoUrl.startsWith('https://'))
+          ? proofVideoUrl.trim()
+          : undefined;
+
       if (isEditMode) {
         const partialData: Partial<OrderReviewData> = {
           rating,
           comment,
           tags: selectedTags,
           images: reviewMediaList.map((m) => m.url),
-          proofVideoUrl: proofVideoUrl.trim() || undefined,
+          proofVideoUrl: validProofVideoUrl,
           isAnonymous,
         };
         await orderService.updateReview(rawOrderId, {
           rating,
           comment,
-          images: reviewMediaList.map((m) => m.url),
-          proofVideoUrl: proofVideoUrl.trim() || null,
+          images: validImages,
+          proofVideoUrl: validProofVideoUrl || null,
         });
         try {
           updateOrderReview(orderCode, partialData);
@@ -259,7 +270,7 @@ function ReviewContent() {
         comment,
         tags: selectedTags,
         images: reviewMediaList.map((m) => m.url),
-        proofVideoUrl: proofVideoUrl.trim() || undefined,
+        proofVideoUrl: validProofVideoUrl,
         isAnonymous,
         reviewedAt: new Date().toISOString(),
         isPublic: true,
@@ -272,8 +283,8 @@ function ReviewContent() {
           orderId: rawOrderId,
           rating,
           comment,
-          images: reviewMediaList.map((m) => m.url),
-          proofVideoUrl: proofVideoUrl.trim() || undefined,
+          images: validImages,
+          proofVideoUrl: validProofVideoUrl,
         });
       } catch (err: any) {
         const errorCode = err?.response?.data?.errorCode;

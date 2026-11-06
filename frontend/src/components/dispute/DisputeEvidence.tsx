@@ -77,15 +77,14 @@ export default function DisputeEvidence({
 
         try {
           const uploadRes = await reportService.uploadDisputeEvidence(file);
-          if (uploadRes?.url) {
+          if (uploadRes?.url && (uploadRes.url.startsWith('http://') || uploadRes.url.startsWith('https://'))) {
             finalUrl = uploadRes.url;
+            if (onUploadedProofVideoUrlChange) {
+              onUploadedProofVideoUrlChange(finalUrl);
+            }
           }
         } catch (err: any) {
           console.warn('⚠️ [Upload fallback to base64 Data URL]:', err?.message || err);
-        }
-
-        if (onUploadedProofVideoUrlChange) {
-          onUploadedProofVideoUrlChange(finalUrl);
         }
 
         newItems.push({

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { productMobileService } from '../services/productMobileService';
 import { useProductStore } from './productStore';
 
@@ -224,7 +224,7 @@ export const useFavoriteStore = create<FavoriteState>()(
     }),
     {
       name: 'fu-favorite-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
     }
   )
 );

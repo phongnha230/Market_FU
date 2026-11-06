@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { productMobileService } from '../services/productMobileService';
 
 export interface ProductItem {
@@ -194,7 +194,7 @@ export const useProductStore = create<ProductState>()(
     }),
     {
       name: 'fu_products_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => ({
         products: (state.products || []).slice(0, 30),
       }),

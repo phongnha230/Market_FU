@@ -138,7 +138,14 @@ function DisputeContent() {
     setIsSubmitting(true);
     try {
       const orderId = backendOrder?.id || matchedOrder?.id || cleanCode.replace('#', '');
-      const proofVideoUrl = uploadedProofVideoUrl || '';
+      const rawProof = uploadedProofVideoUrl ? uploadedProofVideoUrl.trim() : '';
+      const isValidUrl = rawProof.startsWith('http://') || rawProof.startsWith('https://');
+      if (!isValidUrl) {
+        showToast('Vui lòng tải lên video bằng chứng rõ ràng (được lưu trữ đám mây hợp lệ) trước khi gửi khiếu nại.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+      const proofVideoUrl = rawProof;
       
       const reasonMap: Record<string, string> = {
         defect: 'Thiết bị lỗi chức năng / Không hoạt động khi cắm test',

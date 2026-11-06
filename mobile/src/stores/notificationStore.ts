@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import apiClient from '../services/apiClient';
 
 export interface NotificationItem {
@@ -171,7 +171,7 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'fu_notifications_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => ({
         notifications: (state.notifications || []).slice(0, 30),
         hasPromptedPermission: state.hasPromptedPermission,

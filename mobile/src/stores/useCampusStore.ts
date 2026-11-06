@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 
 export const CAMPUS_OPTIONS = ['TẤT CẢ', 'HÒA LẠC', 'TP.HCM', 'ĐÀ NẴNG', 'CẦN THƠ', 'QUY NHƠN'] as const;
 export type CampusType = typeof CAMPUS_OPTIONS[number];
@@ -25,7 +25,7 @@ export const useCampusStore = create<CampusState>()(
     }),
     {
       name: 'fu-campus-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
     }
   )
 );

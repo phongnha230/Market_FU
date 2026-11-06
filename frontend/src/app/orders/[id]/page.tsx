@@ -207,10 +207,20 @@ export default function OrderDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isSellerViewer =
-    (Boolean(user?.id) && Boolean(order?.sellerId) && order?.sellerId === user?.id) ||
-    (Boolean(user?.name) && Boolean(order?.product?.seller?.name) && order?.product?.seller?.name?.toLowerCase().includes(user?.name?.toLowerCase())) ||
-    (Boolean(user?.email) && Boolean((order as any)?.seller?.email) && (order as any)?.seller?.email === user?.email);
+  const myId = (user?.id || (user as any)?._id || (user as any)?.userId)?.toString().trim();
+  const myEmail = user?.email?.toLowerCase().trim();
+
+  const orderSellerId = (order?.sellerId || (order as any)?.seller?.id || backendOrderDetail?.sellerId || backendOrderDetail?.seller?.id)?.toString().trim();
+  const orderBuyerId = ((order as any)?.buyerId || (order as any)?.buyer?.id || backendOrderDetail?.buyerId || backendOrderDetail?.buyer?.id)?.toString().trim();
+
+  const sellerEmail = ((order as any)?.seller?.email || backendOrderDetail?.seller?.email || '')?.toLowerCase().trim();
+  const buyerEmail = ((order as any)?.buyer?.email || backendOrderDetail?.buyer?.email || '')?.toLowerCase().trim();
+
+  // Xác định chính xác vai trò, chống nhầm lẫn khi Seller mua đồ của Seller khác
+  const isConfirmedBuyer = Boolean((myId && orderBuyerId && myId === orderBuyerId) || (myEmail && buyerEmail && myEmail === buyerEmail));
+  const isConfirmedSeller = Boolean((myId && orderSellerId && myId === orderSellerId) || (myEmail && sellerEmail && myEmail === sellerEmail));
+
+  const isSellerViewer = isConfirmedSeller && !isConfirmedBuyer;
 
   const handleConfirmReceived = async () => {
     if (!order) return;

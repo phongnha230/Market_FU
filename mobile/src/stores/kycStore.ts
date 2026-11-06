@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { profileMobileService } from '../services/profileMobileService';
 
 const getUserStore = () => {
@@ -207,7 +207,7 @@ export const useKycStore = create<KycState>()(
     }),
     {
       name: 'fu_kyc_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => {
         const sanitizedByUser: Record<string, any> = {};
         if (state.kycByUser) {

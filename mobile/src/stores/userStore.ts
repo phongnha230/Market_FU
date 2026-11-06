@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { accountStorage, UserProfile, AccountRecord } from '../services/accountStorage';
 import { authMobileService } from '../services/authMobileService';
 import { useFavoriteStore } from './useFavoriteStore';
@@ -379,7 +379,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'fu_auth_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,

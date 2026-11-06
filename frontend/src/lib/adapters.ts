@@ -283,7 +283,7 @@ export function adaptBackendUser(user: any): UserProfile {
   const derivedMajor = profile.major || '';
 
   return {
-    id: user.userId || user.id || profile.userId || profile.id,
+    id: user.userId || user.id || (user as any)._id || profile.userId || profile.id || (profile as any)._id || '',
     name: profile.fullName || user.fullName || user.email?.split('@')[0] || 'Sinh viên FPT',
     studentId,
     cohort: derivedCohort,

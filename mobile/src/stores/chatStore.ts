@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { chatMobileService } from '../services/chatMobileService';
 
 export interface ChatMessage {
@@ -223,7 +223,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'fu_chats_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => {
         const trimmed: Record<string, any> = {};
         if (state.conversationsByUser && typeof state.conversationsByUser === 'object') {

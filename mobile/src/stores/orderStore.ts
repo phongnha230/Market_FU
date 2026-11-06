@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeAsyncStorage } from '../utils/safeStorage';
 import { useWalletStore } from './walletStore';
 import { generate4DigitOtp } from '../lib/backendMappers';
 import { orderMobileService } from '../services/orderMobileService';
@@ -510,7 +510,7 @@ export const useOrderStore = create<OrderState>()(
     }),
     {
       name: 'fu_orders_storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => safeAsyncStorage),
       partialize: (state) => ({
         orders: (state.orders || []).slice(0, 30),
         activeUserId: state.activeUserId,

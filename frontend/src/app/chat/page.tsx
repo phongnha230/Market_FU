@@ -284,7 +284,13 @@ function ChatContent() {
         })
         .map((c) => {
           const storeMsgs = chatStore.messagesByConversation[c.id] || [];
-          const isMeSeller = c.sellerId === (currentUser.id || currentUser.studentId);
+          const myPossibleIds = [
+            currentUser.id,
+            (currentUser as any)._id,
+            (currentUser as any).userId,
+            currentUser.studentId,
+          ].filter(Boolean) as string[];
+          const isMeSeller = Boolean(c.sellerId && myPossibleIds.includes(c.sellerId));
           const otherRole: 'buyer' | 'seller' = isMeSeller ? 'buyer' : 'seller';
           const otherRoleLabel = isMeSeller ? 'Khách mua' : 'Người bán';
           const partnerName = c.otherUser?.name || 'Sinh viên FPT';
@@ -432,7 +438,7 @@ function ChatContent() {
 
                     return {
                       id: m.id,
-                      sender: (m.senderId === (currentUser.id || currentUser.studentId) ? 'me' : 'other') as 'me' | 'other',
+                      sender: (m.senderId && myPossibleIds.includes(m.senderId) ? 'me' : 'other') as 'me' | 'other',
                       text: m.text || '',
                       time: m.createdAt,
                       image: m.mediaUrl || (m as any).image || (m as any).imageUrl,
