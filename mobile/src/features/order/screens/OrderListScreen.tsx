@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
 import { useUserStore } from '../../../stores/userStore';
 import { socketMobileService } from '../../../services/socketMobileService';
@@ -30,15 +30,24 @@ interface TabOption {
 const OrderTabChip: React.FC<{
   tab: TabOption;
   isActive: boolean;
+  count?: number;
   onPress: (key: string) => void;
-}> = React.memo(({ tab, isActive, onPress }) => {
+}> = React.memo(({ tab, isActive, count, onPress }) => {
   const handlePress = React.useCallback(() => onPress(tab.key), [onPress, tab.key]);
   return (
     <TouchableOpacity
       style={[styles.tabItem, isActive && styles.tabItemActive]}
       onPress={handlePress}
+      activeOpacity={0.7}
     >
       <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+      {typeof count === 'number' && count > 0 && (
+        <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+          <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+            {count > 99 ? '99+' : count}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 });
@@ -350,6 +359,8 @@ const filterOrders = (
         return o.status === 'ESCROW_PAID' || o.status === 'PENDING_SAFEPOINT';
       case 'shipping':
         return o.status === 'HANDOVER_CONFIRMED' || o.status === 'DELIVERED';
+      case 'unreviewed':
+        return o.status === 'COMPLETED' && !o.isReviewed && isMyBuy;
       case 'completed':
         return o.status === 'COMPLETED';
       case 'disputed':
@@ -410,6 +421,14 @@ export const OrderListScreen: React.FC = () => {
     }
   }, [route.params?.initialTab]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      if (route.params?.initialTab) {
+        setActiveTab(route.params.initialTab);
+      }
+    }, [route.params?.initialTab])
+  );
+
   const tabs: TabOption[] = React.useMemo(() => {
     if (isSeller) {
       return [
@@ -418,6 +437,7 @@ export const OrderListScreen: React.FC = () => {
         { key: 'my_buys', label: 'Đơn Mua Của Tôi' },
         { key: 'escrow', label: 'Chờ Bàn Giao' },
         { key: 'shipping', label: 'Đang Vận Chuyển' },
+        { key: 'unreviewed', label: 'Chờ Đánh Giá' },
         { key: 'completed', label: 'Đã Hoàn Tất' },
         { key: 'disputed', label: 'Khiếu Nại' },
         { key: 'cancelled', label: 'Đã Hủy' },
@@ -427,16 +447,86 @@ export const OrderListScreen: React.FC = () => {
       { key: 'all', label: 'Tất cả' },
       { key: 'escrow', label: 'Chờ Bàn Giao' },
       { key: 'shipping', label: 'Đang Vận Chuyển' },
+      { key: 'unreviewed', label: 'Chờ Đánh Giá' },
       { key: 'completed', label: 'Đã Hoàn Tất' },
       { key: 'disputed', label: 'Khiếu Nại' },
       { key: 'cancelled', label: 'Đã Hủy' },
     ];
   }, [isSeller]);
 
-  const filteredOrders = React.useMemo(
-    () => filterOrders(orders, currentUserId, userName, isSeller, activeTab),
-    [orders, currentUserId, userName, isSeller, activeTab]
-  );
+  const tabCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {
+      all: 0,
+      escrow: 0,
+      shipping: 0,
+      unreviewed: 0,
+      completed: 0,
+      disputed: 0,
+      cancelled: 0,
+      my_sales: 0,
+      my_buys: 0,
+    };
+
+    orders.forEach((o) => {
+      const isMySale = Boolean(
+        (currentUserId && o.sellerId === currentUserId) ||
+        (userName && o.sellerName === userName)
+      );
+      const isMyBuy = Boolean(
+        (currentUserId && o.buyerId === currentUserId) ||
+        (userName && (o as any).buyerName === userName) ||
+        !isMySale
+      );
+      const matchesUser = isSeller ? (isMySale || isMyBuy) : isMyBuy;
+      if (!matchesUser) return;
+
+      if (isMySale) counts.my_sales++;
+      if (isMyBuy) counts.my_buys++;
+
+      if (o.status === 'ESCROW_PAID' || o.status === 'PENDING_SAFEPOINT') {
+        counts.escrow++;
+      } else if (o.status === 'HANDOVER_CONFIRMED' || o.status === 'DELIVERED') {
+        counts.shipping++;
+      } else if (o.status === 'COMPLETED') {
+        counts.completed++;
+        if (!o.isReviewed && isMyBuy) {
+          counts.unreviewed++;
+        }
+      } else if (o.status === 'DISPUTED') {
+        counts.disputed++;
+      } else if (o.status === 'CANCELLED') {
+        counts.cancelled++;
+      }
+    });
+
+    return counts;
+  }, [orders, currentUserId, userName, isSeller]);
+
+  // Độ ưu tiên hiển thị: Đưa đơn đang cần hành động lên đầu ở tab Tất cả
+  const getOrderPriority = (item: OrderItem, isMyBuy: boolean): number => {
+    if (item.status === 'DISPUTED') return 1;
+    if (item.status === 'PENDING_SAFEPOINT' || item.status === 'ESCROW_PAID') return 2;
+    if (item.status === 'HANDOVER_CONFIRMED' || item.status === 'DELIVERED') return 3;
+    if (item.status === 'COMPLETED' && !item.isReviewed && isMyBuy) return 4;
+    if (item.status === 'COMPLETED') return 5;
+    if (item.status === 'CANCELLED') return 6;
+    return 10;
+  };
+
+  const filteredOrders = React.useMemo(() => {
+    const list = filterOrders(orders, currentUserId, userName, isSeller, activeTab);
+    if (activeTab === 'all') {
+      return [...list].sort((a, b) => {
+        const isMyBuyA = Boolean((currentUserId && a.buyerId === currentUserId) || a.sellerId !== currentUserId);
+        const isMyBuyB = Boolean((currentUserId && b.buyerId === currentUserId) || b.sellerId !== currentUserId);
+        const pA = getOrderPriority(a, isMyBuyA);
+        const pB = getOrderPriority(b, isMyBuyB);
+        if (pA !== pB) return pA - pB;
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      });
+    }
+    return list;
+  }, [orders, currentUserId, userName, isSeller, activeTab]);
 
   const handleNavigateDetail = React.useCallback((item: OrderItem) => {
     const isCurrentOrderSeller = Boolean(
@@ -541,10 +631,11 @@ export const OrderListScreen: React.FC = () => {
       <OrderTabChip
         tab={item}
         isActive={activeTab === item.key}
+        count={tabCounts[item.key]}
         onPress={setActiveTab}
       />
     ),
-    [activeTab]
+    [activeTab, tabCounts]
   );
 
   const tabKeyExtractor = React.useCallback((item: TabOption) => item.key, []);
@@ -583,6 +674,20 @@ export const OrderListScreen: React.FC = () => {
           renderItem={renderTabItem}
         />
       </View>
+
+      {/* Action banner if activeTab is 'all' and there are active orders */}
+      {activeTab === 'all' && (tabCounts.escrow > 0 || tabCounts.shipping > 0 || tabCounts.disputed > 0) && (
+        <View style={styles.actionNoticeCard}>
+          <Ionicons name="notifications-outline" size={15} color="#EA580C" style={{ marginRight: 6 }} />
+          <Text style={styles.actionNoticeText}>
+            Bạn có{' '}
+            <Text style={{ fontWeight: '800', color: '#EA580C' }}>
+              {(tabCounts.escrow || 0) + (tabCounts.shipping || 0) + (tabCounts.disputed || 0)} đơn
+            </Text>{' '}
+            đang giao dịch cần bạn chú ý (đã được đưa lên đầu danh sách)!
+          </Text>
+        </View>
+      )}
 
       {/* Orders List */}
       <FlatList
@@ -646,10 +751,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tabItem: {
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
+    gap: 5,
+  },
+  tabBadge: {
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: '#EA580C',
+  },
+  tabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+    lineHeight: 12,
+  },
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
   },
   tabItemActive: {
     backgroundColor: '#FFEDD5',
@@ -662,6 +791,20 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#EA580C',
     fontWeight: '800',
+  },
+  actionNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FED7AA',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  actionNoticeText: {
+    fontSize: 12,
+    color: '#9A3412',
+    flex: 1,
   },
   listContent: {
     padding: 16,

@@ -6,7 +6,7 @@ export type MainTabsParamList = {
   Chat: undefined;
   PostItem?: undefined;
   MyListings?: undefined;
-  Orders?: undefined;
+  Orders?: { initialTab?: string };
   Voucher?: undefined;
   Profile: undefined;
   Explore?: undefined;
@@ -80,7 +80,7 @@ export type RootStackParamList = {
         product?: any;
       }
     | undefined;
-  OrderList: undefined;
+  OrderList: { initialTab?: string } | undefined;
   OrderDetail:
     | {
         orderId?: string;

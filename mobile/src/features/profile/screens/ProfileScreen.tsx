@@ -101,8 +101,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     let initialTab = 'all';
     if (statusId === 'o1' || statusId === 'o2') {
       initialTab = 'escrow';
+    } else if (statusId === 'o3') {
+      initialTab = 'shipping';
     } else if (statusId === 'o4') {
-      initialTab = 'completed';
+      initialTab = 'unreviewed';
     }
     navigation.navigate('OrderList', { initialTab });
   };
