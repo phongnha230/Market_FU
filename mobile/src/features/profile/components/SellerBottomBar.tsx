@@ -12,7 +12,7 @@ export const SellerBottomBar: React.FC<SellerBottomBarProps> = ({
   insetsBottom,
 }) => {
   return (
-    <View style={[styles.bottomBar, { paddingBottom: Math.max(insetsBottom, 10) + 6 }]}>
+    <View style={[styles.bottomBar, { paddingBottom: Math.max(insetsBottom, 12) + 8 }]}>
       <TouchableOpacity style={styles.chatBtn} activeOpacity={0.88} onPress={onOpenChat}>
         <Ionicons name="chatbubble-ellipses" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
         <Text style={styles.chatBtnText}>Nhắn tin với người bán</Text>

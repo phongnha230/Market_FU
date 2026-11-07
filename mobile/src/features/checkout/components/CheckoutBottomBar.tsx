@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface CheckoutBottomBarProps {
   totalAmount: number;
@@ -19,6 +20,7 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
   formatCurrency,
   isSubmitting = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const getButtonText = () => {
     if (isSubmitting) return 'Đang kết nối Escrow...';
     if (selectedPayment === 'vietqr') return 'Quét mã VietQR Escrow';
@@ -34,7 +36,7 @@ export const CheckoutBottomBar: React.FC<CheckoutBottomBarProps> = ({
   };
 
   return (
-    <View style={styles.bottomBar}>
+    <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
       <View style={styles.bottomPriceCol}>
         <Text style={styles.bottomTotalLabel}>Tổng thanh toán:</Text>
         <Text style={styles.bottomTotalPrice}>{formatCurrency(totalAmount)}</Text>
@@ -73,7 +75,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 22,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     elevation: 8,

@@ -18,6 +18,7 @@ import { InterCampusProductCard } from '../components/InterCampusProductCard';
 import { InterCampusTimelineCard, InterCampusStep } from '../components/InterCampusTimelineCard';
 import { InterCampusNoticeCard } from '../components/InterCampusNoticeCard';
 import { PackageHandoverProofModal } from '../components/PackageHandoverProofModal';
+import { ReviewDetailModal } from '../../review/components/ReviewDetailModal';
 import { OrderShipModal } from '../components/OrderShipModal';
 import orderMobileService from '../../../services/orderMobileService';
 import { useOrderStore } from '../../../stores/orderStore';
@@ -163,6 +164,34 @@ export const InterCampusTransactionScreen: React.FC = () => {
   const [isProofModalVisible, setIsProofModalVisible] = useState<boolean>(false);
   const [showShipModal, setShowShipModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showReviewDetailModal, setShowReviewDetailModal] = useState<boolean>(false);
+
+  const currentOrder = useMemo(() => {
+    return matchedOrder || route.params?.order || null;
+  }, [matchedOrder, route.params?.order]);
+
+  const isReviewed = Boolean(
+    matchedOrder?.isReviewed ||
+    route.params?.order?.isReviewed ||
+    route.params?.isReviewed ||
+    trackingData?.isReviewed
+  );
+
+  const handleEditReviewFromModal = useCallback(
+    (order: any) => {
+      setShowReviewDetailModal(false);
+      navigation.navigate('Review', {
+        orderId: order.orderNumber || order.id || orderId,
+        productTitle: order.productTitle || product.title,
+        sellerName: order.sellerName || product.sellerName,
+        productImage: order.productImage || product.image,
+        sellerCampus: order.sellerCampus || product.fromSafePoint,
+        isEditing: true,
+        initialReviewData: order.reviewData,
+      });
+    },
+    [navigation, orderId, product]
+  );
 
   // Xác định mã vận đơn và hãng vận chuyển
   const trackingCode = useMemo(() => {
@@ -544,23 +573,36 @@ export const InterCampusTransactionScreen: React.FC = () => {
                     <Text style={styles.completedTitle}>Đơn hàng đã hoàn tất & Đã giải ngân!</Text>
                   </View>
                   <Text style={styles.completedDesc}>
-                    Cảm ơn bạn đã sử dụng dịch vụ Safe-Handoff liên cơ sở FPT. Bạn có thể đánh giá người bán để nâng cao uy tín cộng đồng.
+                    {isReviewed
+                      ? 'Bạn đã hoàn tất đánh giá người bán cho đơn hàng này. Chạm để xem lại hoặc cập nhật đánh giá của bạn.'
+                      : 'Cảm ơn bạn đã sử dụng dịch vụ Safe-Handoff liên cơ sở FPT. Bạn có thể đánh giá người bán để nâng cao uy tín cộng đồng.'}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.reviewBtn}
-                    activeOpacity={0.88}
-                    onPress={() =>
-                      navigation.navigate('Review', {
-                        orderId,
-                        productTitle: product.title,
-                        sellerName: product.sellerName,
-                        productImage: product.image,
-                      })
-                    }
-                  >
-                    <Ionicons name="star" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.reviewBtnText}>Đánh giá người bán</Text>
-                  </TouchableOpacity>
+                  {isReviewed ? (
+                    <TouchableOpacity
+                      style={styles.viewReviewBtn}
+                      activeOpacity={0.88}
+                      onPress={() => setShowReviewDetailModal(true)}
+                    >
+                      <Ionicons name="star" size={16} color="#059669" style={{ marginRight: 6 }} />
+                      <Text style={styles.viewReviewBtnText}>Xem lại đánh giá của bạn (★)</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.reviewBtn}
+                      activeOpacity={0.88}
+                      onPress={() =>
+                        navigation.navigate('Review', {
+                          orderId,
+                          productTitle: product.title,
+                          sellerName: product.sellerName,
+                          productImage: product.image,
+                        })
+                      }
+                    >
+                      <Ionicons name="star" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.reviewBtnText}>Đánh giá người bán</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : isDelivered ? (
                 // ĐÃ GIAO TỚI KTX: LÚC NÀY MỚI HIỂN THỊ NÚT XÁC NHẬN NHẬN HÀNG VÀ KHIẾU NẠI!
@@ -663,6 +705,16 @@ export const InterCampusTransactionScreen: React.FC = () => {
         onClose={() => setShowShipModal(false)}
         onSuccess={handleShipSuccess}
       />
+
+      {currentOrder && (
+        <ReviewDetailModal
+          visible={showReviewDetailModal}
+          order={currentOrder}
+          isSeller={isSeller}
+          onClose={() => setShowReviewDetailModal(false)}
+          onEditReview={handleEditReviewFromModal}
+        />
+      )}
     </View>
   );
 };
@@ -1020,6 +1072,22 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#047857',
     lineHeight: 16,
+  },
+  viewReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  viewReviewBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#059669',
   },
   reviewBtn: {
     flexDirection: 'row',

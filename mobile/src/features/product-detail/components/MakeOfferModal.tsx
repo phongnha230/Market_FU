@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MakeOfferModalProps {
   visible: boolean;
@@ -30,6 +31,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   sellerName,
   onSubmitOffer,
 }) => {
+  const insets = useSafeAreaInsets();
   const minAllowedPrice = Math.round(originalPrice * 0.5);
 
   const [discountPercent, setDiscountPercent] = useState<string>('10');
@@ -109,7 +111,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
           <TouchableWithoutFeedback>
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.modalContent}
+              style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}
             >
               {/* Header */}
               <View style={styles.header}>

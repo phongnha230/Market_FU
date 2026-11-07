@@ -404,14 +404,16 @@ export const OrderDetailScreen: React.FC = () => {
     navigation.navigate('InterCampusTransaction', {
       orderId,
       product,
+      order: activeOrder,
       fromCampus: product.sellerCampus || 'Hòa Lạc',
       toCampus: user?.campus || 'TP. Hồ Chí Minh',
       isSeller: Boolean(isSeller),
       orderStatus,
       trackingCode: activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode,
       shippingPartner: activeOrder?.shippingPartner || activeOrder?.shipping?.shippingPartner,
+      isReviewed: Boolean(activeOrder?.isReviewed || isReviewed),
     });
-  }, [navigation, orderId, product, user?.campus, isSeller, orderStatus, activeOrder]);
+  }, [navigation, orderId, product, user?.campus, isSeller, orderStatus, activeOrder, isReviewed]);
 
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) navigation.goBack();
@@ -486,7 +488,7 @@ export const OrderDetailScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.scrollBody, { paddingBottom: Math.max(insets.bottom, 16) + 40 }]}>
         <OrderStatusTimeline
           orderStatus={orderStatus}
           isInterCampus={isInterCampus}

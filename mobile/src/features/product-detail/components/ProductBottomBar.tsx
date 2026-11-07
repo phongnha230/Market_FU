@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ProductBottomBarProps {
   isSameCampus: boolean;
@@ -27,6 +28,7 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
   price,
   unreadCount = 0,
 }) => {
+  const insets = useSafeAreaInsets();
   const formattedPrice = React.useMemo(() => {
     if (!price) return '';
     const num = typeof price === 'number' ? price : parseInt(String(price).replace(/\D/g, ''), 10);
@@ -35,7 +37,7 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
   }, [price]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
       {isOwnProduct ? (
         // SELLER XEM BÀI CỦA CHÍNH MÌNH: Cảnh báo chống gian lận & Quản lý bài đăng
         <View style={styles.ownProductBox}>
@@ -159,7 +161,6 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 20,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
