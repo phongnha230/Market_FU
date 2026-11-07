@@ -696,13 +696,21 @@ export const AiAssistantScreen: React.FC = () => {
 
     try {
       const scanRes = await aiMobileService.scanProductImage(photoUri);
-      const title = scanRes?.title || 'Món đồ sinh viên FPT';
-      const cond = scanRes?.condition || 'Tốt 90%';
-      const estPrice = scanRes?.estimatedPrice ? Number(scanRes.estimatedPrice).toLocaleString('vi-VN') : '150.000';
+      const title = scanRes?.title || 'Sản phẩm đã nhận diện';
+      const cond =
+        scanRes?.condition === 'NEW_100'
+          ? 'Mới 100% Nguyên seal'
+          : scanRes?.condition === 'LIKE_NEW_99'
+          ? 'Mới 99% Like new'
+          : scanRes?.condition === 'USED_GOOD'
+          ? 'Dùng rất tốt'
+          : 'Đã qua sử dụng';
+      const numericPrice = scanRes?.suggestedPrice || scanRes?.estimatedPrice || 0;
+      const estPrice = numericPrice > 0 ? Number(numericPrice).toLocaleString('vi-VN') : '50.000';
 
       lastVisionResultRef.current = {
         initialTitle: title,
-        initialPrice: scanRes?.estimatedPrice ? String(scanRes.estimatedPrice) : '',
+        initialPrice: numericPrice > 0 ? String(numericPrice) : '',
         initialDescription: scanRes?.description || `${title} - Tình trạng: ${cond}`,
         initialImage: photoUri,
       };

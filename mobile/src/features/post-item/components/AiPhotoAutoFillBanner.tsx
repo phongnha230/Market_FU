@@ -40,29 +40,48 @@ export const AiPhotoAutoFillBanner: React.FC<AiPhotoAutoFillBannerProps> = ({
     try {
       const result = await aiMobileService.scanProductImage(imageUri);
 
+      if (!result.title || result.title.trim() === '') {
+        throw new Error('AI không thể nhận diện được món đồ trong hình ảnh. Vui lòng chụp rõ nét hơn hoặc tự điền thông tin.');
+      }
+
       // Map category
       let category: PostCategory = 'dorm';
       const catUpper = (result.category || '').toUpperCase();
-      if (catUpper.includes('BOOK')) category = 'books';
-      else if (catUpper.includes('ELECTRONIC') || catUpper.includes('IT') || catUpper.includes('LAPTOP')) category = 'electronics';
-      else if (catUpper.includes('VOVINAM') || catUpper.includes('CLOTH') || catUpper.includes('FASHION')) category = 'fashion';
-      else if (catUpper.includes('GAME') || catUpper.includes('HOBBY')) category = 'hobbies';
-      else if (catUpper.includes('SERVICE')) category = 'services';
+      if (catUpper.includes('BOOK') || catUpper.includes('SÁCH') || catUpper.includes('GIÁO TRÌNH')) category = 'books';
+      else if (
+        catUpper.includes('ELECTRONIC') ||
+        catUpper.includes('IT') ||
+        catUpper.includes('LAPTOP') ||
+        catUpper.includes('PHÍM') ||
+        catUpper.includes('CHUỘT') ||
+        catUpper.includes('TAI NGHE')
+      )
+        category = 'electronics';
+      else if (
+        catUpper.includes('VOVINAM') ||
+        catUpper.includes('CLOTH') ||
+        catUpper.includes('FASHION') ||
+        catUpper.includes('ÁO') ||
+        catUpper.includes('QUẦN')
+      )
+        category = 'fashion';
+      else if (catUpper.includes('GAME') || catUpper.includes('HOBBY') || catUpper.includes('GIẢI TRÍ')) category = 'hobbies';
+      else if (catUpper.includes('SERVICE') || catUpper.includes('DỊCH VỤ')) category = 'services';
       else category = 'dorm';
 
       // Map condition
       let condition: PostCondition = 'good';
       const condUpper = (result.condition || '').toUpperCase();
-      if (condUpper.includes('100') || condUpper.includes('SEAL')) condition = 'seal';
-      else if (condUpper.includes('99') || condUpper.includes('LIKE')) condition = 'likenew';
-      else if (condUpper.includes('CŨ') || condUpper.includes('USED') || condUpper.includes('FAIR')) condition = 'used';
+      if (condUpper.includes('100') || condUpper.includes('SEAL') || condUpper.includes('NEW_100')) condition = 'seal';
+      else if (condUpper.includes('99') || condUpper.includes('LIKE') || condUpper.includes('LIKE_NEW_99')) condition = 'likenew';
+      else if (condUpper.includes('CŨ') || condUpper.includes('FAIR') || condUpper.includes('USED_FAIR')) condition = 'used';
       else condition = 'good';
 
-      const rawPrice = result.estimatedPrice || (result as any).suggestedPrice || 100000;
+      const rawPrice = result.suggestedPrice || result.estimatedPrice || 50000;
       const priceStr = String(rawPrice);
 
-      const title = result.title || 'Món đồ sinh viên FPT';
-      const description = result.description || 'Đồ sinh viên FPT còn sử dụng tốt.';
+      const title = result.title.trim();
+      const description = result.description || `${title} còn sử dụng rất tốt cho sinh viên FPT.`;
 
       onAutoFill({
         title,
@@ -82,7 +101,11 @@ export const AiPhotoAutoFillBanner: React.FC<AiPhotoAutoFillBannerProps> = ({
       );
     } catch (err: any) {
       setIsScanning(false);
-      Alert.alert('Lỗi nhận diện AI', err?.message || 'Không thể quét ảnh bằng AI, vui lòng tự điền thông tin.');
+      setFilledSuccess(false);
+      Alert.alert(
+        'Không thể nhận diện AI',
+        err?.message || 'Không thể quét ảnh bằng AI. Vui lòng kiểm tra lại kết nối mạng hoặc tự điền thông tin món đồ.'
+      );
     }
   };
 

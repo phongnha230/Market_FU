@@ -1,4 +1,5 @@
-import apiClient, { ApiResponse } from './apiClient';
+import apiClient, { ApiResponse, getApiBaseUrl } from './apiClient';
+import { useUserStore } from '../stores/userStore';
 
 export interface AiChatResponse {
   reply: string;
@@ -10,6 +11,7 @@ export interface AiVisionScanResult {
   title?: string;
   category?: string;
   estimatedPrice?: number;
+  suggestedPrice?: number;
   condition?: string;
   description?: string;
 }
@@ -117,33 +119,68 @@ export const aiMobileService = {
   },
 
   /**
-   * Quét ảnh bằng Gemini Vision để gợi ý giá & thông tin đăng bài
+   * Quét ảnh bằng Gemini Vision để gợi ý giá & thông tin đăng bài thực tế
    */
   async scanProductImage(imageUri: string): Promise<AiVisionScanResult> {
+    const baseUrl = getApiBaseUrl();
+    const token = useUserStore.getState().token;
+
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || 'item.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+
+    formData.append('image', {
+      uri: imageUri,
+      name: filename,
+      type,
+    } as any);
+
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => controller.abort(), 45000); // 45 giây cho Gemini Vision xử lý ảnh
+
     try {
-      const formData = new FormData();
-      const filename = imageUri.split('/').pop() || 'item.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-      formData.append('image', {
-        uri: imageUri,
-        name: filename,
-        type,
-      } as any);
-
-      const res = await apiClient.post<ApiResponse<any>>('/ai/vision-post', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      // Dùng fetch native của React Native để đảm bảo multipart/form-data có boundary chuẩn xác 100%
+      const response = await fetch(`${baseUrl}/ai/vision-post`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+        signal: controller.signal,
       });
 
-      return res.data?.data || {};
-    } catch (e: any) {
-      console.log('⚠️ [Backend AI Vision offline]:', e?.message);
+      clearTimeout(timeoutTimer);
+
+      const json = await response.json();
+
+      if (!response.ok || !json.success) {
+        const errorMsg =
+          json?.message ||
+          json?.error ||
+          `Máy chủ AI trả về lỗi (HTTP ${response.status})`;
+        throw new Error(errorMsg);
+      }
+
+      const data = json.data || {};
+      const finalPrice = data.suggestedPrice || data.estimatedPrice || 0;
+
       return {
-        title: 'Món đồ sinh viên FPT',
-        estimatedPrice: 200000,
-        condition: 'Like New 99%',
+        title: data.title || '',
+        category: data.category || '',
+        suggestedPrice: finalPrice,
+        estimatedPrice: finalPrice,
+        condition: data.condition || '',
+        description: data.description || '',
       };
+    } catch (e: any) {
+      clearTimeout(timeoutTimer);
+      console.warn('⚠️ [Backend AI Vision error]:', e?.message);
+      if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
+        throw new Error('Quá thời gian kết nối (45s). Vui lòng thử lại với ảnh nhỏ hơn hoặc mạng ổn định hơn.');
+      }
+      throw e;
     }
   },
 };
