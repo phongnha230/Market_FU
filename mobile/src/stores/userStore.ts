@@ -26,13 +26,17 @@ const syncUserToStores = (userId: string | null) => {
       const { useNotificationStore } = require('./notificationStore');
       if (userId) {
         // Chỉ kích hoạt cờ isAccountSwitch khi đăng nhập hoặc chuyển sang tài khoản mới
-        useNotificationStore?.getState()?.fetchNotifications?.({ isAccountSwitch: true })?.catch?.(() => {});
+        useNotificationStore?.getState()?.fetchNotifications?.({ isAccountSwitch: true })?.catch?.((err: any) => {
+          console.warn('⚠️ [userStore] Lỗi khi fetch notifications đồng bộ tài khoản:', err);
+        });
       } else {
         useNotificationStore?.getState()?.hideBanner?.();
       }
-    } catch {}
+    } catch (notifErr) {
+      console.warn('⚠️ [userStore] Lỗi require notificationStore:', notifErr);
+    }
   } catch (e) {
-    // Non-blocking sync error prevention
+    console.error('❌ [userStore] Lỗi đồng bộ user tới các store tính năng:', e);
   }
 };
 
@@ -115,12 +119,18 @@ export const useUserStore = create<UserState>()(
               try {
                 const { socketMobileService } = require('../services/socketMobileService');
                 socketMobileService?.updateAuthToken(backendRes.token);
-              } catch {}
+              } catch (sockErr) {
+                console.warn('⚠️ [userStore] Lỗi cập nhật socket token:', sockErr);
+              }
               get().loadRegisteredAccounts().catch(() => {});
               try {
                 const { notificationMobileService } = require('../services/notificationMobileService');
-                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
-              } catch {}
+                notificationMobileService.registerForPushNotificationsAsync().catch((err: any) => {
+                  console.warn('⚠️ [userStore] Lỗi đăng ký push notification:', err);
+                });
+              } catch (notifErr) {
+                console.warn('⚠️ [userStore] Lỗi require notificationMobileService:', notifErr);
+              }
               return {
                 success: true,
                 message: 'Đăng nhập thành công qua Backend API!',
@@ -180,11 +190,17 @@ export const useUserStore = create<UserState>()(
               try {
                 const { socketMobileService } = require('../services/socketMobileService');
                 socketMobileService?.updateAuthToken(backendRes.token);
-              } catch {}
+              } catch (sockErr) {
+                console.warn('⚠️ [userStore] Lỗi cập nhật socket token:', sockErr);
+              }
               try {
                 const { notificationMobileService } = require('../services/notificationMobileService');
-                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
-              } catch {}
+                notificationMobileService.registerForPushNotificationsAsync().catch((err: any) => {
+                  console.warn('⚠️ [userStore] Lỗi đăng ký push notification:', err);
+                });
+              } catch (notifErr) {
+                console.warn('⚠️ [userStore] Lỗi require notificationMobileService:', notifErr);
+              }
               await get().loadRegisteredAccounts();
               return {
                 success: true,
@@ -239,11 +255,17 @@ export const useUserStore = create<UserState>()(
               try {
                 const { socketMobileService } = require('../services/socketMobileService');
                 socketMobileService?.updateAuthToken(backendRes.token);
-              } catch {}
+              } catch (sockErr) {
+                console.warn('⚠️ [userStore] Lỗi cập nhật socket token:', sockErr);
+              }
               try {
                 const { notificationMobileService } = require('../services/notificationMobileService');
-                notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
-              } catch {}
+                notificationMobileService.registerForPushNotificationsAsync().catch((err: any) => {
+                  console.warn('⚠️ [userStore] Lỗi đăng ký push notification:', err);
+                });
+              } catch (notifErr) {
+                console.warn('⚠️ [userStore] Lỗi require notificationMobileService:', notifErr);
+              }
               await get().loadRegisteredAccounts();
               return {
                 success: true,
@@ -326,7 +348,9 @@ export const useUserStore = create<UserState>()(
         try {
           const { socketMobileService } = require('../services/socketMobileService');
           socketMobileService?.updateAuthToken(token);
-        } catch {}
+        } catch (sockErr) {
+          console.warn('⚠️ [userStore] Lỗi cập nhật socket token (setToken):', sockErr);
+        }
       },
 
       updateUser: (partial: Partial<UserProfile>) => {
@@ -341,7 +365,9 @@ export const useUserStore = create<UserState>()(
             try {
               const { useWalletStore } = require('./walletStore');
               useWalletStore.getState().addCoins(0);
-            } catch {}
+            } catch (walletErr) {
+              console.warn('⚠️ [userStore] Lỗi cập nhật ví coins:', walletErr);
+            }
           }
           accountStorage.updateUserAccount(currentUser.id, partial).catch(() => {});
         }
@@ -359,16 +385,26 @@ export const useUserStore = create<UserState>()(
         }
         try {
           const { notificationMobileService } = require('../services/notificationMobileService');
-          notificationMobileService?.unregisterDeviceToken?.().catch(() => {});
-        } catch {}
+          notificationMobileService?.unregisterDeviceToken?.().catch((err: any) => {
+            console.warn('⚠️ [userStore] Lỗi hủy đăng ký push token:', err);
+          });
+        } catch (notifErr) {
+          console.warn('⚠️ [userStore] Lỗi require notificationMobileService khi logout:', notifErr);
+        }
         try {
           const { signOutGoogle } = require('../services/googleSignIn');
-          signOutGoogle().catch(() => {});
-        } catch {}
+          signOutGoogle().catch((err: any) => {
+          console.warn('⚠️ [userStore] Lỗi đăng xuất Google:', err);
+        });
+      } catch (googleErr) {
+        console.warn('⚠️ [userStore] Lỗi require googleSignIn khi logout:', googleErr);
+      }
         try {
           const { socketMobileService } = require('../services/socketMobileService');
           socketMobileService?.updateAuthToken(null);
-        } catch {}
+        } catch (sockErr) {
+          console.warn('⚠️ [userStore] Lỗi ngắt kết nối socket khi logout:', sockErr);
+        }
         syncUserToStores(null);
         set({
           user: null,

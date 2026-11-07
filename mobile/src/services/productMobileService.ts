@@ -237,7 +237,15 @@ export const productMobileService = {
       try {
         const { useUserStore } = require('../stores/userStore');
         token = useUserStore.getState().token;
-      } catch {}
+      } catch (err) {
+        console.error('❌ [productMobileService] Lỗi khi nạp userStore lấy token:', err);
+        throw new Error('Lỗi xác thực người dùng. Vui lòng đăng nhập lại.');
+      }
+
+      if (!token) {
+        console.error('❌ [productMobileService] Thiếu token xác thực khi đăng sản phẩm');
+        throw new Error('Bạn cần đăng nhập để thực hiện đăng bán sản phẩm.');
+      }
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000); // 60s cho việc tải nhiều ảnh và lưu DB

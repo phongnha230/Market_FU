@@ -81,7 +81,9 @@ export const useFavoriteStore = create<FavoriteState>()(
                   });
                 });
                 useProductStore.setState({ products: Array.from(existingMap.values()) });
-              } catch {}
+              } catch (storeSyncErr) {
+                console.warn('⚠️ [useFavoriteStore] Lỗi sync serverFavs sang productStore:', storeSyncErr);
+              }
             }
 
             // Gộp an toàn: Nếu server trả về kết quả, kết hợp với các id local

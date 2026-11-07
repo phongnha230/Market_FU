@@ -262,7 +262,9 @@ export const chatMobileService = {
   async markAsRead(conversationId: string): Promise<void> {
     try {
       await apiClient.patch(`/chats/conversations/${conversationId}/read`);
-    } catch {}
+    } catch (err: any) {
+      console.warn(`⚠️ [chatMobileService] Lỗi markAsRead cuộc trò chuyện ${conversationId}:`, err?.message || err);
+    }
   },
 
   /**
