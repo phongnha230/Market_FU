@@ -1,6 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useUserStore } from '../../../stores/userStore';
+import { useNotificationStore } from '../../../stores/notificationStore';
+import { resolveAvatarImage } from '../../../lib/imageResolver';
 
 interface SavedItemsTopNavProps {
   currentCampus: string;
@@ -19,6 +23,13 @@ export const SavedItemsTopNav: React.FC<SavedItemsTopNavProps> = React.memo(({
   onNotification,
   onProfile,
 }) => {
+  const user = useUserStore((s) => s.user);
+  const isAuthenticated = useUserStore((s) => s.isAuthenticated);
+  const hasUnreadNotifications = useNotificationStore((s) => s.notifications.some((n) => n.unread));
+
+  const avatarUrl = user?.avatarUrl || user?.avatar;
+  const userName = user?.name || (user as any)?.fullName || '';
+
   return (
     <View style={[styles.topNavBar, { paddingTop: Math.max(topInset, 10) }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -52,7 +63,7 @@ export const SavedItemsTopNav: React.FC<SavedItemsTopNavProps> = React.memo(({
           onPress={onNotification}
         >
           <Ionicons name="notifications-outline" size={20} color="#0F172A" />
-          <View style={styles.bellDot} />
+          {isAuthenticated && hasUnreadNotifications && <View style={styles.bellDot} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -60,7 +71,24 @@ export const SavedItemsTopNav: React.FC<SavedItemsTopNavProps> = React.memo(({
           activeOpacity={0.8}
           onPress={onProfile}
         >
-          <Ionicons name="person" size={16} color="#FFFFFF" />
+          {isAuthenticated && avatarUrl ? (
+            <Image
+              source={resolveAvatarImage(avatarUrl)}
+              style={styles.avatarImg}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : isAuthenticated && userName ? (
+            <View style={styles.avatarInitialBox}>
+              <Text style={styles.avatarInitialText}>
+                {userName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.guestAvatarCircle}>
+              <Ionicons name="person" size={15} color="#64748B" />
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -114,10 +142,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#EA580C',
   },
   avatarBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#9A3412',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  avatarInitialBox: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    backgroundColor: '#EA580C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitialText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  guestAvatarCircle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
