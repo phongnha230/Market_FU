@@ -584,7 +584,7 @@ export const InterCampusTransactionScreen: React.FC = () => {
                       onPress={() => setShowReviewDetailModal(true)}
                     >
                       <Ionicons name="star" size={16} color="#059669" style={{ marginRight: 6 }} />
-                      <Text style={styles.viewReviewBtnText}>Xem lại đánh giá của bạn (★)</Text>
+                      <Text style={styles.viewReviewBtnText} numberOfLines={1}>Xem lại đánh giá của bạn</Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -1082,12 +1082,15 @@ const styles = StyleSheet.create({
     borderColor: '#10B981',
     borderRadius: 12,
     paddingVertical: 12,
+    paddingHorizontal: 14,
     marginTop: 4,
+    width: '100%',
   },
   viewReviewBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '700',
     color: '#059669',
+    textAlign: 'center',
   },
   reviewBtn: {
     flexDirection: 'row',

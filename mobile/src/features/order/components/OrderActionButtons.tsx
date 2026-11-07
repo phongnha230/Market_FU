@@ -389,7 +389,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
             onPress={onOpenReviewDetail}
           >
             <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
-            <Text style={styles.viewReviewMainText}>Xem đánh giá từ người mua (★)</Text>
+            <Text style={styles.viewReviewMainText} numberOfLines={1}>Xem đánh giá từ người mua</Text>
           </TouchableOpacity>
         );
       }
@@ -429,7 +429,7 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
         onPress={onOpenReviewDetail}
       >
         <Ionicons name="star" size={17} color="#059669" style={styles.mr6} />
-        <Text style={styles.viewReviewMainText}>Xem lại đánh giá của bạn (★)</Text>
+        <Text style={styles.viewReviewMainText} numberOfLines={1}>Xem lại đánh giá của bạn</Text>
       </TouchableOpacity>
     );
   }
@@ -706,20 +706,20 @@ const styles = StyleSheet.create({
   },
   viewReviewMainBtn: {
     backgroundColor: '#ECFDF5',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#A7F3D0',
     borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   viewReviewMainText: {
     color: '#059669',
-    fontSize: 13,
-    fontWeight: '800',
-    flexShrink: 1,
+    fontSize: 13.5,
+    fontWeight: '700',
     textAlign: 'center',
   },
   subActionRow: {
