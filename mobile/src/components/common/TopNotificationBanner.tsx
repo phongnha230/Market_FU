@@ -57,10 +57,10 @@ export const TopNotificationBanner: React.FC = () => {
         useNativeDriver: true,
       }).start();
 
-      // Auto dismiss after 4.5 seconds
+      // Auto dismiss after 3.5 seconds (chuẩn transient notification, không làm phiền)
       timeoutRef.current = setTimeout(() => {
         dismissBanner();
-      }, 4500);
+      }, 3500);
     } else {
       translateY.setValue(-180);
     }
@@ -74,6 +74,9 @@ export const TopNotificationBanner: React.FC = () => {
 
   const handlePress = () => {
     dismissBanner();
+    if (activeBanner?.id) {
+      useNotificationStore.getState().markAsRead(activeBanner.id);
+    }
     if (activeBanner.targetScreen) {
       navigate(activeBanner.targetScreen as any, activeBanner.targetParams);
     } else {

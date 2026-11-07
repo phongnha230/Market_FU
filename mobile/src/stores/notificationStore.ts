@@ -103,24 +103,6 @@ export const useNotificationStore = create<NotificationState>()(
               targetParams: n.targetParams,
             }));
             set({ notifications: mapped });
-
-            // Khi người dùng chuyển qua tài khoản có thông báo chưa đọc, tự động kích hoạt banner UI trên máy điện thoại
-            const unreadItems = mapped.filter((n: any) => n.unread);
-            if (unreadItems.length > 0) {
-              const latest = unreadItems[0];
-              get().showBanner(latest);
-              try {
-                const { displayLocalPushNotification } = require('../services/notificationMobileService');
-                displayLocalPushNotification({
-                  title: latest.title,
-                  body: latest.body,
-                  data: {
-                    targetScreen: latest.targetScreen,
-                    targetParams: latest.targetParams,
-                  },
-                });
-              } catch (_) {}
-            }
           }
         } catch (e: any) {
           console.log('⚠️ [Backend Notifications offline]:', e?.message);
