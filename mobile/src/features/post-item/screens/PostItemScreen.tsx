@@ -203,7 +203,7 @@ export const PostItemScreen: React.FC<PostItemScreenProps> = ({
           <View style={styles.hashtagSection}>
             <View style={styles.hashtagTitleRow}>
               <Text style={styles.sectionLabel}>Thẻ Hashtag tìm kiếm ({hashtags.length}/8)</Text>
-              <Text style={styles.hashtagSubHint}>Tối ưu Meilisearch</Text>
+              <Text style={styles.hashtagSubHint}>Tùy chọn • Tối ưu tìm kiếm</Text>
             </View>
 
             {/* Input thêm hashtag */}

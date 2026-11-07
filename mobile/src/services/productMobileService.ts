@@ -1,4 +1,5 @@
-import apiClient, { ApiResponse } from './apiClient';
+import apiClient, { ApiResponse, getApiBaseUrl } from './apiClient';
+import { useUserStore } from '../stores/userStore';
 import type { ProductItem } from '../stores/productStore';
 import {
   toBackendCampus,
@@ -232,12 +233,34 @@ export const productMobileService = {
         } as any);
       });
 
-      const res = await apiClient.post<ApiResponse<any>>('/products', formData, {
+      const baseUrl = getApiBaseUrl();
+      const token = useUserStore.getState().token;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000); // 60s cho việc tải nhiều ảnh và lưu DB
+
+      const response = await fetch(`${baseUrl}/products`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        body: formData,
+        signal: controller.signal,
       });
-      return adaptBackendProductToMobile(res.data.data);
+
+      clearTimeout(timer);
+
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        const errorMsg =
+          json?.error?.message ||
+          json?.message ||
+          `Máy chủ từ chối đăng tin (Mã ${response.status})`;
+        throw new Error(errorMsg);
+      }
+
+      return adaptBackendProductToMobile(json.data);
     }
 
     // 2. Trường hợp tất cả ảnh đều là link online có sẵn

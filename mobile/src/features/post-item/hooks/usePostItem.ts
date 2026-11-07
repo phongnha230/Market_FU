@@ -259,11 +259,20 @@ export const usePostItem = (onSubmitSuccess?: () => void, onGoBack?: () => void)
       );
     } catch (err: any) {
       console.log('⚠️ [createProduct backend error]:', err?.message);
-      const errorMsg =
+      let errorMsg =
         err?.response?.data?.error?.message ||
         err?.response?.data?.message ||
         err?.message ||
         'Không thể đăng bài bán. Vui lòng kiểm tra lại thông tin và kết nối mạng.';
+
+      if (
+        errorMsg === 'Network Error' ||
+        errorMsg.includes('Network request failed') ||
+        errorMsg.includes('aborted')
+      ) {
+        errorMsg = 'Quá thời gian tải ảnh lên máy chủ hoặc mạng chập chờn. Tin của bạn có thể đã được máy chủ tiếp nhận, vui lòng mở mục "Quản lý tin đăng" để kiểm tra trước khi đăng lại.';
+      }
+
       Alert.alert('Không thể đăng tin', errorMsg);
     } finally {
       submittingRef.current = false;
