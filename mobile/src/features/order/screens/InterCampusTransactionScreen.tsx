@@ -531,21 +531,12 @@ export const InterCampusTransactionScreen: React.FC = () => {
 
                   <View style={styles.trackingActionsRow}>
                     <TouchableOpacity
-                      style={styles.editTrackingBtn}
-                      activeOpacity={0.85}
-                      onPress={() => setShowShipModal(true)}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#EA580C" style={{ marginRight: 4 }} />
-                      <Text style={styles.editTrackingText}>Sửa mã vận đơn</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
                       style={styles.sellerChatBtn}
                       activeOpacity={0.85}
                       onPress={handleOpenChat}
                     >
-                      <Ionicons name="chatbubble-outline" size={16} color="#334155" style={{ marginRight: 4 }} />
-                      <Text style={styles.sellerChatText}>Nhắn người mua</Text>
+                      <Ionicons name="chatbubble-outline" size={16} color="#334155" style={{ marginRight: 6 }} />
+                      <Text style={styles.sellerChatText}>Nhắn tin với người mua</Text>
                     </TouchableOpacity>
                   </View>
 

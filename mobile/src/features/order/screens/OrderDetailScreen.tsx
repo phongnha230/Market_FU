@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { getSafeAvatar } from '../../../lib/imageResolver';
 import { toBackendCampus } from '../../../lib/backendMappers';
@@ -579,16 +580,21 @@ export const OrderDetailScreen: React.FC = () => {
                   Mã: {activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode || 'Đang cập nhật'}
                 </Text>
               </View>
-              {isSeller && (
-                <TouchableOpacity
-                  style={styles.trackingEditBtn}
-                  onPress={() => setShowShipModal(true)}
-                  hitSlop={HIT_SLOP_8}
-                >
-                  <Ionicons name="create-outline" size={15} color="#EA580C" />
-                  <Text style={styles.trackingEditText}>Sửa mã</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.trackingCopyBtn}
+                onPress={async () => {
+                  const code = activeOrder?.trackingCode || activeOrder?.shipping?.trackingCode;
+                  if (code && code !== 'Đang cập nhật') {
+                    await Clipboard.setStringAsync(code);
+                    Alert.alert('Đã sao chép', `Đã lưu mã vận đơn [${code}] vào bộ nhớ tạm.`);
+                  }
+                }}
+                hitSlop={HIT_SLOP_8}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="copy-outline" size={14} color="#2563EB" />
+                <Text style={styles.trackingCopyText}>Sao chép</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.trackingCardFooter}>
               <Ionicons name="information-circle-outline" size={14} color="#64748B" />
@@ -774,19 +780,21 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginTop: 2,
   },
-  trackingEditBtn: {
+  trackingCopyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  trackingEditText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#EA580C',
+  trackingCopyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
   },
   trackingCardFooter: {
     flexDirection: 'row',
