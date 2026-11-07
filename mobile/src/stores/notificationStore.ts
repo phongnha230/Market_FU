@@ -29,7 +29,7 @@ interface NotificationState {
   pushPermissionGranted: boolean;
   isPermissionModalVisible: boolean;
   unreadCount: () => number;
-  fetchNotifications: () => Promise<void>;
+  fetchNotifications: (options?: { isAccountSwitch?: boolean }) => Promise<void>;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   addNotification: (item: Omit<NotificationItem, 'id' | 'time' | 'unread'>) => void;
@@ -82,7 +82,7 @@ export const useNotificationStore = create<NotificationState>()(
         set({ activeBanner: null });
       },
 
-      fetchNotifications: async () => {
+      fetchNotifications: async (options?: { isAccountSwitch?: boolean }) => {
         try {
           set({ isLoading: true });
           const res = await apiClient.get('/notifications');
@@ -103,6 +103,27 @@ export const useNotificationStore = create<NotificationState>()(
               targetParams: n.targetParams,
             }));
             set({ notifications: mapped });
+
+            // CHỈ kích hoạt banner Heads-up DUY NHẤT khi vừa Đổi tài khoản / Đăng nhập (Account Switch)!
+            // Tuyệt đối không tự động nổ banner khi người dùng chỉ đang lướt xem các màn hình trong cùng 1 phiên.
+            if (options?.isAccountSwitch) {
+              const unreadItems = mapped.filter((n: any) => n.unread);
+              if (unreadItems.length > 0) {
+                const latest = unreadItems[0];
+                get().showBanner(latest);
+                try {
+                  const { displayLocalPushNotification } = require('../services/notificationMobileService');
+                  displayLocalPushNotification({
+                    title: latest.title,
+                    body: latest.body,
+                    data: {
+                      targetScreen: latest.targetScreen,
+                      targetParams: latest.targetParams,
+                    },
+                  });
+                } catch (_) {}
+              }
+            }
           }
         } catch (e: any) {
           console.log('⚠️ [Backend Notifications offline]:', e?.message);

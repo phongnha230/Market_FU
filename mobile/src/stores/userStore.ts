@@ -24,7 +24,8 @@ const syncUserToStores = (userId: string | null) => {
     try {
       const { useNotificationStore } = require('./notificationStore');
       if (userId) {
-        useNotificationStore.getState().fetchNotifications().catch(() => {});
+        // Chỉ kích hoạt cờ isAccountSwitch khi đăng nhập hoặc chuyển sang tài khoản mới
+        useNotificationStore.getState().fetchNotifications({ isAccountSwitch: true }).catch(() => {});
       } else {
         useNotificationStore.getState().hideBanner();
       }
