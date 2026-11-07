@@ -100,10 +100,11 @@ export const INITIAL_ORDERS: OrderItem[] = [];
 
 interface OrderState {
   orders: OrderItem[];
+  ordersByUser: Record<string, OrderItem[]>;
   activeUserId: string | null;
 
   // Actions
-  setActiveUser: (userId: string | null) => void;
+  setActiveUser: (userId: string | null, options?: { skipFetch?: boolean }) => void;
   createOrder: (order: Omit<OrderItem, 'id' | 'createdAt' | 'isReviewed'>) => OrderItem;
   addOrder: (order: OrderItem) => void;
   updateOrderStatus: (
@@ -136,24 +137,63 @@ interface OrderState {
 
 let inFlightOrdersPromise: Promise<OrderItem[]> | null = null;
 
+const syncOrdersForUser = (
+  state: OrderState,
+  nextOrders: OrderItem[]
+): Partial<OrderState> => {
+  const uId = state.activeUserId;
+  if (!uId) {
+    return { orders: nextOrders };
+  }
+  return {
+    orders: nextOrders,
+    ordersByUser: {
+      ...(state.ordersByUser || {}),
+      [uId]: nextOrders.slice(0, 30),
+    },
+  };
+};
+
 export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
       orders: [],
+      ordersByUser: {},
       activeUserId: null,
       isLoading: false,
       isFetchingMore: false,
       currentPage: 1,
       hasMore: true,
 
-      setActiveUser: (userId) => {
+      setActiveUser: (userId, options) => {
         const uId = userId ? String(userId).trim() : null;
-        const currentActive = get().activeUserId;
-        if (uId !== currentActive) {
-          set({ activeUserId: uId, orders: [] });
-          if (uId) {
-            get().fetchOrders().catch(() => {});
-          }
+        if (!uId) {
+          set({ activeUserId: null, orders: [] });
+          return;
+        }
+
+        const state = get();
+        const cachedFromMap = state.ordersByUser?.[uId] || [];
+        const fallbackFromOrders = (state.orders || []).filter(
+          (o) => o.buyerId === uId || o.sellerId === uId
+        );
+        const instantOrders = cachedFromMap.length > 0 ? cachedFromMap : fallbackFromOrders;
+
+        set({
+          activeUserId: uId,
+          orders: instantOrders,
+          ordersByUser:
+            instantOrders.length > 0
+              ? { ...(state.ordersByUser || {}), [uId]: instantOrders.slice(0, 30) }
+              : state.ordersByUser || {},
+        });
+
+        if (!options?.skipFetch) {
+          get()
+            .fetchOrders()
+            .catch((err) => {
+              console.warn('⚠️ [orderStore] Lỗi background fetchOrders:', err?.message || err);
+            });
         }
       },
 
@@ -167,11 +207,11 @@ export const useOrderStore = create<OrderState>()(
             set({ isLoading: true });
             const liveOrders = await orderMobileService.getOrders({ page, limit: 20 });
             if (Array.isArray(liveOrders)) {
-              set({
-                orders: liveOrders,
+              set((state) => ({
+                ...syncOrdersForUser(state, liveOrders),
                 currentPage: 1,
                 hasMore: liveOrders.length >= 20,
-              });
+              }));
               return liveOrders;
             }
           } catch (e: any) {
@@ -197,11 +237,12 @@ export const useOrderStore = create<OrderState>()(
           if (Array.isArray(nextOrders) && nextOrders.length > 0) {
             const existingIds = new Set(orders.map((o) => o.id));
             const uniqueNext = nextOrders.filter((o) => !existingIds.has(o.id));
-            set({
-              orders: [...orders, ...uniqueNext],
+            const merged = [...orders, ...uniqueNext];
+            set((state) => ({
+              ...syncOrdersForUser(state, merged),
               currentPage: nextPage,
               hasMore: nextOrders.length >= 20,
-            });
+            }));
           } else {
             set({ hasMore: false });
           }
@@ -227,9 +268,7 @@ export const useOrderStore = create<OrderState>()(
           statusBg: '#FFF7ED',
         };
 
-        set((state) => ({
-          orders: [newOrder, ...state.orders],
-        }));
+        set((state) => syncOrdersForUser(state, [newOrder, ...state.orders]));
 
         orderMobileService
           .createOrder({
@@ -247,59 +286,73 @@ export const useOrderStore = create<OrderState>()(
           })
           .then((realOrder) => {
             if (realOrder) {
-              set((state) => ({
-                orders: state.orders.map((o) => (o.id === randomCode ? realOrder : o)),
-              }));
+              set((state) =>
+                syncOrdersForUser(
+                  state,
+                  state.orders.map((o) => (o.id === randomCode ? realOrder : o))
+                )
+              );
             }
           })
-          .catch(() => {});
+          .catch((err) => {
+            console.warn('⚠️ [orderStore] Lỗi tạo đơn hàng trên backend:', err?.message || err);
+          });
 
         return newOrder;
       },
 
       addOrder: (order: OrderItem) => {
-        set((state) => ({
-          orders: [order, ...state.orders.filter((o) => o.id !== order.id && o.orderNumber !== order.orderNumber)],
-        }));
+        set((state) =>
+          syncOrdersForUser(state, [
+            order,
+            ...state.orders.filter((o) => o.id !== order.id && o.orderNumber !== order.orderNumber),
+          ])
+        );
       },
 
       updateOrderShipping: (orderId, trackingCode, shippingPartner) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  status: 'HANDOVER_CONFIRMED',
-                  statusLabel: '🚚 Đang vận chuyển liên Campus',
-                  statusColor: '#2563EB',
-                  statusBg: '#EFF6FF',
-                  trackingCode,
-                  shippingPartner,
-                  shipping: {
-                    ...o.shipping,
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    status: 'HANDOVER_CONFIRMED',
+                    statusLabel: '🚚 Đang vận chuyển liên Campus',
+                    statusColor: '#2563EB',
+                    statusBg: '#EFF6FF',
                     trackingCode,
                     shippingPartner,
-                  },
-                }
-              : o
-          ),
-        }));
+                    shipping: {
+                      ...o.shipping,
+                      trackingCode,
+                      shippingPartner,
+                    },
+                  }
+                : o
+            )
+          )
+        );
       },
 
       updateOrderStatus: (orderId, status, statusLabel, color, bg) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  status,
-                  statusLabel,
-                  statusColor: color || o.statusColor,
-                  statusBg: bg || o.statusBg,
-                }
-              : o
-          ),
-        }));
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    status,
+                    statusLabel,
+                    statusColor: color || o.statusColor,
+                    statusBg: bg || o.statusBg,
+                  }
+                : o
+            )
+          )
+        );
       },
 
       verifyHandshakeOtp: async (orderId, inputOtp) => {
@@ -311,46 +364,13 @@ export const useOrderStore = create<OrderState>()(
         const cleanOrderId = orderId.replace(/^#/, '').trim();
 
         try {
-          // 1. Gọi API Backend để xác thực chính thức (Backend có đầy đủ HMAC token & OTP bí mật trong DB)
           const apiRes = await orderMobileService.verifyHandshake(cleanOrderId, cleanInput);
 
-          // 2. Cập nhật state đơn hàng sang COMPLETED
-          set((state) => ({
-            orders: state.orders.map((o) =>
-              o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId
-                ? {
-                    ...o,
-                    status: 'COMPLETED',
-                    statusLabel: '✅ Đã bàn giao đồ & Khớp mã QR Handshake tại Safe-Point',
-                    statusColor: '#059669',
-                    statusBg: '#ECFDF5',
-                  }
-                : o
-            ),
-          }));
-
-          // 3. Giải phóng tiền cọc Escrow vào ví Người Bán
-          const { orders } = get();
-          const target = orders.find((o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId);
-          if (target?.sellerId) {
-            useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
-          }
-
-          return {
-            success: true,
-            message: apiRes.message || 'Xác thực mã QR Handshake thành công! Đơn hàng đã bàn giao hoàn tất và tiền cọc được giải ngân về Ví Người Bán.',
-          };
-        } catch (err: any) {
-          // Fallback khi offline hoặc test local nếu target.handshakeOtp khớp
-          const { orders } = get();
-          const target = orders.find((o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId);
-          const targetOtp = (target?.handshakeOtp || '').trim().replace(/\s/g, '');
-
-          const targetId = target?.id;
-          if (targetId && targetOtp && cleanInput === targetOtp) {
-            set((state) => ({
-              orders: state.orders.map((o) =>
-                o.id === targetId
+          set((state) =>
+            syncOrdersForUser(
+              state,
+              state.orders.map((o) =>
+                o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId
                   ? {
                       ...o,
                       status: 'COMPLETED',
@@ -359,8 +379,49 @@ export const useOrderStore = create<OrderState>()(
                       statusBg: '#ECFDF5',
                     }
                   : o
-              ),
-            }));
+              )
+            )
+          );
+
+          const { orders } = get();
+          const target = orders.find(
+            (o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId
+          );
+          if (target?.sellerId) {
+            useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
+          }
+
+          return {
+            success: true,
+            message:
+              apiRes.message ||
+              'Xác thực mã QR Handshake thành công! Đơn hàng đã bàn giao hoàn tất và tiền cọc được giải ngân về Ví Người Bán.',
+          };
+        } catch (err: any) {
+          const { orders } = get();
+          const target = orders.find(
+            (o) => o.id === orderId || o.orderNumber === orderId || o.id === cleanOrderId || o.orderNumber === cleanOrderId
+          );
+          const targetOtp = (target?.handshakeOtp || '').trim().replace(/\s/g, '');
+
+          const targetId = target?.id;
+          if (targetId && targetOtp && cleanInput === targetOtp) {
+            set((state) =>
+              syncOrdersForUser(
+                state,
+                state.orders.map((o) =>
+                  o.id === targetId
+                    ? {
+                        ...o,
+                        status: 'COMPLETED',
+                        statusLabel: '✅ Đã bàn giao đồ & Khớp mã QR Handshake tại Safe-Point',
+                        statusColor: '#059669',
+                        statusBg: '#ECFDF5',
+                      }
+                    : o
+                )
+              )
+            );
 
             if (target && target.sellerId) {
               useWalletStore.getState().releaseEscrowToSeller(target.sellerId, target.totalAmount, target.id);
@@ -384,116 +445,130 @@ export const useOrderStore = create<OrderState>()(
       },
 
       markOrderReviewed: (orderId, reviewData) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  isReviewed: true,
-                  reviewData: reviewData || o.reviewData || {
-                    rating: 5,
-                    comment: 'Sản phẩm bàn giao nguyên tem như mô tả, người bán thân thiện và đúng giờ tại Safe-Point!',
-                    tags: ['Đúng mô tả', 'Thân thiện'],
-                    images: [],
-                    isAnonymous: true,
-                    reviewedAt: 'Hôm nay',
-                    isPublic: true,
-                    canEdit: true,
-                    bonusCoins: 100,
-                  },
-                  statusLabel: `⭐ Đã đánh giá ${reviewData?.rating || 5} sao`,
-                  statusColor: '#2563EB',
-                  statusBg: '#EFF6FF',
-                }
-              : o
-          ),
-        }));
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    isReviewed: true,
+                    reviewData: reviewData || o.reviewData || {
+                      rating: 5,
+                      comment: 'Sản phẩm bàn giao nguyên tem như mô tả, người bán thân thiện và đúng giờ tại Safe-Point!',
+                      tags: ['Đúng mô tả', 'Thân thiện'],
+                      images: [],
+                      isAnonymous: true,
+                      reviewedAt: 'Hôm nay',
+                      isPublic: true,
+                      canEdit: true,
+                      bonusCoins: 100,
+                    },
+                    statusLabel: `⭐ Đã đánh giá ${reviewData?.rating || 5} sao`,
+                    statusColor: '#2563EB',
+                    statusBg: '#EFF6FF',
+                  }
+                : o
+            )
+          )
+        );
       },
 
       updateOrderReview: (orderId, updatedReviewData) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  reviewData: o.reviewData
-                    ? { ...o.reviewData, ...updatedReviewData, isPublic: true }
-                    : {
-                        rating: updatedReviewData.rating || 5,
-                        comment: updatedReviewData.comment,
-                        tags: updatedReviewData.tags || ['Đúng mô tả'],
-                        images: updatedReviewData.images || [],
-                        proofVideoUrl: updatedReviewData.proofVideoUrl,
-                        isAnonymous: updatedReviewData.isAnonymous ?? true,
-                        reviewedAt: 'Vừa cập nhật',
-                        isPublic: true,
-                        canEdit: true,
-                        bonusCoins: updatedReviewData.bonusCoins || 100,
-                      },
-                  statusLabel: `⭐ Đã đánh giá ${updatedReviewData.rating || o.reviewData?.rating || 5} sao`,
-                }
-              : o
-          ),
-        }));
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    reviewData: o.reviewData
+                      ? { ...o.reviewData, ...updatedReviewData, isPublic: true }
+                      : {
+                          rating: updatedReviewData.rating || 5,
+                          comment: updatedReviewData.comment,
+                          tags: updatedReviewData.tags || ['Đúng mô tả'],
+                          images: updatedReviewData.images || [],
+                          proofVideoUrl: updatedReviewData.proofVideoUrl,
+                          isAnonymous: updatedReviewData.isAnonymous ?? true,
+                          reviewedAt: 'Vừa cập nhật',
+                          isPublic: true,
+                          canEdit: true,
+                          bonusCoins: updatedReviewData.bonusCoins || 100,
+                        },
+                    statusLabel: `⭐ Đã đánh giá ${updatedReviewData.rating || o.reviewData?.rating || 5} sao`,
+                  }
+                : o
+            )
+          )
+        );
       },
 
       replyOrderReview: (orderId, replyComment) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  reviewData: o.reviewData
-                    ? {
-                        ...o.reviewData,
-                        replyComment,
-                        repliedAt: 'Vừa xong',
-                      }
-                    : {
-                        rating: 5,
-                        reviewedAt: 'Gần đây',
-                        isPublic: true,
-                        replyComment,
-                        repliedAt: 'Vừa xong',
-                      },
-                }
-              : o
-          ),
-        }));
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    reviewData: o.reviewData
+                      ? {
+                          ...o.reviewData,
+                          replyComment,
+                          repliedAt: 'Vừa xong',
+                        }
+                      : {
+                          rating: 5,
+                          reviewedAt: 'Gần đây',
+                          isPublic: true,
+                          replyComment,
+                          repliedAt: 'Vừa xong',
+                        },
+                  }
+                : o
+            )
+          )
+        );
       },
 
       toggleReviewPublic: (orderId) => {
-        set((state) => ({
-          orders: state.orders.map((o) => {
-            if ((o.id === orderId || o.orderNumber === orderId) && o.reviewData) {
-              return {
-                ...o,
-                reviewData: {
-                  ...o.reviewData,
-                  isPublic: !o.reviewData.isPublic,
-                },
-              };
-            }
-            return o;
-          }),
-        }));
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) => {
+              if ((o.id === orderId || o.orderNumber === orderId) && o.reviewData) {
+                return {
+                  ...o,
+                  reviewData: {
+                    ...o.reviewData,
+                    isPublic: !o.reviewData.isPublic,
+                  },
+                };
+              }
+              return o;
+            })
+          )
+        );
       },
 
       createDispute: (orderId, reason) => {
-        set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === orderId || o.orderNumber === orderId
-              ? {
-                  ...o,
-                  status: 'DISPUTED',
-                  statusLabel: '⚠️ Đang mở khiếu nại đổi trả (Bảo lưu Escrow)',
-                  statusColor: '#DC2626',
-                  statusBg: '#FEF2F2',
-                }
-              : o
-          ),
-        }));
-
+        set((state) =>
+          syncOrdersForUser(
+            state,
+            state.orders.map((o) =>
+              o.id === orderId || o.orderNumber === orderId
+                ? {
+                    ...o,
+                    status: 'DISPUTED',
+                    statusLabel: '⚠️ Đang mở khiếu nại đổi trả (Bảo lưu Escrow)',
+                    statusColor: '#DC2626',
+                    statusBg: '#FEF2F2',
+                  }
+                : o
+            )
+          )
+        );
       },
 
       getBuyerOrders: (buyerId: string) => {
@@ -511,10 +586,60 @@ export const useOrderStore = create<OrderState>()(
     {
       name: 'fu_orders_storage',
       storage: createJSONStorage(() => safeAsyncStorage),
-      partialize: (state) => ({
-        orders: (state.orders || []).slice(0, 30),
-        activeUserId: state.activeUserId,
-      }),
+      partialize: (state) => {
+        const trimmedByUser: Record<string, OrderItem[]> = {};
+        if (state.ordersByUser && typeof state.ordersByUser === 'object') {
+          Object.entries(state.ordersByUser).forEach(([uid, list]) => {
+            if (Array.isArray(list)) {
+              trimmedByUser[uid] = list.slice(0, 30);
+            }
+          });
+        }
+        return {
+          orders: (state.orders || []).slice(0, 30),
+          ordersByUser: trimmedByUser,
+          activeUserId: state.activeUserId,
+        };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        setTimeout(() => {
+          try {
+            let currentUserId = state.activeUserId;
+            try {
+              const { useUserStore } = require('./userStore');
+              const authUserId = useUserStore?.getState()?.user?.id;
+              if (authUserId) {
+                currentUserId = String(authUserId).trim();
+              }
+            } catch (err) {
+              console.warn('⚠️ [orderStore] Lỗi đọc userStore khi rehydrate:', err);
+            }
+
+            const byUser =
+              state.ordersByUser && typeof state.ordersByUser === 'object' ? state.ordersByUser : {};
+
+            if (currentUserId) {
+              const cachedFromMap = byUser[currentUserId] || [];
+              const fallbackFromOrders = (state.orders || []).filter(
+                (o) => o.buyerId === currentUserId || o.sellerId === currentUserId
+              );
+              const restored = cachedFromMap.length > 0 ? cachedFromMap : fallbackFromOrders;
+
+              useOrderStore.setState({
+                activeUserId: currentUserId,
+                orders: restored,
+                ordersByUser:
+                  restored.length > 0
+                    ? { ...byUser, [currentUserId]: restored.slice(0, 30) }
+                    : byUser,
+              });
+            }
+          } catch (rehydrateErr) {
+            console.warn('⚠️ [orderStore] Lỗi xử lý onRehydrateStorage:', rehydrateErr);
+          }
+        }, 0);
+      },
     }
   )
 );

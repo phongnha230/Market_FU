@@ -378,7 +378,7 @@ export const OrderListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useUserStore();
-  const { orders, fetchOrders, fetchMoreOrders, isFetchingMore, hasMore } = useOrderStore();
+  const { orders, isLoading, fetchOrders, fetchMoreOrders, isFetchingMore, hasMore } = useOrderStore();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -710,7 +710,16 @@ export const OrderListScreen: React.FC = () => {
           ) : null
         }
         ListEmptyComponent={
-          <OrderListEmptyState activeTab={activeTab} onExplore={handleGoHome} />
+          isLoading && orders.length === 0 ? (
+            <View style={{ paddingVertical: 64, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="large" color="#EA580C" />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B', marginTop: 12 }}>
+                Đang đồng bộ danh sách đơn hàng...
+              </Text>
+            </View>
+          ) : (
+            <OrderListEmptyState activeTab={activeTab} onExplore={handleGoHome} />
+          )
         }
       />
 

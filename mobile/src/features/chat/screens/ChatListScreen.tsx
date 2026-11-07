@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -304,10 +305,17 @@ export const ChatListScreen: React.FC = () => {
         }
         ItemSeparatorComponent={() => <View style={styles.divider} />}
         ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <Ionicons name="chatbubbles-outline" size={38} color="#CBD5E1" />
-            <Text style={styles.emptyText}>Chưa có cuộc trò chuyện nào trong mục này</Text>
-          </View>
+          isLoading && conversations.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator size="large" color="#EA580C" />
+              <Text style={styles.emptyText}>Đang đồng bộ hộp thư tin nhắn...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyBox}>
+              <Ionicons name="chatbubbles-outline" size={38} color="#CBD5E1" />
+              <Text style={styles.emptyText}>Chưa có cuộc trò chuyện nào trong mục này</Text>
+            </View>
+          )
         }
       />
     </View>

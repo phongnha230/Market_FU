@@ -15,25 +15,53 @@ const syncUserToStores = (userId: string | null) => {
     const { useWalletStore } = require('./walletStore');
     const { useChatStore } = require('./chatStore');
 
-    useFavoriteStore?.getState()?.setActiveUser?.(userId);
-    useOrderStore?.getState()?.setActiveUser?.(userId);
+    // Pha 1 (0ms - Instant Cache Restore): Khôi phục ngay dữ liệu từ SQLite cache lên UI
+    useOrderStore?.getState()?.setActiveUser?.(userId, { skipFetch: true });
+    useChatStore?.getState()?.setActiveUser?.(userId, { skipFetch: true });
+    useFavoriteStore?.getState()?.setActiveUser?.(userId, { skipFetch: true });
     useVoucherStore?.getState()?.setActiveUser?.(userId);
     useKycStore?.getState()?.setActiveUser?.(userId);
     useWalletStore?.getState()?.setActiveUser?.(userId);
-    useChatStore?.getState()?.setActiveUser?.(userId);
 
-    try {
-      const { useNotificationStore } = require('./notificationStore');
-      if (userId) {
-        // Chỉ kích hoạt cờ isAccountSwitch khi đăng nhập hoặc chuyển sang tài khoản mới
-        useNotificationStore?.getState()?.fetchNotifications?.({ isAccountSwitch: true })?.catch?.((err: any) => {
-          console.warn('⚠️ [userStore] Lỗi khi fetch notifications đồng bộ tài khoản:', err);
-        });
-      } else {
+    // Pha 2 (Staggered Background Revalidation): Chia nhịp gọi API ngầm tránh nghẽn mạng di động
+    if (userId) {
+      // Nhịp 1 (0ms): Ưu tiên số 1 - Đơn hàng
+      useOrderStore?.getState()?.fetchOrders?.()?.catch?.((err: any) => {
+        console.warn('⚠️ [userStore] Lỗi fetchOrders khi đồng bộ:', err?.message || err);
+      });
+
+      // Nhịp 2 (200ms): Ưu tiên số 2 - Tin nhắn
+      setTimeout(() => {
+        try {
+          useChatStore?.getState()?.fetchConversations?.({ isAccountSwitch: true })?.catch?.((err: any) => {
+            console.warn('⚠️ [userStore] Lỗi fetchConversations khi đồng bộ:', err?.message || err);
+          });
+        } catch (chatErr) {
+          console.warn('⚠️ [userStore] Lỗi kích hoạt fetchConversations:', chatErr);
+        }
+      }, 200);
+
+      // Nhịp 3 (450ms): Ưu tiên số 3 - Yêu thích & Thông báo
+      setTimeout(() => {
+        try {
+          useFavoriteStore?.getState()?.fetchFavorites?.()?.catch?.((err: any) => {
+            console.warn('⚠️ [userStore] Lỗi fetchFavorites khi đồng bộ:', err?.message || err);
+          });
+          const { useNotificationStore } = require('./notificationStore');
+          useNotificationStore?.getState()?.fetchNotifications?.({ isAccountSwitch: true })?.catch?.((err: any) => {
+            console.warn('⚠️ [userStore] Lỗi khi fetch notifications đồng bộ tài khoản:', err);
+          });
+        } catch (notifErr) {
+          console.warn('⚠️ [userStore] Lỗi require notificationStore:', notifErr);
+        }
+      }, 450);
+    } else {
+      try {
+        const { useNotificationStore } = require('./notificationStore');
         useNotificationStore?.getState()?.hideBanner?.();
+      } catch (notifErr) {
+        console.warn('⚠️ [userStore] Lỗi require notificationStore:', notifErr);
       }
-    } catch (notifErr) {
-      console.warn('⚠️ [userStore] Lỗi require notificationStore:', notifErr);
     }
   } catch (e) {
     console.error('❌ [userStore] Lỗi đồng bộ user tới các store tính năng:', e);

@@ -12,7 +12,7 @@ interface FavoriteState {
   followedSellerIds: string[];
 
   // Actions
-  setActiveUser: (userId: string | null) => void;
+  setActiveUser: (userId: string | null, options?: { skipFetch?: boolean }) => void;
   fetchFavorites: () => Promise<string[]>;
   toggleFavorite: (productId: string, productData?: any) => void;
   removeFavorite: (productId: string) => void;
@@ -36,17 +36,21 @@ export const useFavoriteStore = create<FavoriteState>()(
       savedProductsMap: {},
       followedSellerIds: [],
 
-      setActiveUser: (userId) => {
+      setActiveUser: (userId, options) => {
         const { favoritesByUser } = get();
         const currentId = userId || 'anonymous';
-        const userFavs = favoritesByUser[currentId] || [];
+        const userFavs = (favoritesByUser && favoritesByUser[currentId]) || [];
         set({
           activeUserId: userId,
           favoriteIds: userFavs,
         });
 
-        if (userId) {
-          get().fetchFavorites().catch(() => {});
+        if (userId && !options?.skipFetch) {
+          get()
+            .fetchFavorites()
+            .catch((err) => {
+              console.warn('⚠️ [useFavoriteStore] Lỗi background fetchFavorites:', err?.message || err);
+            });
         }
       },
 
@@ -227,6 +231,37 @@ export const useFavoriteStore = create<FavoriteState>()(
     {
       name: 'fu-favorite-storage',
       storage: createJSONStorage(() => safeAsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        setTimeout(() => {
+          try {
+            let currentUserId = state.activeUserId;
+            try {
+              const { useUserStore } = require('./userStore');
+              const authUserId = useUserStore?.getState()?.user?.id;
+              if (authUserId) {
+                currentUserId = String(authUserId).trim();
+              }
+            } catch (err) {
+              console.warn('⚠️ [useFavoriteStore] Lỗi đọc userStore khi rehydrate:', err);
+            }
+
+            const byUser =
+              state.favoritesByUser && typeof state.favoritesByUser === 'object'
+                ? state.favoritesByUser
+                : {};
+            const lookupKey = currentUserId || 'anonymous';
+            const restoredIds = Array.isArray(byUser[lookupKey]) ? byUser[lookupKey] : state.favoriteIds || [];
+
+            useFavoriteStore.setState({
+              activeUserId: currentUserId,
+              favoriteIds: restoredIds,
+            });
+          } catch (rehydrateErr) {
+            console.warn('⚠️ [useFavoriteStore] Lỗi xử lý onRehydrateStorage:', rehydrateErr);
+          }
+        }, 0);
+      },
     }
   )
 );
