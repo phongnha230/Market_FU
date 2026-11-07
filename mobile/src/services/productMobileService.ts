@@ -1,5 +1,4 @@
 import apiClient, { ApiResponse, getApiBaseUrl } from './apiClient';
-import { useUserStore } from '../stores/userStore';
 import type { ProductItem } from '../stores/productStore';
 import {
   toBackendCampus,
@@ -234,7 +233,11 @@ export const productMobileService = {
       });
 
       const baseUrl = getApiBaseUrl();
-      const token = useUserStore.getState().token;
+      let token: string | null = null;
+      try {
+        const { useUserStore } = require('../stores/userStore');
+        token = useUserStore.getState().token;
+      } catch {}
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000); // 60s cho việc tải nhiều ảnh và lưu DB

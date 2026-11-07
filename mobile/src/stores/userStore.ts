@@ -3,31 +3,32 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeAsyncStorage } from '../utils/safeStorage';
 import { accountStorage, UserProfile, AccountRecord } from '../services/accountStorage';
 import { authMobileService } from '../services/authMobileService';
-import { useFavoriteStore } from './useFavoriteStore';
-import { useOrderStore } from './orderStore';
-import { useVoucherStore } from './voucherStore';
-import { useKycStore } from './kycStore';
-import { useWalletStore } from './walletStore';
-import { useProductStore } from './productStore';
-import { useChatStore } from './chatStore';
 
 export type { UserProfile, AccountRecord };
 
 const syncUserToStores = (userId: string | null) => {
   try {
-    useFavoriteStore.getState().setActiveUser(userId);
-    useOrderStore.getState().setActiveUser(userId);
-    useVoucherStore.getState().setActiveUser(userId);
-    useKycStore.getState().setActiveUser(userId);
-    useWalletStore.getState().setActiveUser(userId);
-    useChatStore.getState().setActiveUser(userId);
+    const { useFavoriteStore } = require('./useFavoriteStore');
+    const { useOrderStore } = require('./orderStore');
+    const { useVoucherStore } = require('./voucherStore');
+    const { useKycStore } = require('./kycStore');
+    const { useWalletStore } = require('./walletStore');
+    const { useChatStore } = require('./chatStore');
+
+    useFavoriteStore?.getState()?.setActiveUser?.(userId);
+    useOrderStore?.getState()?.setActiveUser?.(userId);
+    useVoucherStore?.getState()?.setActiveUser?.(userId);
+    useKycStore?.getState()?.setActiveUser?.(userId);
+    useWalletStore?.getState()?.setActiveUser?.(userId);
+    useChatStore?.getState()?.setActiveUser?.(userId);
+
     try {
       const { useNotificationStore } = require('./notificationStore');
       if (userId) {
         // Chỉ kích hoạt cờ isAccountSwitch khi đăng nhập hoặc chuyển sang tài khoản mới
-        useNotificationStore.getState().fetchNotifications({ isAccountSwitch: true }).catch(() => {});
+        useNotificationStore?.getState()?.fetchNotifications?.({ isAccountSwitch: true })?.catch?.(() => {});
       } else {
-        useNotificationStore.getState().hideBanner();
+        useNotificationStore?.getState()?.hideBanner?.();
       }
     } catch {}
   } catch (e) {
