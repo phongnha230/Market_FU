@@ -261,6 +261,76 @@ export async function unregisterDeviceToken(token?: string) {
   }
 }
 
+const INVALID_ORDER_ROUTE_SEGMENTS = new Set(['orders', 'review', 'disputes', 'me', 'all']);
+
+/**
+ * Trích xuất mã đơn hàng thật (`orderId` hoặc `orderCode` dạng `ORD-...`)
+ * từ dữ liệu thông báo Push FCM / Socket / In-App.
+ * Tuyệt đối loại bỏ các từ khóa route như `'orders'` hoặc `'review'`.
+ */
+export function extractOrderIdFromNotification(input?: {
+  orderId?: string;
+  orderCode?: string;
+  targetUrl?: string;
+  body?: string;
+  title?: string;
+  notificationId?: string;
+}): string | undefined {
+  if (!input) return undefined;
+
+  const isValidOrderCandidate = (val?: string): val is string => {
+    if (!val || typeof val !== 'string') return false;
+    const clean = val.replace(/^#/, '').trim();
+    if (!clean) return false;
+    if (INVALID_ORDER_ROUTE_SEGMENTS.has(clean.toLowerCase())) return false;
+    return true;
+  };
+
+  if (isValidOrderCandidate(input.orderId)) {
+    return input.orderId.replace(/^#/, '').trim();
+  }
+  if (isValidOrderCandidate(input.orderCode)) {
+    return input.orderCode.replace(/^#/, '').trim();
+  }
+
+  if (input.targetUrl && typeof input.targetUrl === 'string') {
+    const queryMatch = input.targetUrl.match(/[?&](?:orderId|orderCode|id)=([^&#]+)/i);
+    if (queryMatch && isValidOrderCandidate(decodeURIComponent(queryMatch[1]))) {
+      return decodeURIComponent(queryMatch[1]).replace(/^#/, '').trim();
+    }
+
+    const pathMatch = input.targetUrl.match(/\/orders\/([^\/?#]+)/i);
+    if (pathMatch && isValidOrderCandidate(decodeURIComponent(pathMatch[1]))) {
+      return decodeURIComponent(pathMatch[1]).replace(/^#/, '').trim();
+    }
+  }
+
+  const combinedText = `${input.body || ''} ${input.title || ''}`;
+  const codeMatch = combinedText.match(/#?(ORD-[A-Z0-9-]+)/i);
+  if (codeMatch && isValidOrderCandidate(codeMatch[1])) {
+    return codeMatch[1].trim();
+  }
+
+  if (input.notificationId) {
+    try {
+      const { useNotificationStore } = require('../stores/notificationStore');
+      const found = useNotificationStore
+        .getState?.()
+        ?.notifications?.find((n: any) => String(n.id) === String(input.notificationId));
+      if (found) {
+        const fromFound = extractOrderIdFromNotification({
+          orderId: found.targetParams?.orderId,
+          body: found.body,
+          title: found.title,
+        });
+        if (fromFound) return fromFound;
+      }
+    } catch {}
+  }
+
+  return undefined;
+}
+
 /**
  * 5. Lắng nghe sự kiện người dùng bấm vào banner thông báo trên đỉnh màn hình
  * và điều hướng chuẩn xác (Deep Linking)
@@ -285,6 +355,22 @@ export function setupNotificationListeners() {
           if (data?.conversationId && activeConvId && activeConvId === data.conversationId) {
             return;
           }
+          const resolvedOrderId = extractOrderIdFromNotification({
+            orderId: data?.orderId,
+            orderCode: data?.orderCode,
+            targetUrl: data?.targetUrl,
+            body: data?.body || content?.body,
+            title: content?.title,
+            notificationId: data?.notificationId,
+          });
+
+          if (data?.type === 'ORDER' || resolvedOrderId) {
+            try {
+              const { useOrderStore } = require('../stores/orderStore');
+              useOrderStore.getState?.()?.fetchOrders?.().catch(() => {});
+            } catch {}
+          }
+
           const { useNotificationStore } = require('../stores/notificationStore');
           useNotificationStore.getState?.().addNotification({
             title: content?.title || 'Thông báo mới',
@@ -294,15 +380,24 @@ export function setupNotificationListeners() {
             iconColor: data?.type === 'CHAT' ? '#EA580C' : '#059669',
             iconBg: data?.type === 'CHAT' ? '#FFF7ED' : '#ECFDF5',
             avatarUrl: data?.senderAvatar || data?.avatarUrl || undefined,
-            targetScreen: data?.type === 'CHAT' ? 'ChatDetail' : data?.type === 'ORDER' ? 'OrderDetail' : undefined,
-            targetParams: data?.conversationId ? {
-              conversationId: data.conversationId,
-              partner: {
-                id: data.senderId || data.conversationId,
-                name: data.senderName || content?.title,
-                avatar: data.senderAvatar || data.avatarUrl,
-              },
-            } : undefined,
+            targetScreen:
+              data?.type === 'CHAT'
+                ? 'ChatDetail'
+                : data?.type === 'ORDER' || resolvedOrderId
+                ? 'OrderDetail'
+                : undefined,
+            targetParams: data?.conversationId
+              ? {
+                  conversationId: data.conversationId,
+                  partner: {
+                    id: data.senderId || data.conversationId,
+                    name: data.senderName || content?.title,
+                    avatar: data.senderAvatar || data.avatarUrl,
+                  },
+                }
+              : resolvedOrderId
+              ? { orderId: resolvedOrderId }
+              : undefined,
           });
         } catch {}
       });
@@ -313,8 +408,11 @@ export function setupNotificationListeners() {
         const content = response?.notification?.request?.content;
         const data = content?.data || {};
         const title = content?.title;
+        const body = content?.body;
         handleNotificationNavigation({
           ...data,
+          body: data?.body || body,
+          rawTitle: title,
           senderName: data?.senderName || (title && title !== 'Tin nhắn mới' ? title : undefined),
           title: data?.senderName || title,
         });
@@ -338,10 +436,44 @@ export function setupNotificationListeners() {
 export function handleNotificationNavigation(data: any) {
   if (!data) return;
 
-  const { type, orderId, conversationId, targetUrl, productId } = data;
+  if (data.targetScreen) {
+    if (data.targetScreen === 'OrderDetail') {
+      const sanitizedId = extractOrderIdFromNotification({
+        orderId: data.targetParams?.orderId || data.orderId,
+        orderCode: data.targetParams?.orderCode || data.orderCode,
+        targetUrl: data.targetUrl,
+        body: data.targetParams?.notificationBody || data.body,
+        title: data.targetParams?.notificationTitle || data.rawTitle || data.title,
+      });
+      navigate('OrderDetail', {
+        ...(data.targetParams || {}),
+        orderId: sanitizedId || '',
+        notificationBody: data.targetParams?.notificationBody || data.body,
+        notificationTitle: data.targetParams?.notificationTitle || data.rawTitle || data.title,
+      });
+      return;
+    }
+    navigate(data.targetScreen, data.targetParams);
+    return;
+  }
 
-  if (type === 'ORDER' || orderId) {
-    navigate('OrderDetail', { orderId: orderId || extractIdFromUrl(targetUrl) });
+  const { type, orderId, orderCode, conversationId, targetUrl, productId, body, rawTitle, title, notificationId } = data;
+  const resolvedOrderId = extractOrderIdFromNotification({
+    orderId,
+    orderCode,
+    targetUrl,
+    body,
+    title: rawTitle || title,
+    notificationId,
+  });
+
+  if (type === 'ORDER' || resolvedOrderId) {
+    navigate('OrderDetail', {
+      orderId: resolvedOrderId || '',
+      notificationId,
+      notificationBody: body,
+      notificationTitle: rawTitle || title,
+    });
   } else if (type === 'CHAT' || conversationId) {
     const pName = data?.senderName || (data?.title && data?.title !== 'Tin nhắn mới' ? data?.title : undefined);
     const pAvatar = data?.senderAvatar || data?.avatarUrl;
@@ -360,12 +492,6 @@ export function handleNotificationNavigation(data: any) {
   } else {
     navigate('Notification');
   }
-}
-
-function extractIdFromUrl(url?: string): string | undefined {
-  if (!url) return undefined;
-  const match = url.match(/[?&]id=([^&]+)/) || url.match(/\/([^\/?]+)$/);
-  return match ? match[1] : undefined;
 }
 
 /**
@@ -412,6 +538,7 @@ export async function markAllNotificationsAsRead(): Promise<any> {
 }
 
 export const notificationMobileService = {
+  extractOrderIdFromNotification,
   displayLocalPushNotification,
   setupAndroidNotificationChannels,
   requestNotificationPermission,

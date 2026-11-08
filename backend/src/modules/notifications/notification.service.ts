@@ -142,6 +142,14 @@ export class NotificationService {
     const channelId =
       type === 'ORDER' ? 'orders_channel' : type === 'CHAT' ? 'chat_channel' : 'system_channel';
 
+    // Tự động bóc tách orderId / orderCode từ targetUrl hoặc nội dung body để Mobile điều hướng chính xác 100%
+    const urlOrderIdMatch = targetUrl?.match(/[?&](?:orderId|orderCode|id)=([^&#]+)/i);
+    const bodyOrderCodeMatch =
+      body?.match(/#(ORD-[A-Z0-9-]+)/i) || title?.match(/#(ORD-[A-Z0-9-]+)/i);
+    const resolvedOrderId = urlOrderIdMatch?.[1]
+      ? decodeURIComponent(urlOrderIdMatch[1])
+      : bodyOrderCodeMatch?.[1] || '';
+
     // C2.1: Gửi qua Expo Push Service (Nếu là token ExponentPushToken)
     if (expoTokens.length > 0) {
       this.sendExpoPushNotifications(
@@ -151,7 +159,9 @@ export class NotificationService {
         {
           notificationId: String(notification.id || ''),
           type: String(type || 'SYSTEM'),
+          body: String(body || ''),
           ...(targetUrl && { targetUrl: String(targetUrl) }),
+          ...(resolvedOrderId && { orderId: String(resolvedOrderId) }),
         },
         channelId
       ).catch(() => {});
@@ -169,7 +179,9 @@ export class NotificationService {
         const fcmDataPayload: Record<string, string> = {
           notificationId: String(notification.id || ''),
           type: String(type || 'SYSTEM'),
+          body: String(body || ''),
           ...(targetUrl && { targetUrl: String(targetUrl) }),
+          ...(resolvedOrderId && { orderId: String(resolvedOrderId) }),
         };
 
         const androidOptions = {

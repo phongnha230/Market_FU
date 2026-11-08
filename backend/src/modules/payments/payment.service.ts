@@ -175,7 +175,7 @@ export class PaymentService {
       title: 'Thanh toán Escrow thành công',
       body: `Đã nhận ${transferAmount.toLocaleString('vi-VN')} đ cho đơn hàng #${order.orderCode}. Tiền được sàn bảo hộ an toàn trong ví Escrow.`,
       type: 'ORDER',
-      targetUrl: '/orders',
+      targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
     });
 
     // Bắn thông báo tới Người bán
@@ -184,7 +184,7 @@ export class PaymentService {
       title: 'Người mua đã thanh toán tiền',
       body: `Đơn hàng #${order.orderCode} ("${order.product.title}") đã được thanh toán vào ví Escrow. Bạn hãy chuẩn bị giao đồ nhé!`,
       type: 'ORDER',
-      targetUrl: '/orders',
+      targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
     });
 
     emitToUser(order.buyerId, 'order_paid', {

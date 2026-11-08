@@ -78,7 +78,22 @@ export const TopNotificationBanner: React.FC = () => {
       useNotificationStore.getState().markAsRead(activeBanner.id);
     }
     if (activeBanner.targetScreen) {
-      navigate(activeBanner.targetScreen as any, activeBanner.targetParams);
+      if (activeBanner.targetScreen === 'OrderDetail') {
+        const { extractOrderIdFromNotification } = require('../../services/notificationMobileService');
+        const resolvedOrderId = extractOrderIdFromNotification({
+          orderId: activeBanner.targetParams?.orderId,
+          body: activeBanner.body,
+          title: activeBanner.title,
+        });
+        navigate('OrderDetail' as any, {
+          ...(activeBanner.targetParams || {}),
+          orderId: resolvedOrderId,
+          notificationBody: activeBanner.body,
+          notificationTitle: activeBanner.title,
+        });
+      } else {
+        navigate(activeBanner.targetScreen as any, activeBanner.targetParams);
+      }
     } else {
       navigate('Notification' as any);
     }

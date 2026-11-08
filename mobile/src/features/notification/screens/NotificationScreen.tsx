@@ -107,7 +107,22 @@ export const NotificationScreen: React.FC = () => {
       markAsRead(item.id);
 
       if (item.targetScreen && navigation && navigation.navigate) {
-        navigation.navigate(item.targetScreen, item.targetParams);
+        if (item.targetScreen === 'OrderDetail') {
+          const { extractOrderIdFromNotification } = require('../../../services/notificationMobileService');
+          const resolvedOrderId = extractOrderIdFromNotification({
+            orderId: item.targetParams?.orderId,
+            body: item.body,
+            title: item.title,
+          });
+          navigation.navigate('OrderDetail', {
+            ...(item.targetParams || {}),
+            orderId: resolvedOrderId,
+            notificationBody: item.body,
+            notificationTitle: item.title,
+          });
+        } else {
+          navigation.navigate(item.targetScreen, item.targetParams);
+        }
       } else {
         Alert.alert(item.title, item.body);
       }

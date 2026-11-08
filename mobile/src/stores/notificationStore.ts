@@ -89,19 +89,45 @@ export const useNotificationStore = create<NotificationState>()(
           const raw = res.data?.data;
           const list = Array.isArray(raw) ? raw : Array.isArray(raw?.notifications) ? raw.notifications : [];
           if (list.length > 0) {
-            const mapped = list.map((n: any) => ({
-              id: n.id || n._id,
-              category: n.category || 'system',
-              title: n.title,
-              body: n.body || n.content,
-              time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
-              unread: !n.isRead,
-              icon: n.icon || 'notifications-outline',
-              iconColor: '#EA580C',
-              iconBg: '#FFF7ED',
-              targetScreen: n.targetScreen,
-              targetParams: n.targetParams,
-            }));
+            const { extractOrderIdFromNotification } = require('../services/notificationMobileService');
+            const mapped = list.map((n: any) => {
+              const bodyText = n.body || n.content || '';
+              const rawCategory = String(n.category || n.type || 'system').toLowerCase();
+              const resolvedOrderId = extractOrderIdFromNotification({
+                orderId: n.orderId || n.targetParams?.orderId,
+                orderCode: n.orderCode,
+                targetUrl: n.targetUrl,
+                body: bodyText,
+                title: n.title,
+              });
+              const isOrderNotif = Boolean(
+                rawCategory === 'order' ||
+                resolvedOrderId ||
+                n.targetScreen === 'OrderDetail' ||
+                (typeof n.targetUrl === 'string' && n.targetUrl.includes('/orders'))
+              );
+
+              return {
+                id: n.id || n._id,
+                category: (isOrderNotif ? 'order' : rawCategory) as NotificationItem['category'],
+                title: n.title,
+                body: bodyText,
+                time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
+                unread: !n.isRead,
+                icon: n.icon || (isOrderNotif ? 'cube-outline' : 'notifications-outline'),
+                iconColor: '#EA580C',
+                iconBg: '#FFF7ED',
+                targetScreen: n.targetScreen || (isOrderNotif ? 'OrderDetail' : undefined),
+                targetParams: isOrderNotif
+                  ? {
+                      ...(n.targetParams || {}),
+                      orderId: resolvedOrderId,
+                      notificationBody: bodyText,
+                      notificationTitle: n.title,
+                    }
+                  : n.targetParams,
+              };
+            });
             set({ notifications: mapped });
 
             // CHỈ kích hoạt banner Heads-up DUY NHẤT khi vừa Đổi tài khoản / Đăng nhập (Account Switch)!

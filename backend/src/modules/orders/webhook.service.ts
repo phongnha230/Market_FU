@@ -327,14 +327,14 @@ export class ShippingWebhookService {
         title,
         body,
         type: 'ORDER',
-        targetUrl: '/orders',
+        targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
       }),
       notificationService.sendNotification({
         userId: order.sellerId,
         title,
         body,
         type: 'ORDER',
-        targetUrl: '/orders',
+        targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
       }),
     ]);
 

@@ -131,21 +131,52 @@ export const useKhoValue = (): KhoContextType => {
     socketMobileService.getSocket();
 
     const unsubNotif = socketMobileService.onNotification((n) => {
+      const resolvedOrderId = notificationMobileService.extractOrderIdFromNotification({
+        orderId: (n as any).orderId,
+        orderCode: (n as any).orderCode,
+        targetUrl: n.targetUrl,
+        body: n.body,
+        title: n.title,
+      });
+
+      if (n.type === 'ORDER' || resolvedOrderId) {
+        fetchOrders().catch(() => {});
+      }
+
+      const isOrderNotif = Boolean(n.type === 'ORDER' || resolvedOrderId || (n.targetUrl && n.targetUrl.includes('/orders')));
+
       useNotificationStore.getState().addNotification({
         title: n.title,
         body: n.body,
-        category: (n.type?.toLowerCase() as any) || 'system',
+        category: (n.type?.toLowerCase() as any) || (resolvedOrderId ? 'order' : 'system'),
         icon: 'notifications',
         iconColor: '#EA580C',
         iconBg: '#FFF7ED',
-        targetScreen: n.targetUrl ? 'OrderDetail' : undefined,
+        targetScreen: isOrderNotif ? 'OrderDetail' : undefined,
+        targetParams: isOrderNotif
+          ? {
+              orderId: resolvedOrderId,
+              notificationBody: n.body,
+              notificationTitle: n.title,
+            }
+          : undefined,
       });
 
       notificationMobileService.displayLocalPushNotification({
         title: n.title,
         body: n.body,
-        data: { targetUrl: n.targetUrl, type: n.type },
+        data: {
+          targetUrl: n.targetUrl,
+          type: n.type,
+          orderId: resolvedOrderId,
+          body: n.body,
+          title: n.title,
+        },
       });
+    });
+
+    const unsubOrderConfirmed = socketMobileService.onOrderConfirmed(() => {
+      fetchOrders().catch(() => {});
     });
 
     const unsubOrderPaid = socketMobileService.onOrderPaid((d: any) => {
@@ -332,6 +363,7 @@ export const useKhoValue = (): KhoContextType => {
       if (consentTimer) clearTimeout(consentTimer);
       unsubPushListeners();
       unsubNotif();
+      unsubOrderConfirmed();
       unsubOrderPaid();
       unsubNewOrder();
       unsubOrderComp();

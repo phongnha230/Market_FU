@@ -124,6 +124,20 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     item.payment?.totalAmount ?? item.totalAmount ?? item.amount ?? product.price ?? 0
   );
 
+  const isShip = Boolean(
+    item.orderType === 'SHIP_COD' ||
+    item.shipping?.partner ||
+    item.shipping?.shippingPartner ||
+    item.shipping?.trackingNumber ||
+    item.shipping?.trackingCode ||
+    item.shippingAddress ||
+    (item.deliveryMethod && item.deliveryMethod !== 'safe_point' && item.deliveryMethod !== 'MEETUP')
+  );
+  const resolvedOrderType: 'MEETUP' | 'SHIP_COD' = isShip ? 'SHIP_COD' : 'MEETUP';
+  const shippingInfo = item.shipping || {};
+  const trackingCode = shippingInfo.trackingCode || shippingInfo.trackingNumber || item.trackingCode;
+  const shippingPartner = shippingInfo.shippingPartner || shippingInfo.partner || item.shippingPartner || 'GHN';
+
   let status: OrderItem['status'] = 'PENDING_SAFEPOINT';
   const backendStatus = String(item.status || '').toUpperCase();
 
@@ -136,7 +150,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (backendStatus === 'PAID' || backendStatus === 'ESCROW_PAID') {
     status = 'ESCROW_PAID';
   } else if (backendStatus === 'SHIPPING' || backendStatus === 'HANDOVER_CONFIRMED') {
-    status = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? 'ESCROW_PAID' : 'HANDOVER_CONFIRMED';
+    status = resolvedOrderType === 'MEETUP' ? 'ESCROW_PAID' : 'HANDOVER_CONFIRMED';
   } else if (backendStatus === 'CANCELLED') {
     status = 'CANCELLED';
   } else {
@@ -158,11 +172,11 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (status === 'ESCROW_PAID') {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
-    statusLabel = (item.orderType === 'MEETUP' || item.type === 'safe-handoff') ? '🛡️ Chờ gặp bàn giao' : '🛡️ Đã ký quỹ Escrow';
+    statusLabel = resolvedOrderType === 'MEETUP' ? '🛡️ Chờ gặp bàn giao' : '🛡️ Đã ký quỹ Escrow';
   } else if (status === 'HANDOVER_CONFIRMED') {
-    statusColor = '#2563EB';
-    statusBg = '#EFF6FF';
-    statusLabel = '🚚 Đang vận chuyển';
+    statusColor = trackingCode ? '#2563EB' : '#EA580C';
+    statusBg = trackingCode ? '#EFF6FF' : '#FFF7ED';
+    statusLabel = trackingCode ? '🚚 Đang vận chuyển' : '📦 Người bán đang đóng gói';
   } else if (status === 'CANCELLED') {
     const cancelledBy = item.cancelledBy;
     const isDisputeRefund = cancelledBy === 'DISPUTE' || item.dispute?.status === 'RESOLVED' || item.dispute?.status === 'REFUNDED';
@@ -197,15 +211,6 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   const friendlyCampus = fromBackendCampus(rawBuyerCampus);
   const friendlySellerCampus = fromBackendCampus(product.campus || item.seller?.profile?.campus || 'HOL');
 
-  const isShip = Boolean(
-    item.orderType === 'SHIP_COD' ||
-    item.shipping?.partner ||
-    item.shipping?.trackingNumber ||
-    item.shippingAddress ||
-    (item.deliveryMethod && item.deliveryMethod !== 'safe_point' && item.deliveryMethod !== 'MEETUP')
-  );
-  const resolvedOrderType: 'MEETUP' | 'SHIP_COD' = isShip ? 'SHIP_COD' : 'MEETUP';
-
   let rawLocation =
     item.shipping?.shippingAddress ||
     item.meetupLocation ||
@@ -227,9 +232,6 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   }
 
   const resolvedTimeSlot = formatAppointmentSlot(item.appointmentTime, item.timeSlot);
-  const shippingInfo = item.shipping || {};
-  const trackingCode = shippingInfo.trackingCode || shippingInfo.trackingNumber || item.trackingCode;
-  const shippingPartner = shippingInfo.shippingPartner || shippingInfo.partner || item.shippingPartner || 'GHN';
 
   return {
     id: item.id || item._id,
@@ -387,7 +389,11 @@ export const orderMobileService = {
    * Xem chi tiết 1 đơn hàng
    */
   async getOrderDetail(id: string): Promise<OrderItem | null> {
-    const res = await apiClient.get<ApiResponse<any>>(`/orders/${id}`);
+    const cleanId = String(id || '').replace(/^#/, '').trim();
+    if (!cleanId || cleanId.toLowerCase() === 'orders') {
+      return null;
+    }
+    const res = await apiClient.get<ApiResponse<any>>(`/orders/${encodeURIComponent(cleanId)}`);
     if (res.data?.data) {
       return adaptBackendOrderToMobile(res.data.data);
     }

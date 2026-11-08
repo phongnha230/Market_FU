@@ -668,7 +668,7 @@ export class OrderService {
         title: 'Đơn đặt hàng mới',
         body: `Bạn có đơn hàng mới #${orderCode} cho món "${product.title}" (${orderType === 'MEETUP' ? 'Hẹn gặp Safe Handoff' : 'Giao Ship COD'})!`,
         type: 'ORDER',
-        targetUrl: '/orders',
+        targetUrl: `/orders?orderId=${newOrder.id}&orderCode=${orderCode}`,
       });
     } catch (notificationError) {
       console.error('Order was created but seller notification failed', { orderCode, error: notificationError });
@@ -1215,7 +1215,7 @@ export class OrderService {
           title: 'Đơn hàng đang vận chuyển',
           body: notifBody,
           type: 'ORDER',
-          targetUrl: '/orders',
+          targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
         });
       } else if (isTrackingCodeChanged) {
         const notifBody = `Mã vận đơn #${order.orderCode} đã được người bán cập nhật: ${finalTrackingCode} (${finalPartner}).`;
@@ -1224,7 +1224,7 @@ export class OrderService {
           title: 'Cập nhật mã vận đơn',
           body: notifBody,
           type: 'ORDER',
-          targetUrl: '/orders',
+          targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
         });
       }
 
@@ -1404,7 +1404,7 @@ export class OrderService {
           title: 'Đơn hàng đã bị hủy',
           body: `Đơn hàng #${order.orderCode} đã bị hủy. Lý do: ${reason}`,
           type: 'ORDER',
-          targetUrl: '/orders',
+          targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
         });
       } catch (notificationError) {
         console.error('Order was cancelled but notification failed', { orderCode: order.orderCode, error: notificationError });
@@ -1743,7 +1743,7 @@ export class OrderService {
           title: 'Đơn hàng hoàn tất & Giải ngân Escrow tự động',
           body: `Đơn hàng #${order.orderCode} đã qua 48h bao test. Khoản tiền thực nhận ${netPaidToSeller.toLocaleString('vi-VN')} đ (đã trừ 5% phí sàn: ${feeAmount.toLocaleString('vi-VN')} đ) trong ví Escrow đã được tự động giải ngân cho bạn!`,
           type: 'ORDER',
-          targetUrl: `/orders`,
+          targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
         });
 
         emitToUser(order.buyerId, 'order_completed', { orderId: order.id, orderCode: order.orderCode });
@@ -2189,7 +2189,7 @@ export class OrderService {
           ? `Người bán đã xác nhận đơn #${order.orderCode} và đang chuẩn bị hàng để gửi đơn vị vận chuyển GHN / CampusShip!`
           : `Người bán đã xác nhận đơn #${order.orderCode}. Hẹn gặp bạn tại ${order.meetupLocation || 'Safe-Point'} để bàn giao!`,
         type: 'ORDER',
-        targetUrl: '/orders',
+        targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
       });
     } catch (e) {
       console.error('Notification error on confirm order:', e);

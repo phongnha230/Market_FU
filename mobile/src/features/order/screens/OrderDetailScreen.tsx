@@ -18,7 +18,9 @@ import { getSafeAvatar } from '../../../lib/imageResolver';
 import { toBackendCampus } from '../../../lib/backendMappers';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
+import { useNotificationStore } from '../../../stores/notificationStore';
 import { orderMobileService } from '../../../services/orderMobileService';
+import { extractOrderIdFromNotification } from '../../../services/notificationMobileService';
 import paymentMobileService from '../../../services/paymentMobileService';
 import { socketMobileService } from '../../../services/socketMobileService';
 import { OrderStatusTimeline } from '../components/OrderStatusTimeline';
@@ -51,10 +53,69 @@ export const OrderDetailScreen: React.FC = () => {
   const [showReviewDetailModal, setShowReviewDetailModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const orderId = route.params?.orderId || '';
-  const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  const rawParamOrderId = useMemo(() => {
+    const directExtracted = extractOrderIdFromNotification({
+      orderId: route.params?.orderId,
+      orderCode: route.params?.orderCode,
+      body: route.params?.notificationBody,
+      title: route.params?.notificationTitle,
+    });
+    if (directExtracted) {
+      return directExtracted.replace(/^#/, '').trim();
+    }
+
+    // Dự phòng nếu thông báo FCM cũ trên thanh trạng thái không truyền orderId trong data
+    const notifs = useNotificationStore.getState().notifications || [];
+    for (const item of notifs) {
+      if (
+        item.category === 'order' ||
+        item.targetScreen === 'OrderDetail' ||
+        (item.body && item.body.includes('ORD-'))
+      ) {
+        const fromNotif = extractOrderIdFromNotification({
+          orderId: item.targetParams?.orderId,
+          body: item.body,
+          title: item.title,
+        });
+        if (fromNotif) {
+          return fromNotif.replace(/^#/, '').trim();
+        }
+      }
+    }
+    return '';
+  }, [
+    route.params?.orderId,
+    route.params?.orderCode,
+    route.params?.notificationBody,
+    route.params?.notificationTitle,
+  ]);
+
+  const matchedOrder = useMemo(() => {
+    if (!rawParamOrderId) {
+      return orders[0];
+    }
+    const normTarget = rawParamOrderId.replace(/^#/, '').trim().toUpperCase();
+    return orders.find((o) => {
+      const normId = String(o.id || '').replace(/^#/, '').trim().toUpperCase();
+      const normNum = String(o.orderNumber || '').replace(/^#/, '').trim().toUpperCase();
+      return normId === normTarget || normNum === normTarget;
+    });
+  }, [orders, rawParamOrderId]);
+
   const [fetchedOrder, setFetchedOrder] = useState<OrderItem | null>(null);
   const activeOrder = fetchedOrder || matchedOrder;
+  const orderId =
+    activeOrder?.id ||
+    rawParamOrderId ||
+    activeOrder?.orderNumber ||
+    '';
+  const displayOrderCode =
+    activeOrder?.orderNumber ||
+    (rawParamOrderId
+      ? rawParamOrderId.toUpperCase().startsWith('ORD-')
+        ? `#${rawParamOrderId.replace(/^#/, '')}`
+        : rawParamOrderId
+      : 'Đang tải...');
   const [payosCheckoutUrl, setPayosCheckoutUrl] = useState(matchedOrder?.paymentCheckoutUrl);
   const [sellerId, setSellerId] = useState(matchedOrder?.sellerId);
 
@@ -101,58 +162,101 @@ export const OrderDetailScreen: React.FC = () => {
   const [orderStatus, setOrderStatus] = useState<string>(initialStatus);
   const [isReviewed, setIsReviewed] = useState<boolean>(matchedOrder?.isReviewed ?? (route.params?.isReviewed || false));
 
+  // Đồng bộ trạng thái hiển thị ngay khi activeOrder (từ store hoặc API) thay đổi
+  useEffect(() => {
+    if (!activeOrder) return;
+    if (activeOrder.status === 'COMPLETED') setOrderStatus('completed');
+    else if (activeOrder.status === 'DELIVERED') setOrderStatus('delivered');
+    else if (activeOrder.status === 'HANDOVER_CONFIRMED') setOrderStatus('shipping');
+    else if (activeOrder.status === 'CANCELLED') setOrderStatus('cancelled');
+    else if (activeOrder.status === 'DISPUTED') setOrderStatus('disputed');
+    else if (activeOrder.status === 'PENDING_SAFEPOINT') setOrderStatus('pending');
+    else if (activeOrder.status === 'ESCROW_PAID') setOrderStatus('escrow_holding');
+    if (activeOrder.paymentCheckoutUrl) setPayosCheckoutUrl(activeOrder.paymentCheckoutUrl);
+    if (activeOrder.sellerId) setSellerId(activeOrder.sellerId);
+    if (activeOrder.isReviewed) setIsReviewed(true);
+  }, [activeOrder]);
+
   useEffect(() => {
     let isMounted = true;
-    if (orderId) {
+    setFetchedOrder(null);
+
+    const targetLookupId = rawParamOrderId || matchedOrder?.id || matchedOrder?.orderNumber || '';
+    if (targetLookupId) {
       orderMobileService
-        .getOrderDetail(orderId)
+        .getOrderDetail(targetLookupId)
         .then((order) => {
           if (!isMounted || !order) return;
           setFetchedOrder(order);
-          if (order.status === 'COMPLETED') setOrderStatus('completed');
-          else if (order.status === 'DELIVERED') setOrderStatus('delivered');
-          else if (order.status === 'HANDOVER_CONFIRMED') setOrderStatus('shipping');
-          else if (order.status === 'CANCELLED') setOrderStatus('cancelled');
-          else if (order.status === 'DISPUTED') setOrderStatus('disputed');
-          else if (order.status === 'PENDING_SAFEPOINT') setOrderStatus('pending');
-          else setOrderStatus('escrow_holding');
-          setPayosCheckoutUrl(order.paymentCheckoutUrl);
-          setSellerId(order.sellerId);
-          if (order.isReviewed) setIsReviewed(true);
+        })
+        .catch(() => {});
+    } else {
+      // Nếu mở từ thông báo cũ không chứa mã đơn, tải danh sách đơn mới nhất từ Backend
+      orderMobileService
+        .getOrders({ page: 1, limit: 10 })
+        .then((latestList) => {
+          if (!isMounted || !Array.isArray(latestList) || latestList.length === 0) return;
+          setFetchedOrder(latestList[0]);
         })
         .catch(() => {});
     }
 
+    const matchesCurrentOrder = (d: any) => {
+      const evId = String(d?.orderId || '').replace(/^#/, '').trim().toUpperCase();
+      const evCode = String(d?.orderCode || '').replace(/^#/, '').trim().toUpperCase();
+      const curId = String(orderId || '').replace(/^#/, '').trim().toUpperCase();
+      const curCode = String(activeOrder?.orderNumber || rawParamOrderId || '').replace(/^#/, '').trim().toUpperCase();
+      return (
+        (evId && (evId === curId || evId === curCode)) ||
+        (evCode && (evCode === curId || evCode === curCode))
+      );
+    };
+
     const unsubPaid = socketMobileService.onOrderPaid((d) => {
-      if (d.orderId === orderId || d.orderCode === orderId) {
+      if (matchesCurrentOrder(d)) {
         setOrderStatus('escrow_holding');
         updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã thanh toán Escrow', '#EA580C', '#FFF7ED');
       }
     });
 
     const unsubConfirmed = socketMobileService.onOrderConfirmed((d) => {
-      if (d.orderId === orderId || d.orderCode === orderId) {
-        setOrderStatus('escrow_holding');
-        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Chờ bàn giao', '#059669', '#ECFDF5');
+      if (matchesCurrentOrder(d)) {
+        const isCurrentInterCampus =
+          activeOrder?.orderType === 'SHIP_COD' ||
+          matchedOrder?.orderType === 'SHIP_COD' ||
+          Boolean(route.params?.isDifferentCampus);
+        if (isCurrentInterCampus) {
+          setOrderStatus('shipping');
+          updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '📦 Người bán đang đóng gói', '#EA580C', '#FFF7ED');
+        } else {
+          setOrderStatus('escrow_holding');
+          updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Chờ gặp bàn giao', '#059669', '#ECFDF5');
+        }
+        orderMobileService
+          .getOrderDetail(d?.orderId || d?.orderCode || orderId)
+          .then((updated) => {
+            if (isMounted && updated) setFetchedOrder(updated);
+          })
+          .catch(() => {});
       }
     });
 
     const unsubComp = socketMobileService.onOrderCompleted((d) => {
-      if (d.orderId === orderId || d.orderCode === orderId) {
+      if (matchesCurrentOrder(d)) {
         setOrderStatus('completed');
         updateOrderStatus(orderId, 'COMPLETED', '✅ Giao dịch hoàn tất', '#059669', '#DCFCE7');
       }
     });
 
     const unsubCancel = socketMobileService.onOrderCancelled((d) => {
-      if (d.orderId === orderId || d.orderCode === orderId) {
+      if (matchesCurrentOrder(d)) {
         setOrderStatus('cancelled');
         updateOrderStatus(orderId, 'CANCELLED', '❌ Đơn hàng đã bị hủy', '#DC2626', '#FEF2F2');
       }
     });
 
     const unsubShipping = socketMobileService.onOrderShippingUpdated((d) => {
-      if (d.orderId === orderId || d.orderCode === orderId) {
+      if (matchesCurrentOrder(d)) {
         if (d.status === 'DELIVERED') {
           setOrderStatus('delivered');
           updateOrderStatus(orderId, 'DELIVERED', '🛵 Đã tới KTX', '#10B981', '#ECFDF5');
@@ -160,6 +264,12 @@ export const OrderDetailScreen: React.FC = () => {
           setOrderStatus('shipping');
           updateOrderStatus(orderId, 'HANDOVER_CONFIRMED', '🚚 Đang vận chuyển', '#2563EB', '#EFF6FF');
         }
+        orderMobileService
+          .getOrderDetail(d?.orderId || d?.orderCode || orderId)
+          .then((updated) => {
+            if (isMounted && updated) setFetchedOrder(updated);
+          })
+          .catch(() => {});
       }
     });
 
@@ -171,7 +281,7 @@ export const OrderDetailScreen: React.FC = () => {
       unsubCancel();
       unsubShipping();
     };
-  }, [orderId, updateOrderStatus]);
+  }, [rawParamOrderId, orderId, updateOrderStatus]);
 
   const safePoint = activeOrder?.safePoint || route.params?.safePoint || 'Sảnh Tòa Alpha (Trạm Camera 24/7)';
   const timeSlot = activeOrder?.timeSlot || route.params?.timeSlot || '16:30 - 17:15 (Chiều ca 4) • Hôm nay';
@@ -477,7 +587,7 @@ export const OrderDetailScreen: React.FC = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Chi tiết đơn hàng</Text>
-          <Text style={styles.headerOrderId}>{orderId}</Text>
+          <Text style={styles.headerOrderId}>{displayOrderCode}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={handleGoHome} hitSlop={HIT_SLOP_8}>
