@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useProductStore, ProductItem } from '../../../stores/productStore';
@@ -68,9 +68,11 @@ export const useEditListingController = () => {
   const { products, updateProduct, deleteProduct } = useProductStore();
   const { user } = useUserStore();
 
+  const [remoteProduct, setRemoteProduct] = useState<ProductItem | null>(null);
+
   const currentProduct = useMemo(
-    () => products.find((p) => p.id === productId) || passedProduct || products[0],
-    [products, productId, passedProduct]
+    () => remoteProduct || products.find((p) => p.id === productId) || passedProduct || products[0],
+    [remoteProduct, products, productId, passedProduct]
   );
 
   const sellerCampus = useMemo(
@@ -83,6 +85,20 @@ export const useEditListingController = () => {
   const [formData, setFormData] = useState<EditListingFormData>(() =>
     getInitialFormData(currentProduct)
   );
+
+  useEffect(() => {
+    const targetId = productId || passedProduct?.id;
+    if (!targetId) return;
+    productMobileService
+      .getProductById(targetId)
+      .then((fresh) => {
+        if (fresh) {
+          setRemoteProduct(fresh);
+          setFormData(getInitialFormData(fresh));
+        }
+      })
+      .catch(() => {});
+  }, [productId, passedProduct?.id]);
 
   const updateField = useCallback(<K extends keyof EditListingFormData>(
     field: K,
@@ -97,12 +113,10 @@ export const useEditListingController = () => {
 
     try {
       let savedProduct = await productMobileService.updateProduct(currentProduct.id, {
-        title: formData.title.trim(),
+        ...(isApproved ? {} : { title: formData.title.trim(), category: formData.category, campus: sellerCampus }),
         price,
-        category: formData.category,
         condition: formData.condition,
         safePoint: formData.safePoint,
-        campus: sellerCampus,
         hashtags: formData.hashtags,
         description: currentProduct.description,
       });
