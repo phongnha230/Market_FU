@@ -102,9 +102,22 @@ export const AiPhotoAutoFillBanner: React.FC<AiPhotoAutoFillBannerProps> = ({
     } catch (err: any) {
       setIsScanning(false);
       setFilledSuccess(false);
+      const rawMsg =
+        err?.message ||
+        'Không thể quét ảnh bằng AI. Vui lòng kiểm tra lại kết nối mạng hoặc tự điền thông tin món đồ.';
+      const errCode = err?.response?.data?.error?.code || '';
+      const isProhibited =
+        errCode === 'AI_PROHIBITED_ITEM_DETECTED' || rawMsg.includes('vi phạm quy chế');
+      const isInvalidImage =
+        errCode === 'AI_INVALID_ITEM_IMAGE' || rawMsg.includes('Ảnh không hợp lệ');
+
       Alert.alert(
-        'Không thể nhận diện AI',
-        err?.message || 'Không thể quét ảnh bằng AI. Vui lòng kiểm tra lại kết nối mạng hoặc tự điền thông tin món đồ.'
+        isProhibited
+          ? '🚫 Hình ảnh vi phạm nội quy'
+          : isInvalidImage
+          ? '⚠️ Ảnh không hợp lệ để đăng bán'
+          : 'Không thể nhận diện AI',
+        rawMsg
       );
     }
   };

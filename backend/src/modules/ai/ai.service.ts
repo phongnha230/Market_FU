@@ -82,16 +82,33 @@ export class AiService {
 Bạn là chuyên gia thẩm định và hỗ trợ sinh viên Đại học FPT thanh lý đồ cũ trên sàn Campus Marketplace.
 Hãy phân tích hình ảnh sản phẩm được tải lên.
 
-QUY TẮC AN TOÀN & KIỂM DUYỆT BẮT BUỘC:
-Nếu hình ảnh chứa đồ cấm tại ĐH FPT (thuốc lá điện tử, vape, pod, cần sa, ma túy, vũ khí, dao bấm, súng đạn, pháo nổ, tài liệu thi cử/thi hộ, đồ khiêu dâm 18+, dụng cụ cờ bạc), trả về JSON:
+QUY TẮC 1 - AN TOÀN & KIỂM DUYỆT HÀNG CẤM BẮT BUỘC:
+Nếu hình ảnh chứa đồ cấm tại ĐH FPT (thuốc lá điện tử, vape, pod, cần sa, ma túy, chất kích thích, vũ khí, dao bấm, súng đạn, pháo nổ, tài liệu gian lận thi cử/thi hộ, đồ khiêu dâm 18+, dụng cụ cờ bạc), trả về DUY NHẤT JSON:
 {
   "isProhibited": true,
+  "isInvalidItem": false,
   "prohibitedReason": "Lý do ngắn gọn tại sao món đồ vi phạm quy chế học đường ĐH FPT"
 }
 
-Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT một chuỗi JSON hợp lệ (tuyệt đối KHÔNG kèm markdown \`\`\`json, không kèm giải thích thừa) theo schema:
+QUY TẮC 2 - CHẶN ẢNH TÀO LAO / ẢNH XÀM / KHÔNG PHẢI ĐỒ THANH LÝ:
+Nếu hình ảnh thuộc một trong các trường hợp không phải vật phẩm thanh lý thực tế của sinh viên:
+- Ảnh meme chế, sticker, nhân vật anime/hoạt hình/game ảo, tranh vẽ nháp vô nghĩa.
+- Ảnh selfie/chân dung người, ảnh tập thể, bộ phận cơ thể người mà không có món đồ cụ thể nào cần bán.
+- Ảnh thú cưng/động vật sống (chó, mèo, chim, cá...), đồ ăn thức uống đang ăn dở, rác thải.
+- Ảnh chụp màn hình điện thoại/máy tính (đoạn chat, code, bảng điểm, mạng xã hội, giao diện app/web) không phải ảnh chụp món đồ vật lý.
+- Ảnh phong cảnh, bầu trời, sân trường, đường phố, hoặc ảnh đen thui, trắng xóa, quá mờ/nhòe không nhận diện được vật phẩm.
+Hãy trả về DUY NHẤT JSON:
 {
   "isProhibited": false,
+  "isInvalidItem": true,
+  "invalidReason": "Nêu rõ ảnh này đang chụp cái gì (ví dụ: ảnh meme hài hước / ảnh chân dung người / ảnh chụp màn hình / ảnh thú cưng / ảnh quá mờ tối) và nhắc người dùng tải lên hình ảnh chụp thật của món đồ cần bán"
+}
+
+QUY TẮC 3 - MÓN ĐỒ HỌC TẬP & SINH HOẠT HỢP LỆ:
+Nếu đúng là hình chụp thực tế của một món đồ học tập, điện tử, quần áo, võ phục, đồ phòng trọ/KTX hoặc phương tiện hợp lệ cho sinh viên, trả về DUY NHẤT một chuỗi JSON hợp lệ (tuyệt đối KHÔNG kèm markdown \`\`\`json, không kèm giải thích thừa) theo schema:
+{
+  "isProhibited": false,
+  "isInvalidItem": false,
   "title": "Tên sản phẩm súc tích, hấp dẫn dưới 70 ký tự (Ví dụ: Ấm siêu tốc Sunhouse 1.8L)",
   "category": "DORM_ITEM", // Bắt buộc là 1 trong các giá trị: "DORM_ITEM", "BOOKS", "ELECTRONICS", "VEHICLE", "CLOTHING", "OTHER"
   "condition": "USED_GOOD", // Bắt buộc là 1 trong: "NEW_100", "LIKE_NEW_99", "USED_GOOD", "USED_FAIR"
@@ -120,6 +137,14 @@ Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT 
           );
         }
 
+        if (parsed.isInvalidItem) {
+          throw new AppError(
+            `Ảnh không hợp lệ để đăng bán: ${parsed.invalidReason || 'AI không tìm thấy món đồ thanh lý thực tế nào trong hình ảnh này.'}. Vui lòng chụp rõ nét món đồ thật bạn muốn bán!`,
+            400,
+            'AI_INVALID_ITEM_IMAGE'
+          );
+        }
+
         const candidateText = `${parsed.title || ''} ${parsed.description || ''}`;
         const moderation = checkContentModeration(candidateText);
         if (!moderation.isClean && moderation.severity === 'BLOCK') {
@@ -130,8 +155,16 @@ Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT 
           );
         }
 
+        if (!parsed.title || String(parsed.title).trim() === '') {
+          throw new AppError(
+            'Ảnh không hợp lệ: AI không thể xác định được món đồ cần bán trong hình ảnh này. Vui lòng chụp rõ nét món đồ thật!',
+            400,
+            'AI_INVALID_ITEM_IMAGE'
+          );
+        }
+
         return {
-          title: parsed.title || 'Món đồ sinh viên tiện ích',
+          title: String(parsed.title).trim(),
           category: parsed.category || 'DORM_ITEM',
           condition: parsed.condition || 'USED_GOOD',
           suggestedPrice: Number(parsed.suggestedPrice) || 100000,
@@ -140,13 +173,11 @@ Nếu là món đồ học tập, sinh hoạt hợp lệ, trả về DUY NHẤT 
       } catch (parseErr: any) {
         if (parseErr instanceof AppError) throw parseErr;
 
-        return {
-          title: 'Sản phẩm thanh lý sinh viên',
-          category: 'DORM_ITEM',
-          condition: 'USED_GOOD',
-          suggestedPrice: 150000,
-          description: responseText.slice(0, 200),
-        };
+        throw new AppError(
+          'AI không thể nhận diện được món đồ hợp lệ từ hình ảnh này. Vui lòng chọn ảnh chụp rõ nét món đồ thực tế cần bán.',
+          400,
+          'AI_INVALID_ITEM_IMAGE'
+        );
       }
     } catch (error: any) {
       if (error instanceof AppError) throw error;
