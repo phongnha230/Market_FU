@@ -298,7 +298,8 @@ export const useKhoValue = (): KhoContextType => {
       if (d?.conversationId && activeConvId && activeConvId === d.conversationId) {
         return;
       }
-      const title = d?.senderName || 'Tin nhắn mới';
+      const senderName = (d?.senderName || '').replace(/^💬\s*/, '').trim();
+      const title = senderName ? `💬 ${senderName}` : '💬 Tin nhắn mới';
       const body = d?.text || 'Bạn có tin nhắn mới từ người mua/bán.';
       const avatarUrl = d?.senderAvatar || d?.avatarUrl || undefined;
       useNotificationStore.getState().addNotification({
@@ -312,9 +313,10 @@ export const useKhoValue = (): KhoContextType => {
         targetScreen: 'ChatDetail',
         targetParams: {
           conversationId: d?.conversationId,
+          productId: d?.productId,
           partner: {
-            id: d?.conversationId,
-            name: d?.senderName,
+            id: d?.senderId || d?.conversationId,
+            name: senderName || 'Sinh viên FPT',
             avatar: avatarUrl,
           },
         },
@@ -322,7 +324,15 @@ export const useKhoValue = (): KhoContextType => {
       notificationMobileService.displayLocalPushNotification({
         title,
         body,
-        data: { conversationId: d?.conversationId, type: 'CHAT', senderName: d?.senderName, senderAvatar: avatarUrl },
+        channelId: notificationMobileService.NOTIFICATION_CHANNELS.CHAT,
+        data: {
+          conversationId: d?.conversationId,
+          productId: d?.productId,
+          senderId: d?.senderId,
+          type: 'CHAT',
+          senderName: senderName || d?.senderName,
+          senderAvatar: avatarUrl,
+        },
       });
     });
 

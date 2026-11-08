@@ -21,13 +21,29 @@ const Notifications = getNotificationsModule();
 if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,  // Hiển thị banner native của hệ điều hành
-        shouldPlaySound: true,  // Phát chuông âm thanh êm dịu
-        shouldSetBadge: true,   // Cập nhật số badge trên icon
-        shouldShowBanner: true, // Cho phép hiển thị heads-up banner
-        shouldShowList: true,   // Lưu trữ vào danh sách kéo xuống của Android/iOS
-      }),
+      handleNotification: async (notification: any) => {
+        try {
+          const data = notification?.request?.content?.data || {};
+          const { useChatStore } = require('../stores/chatStore');
+          const activeConvId = useChatStore.getState?.()?.activeConversationId;
+          if (data?.conversationId && activeConvId && String(activeConvId) === String(data.conversationId)) {
+            return {
+              shouldShowAlert: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+            };
+          }
+        } catch {}
+        return {
+          shouldShowAlert: true,  // Hiển thị banner native của hệ điều hành
+          shouldPlaySound: true,  // Phát chuông âm thanh êm dịu
+          shouldSetBadge: true,   // Cập nhật số badge trên icon
+          shouldShowBanner: true, // Cho phép hiển thị heads-up banner
+          shouldShowList: true,   // Lưu trữ vào danh sách kéo xuống của Android/iOS
+        };
+      },
     });
   } catch {}
 }
@@ -49,10 +65,11 @@ export async function displayLocalPushNotification(params: {
   data?: any;
   channelId?: string;
 }) {
-  const dedupKey = `${(params.title || '').trim()}_${(params.body || '').trim()}`;
+  const normalizedTitle = (params.title || '').replace(/^💬\s*/, '').trim();
+  const dedupKey = `${normalizedTitle}_${(params.body || '').trim()}`;
   const now = Date.now();
   const lastTime = recentPushTimestamps.get(dedupKey);
-  if (lastTime && now - lastTime < 4000) {
+  if (lastTime && now - lastTime < 1500) {
     return;
   }
   recentPushTimestamps.set(dedupKey, now);
@@ -63,16 +80,24 @@ export async function displayLocalPushNotification(params: {
 
   if (Notifications && typeof Notifications.scheduleNotificationAsync === 'function') {
     try {
-      const channelId = params.channelId || NOTIFICATION_CHANNELS.SYSTEM;
+      const dataType = String(params.data?.type || '').toUpperCase();
+      const resolvedChannelId =
+        params.channelId ||
+        (dataType === 'CHAT'
+          ? NOTIFICATION_CHANNELS.CHAT
+          : dataType === 'ORDER'
+          ? NOTIFICATION_CHANNELS.ORDERS
+          : NOTIFICATION_CHANNELS.SYSTEM);
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: params.title,
           body: params.body,
-          data: params.data || {},
+          data: { ...(params.data || {}), localScheduled: true },
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority?.MAX ?? 'max',
           vibrate: [0, 250, 250, 250],
-          ...(Platform.OS === 'android' ? { channelId } : {}),
+          ...(Platform.OS === 'android' ? { channelId: resolvedChannelId } : {}),
         },
         trigger: null,
       });
@@ -101,11 +126,11 @@ export async function setupAndroidNotificationChannels() {
         showBadge: true,
       });
 
-      // Kênh 2: Tin nhắn Chat chợ sinh viên
+      // Kênh 2: Tin nhắn Chat chợ sinh viên (MAX importance để bung Heads-up Banner thả từ đỉnh màn hình xuống)
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.CHAT, {
         name: 'Tin nhắn Chợ sinh viên',
         description: 'Tin nhắn trao đổi, trả giá giáo trình và đồ dùng phòng trọ',
-        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+        importance: Notifications.AndroidImportance?.MAX ?? 5,
         vibrationPattern: [0, 200, 100, 200],
         lightColor: '#3B82F6',
         sound: 'default',
@@ -113,13 +138,16 @@ export async function setupAndroidNotificationChannels() {
         showBadge: true,
       });
 
-      // Kênh 3: Hệ thống, FPT Coin & KYC
+      // Kênh 3: Hệ thống, FPT Coin & KYC (MAX importance để hiển thị Heads-up Banner)
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.SYSTEM, {
         name: 'Hệ thống, Điểm danh & KYC',
         description: 'Thông báo duyệt hồ sơ sinh viên, thưởng FPT Coin và bảo trì hệ thống',
-        importance: Notifications.AndroidImportance?.DEFAULT ?? 3,
+        importance: Notifications.AndroidImportance?.MAX ?? 5,
+        vibrationPattern: [0, 250, 250, 250],
         lightColor: '#10B981',
         sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
       });
     } catch (e: any) {
       // Bỏ qua lỗi cấu hình channel trên môi trường Expo Go / Emulators
@@ -395,13 +423,15 @@ export function resolveNotificationDestination(input: {
   }
 
   if (input.type === 'CHAT' || input.conversationId) {
+    const cleanSenderName = (input.senderName || input.title || '').replace(/^💬\s*/, '').trim();
     return {
       targetScreen: 'ChatDetail',
       targetParams: {
         conversationId: input.conversationId,
+        productId: input.productId,
         partner: {
           id: input.senderId || input.conversationId,
-          name: input.senderName || input.title,
+          name: cleanSenderName || 'Sinh viên FPT',
           avatar: input.senderAvatar,
         },
       },
@@ -458,7 +488,14 @@ export function setupNotificationListeners() {
       notificationListener = Notifications.addNotificationReceivedListener((notification: any) => {
         const content = notification?.request?.content;
         const data = content?.data || {};
+        if (data?.localScheduled) {
+          return;
+        }
         try {
+          const normalizedTitle = (content?.title || '').replace(/^💬\s*/, '').trim();
+          const dedupKey = `${normalizedTitle}_${(content?.body || '').trim()}`;
+          recentPushTimestamps.set(dedupKey, Date.now());
+
           const { useChatStore } = require('../stores/chatStore');
           const activeConvId = useChatStore.getState?.()?.activeConversationId;
           // Nếu đang ở trực tiếp trong cuộc hội thoại này -> Không bật banner che màn hình
@@ -624,6 +661,7 @@ export async function markAllNotificationsAsRead(): Promise<any> {
 }
 
 export const notificationMobileService = {
+  NOTIFICATION_CHANNELS,
   extractOrderIdFromNotification,
   extractProductIdFromNotification,
   resolveNotificationDestination,

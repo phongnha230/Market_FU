@@ -17,6 +17,7 @@ export interface NotificationItem {
   senderName?: string;
   targetScreen?: string;
   targetParams?: any;
+  createdAtMs?: number;
 }
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
@@ -175,10 +176,17 @@ export const useNotificationStore = create<NotificationState>()(
       },
 
       addNotification: (item) => {
+        const now = Date.now();
         const currentNotifications = get().notifications;
-        // Chống thông báo trùng lặp (Deduplication): Nếu trong 5 thông báo gần nhất đã có tin nhắn cùng title & body
-        const isDuplicate = currentNotifications.slice(0, 5).some(
-          (n) => n.title === item.title && n.body === item.body
+        const normalizeTitle = (t?: string) => (t || '').replace(/^💬\s*/, '').trim();
+        // Chống trùng lặp gói tin kép (Socket + FCM đến cùng lúc trong vòng 2 giây)
+        // Không chặn nếu người dùng nhắn lại tin nhắn giống nhau (vd: "alo") sau 2 giây!
+        const isDuplicate = currentNotifications.slice(0, 3).some(
+          (n) =>
+            normalizeTitle(n.title) === normalizeTitle(item.title) &&
+            (n.body || '').trim() === (item.body || '').trim() &&
+            typeof n.createdAtMs === 'number' &&
+            now - n.createdAtMs < 2000
         );
         if (isDuplicate) {
           return;
@@ -186,9 +194,10 @@ export const useNotificationStore = create<NotificationState>()(
 
         const newNotif: NotificationItem = {
           ...item,
-          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: `notif_${now}_${Math.random().toString(36).substring(2, 6)}`,
           time: 'Vừa xong',
           unread: true,
+          createdAtMs: now,
         };
         set((state) => ({
           notifications: [newNotif, ...state.notifications],

@@ -107,6 +107,7 @@ export const ChatDetailScreen: React.FC = () => {
   }, [routePartner]);
 
   const [fetchedProductMeta, setFetchedProductMeta] = useState<any>(null);
+  const [syncedConv, setSyncedConv] = useState<any>(null);
   const [conversationId, setConversationId] = useState<string | null>(initialConvId || null);
 
   const storedConv = useMemo(() => {
@@ -114,7 +115,7 @@ export const ChatDetailScreen: React.FC = () => {
     return cid ? useChatStore.getState().getConversationById(cid) : undefined;
   }, [conversationId, initialConvId]);
 
-  // Tự động đồng bộ tên & avatar đối tác từ store/API khi vào phòng chat từ Push Notification
+  // Tự động đồng bộ tên, avatar đối tác & thông tin sản phẩm từ store/API khi vào phòng chat từ Push Notification
   useEffect(() => {
     const cid = conversationId || initialConvId;
     if (!cid) return;
@@ -122,25 +123,31 @@ export const ChatDetailScreen: React.FC = () => {
     const syncPartnerInfo = async () => {
       let conv: any = useChatStore.getState().getConversationById(cid);
       const convPartnerName = conv?.partnerName || conv?.participantName;
-      if (!conv || !convPartnerName || convPartnerName === 'Sinh viên FPT') {
+      if (!conv || !convPartnerName || convPartnerName === 'Sinh viên FPT' || !conv?.productId) {
         try {
           const list = await chatMobileService.getConversations();
-          conv = list.find((c: any) => c.id === cid);
+          conv = list.find((c: any) => c.id === cid) || conv;
         } catch (_) {}
       }
 
-      const finalPartnerName = conv?.partnerName || conv?.participantName;
+      if (conv) {
+        setSyncedConv(conv);
+      }
+
+      const finalPartnerName = (conv?.partnerName || conv?.participantName || '').replace(/^💬\s*/, '').trim();
       const finalPartnerAvatar = conv?.partnerAvatar || conv?.participantAvatar;
       const finalPartnerId = conv?.partnerId || conv?.participantId;
 
       if (conv && finalPartnerName) {
         setPartner((prev) => {
+          const cleanPrev = (prev.name || '').replace(/^💬\s*/, '').trim();
           const isPlaceholder =
-            !prev.name ||
-            prev.name === 'Người bán FPT' ||
-            prev.name === 'Người mua FPT' ||
-            prev.name === 'Sinh viên FPT' ||
-            prev.name === 'u-partner';
+            !cleanPrev ||
+            cleanPrev === 'Người bán FPT' ||
+            cleanPrev === 'Người mua FPT' ||
+            cleanPrev === 'Sinh viên FPT' ||
+            cleanPrev === 'Tin nhắn mới' ||
+            cleanPrev === 'u-partner';
 
           if (isPlaceholder || !routePartner?.name) {
             return {
@@ -150,7 +157,10 @@ export const ChatDetailScreen: React.FC = () => {
               avatar: getSafeAvatar(finalPartnerAvatar || prev.avatar, finalPartnerName),
             };
           }
-          return prev;
+          return {
+            ...prev,
+            name: cleanPrev,
+          };
         });
 
         if (conv.buyerId && currentUserId && currentUserId !== 'me') {
@@ -162,18 +172,46 @@ export const ChatDetailScreen: React.FC = () => {
     syncPartnerInfo();
   }, [conversationId, initialConvId, currentUserId, routePartner?.name]);
 
+  const effectiveConv = storedConv || syncedConv;
+
   const product = useMemo(() => {
-    const base = routeProduct || (storedConv && storedConv.productId ? {
-      id: storedConv.productId,
-      title: storedConv.productTitle || 'Sản phẩm',
-      price: typeof storedConv.productPrice === 'number' && storedConv.productPrice > 0
-        ? `${storedConv.productPrice.toLocaleString('vi-VN')}đ`
-        : 'Thỏa thuận',
-      originalPrice: typeof storedConv.productPrice === 'number' && storedConv.productPrice > 0 ? storedConv.productPrice : undefined,
-      image: storedConv.productImage,
-      campus: storedConv.productCampus,
-      sellerCampus: storedConv.productCampus,
-    } : null);
+    const base =
+      routeProduct ||
+      (effectiveConv && effectiveConv.productId
+        ? {
+            id: effectiveConv.productId,
+            title: effectiveConv.productTitle || fetchedProductMeta?.title || 'Sản phẩm',
+            price:
+              typeof effectiveConv.productPrice === 'number' && effectiveConv.productPrice > 0
+                ? `${effectiveConv.productPrice.toLocaleString('vi-VN')}đ`
+                : fetchedProductMeta?.price
+                ? `${Number(fetchedProductMeta.price).toLocaleString('vi-VN')}đ`
+                : 'Thỏa thuận',
+            originalPrice:
+              typeof effectiveConv.productPrice === 'number' && effectiveConv.productPrice > 0
+                ? effectiveConv.productPrice
+                : fetchedProductMeta?.price,
+            image: effectiveConv.productImage || fetchedProductMeta?.image,
+            campus: effectiveConv.productCampus || fetchedProductMeta?.campus,
+            sellerCampus: effectiveConv.productCampus || fetchedProductMeta?.campus,
+          }
+        : fetchedProductMeta && fetchedProductMeta.id
+        ? {
+            id: fetchedProductMeta.id,
+            title: fetchedProductMeta.title || 'Sản phẩm',
+            price:
+              typeof fetchedProductMeta.price === 'number' && fetchedProductMeta.price > 0
+                ? `${fetchedProductMeta.price.toLocaleString('vi-VN')}đ`
+                : String(fetchedProductMeta.price || 'Thỏa thuận'),
+            originalPrice:
+              typeof fetchedProductMeta.price === 'number' && fetchedProductMeta.price > 0
+                ? fetchedProductMeta.price
+                : undefined,
+            image: fetchedProductMeta.image,
+            campus: fetchedProductMeta.campus,
+            sellerCampus: fetchedProductMeta.sellerCampus || fetchedProductMeta.campus,
+          }
+        : null);
 
     if (!base) {
       return null;
@@ -198,12 +236,12 @@ export const ChatDetailScreen: React.FC = () => {
       sellerCohort: base.sellerCohort || fetchedProductMeta?.sellerCohort || partner.cohort,
       sellerId: base.sellerId || fetchedProductMeta?.sellerId || partner.id,
     };
-  }, [routeProduct, storedConv, fetchedProductMeta, partner.name, partner.cohort, partner.id]);
+  }, [routeProduct, effectiveConv, fetchedProductMeta, partner.name, partner.cohort, partner.id]);
 
   useEffect(() => {
-    const prodId = product?.id || routeProduct?.id;
+    const prodId = product?.id || routeProduct?.id || route.params?.productId || effectiveConv?.productId;
     if (!prodId) return;
-    if (product?.campus && typeof product?.originalPrice === 'number') return;
+    if (product?.campus && typeof product?.originalPrice === 'number' && product?.title && product.title !== 'Sản phẩm') return;
 
     let active = true;
     productMobileService
@@ -217,7 +255,7 @@ export const ChatDetailScreen: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [product?.id, product?.campus, product?.originalPrice, routeProduct?.id]);
+  }, [product?.id, product?.campus, product?.originalPrice, product?.title, routeProduct?.id, route.params?.productId, effectiveConv?.productId]);
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -384,7 +422,7 @@ export const ChatDetailScreen: React.FC = () => {
                 imageUrl: m.imageUrl,
                 time: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
                 offerData: m.offerPrice ? {
-                  originalPrice: product.originalPrice || (typeof product.price === 'number' ? product.price : 500000),
+                  originalPrice: product?.originalPrice || (typeof product?.price === 'number' ? product.price : 500000),
                   offeredPrice: m.offerPrice,
                   status: offerStatus,
                 } : undefined,
@@ -731,7 +769,7 @@ export const ChatDetailScreen: React.FC = () => {
       unsubMsgUpdated();
       unsubMsgDeleted();
     };
-  }, [conversationId, currentUserId, product.price]);
+  }, [conversationId, currentUserId, product?.price]);
 
   // If navigated with initial offer from MakeOfferModal
   useEffect(() => {
@@ -746,7 +784,7 @@ export const ChatDetailScreen: React.FC = () => {
         text: initialOffer.message || `Đề xuất giá mới: ${initialOffer.offeredPrice.toLocaleString('vi-VN')}đ`,
         time: 'Vừa xong',
         offerData: {
-          originalPrice: initialOffer.originalPrice || (typeof product.price === 'number' ? product.price : 500000),
+          originalPrice: initialOffer.originalPrice || (typeof product?.price === 'number' ? product.price : 500000),
           offeredPrice: initialOffer.offeredPrice || 430000,
           status: 'pending',
         },
@@ -775,7 +813,7 @@ export const ChatDetailScreen: React.FC = () => {
           console.log('⚠️ [sendOfferPrice error]:', err?.message);
         });
     }
-  }, [initialOffer, conversationId, product.price]);
+  }, [initialOffer, conversationId, product?.price]);
 
   const handleSendMessage = useCallback((textToSend?: string) => {
     if (!isAuthenticated) {

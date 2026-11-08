@@ -475,6 +475,7 @@ export class ChatService {
     emitToUser(recipientId, 'new_message_notification', {
       conversationId,
       productId: conversation.productId,
+      senderId: userId,
       senderName,
       senderAvatar,
       text: summaryText,
@@ -497,34 +498,29 @@ export class ChatService {
 
     // 2. Chỉ gửi Push Notification khi đối tác KHÔNG ở trong phòng chat
     if (!isRecipientActiveInRoom) {
-      // Áp dụng Debounce 10 giây chống spam rung/chuông dồn dập
+      // Áp dụng Debounce 2 giây chống flood liên hoàn nhưng vẫn đảm bảo tin nhắn lẻ ("alo") luôn nổ FCM Push
       const debounceKey = `chat_push_debounce:${conversationId}:${recipientId}`;
+      const pushTitle = `💬 ${senderName}`;
+      const pushData = {
+        conversationId,
+        productId: conversation.productId,
+        type: 'CHAT',
+        senderAvatar,
+        senderName,
+        senderId: userId,
+      };
       getCache<boolean>(debounceKey)
         .then((hasRecentPush) => {
           if (!hasRecentPush) {
-            setCache(debounceKey, true, 10).catch(() => {});
+            setCache(debounceKey, true, 2).catch(() => {});
             notificationService
-              .sendPushOnly(recipientId, senderName, summaryText, {
-                conversationId,
-                productId: conversation.productId,
-                type: 'CHAT',
-                senderAvatar,
-                senderName,
-                senderId: userId,
-              })
+              .sendPushOnly(recipientId, pushTitle, summaryText, pushData)
               .catch(() => {});
           }
         })
         .catch(() => {
           notificationService
-            .sendPushOnly(recipientId, senderName, summaryText, {
-              conversationId,
-              productId: conversation.productId,
-              type: 'CHAT',
-              senderAvatar,
-              senderName,
-              senderId: userId,
-            })
+            .sendPushOnly(recipientId, pushTitle, summaryText, pushData)
             .catch(() => {});
         });
     }
