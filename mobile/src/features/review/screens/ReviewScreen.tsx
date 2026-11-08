@@ -34,12 +34,15 @@ export const ReviewScreen: React.FC = () => {
   const route = useRoute<any>();
 
   const { user } = useUserStore();
+  const { orders } = useOrderStore();
   const orderId = route.params?.orderId || '';
-  const productTitle = route.params?.productTitle || 'Sản phẩm giao dịch';
-  const sellerName = route.params?.sellerName || 'Người bán FPT';
-  const sellerCampus = route.params?.sellerCampus || 'Campus FPT';
+  const matchedOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  const productTitle = route.params?.productTitle || matchedOrder?.productTitle || 'Sản phẩm giao dịch';
+  const sellerName = route.params?.sellerName || matchedOrder?.sellerName || 'Người bán FPT';
+  const sellerCampus = route.params?.sellerCampus || matchedOrder?.sellerCampus || 'Campus FPT';
   const productImage =
     route.params?.productImage ||
+    matchedOrder?.productImage ||
     undefined;
 
   const isEditing = !!route.params?.isEditing;

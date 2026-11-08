@@ -131,35 +131,29 @@ export const useKhoValue = (): KhoContextType => {
     socketMobileService.getSocket();
 
     const unsubNotif = socketMobileService.onNotification((n) => {
-      const resolvedOrderId = notificationMobileService.extractOrderIdFromNotification({
+      const dest = notificationMobileService.resolveNotificationDestination({
+        type: n.type,
         orderId: (n as any).orderId,
         orderCode: (n as any).orderCode,
+        productId: (n as any).productId,
         targetUrl: n.targetUrl,
         body: n.body,
         title: n.title,
       });
 
-      if (n.type === 'ORDER' || resolvedOrderId) {
+      if (dest.targetScreen === 'OrderDetail') {
         fetchOrders().catch(() => {});
       }
-
-      const isOrderNotif = Boolean(n.type === 'ORDER' || resolvedOrderId || (n.targetUrl && n.targetUrl.includes('/orders')));
 
       useNotificationStore.getState().addNotification({
         title: n.title,
         body: n.body,
-        category: (n.type?.toLowerCase() as any) || (resolvedOrderId ? 'order' : 'system'),
+        category: (n.type?.toLowerCase() as any) || (dest.targetScreen === 'OrderDetail' ? 'order' : 'system'),
         icon: 'notifications',
         iconColor: '#EA580C',
         iconBg: '#FFF7ED',
-        targetScreen: isOrderNotif ? 'OrderDetail' : undefined,
-        targetParams: isOrderNotif
-          ? {
-              orderId: resolvedOrderId,
-              notificationBody: n.body,
-              notificationTitle: n.title,
-            }
-          : undefined,
+        targetScreen: dest.targetScreen,
+        targetParams: dest.targetParams,
       });
 
       notificationMobileService.displayLocalPushNotification({
@@ -168,7 +162,10 @@ export const useKhoValue = (): KhoContextType => {
         data: {
           targetUrl: n.targetUrl,
           type: n.type,
-          orderId: resolvedOrderId,
+          orderId: dest.targetParams?.orderId,
+          productId: dest.targetParams?.productId,
+          targetScreen: dest.targetScreen,
+          targetParams: dest.targetParams,
           body: n.body,
           title: n.title,
         },

@@ -89,22 +89,22 @@ export const useNotificationStore = create<NotificationState>()(
           const raw = res.data?.data;
           const list = Array.isArray(raw) ? raw : Array.isArray(raw?.notifications) ? raw.notifications : [];
           if (list.length > 0) {
-            const { extractOrderIdFromNotification } = require('../services/notificationMobileService');
+            const { resolveNotificationDestination } = require('../services/notificationMobileService');
             const mapped = list.map((n: any) => {
               const bodyText = n.body || n.content || '';
               const rawCategory = String(n.category || n.type || 'system').toLowerCase();
-              const resolvedOrderId = extractOrderIdFromNotification({
+              const dest = resolveNotificationDestination({
+                type: n.type || n.category,
                 orderId: n.orderId || n.targetParams?.orderId,
                 orderCode: n.orderCode,
+                productId: n.productId || n.targetParams?.productId,
                 targetUrl: n.targetUrl,
                 body: bodyText,
                 title: n.title,
               });
               const isOrderNotif = Boolean(
                 rawCategory === 'order' ||
-                resolvedOrderId ||
-                n.targetScreen === 'OrderDetail' ||
-                (typeof n.targetUrl === 'string' && n.targetUrl.includes('/orders'))
+                dest.targetScreen === 'OrderDetail'
               );
 
               return {
@@ -117,13 +117,11 @@ export const useNotificationStore = create<NotificationState>()(
                 icon: n.icon || (isOrderNotif ? 'cube-outline' : 'notifications-outline'),
                 iconColor: '#EA580C',
                 iconBg: '#FFF7ED',
-                targetScreen: n.targetScreen || (isOrderNotif ? 'OrderDetail' : undefined),
-                targetParams: isOrderNotif
+                targetScreen: n.targetScreen || dest.targetScreen,
+                targetParams: dest.targetParams
                   ? {
                       ...(n.targetParams || {}),
-                      orderId: resolvedOrderId,
-                      notificationBody: bodyText,
-                      notificationTitle: n.title,
+                      ...dest.targetParams,
                     }
                   : n.targetParams,
               };

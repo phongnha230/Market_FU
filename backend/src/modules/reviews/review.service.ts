@@ -133,7 +133,7 @@ export class ReviewService {
         title: '🎉 Bạn nhận được đánh giá mới!',
         body: `Người mua vừa đánh giá ${rating}★ cho đơn hàng #${order.orderCode}: "${comment || 'Rất hài lòng & uy tín'}"`,
         type: 'ORDER',
-        targetUrl: `/orders`,
+        targetUrl: `/orders?orderId=${order.id}&orderCode=${order.orderCode}`,
       });
       emitToUser(revieweeId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
       emitToUser(reviewerId, 'review_revealed', { orderId: order.id, orderCode: order.orderCode });
@@ -540,7 +540,7 @@ export class ReviewService {
               : replyComment.trim();
 
           const targetSellerId = effectiveSellerId || sellerId;
-          const targetUrl = `/sellers/${targetSellerId}?tab=reviews&highlightReview=${review.id}`;
+          const targetUrl = `/sellers/${targetSellerId}?tab=reviews&highlightReview=${review.id}&orderId=${review.orderId}`;
 
           return notificationService.sendNotification({
             userId: buyerId,

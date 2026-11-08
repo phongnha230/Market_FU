@@ -294,7 +294,7 @@ export function extractOrderIdFromNotification(input?: {
   }
 
   if (input.targetUrl && typeof input.targetUrl === 'string') {
-    const queryMatch = input.targetUrl.match(/[?&](?:orderId|orderCode|id)=([^&#]+)/i);
+    const queryMatch = input.targetUrl.match(/[?&](?:orderId|orderCode)=([^&#]+)/i);
     if (queryMatch && isValidOrderCandidate(decodeURIComponent(queryMatch[1]))) {
       return decodeURIComponent(queryMatch[1]).replace(/^#/, '').trim();
     }
@@ -331,6 +331,116 @@ export function extractOrderIdFromNotification(input?: {
   return undefined;
 }
 
+export function extractProductIdFromNotification(input?: {
+  productId?: string;
+  targetUrl?: string;
+}): string | undefined {
+  if (!input) return undefined;
+  if (input.productId && typeof input.productId === 'string' && input.productId.trim()) {
+    return input.productId.trim();
+  }
+  if (input.targetUrl && typeof input.targetUrl === 'string') {
+    const pathMatch = input.targetUrl.match(/\/(?:posts|products)\/([^\/?#]+)/i);
+    if (pathMatch?.[1]) {
+      const clean = decodeURIComponent(pathMatch[1]).trim();
+      if (clean && !['posts', 'products', 'create', 'new', 'edit'].includes(clean.toLowerCase())) {
+        return clean;
+      }
+    }
+    const queryMatch = input.targetUrl.match(/[?&]productId=([^&#]+)/i);
+    if (queryMatch?.[1]) {
+      return decodeURIComponent(queryMatch[1]).trim();
+    }
+  }
+  return undefined;
+}
+
+export function resolveNotificationDestination(input: {
+  type?: string;
+  orderId?: string;
+  orderCode?: string;
+  productId?: string;
+  conversationId?: string;
+  targetUrl?: string;
+  title?: string;
+  body?: string;
+  notificationId?: string;
+  senderId?: string;
+  senderName?: string;
+  senderAvatar?: string;
+}): { targetScreen?: string; targetParams?: any } {
+  const resolvedOrderId = extractOrderIdFromNotification({
+    orderId: input.orderId,
+    orderCode: input.orderCode,
+    targetUrl: input.targetUrl,
+    body: input.body,
+    title: input.title,
+    notificationId: input.notificationId,
+  });
+
+  if (
+    input.type === 'ORDER' ||
+    resolvedOrderId ||
+    (input.targetUrl && input.targetUrl.includes('/orders'))
+  ) {
+    return {
+      targetScreen: 'OrderDetail',
+      targetParams: {
+        orderId: resolvedOrderId || '',
+        notificationId: input.notificationId,
+        notificationBody: input.body,
+        notificationTitle: input.title,
+      },
+    };
+  }
+
+  if (input.type === 'CHAT' || input.conversationId) {
+    return {
+      targetScreen: 'ChatDetail',
+      targetParams: {
+        conversationId: input.conversationId,
+        partner: {
+          id: input.senderId || input.conversationId,
+          name: input.senderName || input.title,
+          avatar: input.senderAvatar,
+        },
+      },
+    };
+  }
+
+  const resolvedProductId = extractProductIdFromNotification({
+    productId: input.productId,
+    targetUrl: input.targetUrl,
+  });
+  if (resolvedProductId) {
+    return {
+      targetScreen: 'ProductDetail',
+      targetParams: { productId: resolvedProductId },
+    };
+  }
+
+  const lowerTitle = (input.title || '').toLowerCase();
+  const lowerUrl = (input.targetUrl || '').toLowerCase();
+
+  if (input.type === 'KYC' || lowerTitle.includes('thẻ sinh viên') || lowerTitle.includes('thẻ sv') || lowerTitle.includes('kyc')) {
+    return { targetScreen: 'AccountSettings' };
+  }
+
+  if (lowerUrl.includes('/vouchers') || lowerTitle.includes('voucher')) {
+    return { targetScreen: 'Voucher' };
+  }
+
+  if (lowerUrl.includes('/withdrawals') || lowerTitle.includes('rút tiền')) {
+    return { targetScreen: 'WithdrawalHistory' };
+  }
+
+  if (lowerTitle.includes('tin đăng') || lowerTitle.includes('kháng nghị')) {
+    return { targetScreen: 'ManageListings' };
+  }
+
+  return {};
+}
+
 /**
  * 5. Lắng nghe sự kiện người dùng bấm vào banner thông báo trên đỉnh màn hình
  * và điều hướng chuẩn xác (Deep Linking)
@@ -355,16 +465,22 @@ export function setupNotificationListeners() {
           if (data?.conversationId && activeConvId && activeConvId === data.conversationId) {
             return;
           }
-          const resolvedOrderId = extractOrderIdFromNotification({
+          const dest = resolveNotificationDestination({
+            type: data?.type,
             orderId: data?.orderId,
             orderCode: data?.orderCode,
+            productId: data?.productId,
+            conversationId: data?.conversationId,
             targetUrl: data?.targetUrl,
             body: data?.body || content?.body,
             title: content?.title,
             notificationId: data?.notificationId,
+            senderId: data?.senderId,
+            senderName: data?.senderName || content?.title,
+            senderAvatar: data?.senderAvatar || data?.avatarUrl,
           });
 
-          if (data?.type === 'ORDER' || resolvedOrderId) {
+          if (dest.targetScreen === 'OrderDetail') {
             try {
               const { useOrderStore } = require('../stores/orderStore');
               useOrderStore.getState?.()?.fetchOrders?.().catch(() => {});
@@ -375,29 +491,13 @@ export function setupNotificationListeners() {
           useNotificationStore.getState?.().addNotification({
             title: content?.title || 'Thông báo mới',
             body: content?.body || '',
-            category: data?.type === 'CHAT' ? 'chat' : data?.type === 'ORDER' ? 'order' : 'system',
-            icon: data?.type === 'CHAT' ? 'chatbubbles' : data?.type === 'ORDER' ? 'shield-checkmark' : 'notifications',
+            category: data?.type === 'CHAT' ? 'chat' : dest.targetScreen === 'OrderDetail' ? 'order' : 'system',
+            icon: data?.type === 'CHAT' ? 'chatbubbles' : dest.targetScreen === 'OrderDetail' ? 'shield-checkmark' : 'notifications',
             iconColor: data?.type === 'CHAT' ? '#EA580C' : '#059669',
             iconBg: data?.type === 'CHAT' ? '#FFF7ED' : '#ECFDF5',
             avatarUrl: data?.senderAvatar || data?.avatarUrl || undefined,
-            targetScreen:
-              data?.type === 'CHAT'
-                ? 'ChatDetail'
-                : data?.type === 'ORDER' || resolvedOrderId
-                ? 'OrderDetail'
-                : undefined,
-            targetParams: data?.conversationId
-              ? {
-                  conversationId: data.conversationId,
-                  partner: {
-                    id: data.senderId || data.conversationId,
-                    name: data.senderName || content?.title,
-                    avatar: data.senderAvatar || data.avatarUrl,
-                  },
-                }
-              : resolvedOrderId
-              ? { orderId: resolvedOrderId }
-              : undefined,
+            targetScreen: dest.targetScreen,
+            targetParams: dest.targetParams,
           });
         } catch {}
       });
@@ -458,37 +558,23 @@ export function handleNotificationNavigation(data: any) {
   }
 
   const { type, orderId, orderCode, conversationId, targetUrl, productId, body, rawTitle, title, notificationId } = data;
-  const resolvedOrderId = extractOrderIdFromNotification({
+  const dest = resolveNotificationDestination({
+    type,
     orderId,
     orderCode,
+    productId,
+    conversationId,
     targetUrl,
     body,
     title: rawTitle || title,
     notificationId,
+    senderId: data?.senderId,
+    senderName: data?.senderName || (data?.title && data?.title !== 'Tin nhắn mới' ? data?.title : undefined),
+    senderAvatar: data?.senderAvatar || data?.avatarUrl,
   });
 
-  if (type === 'ORDER' || resolvedOrderId) {
-    navigate('OrderDetail', {
-      orderId: resolvedOrderId || '',
-      notificationId,
-      notificationBody: body,
-      notificationTitle: rawTitle || title,
-    });
-  } else if (type === 'CHAT' || conversationId) {
-    const pName = data?.senderName || (data?.title && data?.title !== 'Tin nhắn mới' ? data?.title : undefined);
-    const pAvatar = data?.senderAvatar || data?.avatarUrl;
-    navigate('ChatDetail', {
-      conversationId,
-      partner: {
-        id: data?.senderId || conversationId,
-        name: pName,
-        avatar: pAvatar,
-      },
-    });
-  } else if (type === 'KYC') {
-    navigate('AccountSettings');
-  } else if (productId) {
-    navigate('ProductDetail', { productId });
+  if (dest.targetScreen) {
+    navigate(dest.targetScreen as any, dest.targetParams);
   } else {
     navigate('Notification');
   }
@@ -539,6 +625,8 @@ export async function markAllNotificationsAsRead(): Promise<any> {
 
 export const notificationMobileService = {
   extractOrderIdFromNotification,
+  extractProductIdFromNotification,
+  resolveNotificationDestination,
   displayLocalPushNotification,
   setupAndroidNotificationChannels,
   requestNotificationPermission,

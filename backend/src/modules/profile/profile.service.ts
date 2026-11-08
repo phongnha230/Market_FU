@@ -1139,6 +1139,7 @@ export class ProfileService {
       title: isApprove ? '✅ Lệnh rút tiền thành công' : '❌ Lệnh rút tiền bị từ chối',
       body: notifBody,
       type: 'SYSTEM',
+      targetUrl: '/profile/withdrawals',
     });
 
     emitToUser(req.userId, 'withdrawal_updated', {
