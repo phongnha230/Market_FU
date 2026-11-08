@@ -427,11 +427,12 @@ export function useCheckoutController() {
               statusLabel: '⏳ Chờ thanh toán PayOS (15 phút)',
             };
           } else {
-            // Đã thanh toán thành công qua PayOS: Cập nhật đơn sang ESCROW_PAID
+            // Đã thanh toán thành công qua PayOS: Cập nhật đơn đã cọc Escrow, đang chờ người bán xác nhận
             finalizedOrder = {
               ...createdOrder,
-              status: 'ESCROW_PAID',
-              statusLabel: '🛡️ Quỹ Escrow FPT đang bảo lãnh',
+              status: 'PENDING_SAFEPOINT',
+              statusLabel: '🛡️ Đã cọc Escrow • Chờ người bán xác nhận',
+              isPaid: true,
             };
           }
         } catch (browserError) {

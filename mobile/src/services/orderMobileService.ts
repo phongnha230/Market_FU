@@ -140,6 +140,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
 
   let status: OrderItem['status'] = 'PENDING_SAFEPOINT';
   const backendStatus = String(item.status || '').toUpperCase();
+  const isPaidEscrow = Boolean(item.payment?.isPaid) || backendStatus === 'PAID';
 
   if (backendStatus === 'COMPLETED') {
     status = 'COMPLETED';
@@ -147,19 +148,23 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
     status = 'DELIVERED';
   } else if (backendStatus === 'DISPUTED') {
     status = 'DISPUTED';
-  } else if (backendStatus === 'PAID' || backendStatus === 'ESCROW_PAID') {
-    status = 'ESCROW_PAID';
   } else if (backendStatus === 'SHIPPING' || backendStatus === 'HANDOVER_CONFIRMED') {
+    // Chỉ khi Người Bán bấm xác nhận (backend chuyển sang SHIPPING):
+    // Meetup: Đã chốt hẹn và kích hoạt QR/OTP -> ESCROW_PAID
+    // Liên Campus: Chờ bàn giao bưu cục / đang vận chuyển -> HANDOVER_CONFIRMED
     status = resolvedOrderType === 'MEETUP' ? 'ESCROW_PAID' : 'HANDOVER_CONFIRMED';
   } else if (backendStatus === 'CANCELLED') {
     status = 'CANCELLED';
   } else {
+    // backendStatus === 'PENDING' hoặc 'PAID' (Người mua đã đặt cọc PayOS nhưng Người Bán CHƯA bấm xác nhận đơn/lịch hẹn)
     status = 'PENDING_SAFEPOINT';
   }
 
   let statusColor = '#D97706';
   let statusBg = '#FFFBEB';
-  let statusLabel = '⏳ Chờ xác nhận';
+  let statusLabel = isPaidEscrow
+    ? '🛡️ Đã cọc Escrow • Chờ người bán xác nhận'
+    : '⏳ Chờ người bán xác nhận';
 
   if (status === 'COMPLETED') {
     statusColor = '#059669';
@@ -172,7 +177,7 @@ export function adaptBackendOrderToMobile(item: any): OrderItem {
   } else if (status === 'ESCROW_PAID') {
     statusColor = '#059669';
     statusBg = '#ECFDF5';
-    statusLabel = resolvedOrderType === 'MEETUP' ? '🛡️ Chờ gặp bàn giao' : '🛡️ Đã ký quỹ Escrow';
+    statusLabel = '🛡️ Đã chốt hẹn • Chờ gặp bàn giao';
   } else if (status === 'HANDOVER_CONFIRMED') {
     statusColor = trackingCode ? '#2563EB' : '#EA580C';
     statusBg = trackingCode ? '#EFF6FF' : '#FFF7ED';

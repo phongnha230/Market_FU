@@ -105,61 +105,93 @@ export const OrderSafePointQrCard: React.FC<OrderSafePointQrCardProps> = React.m
       {/* 3. QR Code Section */}
       {isConfirmed ? (
         <View style={styles.qrContainer}>
-          <View style={styles.qrBox}>
-            <Image
-              source={{ uri: qrUrl }}
-              style={styles.qrImage}
-              onLoadEnd={() => setLoading(false)}
-            />
-            {loading && (
-              <View style={styles.qrLoader}>
-                <ActivityIndicator size="small" color="#EA580C" />
-              </View>
-            )}
-          </View>
-          <Text style={styles.qrCodeLabel}>MÃ HẸN BÀN GIAO: #{orderCode || orderId}</Text>
-
-          {/* Khối hiển thị OTP 4 số đồng kiểm cho Người Mua */}
-          {!isSeller && (
-            <View style={styles.otpCardBox}>
-              <View style={styles.otpHeaderRow}>
-                <Ionicons name="key" size={15} color="#EA580C" />
-                <Text style={styles.otpHeaderTitle}>MÃ OTP BÀN GIAO (4 SỐ)</Text>
-              </View>
-              <View style={styles.otpDigitsContainer}>
-                {effectiveOtp.split('').map((digit, idx) => (
-                  <View key={idx} style={styles.otpCell}>
-                    <Text style={styles.otpDigit}>{digit}</Text>
+          {!isSeller ? (
+            <>
+              <View style={styles.qrBox}>
+                <Image
+                  source={{ uri: qrUrl }}
+                  style={styles.qrImage}
+                  onLoadEnd={() => setLoading(false)}
+                />
+                {loading && (
+                  <View style={styles.qrLoader}>
+                    <ActivityIndicator size="small" color="#EA580C" />
                   </View>
-                ))}
+                )}
               </View>
-              <Text style={styles.otpSubText}>
-                Đọc 4 số này hoặc đưa mã QR trên cho người bán quét khi kiểm tra máy
+              <Text style={styles.qrCodeLabel}>MÃ HẸN BÀN GIAO: #{orderCode || orderId}</Text>
+
+              {/* Khối hiển thị OTP 4 số đồng kiểm cho Người Mua */}
+              <View style={styles.otpCardBox}>
+                <View style={styles.otpHeaderRow}>
+                  <Ionicons name="key" size={15} color="#EA580C" />
+                  <Text style={styles.otpHeaderTitle}>MÃ OTP BÀN GIAO (4 SỐ)</Text>
+                </View>
+                <View style={styles.otpDigitsContainer}>
+                  {effectiveOtp.split('').map((digit, idx) => (
+                    <View key={idx} style={styles.otpCell}>
+                      <Text style={styles.otpDigit}>{digit}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.otpSubText}>
+                  Đưa mã QR trên hoặc đọc 4 số này cho người bán quét khi kiểm tra máy tại Safe-Point
+                </Text>
+              </View>
+
+              <Text style={styles.qrCodeHint}>
+                Đưa mã QR này hoặc đọc mã OTP 4 số cho người bán quét tại bàn Safe-Point để hoàn tất bàn giao.
               </Text>
+            </>
+          ) : (
+            <View style={styles.sellerGuideCard}>
+              <View style={styles.sellerGuideHeader}>
+                <Ionicons name="shield-checkmark" size={24} color="#059669" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.sellerGuideTitle}>Lịch hẹn đã được chốt!</Text>
+                  <Text style={styles.sellerGuideSubtitle}>
+                    Mã đơn: #{orderCode || orderId}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.sellerStepRow}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>1</Text>
+                </View>
+                <Text style={styles.sellerStepText}>
+                  Có mặt tại {safePoint} đúng giờ hẹn để giao đồ cho người mua kiểm tra.
+                </Text>
+              </View>
+
+              <View style={styles.sellerStepRow}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>2</Text>
+                </View>
+                <Text style={styles.sellerStepText}>
+                  Yêu cầu người mua mở mã QR vé nhận hàng hoặc đọc mã OTP 4 số trên máy của họ.
+                </Text>
+              </View>
+
+              <View style={styles.sellerStepRow}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>3</Text>
+                </View>
+                <Text style={styles.sellerStepText}>
+                  Bấm nút <Text style={{ fontWeight: '800', color: '#065F46' }}>[Quét QR / Nhập OTP bàn giao]</Text> bên dưới để giải ngân tiền về ví.
+                </Text>
+              </View>
             </View>
           )}
-
-          {isSeller && (
-            <View style={styles.sellerScanNotice}>
-              <Ionicons name="scan" size={16} color="#059669" style={{ marginRight: 6 }} />
-              <Text style={styles.sellerScanNoticeText}>
-                Bấm [Quét QR / Nhập OTP nhận hàng] ở thanh công cụ dưới để xác nhận bàn giao.
-              </Text>
-            </View>
-          )}
-
-          <Text style={styles.qrCodeHint}>
-            {isSeller
-              ? 'Yêu cầu người mua xuất trình mã QR này hoặc mã OTP 4 số khi giao nhận.'
-              : 'Đưa mã QR này hoặc đọc mã OTP 4 số cho người bán quét tại bàn Safe-Point.'}
-          </Text>
         </View>
       ) : (
         <View style={styles.pendingQrBox}>
           <Ionicons name="time-outline" size={32} color="#D97706" />
           <Text style={styles.pendingQrTitle}>Chờ người bán xác nhận lịch hẹn</Text>
           <Text style={styles.pendingQrDesc}>
-            Mã QR và OTP giao nhận tại Safe-Point sẽ tự động kích hoạt ngay sau khi người bán nhấn [Đồng ý đơn & Chốt lịch hẹn].
+            {isSeller
+              ? 'Vui lòng bấm [Đồng ý & Hẹn gặp] ở bên dưới để chốt lịch hẹn bàn giao đồ tại trạm Safe-Point.'
+              : 'Mã QR vé nhận hàng và mã OTP 4 số sẽ tự động kích hoạt ngay khi Người bán xác nhận lịch hẹn.'}
           </Text>
         </View>
       )}
@@ -384,6 +416,57 @@ const styles = StyleSheet.create({
     color: '#065F46',
     lineHeight: 16,
     fontWeight: '600',
+  },
+  sellerGuideCard: {
+    width: '100%',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  sellerGuideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sellerGuideTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  sellerGuideSubtitle: {
+    fontSize: 11.5,
+    color: '#047857',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  sellerStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  stepBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  sellerStepText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#166534',
+    lineHeight: 17,
+    fontWeight: '500',
   },
   pendingQrBox: {
     alignItems: 'center',

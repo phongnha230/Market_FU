@@ -11,6 +11,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Vibration,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +49,7 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
   const [torch, setTorch] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [detectedOtp, setDetectedOtp] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const [manualOtp, setManualOtp] = useState('');
   const cameraRef = useRef<CameraView>(null);
@@ -58,24 +60,38 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
       setScanned(false);
       setIsProcessing(false);
       setManualOtp('');
+      setDetectedOtp(null);
     }
   }, [visible]);
 
-  // Xử lý khi quét trúng mã QR (QR Handshake)
+  // Xử lý khi quét trúng mã QR (QR Handshake):
+  // Trích xuất mã OTP của người mua, nạp vào ô nhập và chờ người bán bấm "Xác nhận bàn giao"
+  // Tuyệt đối không tự ý báo thành công ngầm khi người bán chưa bấm xác nhận!
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     if (scanned || isProcessing) return;
-    setScanned(true);
-    setIsProcessing(true);
 
-    try {
-      if (onBarcodeScanned) {
-        onBarcodeScanned(data);
-      }
-    } finally {
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 800);
+    let cleanCode = (data || '').trim();
+    if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(cleanCode);
+        cleanCode = String(parsed.otp || parsed.handshakeOtp || parsed.code || cleanCode).trim();
+      } catch {}
+    } else if (cleanCode.startsWith('http')) {
+      try {
+        const url = new URL(cleanCode);
+        cleanCode = String(url.searchParams.get('otp') || url.searchParams.get('code') || cleanCode).trim();
+      } catch {}
     }
+    cleanCode = cleanCode.replace(/^OTP-/, '').trim();
+
+    if (!cleanCode) return;
+
+    setScanned(true);
+    setDetectedOtp(cleanCode);
+    setManualOtp(cleanCode);
+    try {
+      Vibration.vibrate(60);
+    } catch {}
   };
 
   // Xử lý chụp ảnh định giá AI (AI Vision Capture)
@@ -237,19 +253,46 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
                     <View style={styles.qrBottomCard}>
                       <View style={styles.cardHeaderRow}>
                         <Ionicons name="key" size={15} color="#FB923C" />
-                        <Text style={styles.cardHeaderTitle}>HOẶC NHẬP MÃ OTP TỪ NGƯỜI MUA</Text>
+                        <Text style={styles.cardHeaderTitle}>
+                          {detectedOtp ? 'XÁC NHẬN MÃ ĐÃ QUÉT TỪ NGƯỜI MUA' : 'HOẶC NHẬP MÃ OTP TỪ NGƯỜI MUA'}
+                        </Text>
                       </View>
+
+                      {detectedOtp ? (
+                        <View style={styles.detectedBox}>
+                          <View style={styles.detectedLeft}>
+                            <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                            <View style={{ marginLeft: 8 }}>
+                              <Text style={styles.detectedLabel}>ĐÃ QUÉT ĐƯỢC MÃ OTP</Text>
+                              <Text style={styles.detectedValue}>{detectedOtp}</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.rescanBtn}
+                            onPress={() => {
+                              setScanned(false);
+                              setDetectedOtp(null);
+                              setManualOtp('');
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="refresh" size={14} color="#94A3B8" />
+                            <Text style={styles.rescanBtnText}>Quét lại</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
 
                       {Boolean(__DEV__) && !!expectedOtp && /^[0-9]{4,6}$/.test(expectedOtp) ? (
                         <TouchableOpacity
                           style={styles.quickTestBtn}
                           onPress={() => {
                             setManualOtp(expectedOtp);
-                            if (onBarcodeScanned) onBarcodeScanned(expectedOtp);
+                            setDetectedOtp(expectedOtp);
+                            setScanned(true);
                           }}
                         >
                           <Ionicons name="flash-outline" size={14} color="#EA580C" />
-                          <Text style={styles.quickTestText}>Quét thử mẫu ({expectedOtp})</Text>
+                          <Text style={styles.quickTestText}>Điền mã thử ({expectedOtp})</Text>
                         </TouchableOpacity>
                       ) : null}
 
@@ -261,10 +304,19 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
                           keyboardType="numeric"
                           maxLength={6}
                           value={manualOtp}
-                          onChangeText={setManualOtp}
+                          onChangeText={(val) => {
+                            setManualOtp(val);
+                            if (val.trim() !== detectedOtp) {
+                              setDetectedOtp(null);
+                            }
+                          }}
                         />
                         <TouchableOpacity
-                          style={[styles.otpVerifyBtn, isProcessing && { opacity: 0.7 }]}
+                          style={[
+                            styles.otpVerifyBtn,
+                            detectedOtp && styles.otpVerifyBtnSuccess,
+                            isProcessing && { opacity: 0.7 },
+                          ]}
                           onPress={handleManualSubmit}
                           disabled={isProcessing}
                         >
@@ -273,7 +325,9 @@ export const CameraSubsystemModal: React.FC<CameraSubsystemModalProps> = ({
                           ) : (
                             <>
                               <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                              <Text style={styles.otpVerifyBtnText}>Khớp Mã</Text>
+                              <Text style={styles.otpVerifyBtnText}>
+                                {detectedOtp ? 'Xác Nhận Bàn Giao' : 'Khớp Mã'}
+                              </Text>
                             </>
                           )}
                         </TouchableOpacity>
@@ -473,6 +527,50 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
   },
+  detectedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#064E3B',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  detectedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  detectedLabel: {
+    color: '#A7F3D0',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  detectedValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginTop: 1,
+  },
+  rescanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    gap: 4,
+  },
+  rescanBtnText: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   otpManualRow: {
     flexDirection: 'row',
     gap: 10,
@@ -501,6 +599,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 48,
     boxShadow: '0 2px 6px rgba(5, 150, 105, 0.3)',
+  },
+  otpVerifyBtnSuccess: {
+    backgroundColor: '#047857',
+    borderWidth: 1.5,
+    borderColor: '#34D399',
   },
   otpVerifyBtnText: {
     color: '#FFFFFF',

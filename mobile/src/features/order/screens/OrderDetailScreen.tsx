@@ -215,8 +215,14 @@ export const OrderDetailScreen: React.FC = () => {
 
     const unsubPaid = socketMobileService.onOrderPaid((d) => {
       if (matchesCurrentOrder(d)) {
-        setOrderStatus('escrow_holding');
-        updateOrderStatus(orderId, 'ESCROW_PAID', '🛡️ Đã thanh toán Escrow', '#EA580C', '#FFF7ED');
+        setOrderStatus('pending');
+        updateOrderStatus(orderId, 'PENDING_SAFEPOINT', '🛡️ Đã cọc Escrow • Chờ người bán xác nhận', '#D97706', '#FFFBEB');
+        orderMobileService
+          .getOrderDetail(d?.orderId || d?.orderCode || orderId)
+          .then((updated) => {
+            if (isMounted && updated) setFetchedOrder(updated);
+          })
+          .catch(() => {});
       }
     });
 
@@ -730,7 +736,7 @@ export const OrderDetailScreen: React.FC = () => {
               orderCode={activeOrder?.orderNumber || orderId}
               timeSlot={timeSlot}
               note={deliveryNote}
-              isConfirmed={orderStatus !== 'pending' && orderStatus !== 'PENDING_SAFEPOINT'}
+              isConfirmed={orderStatus === 'escrow_holding'}
               isSeller={Boolean(isSeller)}
               handshakeOtp={activeOrder?.handshakeOtp || (activeOrder as any)?.handshake?.handshakeOtp}
               handshakeToken={(activeOrder as any)?.handshake?.handshakeToken}

@@ -269,6 +269,21 @@ const PrimaryActionButton: React.FC<PrimaryActionButtonProps> = React.memo(({
           </View>
         );
       }
+      if (!hasTrackingCode && onOpenShipModal) {
+        return (
+          <TouchableOpacity
+            style={[styles.confirmReceivedBtn, { backgroundColor: '#EA580C' }]}
+            activeOpacity={0.88}
+            onPress={onOpenShipModal}
+            disabled={isSubmitting}
+          >
+            <Ionicons name="bus-outline" size={20} color="#FFFFFF" style={styles.mr6} />
+            <Text style={styles.confirmReceivedText}>
+              Bàn giao bưu cục (Tạo mã)
+            </Text>
+          </TouchableOpacity>
+        );
+      }
       return (
         <View style={[styles.confirmReceivedBtn, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 12, height: 44 }]}>
           <Ionicons name="cube-outline" size={18} color="#EA580C" style={styles.mr6} />
