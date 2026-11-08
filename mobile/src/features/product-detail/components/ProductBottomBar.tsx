@@ -11,7 +11,7 @@ interface ProductBottomBarProps {
   isOwnProduct?: boolean;
   onManageOwnProduct?: () => void;
   isSoldOrReserved?: boolean;
-  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
+  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED' | 'LOCKED';
   price?: number | string;
   unreadCount?: number;
 }
@@ -50,10 +50,12 @@ export const ProductBottomBar: React.FC<ProductBottomBarProps> = ({
                 Bài đăng của chính bạn
               </Text>
               <Text style={styles.ownSubtitle} numberOfLines={2} ellipsizeMode="tail">
-                {status === 'REJECTED'
+                {status === 'REJECTED' || status === 'LOCKED'
                   ? 'Tin đăng này đã bị BQT từ chối / gỡ bỏ. Bấm để sửa hoặc kháng nghị.'
                   : status === 'PENDING_APPROVAL'
                   ? 'Tin đang chờ Ban Quản Trị duyệt an toàn.'
+                  : status === 'HIDDEN'
+                  ? 'Tin đăng đang tạm ẩn. Vào Kho đồ > Đã ẩn để mở bán lại.'
                   : status === 'SOLD'
                   ? 'Món đồ này đã bán thành công.'
                   : 'Theo quy chế, bạn không thể tự đặt mua bài của mình'}

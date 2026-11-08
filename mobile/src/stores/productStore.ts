@@ -19,7 +19,7 @@ export interface ProductItem {
   sellerCohort?: string;
   sellerRating?: number;
   sellerIsVerified?: boolean;
-  status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
+  status: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED' | 'LOCKED';
   rejectionReason?: string;
   appealStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   appealReason?: string | null;

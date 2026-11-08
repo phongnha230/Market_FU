@@ -38,7 +38,7 @@ export interface ProductDetailData {
   categoryType?: string;
   sellerId?: string;
   sellerCohort?: string;
-  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED';
+  status?: 'PENDING_APPROVAL' | 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'HIDDEN' | 'EXPIRED' | 'REJECTED' | 'LOCKED';
   isSoldOrReserved?: boolean;
   rejectionReason?: string;
   appealStatus?: string | null;

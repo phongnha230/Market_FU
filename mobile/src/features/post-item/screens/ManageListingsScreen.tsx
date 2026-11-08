@@ -74,6 +74,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
     filteredListings,
     activeCount,
     pendingCount,
+    hiddenCount,
     rejectedCount,
     scheduledCount,
     soldCount,
@@ -263,6 +264,7 @@ export const ManageListingsScreen: React.FC<ManageListingsScreenProps> = ({
           onSelectTab={setActiveTab}
           activeCount={activeCount}
           pendingCount={pendingCount}
+          hiddenCount={hiddenCount}
           rejectedCount={rejectedCount}
           scheduledCount={scheduledCount}
           soldCount={soldCount}

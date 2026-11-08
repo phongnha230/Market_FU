@@ -26,7 +26,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
   onDelete,
   onAppeal,
 }) => {
-  const isHidden = item.rawStatus === 'HIDDEN' || item.status === 'sold';
+  const isHidden = item.rawStatus === 'HIDDEN' || item.status === 'hidden';
 
   return (
     <View style={styles.listingCard}>
@@ -104,6 +104,16 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
           <Ionicons name="time-outline" size={15} color="#D97706" style={{ marginRight: 6, marginTop: 1 }} />
           <Text style={styles.pendingBannerText}>
             <Text style={{ fontWeight: '800' }}>Chờ Ban Quản Trị duyệt:</Text> Tin đăng chưa được hiển thị ra ngoài Chợ Campus cho đến khi được duyệt an toàn.
+          </Text>
+        </View>
+      )}
+
+      {/* Hidden Status Notice */}
+      {item.status === 'hidden' && (
+        <View style={styles.hiddenBanner}>
+          <Ionicons name="eye-off-outline" size={15} color="#475569" style={{ marginRight: 6, marginTop: 1 }} />
+          <Text style={styles.hiddenBannerText}>
+            <Text style={{ fontWeight: '800' }}>Tin đăng đang tạm ẩn:</Text> Sản phẩm được bạn tạm ẩn hoặc hệ thống tự động ẩn sau khi hoàn tiền/hủy đơn để bạn kiểm tra lại hàng. Bấm <Text style={{ fontWeight: '800', color: '#059669' }}>Mở bán lại</Text> để hiển thị lại trên Chợ Campus.
           </Text>
         </View>
       )}
@@ -200,6 +210,38 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
               <Text style={styles.actionBtnRedText} numberOfLines={1} ellipsizeMode="tail">Hủy tin</Text>
             </TouchableOpacity>
           </>
+        ) : item.status === 'hidden' ? (
+          <>
+            {/* Sửa tin */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnBlue]}
+              activeOpacity={0.75}
+              onPress={() => onEdit(item)}
+            >
+              <Ionicons name="pencil" size={13} color="#1E3A8A" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnBlueText} numberOfLines={1} ellipsizeMode="tail">Sửa tin</Text>
+            </TouchableOpacity>
+
+            {/* Mở bán lại */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnGreen]}
+              activeOpacity={0.75}
+              onPress={() => onToggleHide(item.id, item.title, true)}
+            >
+              <Ionicons name="eye-outline" size={13} color="#059669" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnGreenText} numberOfLines={1} ellipsizeMode="tail">Mở bán lại</Text>
+            </TouchableOpacity>
+
+            {/* Xóa tin */}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnRed]}
+              activeOpacity={0.75}
+              onPress={() => onDelete(item.id, item.title)}
+            >
+              <Ionicons name="trash-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnRedText} numberOfLines={1} ellipsizeMode="tail">Xóa tin</Text>
+            </TouchableOpacity>
+          </>
         ) : (
           <>
             {/* Sửa tin (chỉ cho bài chưa bán) */}
@@ -252,7 +294,7 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                   style={{ marginRight: 4 }}
                 />
                 <Text style={styles.actionBtnBlueText}>
-                  {isHidden ? 'Hiện lại' : 'Tạm ẩn'}
+                  {isHidden ? 'Mở bán lại' : 'Tạm ẩn'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -264,10 +306,6 @@ export const ManageListingsCard: React.FC<ManageListingsCardProps> = ({
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>Đã giao dịch</Text>
               </View>
             )}
-
-
-
-
           </>
         )}
       </View>
@@ -438,11 +476,13 @@ const styles = StyleSheet.create({
   },
   actionBtnGreen: {
     backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   actionBtnGreenText: {
     fontSize: 11.5,
-    fontWeight: '700',
-    color: '#065F46',
+    fontWeight: '800',
+    color: '#059669',
   },
   actionBtnGray: {
     backgroundColor: '#F1F5F9',
@@ -474,6 +514,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11.5,
     color: '#92400E',
+    lineHeight: 16,
+    flexShrink: 1,
+  },
+  hiddenBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    padding: 9,
+    marginBottom: 10,
+  },
+  hiddenBannerText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#475569',
     lineHeight: 16,
     flexShrink: 1,
   },

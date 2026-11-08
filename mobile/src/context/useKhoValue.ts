@@ -143,6 +143,10 @@ export const useKhoValue = (): KhoContextType => {
 
       if (dest.targetScreen === 'OrderDetail') {
         fetchOrders().catch(() => {});
+        fetchMySellerProducts().catch(() => {});
+      } else if (dest.targetScreen === 'ManageListings' || dest.targetScreen === 'ProductDetail') {
+        fetchMySellerProducts().catch(() => {});
+        fetchProducts(currentCampus).catch(() => {});
       }
 
       useNotificationStore.getState().addNotification({
@@ -199,6 +203,8 @@ export const useKhoValue = (): KhoContextType => {
 
     const unsubNewOrder = socketMobileService.onNewOrderReceived((d: any) => {
       fetchOrders().catch(() => {});
+      fetchMySellerProducts().catch(() => {});
+      fetchProducts(currentCampus).catch(() => {});
       const title = '📦 Bạn có đơn hàng mới!';
       const body = `Sinh viên vừa đặt mua sản phẩm của bạn (Đơn #${d?.orderCode || d?.orderId || ''}).`;
       useNotificationStore.getState().addNotification({
@@ -220,6 +226,8 @@ export const useKhoValue = (): KhoContextType => {
 
     const unsubOrderComp = socketMobileService.onOrderCompleted((d: any) => {
       fetchOrders().catch(() => {});
+      fetchMySellerProducts().catch(() => {});
+      fetchProducts(currentCampus).catch(() => {});
       const title = '🎉 Giao dịch hoàn tất thành công!';
       const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} đã hoàn tất. Tiền Escrow đã được giải ngân về ví!`;
       useNotificationStore.getState().addNotification({
@@ -262,6 +270,8 @@ export const useKhoValue = (): KhoContextType => {
 
     const unsubOrderCancel = socketMobileService.onOrderCancelled((d: any) => {
       fetchOrders().catch(() => {});
+      fetchMySellerProducts().catch(() => {});
+      fetchProducts(currentCampus).catch(() => {});
       const title = '❌ Đơn hàng đã bị hủy';
       const body = `Đơn hàng #${d?.orderCode || d?.orderId || ''} đã bị hủy bỏ.`;
       useNotificationStore.getState().addNotification({
@@ -400,7 +410,7 @@ export const useKhoValue = (): KhoContextType => {
         estimatedRevenue += item.price;
       } else if (item.status === 'PENDING_APPROVAL') {
         pending += 1;
-      } else if (item.status === 'REJECTED') {
+      } else if (item.status === 'REJECTED' || item.status === 'LOCKED') {
         rejected += 1;
       } else if (item.status === 'RESERVED') {
         reserved += 1;

@@ -1,13 +1,14 @@
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 
-export type ListingStatus = 'active' | 'pending' | 'rejected' | 'scheduled' | 'sold';
+export type ListingStatus = 'active' | 'pending' | 'hidden' | 'rejected' | 'scheduled' | 'sold';
 
 interface ManageListingsTabsProps {
   activeTab: ListingStatus;
   onSelectTab: (tab: ListingStatus) => void;
   activeCount: number;
   pendingCount: number;
+  hiddenCount: number;
   rejectedCount: number;
   scheduledCount: number;
   soldCount: number;
@@ -18,6 +19,7 @@ export const ManageListingsTabs: React.FC<ManageListingsTabsProps> = ({
   onSelectTab,
   activeCount,
   pendingCount,
+  hiddenCount,
   rejectedCount,
   scheduledCount,
   soldCount,
@@ -148,7 +150,42 @@ export const ManageListingsTabs: React.FC<ManageListingsTabsProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* Tab 5: Đã bán / Đã giao dịch (Sold) */}
+      {/* Tab 5: Đã ẩn (Hidden - Tạm ẩn / Hoàn tiền / Hủy đơn) */}
+      <TouchableOpacity
+        style={[
+          styles.statusTab,
+          styles.statusTabHidden,
+          activeTab === 'hidden' && styles.statusTabActiveSlate,
+        ]}
+        activeOpacity={0.8}
+        onPress={() => onSelectTab('hidden')}
+      >
+        <Text
+          style={[
+            styles.statusTabText,
+            activeTab === 'hidden' && styles.statusTabTextActive,
+          ]}
+        >
+          Đã ẩn
+        </Text>
+        <View
+          style={[
+            styles.tabCountBadge,
+            activeTab === 'hidden' ? styles.tabCountBadgeActive : styles.tabCountBadgeHidden,
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabCountText,
+              activeTab === 'hidden' ? styles.tabCountTextSlate : styles.tabCountTextWhite,
+            ]}
+          >
+            {hiddenCount}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* Tab 6: Đã bán / Đã giao dịch (Sold) */}
       <TouchableOpacity
         style={[styles.statusTab, activeTab === 'sold' && styles.statusTabActiveSlate]}
         activeOpacity={0.8}
@@ -157,13 +194,11 @@ export const ManageListingsTabs: React.FC<ManageListingsTabsProps> = ({
         <Text style={[styles.statusTabText, activeTab === 'sold' && styles.statusTabTextActive]}>
           Đã bán
         </Text>
-        {soldCount > 0 && (
-          <View style={[styles.tabCountBadge, activeTab === 'sold' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive]}>
-            <Text style={[styles.tabCountText, activeTab === 'sold' ? styles.tabCountTextSlate : styles.tabCountTextInactive]}>
-              {soldCount}
-            </Text>
-          </View>
-        )}
+        <View style={[styles.tabCountBadge, activeTab === 'sold' ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive]}>
+          <Text style={[styles.tabCountText, activeTab === 'sold' ? styles.tabCountTextSlate : styles.tabCountTextInactive]}>
+            {soldCount}
+          </Text>
+        </View>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -184,6 +219,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 7,
+  },
+  statusTabHidden: {
+    backgroundColor: '#F1F5F9',
   },
   statusTabActive: {
     backgroundColor: '#EA580C',
@@ -240,6 +278,9 @@ const styles = StyleSheet.create({
   },
   tabCountBadgeInactive: {
     backgroundColor: '#DBEAFE',
+  },
+  tabCountBadgeHidden: {
+    backgroundColor: '#64748B',
   },
   tabCountBadgeBlue: {
     backgroundColor: '#1E3A8A',
