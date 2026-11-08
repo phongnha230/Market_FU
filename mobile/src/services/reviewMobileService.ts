@@ -1,4 +1,8 @@
-import apiClient, { ApiResponse } from './apiClient';
+import apiClient, {
+  ApiResponse,
+  buildImageFormDataPart,
+  uploadMultipart,
+} from './apiClient';
 
 export interface CreateReviewPayload {
   orderId: string;
@@ -28,19 +32,21 @@ export const reviewMobileService = {
   async uploadMedia(fileUri: string, isVideo = false): Promise<string | null> {
     try {
       const formData = new FormData();
-      const filename = fileUri.split('/').pop() || (isVideo ? 'review-video.mp4' : 'review-photo.jpg');
-      const match = /\.([a-zA-Z0-9]+)$/.exec(filename);
-      const mimeType = isVideo ? 'video/mp4' : match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
-      formData.append('file', {
-        uri: fileUri,
-        name: filename,
-        type: mimeType,
-      } as any);
+      if (isVideo) {
+        const cleanPath = fileUri.split('?')[0];
+        const filename = cleanPath.split('/').pop() || `review_video_${Date.now()}.mp4`;
+        formData.append('file', {
+          uri: fileUri,
+          name: filename,
+          type: 'video/mp4',
+        } as any);
+      } else {
+        formData.append('file', buildImageFormDataPart(fileUri, 'review_photo') as any);
+      }
 
-      const res = await apiClient.post<ApiResponse<any>>('/reports/upload-evidence', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const res = await uploadMultipart<any>('/reports/upload-evidence', formData, {
+        method: 'POST',
+        timeoutMs: 60000,
       });
 
       return res.data?.data?.url || null;

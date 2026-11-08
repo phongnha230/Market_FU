@@ -1,4 +1,8 @@
-import apiClient, { ApiResponse } from './apiClient';
+import apiClient, {
+  ApiResponse,
+  buildImageFormDataPart,
+  uploadMultipart,
+} from './apiClient';
 import { UserProfile } from '../stores/userStore';
 import { adaptBackendUserToMobile } from './authMobileService';
 import { toBackendCampus } from '../lib/backendMappers';
@@ -75,20 +79,15 @@ export const profileMobileService = {
     formData.append('fullName', data.fullName);
 
     if (data.cardImageUri) {
-      const filename = data.cardImageUri.split('/').pop() || 'student_card.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append('cardImage', {
-        uri: data.cardImageUri,
-        name: filename,
-        type,
-      } as any);
+      formData.append(
+        'cardImage',
+        buildImageFormDataPart(data.cardImageUri, 'student_card') as any
+      );
     }
 
-    const res = await apiClient.post<ApiResponse<any>>('/profile/kyc', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    const res = await uploadMultipart<any>('/profile/kyc', formData, {
+      method: 'POST',
+      timeoutMs: 45000,
     });
 
     return {
@@ -122,20 +121,15 @@ export const profileMobileService = {
     formData.append('accountName', data.accountName.trim().toUpperCase());
 
     if (data.cardImageUri) {
-      const filename = data.cardImageUri.split('/').pop() || 'seller_card.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append('cardImage', {
-        uri: data.cardImageUri,
-        name: filename,
-        type,
-      } as any);
+      formData.append(
+        'cardImage',
+        buildImageFormDataPart(data.cardImageUri, 'seller_card') as any
+      );
     }
 
-    const res = await apiClient.post<ApiResponse<any>>('/profile/seller-onboarding', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    const res = await uploadMultipart<any>('/profile/seller-onboarding', formData, {
+      method: 'POST',
+      timeoutMs: 45000,
     });
 
     return {

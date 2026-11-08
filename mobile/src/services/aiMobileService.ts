@@ -1,5 +1,8 @@
-import apiClient, { ApiResponse, getApiBaseUrl } from './apiClient';
-import { useUserStore } from '../stores/userStore';
+import apiClient, {
+  ApiResponse,
+  buildImageFormDataPart,
+  uploadMultipart,
+} from './apiClient';
 
 export interface AiChatResponse {
   reply: string;
@@ -122,48 +125,16 @@ export const aiMobileService = {
    * Quét ảnh bằng Gemini Vision để gợi ý giá & thông tin đăng bài thực tế
    */
   async scanProductImage(imageUri: string): Promise<AiVisionScanResult> {
-    const baseUrl = getApiBaseUrl();
-    const token = useUserStore.getState().token;
-
     const formData = new FormData();
-    const filename = imageUri.split('/').pop() || 'item.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
-
-    formData.append('image', {
-      uri: imageUri,
-      name: filename,
-      type,
-    } as any);
-
-    const controller = new AbortController();
-    const timeoutTimer = setTimeout(() => controller.abort(), 45000); // 45 giây cho Gemini Vision xử lý ảnh
+    formData.append('image', buildImageFormDataPart(imageUri, 'vision_item') as any);
 
     try {
-      // Dùng fetch native của React Native để đảm bảo multipart/form-data có boundary chuẩn xác 100%
-      const response = await fetch(`${baseUrl}/ai/vision-post`, {
+      const res = await uploadMultipart<any>('/ai/vision-post', formData, {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-        signal: controller.signal,
+        timeoutMs: 45000,
       });
 
-      clearTimeout(timeoutTimer);
-
-      const json = await response.json();
-
-      if (!response.ok || !json.success) {
-        const errorMsg =
-          json?.message ||
-          json?.error ||
-          `Máy chủ AI trả về lỗi (HTTP ${response.status})`;
-        throw new Error(errorMsg);
-      }
-
-      const data = json.data || {};
+      const data = res.data?.data || {};
       const finalPrice = data.suggestedPrice || data.estimatedPrice || 0;
 
       return {
@@ -175,11 +146,7 @@ export const aiMobileService = {
         description: data.description || '',
       };
     } catch (e: any) {
-      clearTimeout(timeoutTimer);
       console.warn('⚠️ [Backend AI Vision error]:', e?.message);
-      if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
-        throw new Error('Quá thời gian kết nối (45s). Vui lòng thử lại với ảnh nhỏ hơn hoặc mạng ổn định hơn.');
-      }
       throw e;
     }
   },

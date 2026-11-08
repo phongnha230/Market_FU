@@ -1,4 +1,8 @@
-import apiClient, { ApiResponse } from './apiClient';
+import apiClient, {
+  ApiResponse,
+  buildImageFormDataPart,
+  uploadMultipart,
+} from './apiClient';
 import { socketMobileService } from './socketMobileService';
 
 export interface ChatMessage {
@@ -197,26 +201,13 @@ export const chatMobileService = {
     const formData = new FormData();
     formData.append('messageType', 'IMAGE');
     if (caption) formData.append('text', caption);
-
-    const filename = imageUri.split('/').pop() || 'photo.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    formData.append('image', {
-      uri: imageUri,
-      name: filename,
-      type,
-    } as any);
+    formData.append('image', buildImageFormDataPart(imageUri, 'chat_photo') as any);
 
     try {
-      const res = await apiClient.post<ApiResponse<any>>(
+      const res = await uploadMultipart<any>(
         `/chats/conversations/${conversationId}/messages`,
         formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        { method: 'POST', timeoutMs: 45000 }
       );
       const m = res.data?.data || {};
       const mediaUrl = m.mediaUrl || imageUri;

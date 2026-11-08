@@ -1,4 +1,8 @@
-import apiClient, { ApiResponse, getApiBaseUrl } from './apiClient';
+import apiClient, {
+  ApiResponse,
+  buildImageFormDataPart,
+  uploadMultipart,
+} from './apiClient';
 import type { ProductItem } from '../stores/productStore';
 import {
   toBackendCampus,
@@ -220,58 +224,18 @@ export const productMobileService = {
       });
 
       localImages.forEach((uri, idx) => {
-        const filename = uri.split('/').pop()?.split('?')[0] || `product_${Date.now()}_${idx}.jpg`;
-        const match = /\.(\w+)$/.exec(filename);
-        const ext = match ? match[1].toLowerCase() : 'jpg';
-        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-
-        formData.append('images', {
-          uri,
-          name: filename,
-          type: mimeType,
-        } as any);
+        formData.append(
+          'images',
+          buildImageFormDataPart(uri, `product_${Date.now()}_${idx}`) as any
+        );
       });
 
-      const baseUrl = getApiBaseUrl();
-      let token: string | null = null;
-      try {
-        const { useUserStore } = require('../stores/userStore');
-        token = useUserStore.getState().token;
-      } catch (err) {
-        console.error('❌ [productMobileService] Lỗi khi nạp userStore lấy token:', err);
-        throw new Error('Lỗi xác thực người dùng. Vui lòng đăng nhập lại.');
-      }
-
-      if (!token) {
-        console.error('❌ [productMobileService] Thiếu token xác thực khi đăng sản phẩm');
-        throw new Error('Bạn cần đăng nhập để thực hiện đăng bán sản phẩm.');
-      }
-
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 60000); // 60s cho việc tải nhiều ảnh và lưu DB
-
-      const response = await fetch(`${baseUrl}/products`, {
+      const res = await uploadMultipart<any>('/products', formData, {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-        signal: controller.signal,
+        timeoutMs: 60000,
       });
 
-      clearTimeout(timer);
-
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        const errorMsg =
-          json?.error?.message ||
-          json?.message ||
-          `Máy chủ từ chối đăng tin (Mã ${response.status})`;
-        throw new Error(errorMsg);
-      }
-
-      return adaptBackendProductToMobile(json.data);
+      return adaptBackendProductToMobile(res.data.data);
     }
 
     // 2. Trường hợp tất cả ảnh đều là link online có sẵn

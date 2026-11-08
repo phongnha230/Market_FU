@@ -85,7 +85,7 @@ const processQueue = (error: any) => {
   failedQueue = [];
 };
 
-// 1. Request Interceptor: Tự động gán JWT Bearer token
+// 1. Request Interceptor: Tự động gán JWT Bearer token & xử lý FormData
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     try {
@@ -93,6 +93,19 @@ apiClient.interceptors.request.use(
       const token = authStore?.getState()?.token;
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      const isFormDataPayload =
+        config.data &&
+        ((typeof FormData !== 'undefined' && config.data instanceof FormData) ||
+          typeof (config.data as any)?.getParts === 'function');
+      if (isFormDataPayload) {
+        if (config.headers && typeof config.headers.setContentType === 'function') {
+          config.headers.setContentType('multipart/form-data');
+        }
+        if (!config.timeout || config.timeout <= 6000) {
+          config.timeout = 60000;
+        }
       }
     } catch {
       // Bỏ qua lỗi nếu store chưa hydrate
@@ -178,6 +191,149 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Chuẩn hóa đối tượng file ảnh cho React Native FormData (`{ uri, name, type }`).
+ * Đảm bảo mimeType luôn thuộc danh sách hợp lệ của Multer & Gemini Vision (`image/jpeg`, `image/png`, `image/webp`).
+ */
+export const buildImageFormDataPart = (uri: string, fallbackPrefix = 'photo') => {
+  const cleanPath = uri.split('?')[0];
+  const rawName = cleanPath.split('/').pop() || `${fallbackPrefix}_${Date.now()}.jpg`;
+  const match = /\.(\w+)$/.exec(rawName);
+  const ext = match ? match[1].toLowerCase() : 'jpg';
+  const safeExt = ext === 'png' || ext === 'webp' ? ext : 'jpg';
+  const name = match ? rawName.replace(/\.\w+$/, `.${safeExt}`) : `${rawName}.${safeExt}`;
+  const type =
+    safeExt === 'png'
+      ? 'image/png'
+      : safeExt === 'webp'
+      ? 'image/webp'
+      : 'image/jpeg';
+
+  return {
+    uri,
+    name,
+    type,
+  };
+};
+
+export interface MultipartUploadOptions {
+  method?: 'POST' | 'PATCH' | 'PUT';
+  timeoutMs?: number;
+}
+
+/**
+ * Gửi `multipart/form-data` trực tiếp qua `XMLHttpRequest` native của React Native (`RCTNetworking`).
+ * Giải quyết triệt để lỗi `Unsupported FormDataPart implementation` của `expo/fetch` trên Expo SDK 57
+ * khi truyền `{ uri, name, type }`, đồng thời để native networking tự động đóng gói boundary chuẩn 100%.
+ */
+export const uploadMultipart = async <T = any>(
+  endpoint: string,
+  formData: FormData,
+  options?: MultipartUploadOptions
+): Promise<{ data: ApiResponse<T>; status: number }> => {
+  const method = (options?.method || 'POST').toUpperCase();
+  const timeoutMs = options?.timeoutMs ?? 60000;
+  const baseUrl = getApiBaseUrl();
+  const fullUrl = endpoint.startsWith('http')
+    ? endpoint
+    : `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+  const authStore = getAuthStore();
+  const currentToken = authStore?.getState()?.token || null;
+
+  const sendOnce = (tokenToUse: string | null): Promise<{ data: ApiResponse<T>; status: number }> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, fullUrl, true);
+      xhr.timeout = timeoutMs;
+
+      xhr.setRequestHeader('Accept', 'application/json');
+      if (tokenToUse) {
+        xhr.setRequestHeader('Authorization', `Bearer ${tokenToUse}`);
+      }
+      // Không set cứng Content-Type để RCTNetworking (OkHttp/NSURLSession) tự sinh multipart/form-data; boundary=...
+
+      xhr.onload = () => {
+        let json: any = null;
+        try {
+          json = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+        } catch {
+          json = { message: xhr.responseText || `Lỗi phản hồi từ máy chủ (HTTP ${xhr.status})` };
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && json?.success !== false) {
+          resolve({ data: json, status: xhr.status });
+        } else {
+          const errorMsg =
+            json?.error?.message ||
+            (typeof json?.error === 'string' ? json.error : null) ||
+            json?.message ||
+            `Máy chủ từ chối yêu cầu (HTTP ${xhr.status})`;
+          const err: any = new Error(errorMsg);
+          err.status = xhr.status;
+          err.response = { status: xhr.status, data: json };
+          reject(err);
+        }
+      };
+
+      xhr.onerror = () => {
+        const err: any = new Error(
+          'Không thể kết nối đến máy chủ khi tải tệp lên. Vui lòng kiểm tra kết nối mạng.'
+        );
+        err.code = 'ERR_NETWORK';
+        reject(err);
+      };
+
+      xhr.ontimeout = () => {
+        const seconds = Math.round(timeoutMs / 1000);
+        const err: any = new Error(
+          `Quá thời gian tải tệp lên (${seconds}s). Vui lòng thử lại với ảnh nhỏ hơn hoặc mạng ổn định hơn.`
+        );
+        err.code = 'ETIMEDOUT';
+        reject(err);
+      };
+
+      xhr.onabort = () => {
+        const err: any = new Error('Yêu cầu tải tệp lên đã bị hủy.');
+        err.name = 'AbortError';
+        reject(err);
+      };
+
+      xhr.send(formData as any);
+    });
+
+  try {
+    return await sendOnce(currentToken);
+  } catch (err: any) {
+    // Tự động thử làm mới Access Token 1 lần nếu gặp lỗi 401
+    if (err?.status === 401 && currentToken && authStore) {
+      try {
+        const storedRefreshToken = (authStore.getState() as any)?.refreshToken || currentToken;
+        const refreshRes = await axios.post(
+          `${baseUrl}/auth/refresh-token`,
+          { refreshToken: storedRefreshToken },
+          { headers: { Authorization: `Bearer ${currentToken}` } }
+        );
+        const newAccessToken =
+          refreshRes.data?.data?.tokens?.accessToken ||
+          refreshRes.data?.data?.accessToken ||
+          refreshRes.data?.tokens?.accessToken;
+
+        if (newAccessToken) {
+          const user = authStore.getState()?.user;
+          if (user) {
+            authStore.getState().setAuth(user, newAccessToken);
+          }
+          return await sendOnce(newAccessToken);
+        }
+      } catch {
+        // Nếu refresh thất bại, ném lỗi 401 ban đầu
+      }
+    }
+    throw err;
+  }
+};
 
 /**
  * Kiểm tra nhanh kết nối Backend
