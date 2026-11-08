@@ -18,6 +18,7 @@ import { getSafeAvatar } from '../../../lib/imageResolver';
 import { toBackendCampus } from '../../../lib/backendMappers';
 import { useUserStore } from '../../../stores/userStore';
 import { useOrderStore, OrderItem } from '../../../stores/orderStore';
+import { useProductStore } from '../../../stores/productStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
 import { orderMobileService } from '../../../services/orderMobileService';
 import { extractOrderIdFromNotification } from '../../../services/notificationMobileService';
@@ -378,6 +379,7 @@ export const OrderDetailScreen: React.FC = () => {
               await orderMobileService.confirmDelivery(orderId);
               updateOrderStatus(orderId, 'COMPLETED', '✅ Hoàn tất', '#059669', '#DCFCE7');
               setOrderStatus('completed');
+              useProductStore.getState().fetchProducts().catch(() => {});
               setTimeout(() => {
                 Alert.alert(
                 '🎉 Giao dịch hoàn tất!',
@@ -442,6 +444,7 @@ export const OrderDetailScreen: React.FC = () => {
   const handleCancelSuccess = useCallback((reason: string) => {
     updateOrderStatus(orderId, 'CANCELLED', '❌ Đã hủy', '#64748B', '#F1F5F9');
     setOrderStatus('cancelled');
+    useProductStore.getState().fetchProducts().catch(() => {});
     Alert.alert(
       isSeller ? '🎉 Đã từ chối đơn hàng' : '🎉 Đã hủy đơn hàng an toàn',
       isSeller

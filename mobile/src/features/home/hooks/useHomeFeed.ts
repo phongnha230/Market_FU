@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { CATEGORIES, FEED_FILTERS, GRID_PRODUCTS } from '../constants/home.constants';
 import { UseHomeFeedReturn } from '../types/home.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
@@ -25,11 +26,20 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     setSearchText(initialSearch || '');
   }
 
-  // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở
+  // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở hoặc quay lại màn hình Home
   useEffect(() => {
     const campusParam = toBackendCampus(currentCampus);
     fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
   }, [fetchProducts, currentCampus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!searchText.trim()) {
+        const campusParam = toBackendCampus(currentCampus);
+        fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
+      }
+    }, [fetchProducts, currentCampus, searchText])
+  );
 
   // Lắng nghe Realtime Socket: Khi Web (hoặc thiết bị khác) đăng/cập nhật sản phẩm
   useEffect(() => {
@@ -84,10 +94,12 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     return idx >= 0 ? idx : 0;
   }, [currentCampus, campuses]);
 
-  // Kết hợp sản phẩm từ store (bao gồm backend & tin mới đăng)
+  // Kết hợp sản phẩm từ store (chỉ hiển thị sản phẩm đang AVAILABLE trên Trang chủ)
   const combinedProducts: (ProductCardProps & { hashtags?: string[] })[] = useMemo(() => {
     if (storeProducts && Array.isArray(storeProducts) && storeProducts.length > 0) {
-      return storeProducts.filter(Boolean).map((p, idx) => {
+      return storeProducts
+        .filter((p) => p && (!p.status || p.status === 'AVAILABLE'))
+        .map((p, idx) => {
         const numPrice = Number(p?.price) || 0;
         const numOrigPrice = Number(p?.originalPrice) || 0;
         const hasDiscount = Boolean(numOrigPrice && numOrigPrice > numPrice);

@@ -1411,6 +1411,9 @@ export class OrderService {
       }
       emitToUser(targetUserId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
     }
+    if (actorId !== 'SYSTEM') {
+      emitToUser(actorId, 'order_cancelled', { orderId: order.id, orderCode: order.orderCode });
+    }
 
     // Tự động đẩy thông báo hủy đơn vào cuộc trò chuyện giữa 2 bên
     try {

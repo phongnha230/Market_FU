@@ -172,20 +172,12 @@ export const useProductStore = create<ProductState>()(
         set((state) => ({
           products: state.products.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         }));
-
-        productMobileService.updateProduct(id, partial as any).catch((err) => {
-          console.log('⚠️ [Mobile updateProduct error]:', err?.message);
-        });
       },
 
       deleteProduct: (id) => {
         set((state) => ({
           products: state.products.filter((p) => p.id !== id),
         }));
-
-        productMobileService.deleteProduct(id).catch((err) => {
-          console.log('⚠️ [Mobile deleteProduct error]:', err?.message);
-        });
       },
 
       getUserProducts: (sellerId: string) => {
