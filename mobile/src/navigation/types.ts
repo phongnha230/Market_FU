@@ -4,7 +4,7 @@ export type MainTabsParamList = {
   Home: undefined;
   Saved?: undefined;
   Chat: undefined;
-  PostItem?: undefined;
+  PostItem?: Record<string, any>;
   Orders?: { initialTab?: string };
   Voucher?: undefined;
   Profile: undefined;
@@ -23,6 +23,7 @@ export type RootStackParamList = {
     mode?: 'TRENDING' | 'CAMPUS_ALL' | 'CATEGORY';
     campusName?: string;
     category?: string;
+    initialKeyword?: string;
     title?: string;
   } | undefined;
   ContextualAuth: { product?: any } | undefined;

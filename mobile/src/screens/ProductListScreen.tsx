@@ -31,7 +31,7 @@ export const ProductListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  const { mode = 'CAMPUS_ALL', campusName = 'Hòa Lạc', category: initialCategory, categoryType, title } =
+  const { mode = 'CAMPUS_ALL', campusName = 'Hòa Lạc', category: initialCategory, categoryType, initialKeyword, title } =
     route.params || {};
 
   const {
@@ -41,7 +41,7 @@ export const ProductListScreen: React.FC = () => {
     setSelectedFilter,
     searchText,
     setSearchText,
-  } = useHomeFeed();
+  } = useHomeFeed(initialKeyword);
 
   const resolvedInitialCategory = categoryType || initialCategory || 'ALL';
   const [selectedCategory, setSelectedCategory] = useState<string>(resolvedInitialCategory);
@@ -66,12 +66,16 @@ export const ProductListScreen: React.FC = () => {
   const filteredProducts = allProducts.filter((item) => {
     // 1. Text search
     if (searchText.trim().length > 0) {
-      const q = searchText.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchLoc = (item.location || '').toLowerCase().includes(q);
-      const matchDesc = (item.description || '').toLowerCase().includes(q);
-      const matchTags = (item.hashtags || []).some((t) => t.toLowerCase().includes(q));
-      if (!matchTitle && !matchLoc && !matchDesc && !matchTags) return false;
+      const q = searchText.trim().toLowerCase().replace(/^#+/, '');
+      if (q) {
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchLoc = (item.location || '').toLowerCase().includes(q);
+        const matchDesc = (item.description || '').toLowerCase().includes(q);
+        const matchTags = (item.hashtags || []).some((t) =>
+          t.toLowerCase().replace(/^#+/, '').includes(q)
+        );
+        if (!matchTitle && !matchLoc && !matchDesc && !matchTags) return false;
+      }
     }
 
     // 2. Category Filter

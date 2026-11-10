@@ -133,9 +133,11 @@ export const SearchScreen: React.FC = () => {
             onChangeText={setKeyword}
             onAiPress={() => navigation.navigate('AiAssistant')}
             onFilterPress={() => {
+              const trimmed = keyword.trim();
               navigation.navigate('ProductList', {
                 mode: 'CAMPUS_ALL',
-                title: keyword ? `Kết quả cho "${keyword}"` : 'Tất cả tin đăng',
+                initialKeyword: trimmed || undefined,
+                title: trimmed ? `Kết quả cho "${trimmed}"` : 'Tất cả tin đăng',
               });
             }}
             onSubmitEditing={() => saveSearchKeyword(keyword)}

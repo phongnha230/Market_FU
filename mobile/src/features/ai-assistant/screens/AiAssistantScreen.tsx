@@ -626,7 +626,28 @@ export const AiAssistantScreen: React.FC = () => {
       if (chipId === 'login_now' || chipId === 'register_now') {
         navigation.navigate('Login');
       } else if (chipId === 'post_item_ai') {
-        navigation.navigate('PostItem', lastVisionResultRef.current || {});
+        if (!isAuthenticated) {
+          Alert.alert(
+            'Yêu cầu đăng nhập',
+            'Vui lòng đăng nhập bằng tài khoản Sinh viên FPT để đăng bán sản phẩm.',
+            [
+              { text: 'Để sau', style: 'cancel' },
+              { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+            ]
+          );
+          return;
+        }
+        if (user?.role !== 'SELLER') {
+          Alert.alert(
+            'Yêu cầu tài khoản Người bán',
+            'Vui lòng xác thực KYC Người bán trong mục Hồ sơ để mở quyền đăng tin pass đồ.'
+          );
+          return;
+        }
+        navigation.navigate('MainTabs', {
+          screen: 'PostItem',
+          params: lastVisionResultRef.current || {},
+        });
       } else if (chipId === 'compare') {
         Alert.alert(
           '📊 So sánh thiết bị',
@@ -646,7 +667,7 @@ export const AiAssistantScreen: React.FC = () => {
         Alert.alert('Trợ lý AI', 'Đã lưu yêu cầu của bạn.');
       }
     },
-    [navigation]
+    [navigation, isAuthenticated, user?.role]
   );
 
   const handleResetChat = () => {
