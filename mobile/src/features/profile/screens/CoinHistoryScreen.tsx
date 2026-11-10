@@ -503,6 +503,10 @@ export const CoinHistoryScreen: React.FC = () => {
                             );
                             return;
                           }
+                          if (q.targetScreen === 'PostItem') {
+                            navigation.navigate('MainTabs', { screen: 'PostItem' });
+                            return;
+                          }
                           navigation.navigate(q.targetScreen);
                         }}
                       >

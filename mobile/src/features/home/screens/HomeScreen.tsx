@@ -176,6 +176,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 title:
                   selectedFilter === 4
                     ? 'Tin xu hướng & Nổi bật'
+                    : currentCampusName === 'TẤT CẢ'
+                    ? 'Toàn bộ tin trên hệ thống'
                     : `Toàn bộ tin tại FU ${currentCampusName}`,
               })
             }

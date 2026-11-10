@@ -123,6 +123,8 @@ export const ProductListScreen: React.FC = () => {
     (title ? String(title).replace('\n', ' ') : null) ||
     (mode === 'TRENDING'
       ? 'Tin xu hướng & Nổi bật'
+      : !campusName || campusName.toUpperCase() === 'TẤT CẢ' || campusName.toUpperCase() === 'ALL'
+      ? 'Toàn bộ tin trên hệ thống'
       : `Toàn bộ tin tại FU ${campusName}`);
 
   return (

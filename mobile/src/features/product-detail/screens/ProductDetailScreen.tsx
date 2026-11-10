@@ -91,10 +91,9 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         <ProductInfoCard
           product={product}
           onPressHashtag={(tag) => {
-            navigation.navigate('MainTabs', {
-              screen: 'Home',
-              params: { searchKeyword: `#${tag}` },
-            });
+            const cleanTag = String(tag || '').replace(/^#+/, '').trim();
+            if (!cleanTag) return;
+            navigation.navigate('Search', { initialKeyword: `#${cleanTag}` });
           }}
         />
         <ProductSpecSection specs={product.specs} description={product.description} />

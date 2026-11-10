@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { CATEGORIES, FEED_FILTERS } from '../constants/home.constants';
 import { UseHomeFeedReturn } from '../types/home.types';
@@ -67,25 +67,35 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   }, [addProductFromRemote, updateProduct]);
 
   // Tìm kiếm thông minh Meilisearch Engine có Debounce (350ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmed = searchText.trim();
-      if (!trimmed) {
-        fetchProducts().catch(() => {});
-        return;
-      }
+  const hasTypedSearchRef = useRef(false);
 
+  useEffect(() => {
+    const trimmed = searchText.trim();
+    if (!trimmed) {
+      if (!hasTypedSearchRef.current) return;
+      hasTypedSearchRef.current = false;
+      const resetTimer = setTimeout(() => {
+        const campusParam = toBackendCampus(currentCampus);
+        fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
+      }, 350);
+      return () => clearTimeout(resetTimer);
+    }
+
+    hasTypedSearchRef.current = true;
+    const timer = setTimeout(() => {
       const isHashtag = trimmed.startsWith('#');
       const cleanKeyword = isHashtag ? trimmed.replace(/^#+/, '').trim() : trimmed;
+      const campusParam = toBackendCampus(currentCampus);
 
       fetchProducts({
+        campus: campusParam,
         search: isHashtag ? undefined : cleanKeyword,
         hashtag: isHashtag ? cleanKeyword : undefined,
       }).catch(() => {});
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchText, fetchProducts]);
+  }, [searchText, currentCampus, fetchProducts]);
 
   const selectedCampusIndex = useMemo(() => {
     const idx = campuses.indexOf(currentCampus);
