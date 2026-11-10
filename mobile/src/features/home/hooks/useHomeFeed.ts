@@ -1,9 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { CATEGORIES, FEED_FILTERS, GRID_PRODUCTS } from '../constants/home.constants';
+import { CATEGORIES, FEED_FILTERS } from '../constants/home.constants';
 import { UseHomeFeedReturn } from '../types/home.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
-import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProductStore } from '../../../stores/productStore';
 import { ProductCardProps } from '../../../components/common/ProductCard';
 import { resolveProductImage } from '../../../lib/imageResolver';
@@ -13,7 +12,6 @@ import { toBackendCampus } from '../../../lib/backendMappers';
 
 export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   const { currentCampus, campuses, setCampusByIndex } = useCampusStore();
-  const { user } = useAuthStore();
   const { products: storeProducts, fetchProducts, addProductFromRemote, updateProduct } = useProductStore();
   const [selectedFilter, setSelectedFilter] = useState(0);
 
@@ -26,18 +24,29 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     setSearchText(initialSearch || '');
   }
 
-  // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở hoặc quay lại màn hình Home
+  // Chặn gọi lại API liên tục khi vừa tải hoặc khi chuyển tab nhanh trong 15s
+  const lastFetchAtRef = useRef(0);
+  const lastFetchedCampusRef = useRef<string | undefined>(undefined);
+
+  // Tự động tải sản phẩm từ Backend để đồng bộ khi đổi cơ sở
   useEffect(() => {
     const campusParam = toBackendCampus(currentCampus);
+    lastFetchAtRef.current = Date.now();
+    lastFetchedCampusRef.current = campusParam;
     fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
   }, [fetchProducts, currentCampus]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!searchText.trim()) {
-        const campusParam = toBackendCampus(currentCampus);
-        fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
+      if (searchText.trim()) return;
+      const campusParam = toBackendCampus(currentCampus);
+      const isSameCampus = lastFetchedCampusRef.current === campusParam;
+      if (isSameCampus && Date.now() - lastFetchAtRef.current < 15000) {
+        return;
       }
+      lastFetchAtRef.current = Date.now();
+      lastFetchedCampusRef.current = campusParam;
+      fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
     }, [fetchProducts, currentCampus, searchText])
   );
 
@@ -69,25 +78,35 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   }, [addProductFromRemote, updateProduct]);
 
   // Tìm kiếm thông minh Meilisearch Engine có Debounce (350ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmed = searchText.trim();
-      if (!trimmed) {
-        fetchProducts().catch(() => {});
-        return;
-      }
+  const hasTypedSearchRef = useRef(false);
 
+  useEffect(() => {
+    const trimmed = searchText.trim();
+    if (!trimmed) {
+      if (!hasTypedSearchRef.current) return;
+      hasTypedSearchRef.current = false;
+      const resetTimer = setTimeout(() => {
+        const campusParam = toBackendCampus(currentCampus);
+        fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
+      }, 350);
+      return () => clearTimeout(resetTimer);
+    }
+
+    hasTypedSearchRef.current = true;
+    const timer = setTimeout(() => {
       const isHashtag = trimmed.startsWith('#');
       const cleanKeyword = isHashtag ? trimmed.replace(/^#+/, '').trim() : trimmed;
+      const campusParam = toBackendCampus(currentCampus);
 
       fetchProducts({
+        campus: campusParam,
         search: isHashtag ? undefined : cleanKeyword,
         hashtag: isHashtag ? cleanKeyword : undefined,
       }).catch(() => {});
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchText, fetchProducts]);
+  }, [searchText, currentCampus, fetchProducts]);
 
   const selectedCampusIndex = useMemo(() => {
     const idx = campuses.indexOf(currentCampus);
@@ -186,7 +205,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       list = list.filter(isMatchCampus);
     }
 
-    // Lọc theo Feed Filter phụ (TẤT CẢ / GẦN BẠN / ĐỒ KTX / PASS RẺ)
+    // Lọc theo Feed Filter phụ (Tất cả / Gần bạn / Đồ KTX / Giá rẻ / Nổi bật)
     if (selectedFilter === 1) {
       // Gần bạn / Safe-point: trạm Safe-point sảnh
       list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom') || p.location.includes('Hub'));
@@ -205,6 +224,13 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       list = list.filter((p) => {
         const numPrice = parseInt(p.price.replace(/[^\d]/g, ''), 10) || 0;
         return numPrice <= 100000;
+      });
+    } else if (selectedFilter === 4) {
+      // Nổi bật: sắp xếp theo lượt xem + lượt thích
+      list = [...list].sort((a, b) => {
+        const scoreA = (a.viewsCount || 0) + (a.likesCount || 0) * 3;
+        const scoreB = (b.viewsCount || 0) + (b.likesCount || 0) * 3;
+        return scoreB - scoreA;
       });
     }
 

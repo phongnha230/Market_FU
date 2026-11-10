@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AiAssistantInputBarProps {
@@ -10,6 +10,7 @@ interface AiAssistantInputBarProps {
   onVoiceInput: () => void;
   insetsBottom: number;
   isKeyboardVisible?: boolean;
+  isSending?: boolean;
 }
 
 export const AiAssistantInputBar: React.FC<AiAssistantInputBarProps> = ({
@@ -20,21 +21,26 @@ export const AiAssistantInputBar: React.FC<AiAssistantInputBarProps> = ({
   onVoiceInput,
   insetsBottom,
   isKeyboardVisible = false,
+  isSending = false,
 }) => {
+  const canSend = Boolean(inputText.trim()) && !isSending;
+
   return (
     <View style={[styles.inputBarWrapper, { paddingBottom: isKeyboardVisible ? 8 : Math.max(insetsBottom, 12) }]}>
-      <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.75} onPress={onScanVision}>
+      <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.75} onPress={onScanVision} disabled={isSending}>
         <Ionicons name="camera-outline" size={21} color="#64748B" />
       </TouchableOpacity>
 
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.textInput}
-          placeholder="Hỏi giá sách, check MSSV, đồ..."
+          placeholder="Hỏi giá sách, tìm đồ KTX, điểm hẹn..."
           placeholderTextColor="#94A3B8"
           value={inputText}
           onChangeText={onChangeText}
-          onSubmitEditing={onSend}
+          onSubmitEditing={() => {
+            if (canSend) onSend();
+          }}
           returnKeyType="send"
         />
         <TouchableOpacity
@@ -47,12 +53,16 @@ export const AiAssistantInputBar: React.FC<AiAssistantInputBarProps> = ({
       </View>
 
       <TouchableOpacity
-        style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+        style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
         activeOpacity={0.88}
         onPress={onSend}
-        disabled={!inputText.trim()}
+        disabled={!canSend}
       >
-        <Ionicons name="send" size={16} color="#FFFFFF" />
+        {isSending ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Ionicons name="send" size={16} color="#FFFFFF" />
+        )}
       </TouchableOpacity>
     </View>
   );

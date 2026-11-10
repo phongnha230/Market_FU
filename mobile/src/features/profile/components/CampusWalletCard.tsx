@@ -74,7 +74,7 @@ export const CampusWalletCard: React.FC<CampusWalletCardProps> = ({
   // DÀNH CHO BUYER: Buyer không có ví rút tiền ATM, tiền cọc nằm trong từng đơn hàng
   return (
     <View style={styles.card}>
-      <View style={styles.walletRow}>
+      <View style={[styles.walletRow, { marginBottom: 12 }]}>
         <View style={styles.walletBox}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <Ionicons name="shield-checkmark" size={14} color="#059669" />
@@ -136,7 +136,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 8,
-    marginBottom: 12,
   },
   walletBox: { flex: 1, minWidth: 0 },
   coinBox: { alignItems: 'flex-end', flexShrink: 0 },

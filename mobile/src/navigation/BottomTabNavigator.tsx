@@ -8,15 +8,13 @@ import {
   PostItemScreen,
   ChatListScreen,
   ProfileScreen,
-  ManageListingsScreen,
   OrderListScreen,
-  VoucherScreen,
   SavedItemsScreen,
 } from '../screens';
 import { MainTabsParamList } from './types';
 import { useUserStore, useChatStore, useOrderStore, useFavoriteStore } from '../stores';
-import { useKho } from '../context/KhoContext';
 import { RequireAuthModal } from '../components';
+import { theme } from '../config/theme';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
@@ -64,12 +62,6 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
         iconUnfocused: 'add-circle-outline',
         label: 'Đăng tin',
       };
-    case 'MyListings':
-      return {
-        iconFocused: 'file-tray-full',
-        iconUnfocused: 'file-tray-full-outline',
-        label: 'Kho hàng',
-      };
     case 'Profile':
     default:
       return {
@@ -83,8 +75,7 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useUserStore();
-  const { inventoryStats } = useKho();
-  const { orders } = useOrderStore();
+  const orders = useOrderStore((s) => s.orders);
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );
@@ -107,20 +98,16 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
     ).length;
   }, [orders, isAuthenticated, user?.id, isSeller]);
 
-  // 2. Badge Kho hàng: Chỉ hiện khi có tin cần người bán chú ý (tin bị từ chối cần sửa hoặc tin chờ duyệt)
-  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
-
   const handleTabPress = useCallback(
     (route: any, isFocused: boolean) => {
       // 1. Kiểm tra Guest Mode (Chưa đăng nhập)
       if (!isAuthenticated) {
-        if (['Chat', 'Saved', 'Orders', 'Voucher', 'PostItem', 'MyListings'].includes(route.name)) {
+        if (['Chat', 'Saved', 'Orders', 'Voucher', 'PostItem'].includes(route.name)) {
           let featureName = 'tính năng này';
           if (route.name === 'Chat') featureName = 'Hộp thư tin nhắn & trả giá';
           if (route.name === 'Saved') featureName = 'Danh sách sản phẩm đã lưu';
           if (route.name === 'Orders') featureName = 'Quản lý đơn hàng';
           if (route.name === 'PostItem') featureName = 'Đăng bán đồ thanh lý';
-          if (route.name === 'MyListings') featureName = 'Kho hàng & quản lý tin đăng';
 
           setModalMode('auth');
           setModalTitle('Yêu cầu đăng nhập tài khoản');
@@ -239,13 +226,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
                       </Text>
                     </View>
                   )}
-                  {route.name === 'MyListings' && isSeller && khoAttentionCount > 0 && (
-                    <View style={styles.chatBadge}>
-                      <Text style={styles.chatBadgeText}>
-                        {khoAttentionCount > 99 ? '99+' : khoAttentionCount}
-                      </Text>
-                    </View>
-                  )}
                 </View>
                 <Text style={[styles.tabLabel, isFocused && styles.activeTabLabel]}>
                   {config.label}
@@ -288,7 +268,11 @@ export const BottomTabNavigator = () => {
 
       {isSeller ? (
         <>
-          <Tab.Screen name="MyListings" component={ManageListingsScreen} />
+          <Tab.Screen
+            name="Orders"
+            component={OrderListScreen}
+            initialParams={{ initialTab: 'my_sales' }}
+          />
           <Tab.Screen
             name="PostItem"
             component={PostItemScreen}
@@ -358,7 +342,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   activeTabLabel: {
-    color: '#EA580C',
+    color: theme.colors.primary,
     fontWeight: '800',
     fontSize: 10.5,
   },
@@ -372,28 +356,28 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F27024',
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F27024',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.card,
   },
   postItemLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#F27024',
+    color: theme.colors.primary,
     marginTop: 2,
   },
   chatBadge: {
     position: 'absolute',
     top: -2,
     right: -8,
-    backgroundColor: '#EA580C',
+    backgroundColor: theme.colors.primary,
     minWidth: 14,
     height: 14,
     borderRadius: 7,

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import HomeSearchBar from '../features/home/components/HomeSearchBar';
 import ProductCard from '../components/common/ProductCard';
 import useHomeFeed from '../features/home/hooks/useHomeFeed';
 import { productMobileService } from '../services/productMobileService';
+import { theme } from '../config/theme';
 
 const RECENT_SEARCHES_KEY = '@fu_recent_searches';
 
@@ -44,13 +44,14 @@ export const SearchScreen: React.FC = () => {
     const loadHistory = async () => {
       try {
         const json = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
-        if (json) {
-          setRecentSearches(JSON.parse(json));
+        const parsed = json ? JSON.parse(json) : null;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRecentSearches(parsed);
         } else {
           setRecentSearches(['Giáo trình C#', 'Đồng phục FPT', 'Bàn gấp KTX']);
         }
       } catch {
-        // Ignored
+        setRecentSearches(['Giáo trình C#', 'Đồng phục FPT', 'Bàn gấp KTX']);
       }
     };
     loadHistory();
@@ -58,28 +59,24 @@ export const SearchScreen: React.FC = () => {
     productMobileService
       .getTrendingSearches(8)
       .then((items) => {
-        if (items && items.length > 0) {
-          setHotKeywords(items.map((i) => i.keyword));
+        const keywords = (items || [])
+          .map((i: any) => (typeof i === 'string' ? i : i?.keyword))
+          .filter((k): k is string => Boolean(k && k.trim()));
+        if (keywords.length > 0) {
+          setHotKeywords(keywords);
         }
       })
       .catch(() => {});
   }, []);
 
-  const saveSearchKeyword = useCallback(async (term: string) => {
+  const saveSearchKeyword = useCallback((term: string) => {
     const clean = term.trim();
     if (!clean) return;
-    try {
-      let updatedList: string[] = [];
-      setRecentSearches((prev) => {
-        updatedList = [clean, ...prev.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
-        return updatedList;
-      });
-      if (updatedList.length > 0) {
-        await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updatedList));
-      }
-    } catch {
-      // Ignored
-    }
+    setRecentSearches((prev) => {
+      const updatedList = [clean, ...prev.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updatedList)).catch(() => {});
+      return updatedList;
+    });
   }, []);
 
   const handleClearHistory = async () => {
@@ -105,44 +102,55 @@ export const SearchScreen: React.FC = () => {
   );
 
   const searchResults = keyword.trim()
-    ? products.filter((p) => {
-        const q = keyword.toLowerCase();
+    ? products.filter((p: any) => {
+        const q = keyword.trim().toLowerCase();
+        const cleanQ = q.replace(/^#+/, '');
+        if (!cleanQ) return true;
         return (
-          p.title.toLowerCase().includes(q) ||
-          (p.location && p.location.toLowerCase().includes(q)) ||
-          (p.seller && p.seller.toLowerCase().includes(q))
+          p.title.toLowerCase().includes(cleanQ) ||
+          (p.location && p.location.toLowerCase().includes(cleanQ)) ||
+          (p.seller && p.seller.toLowerCase().includes(cleanQ)) ||
+          (Array.isArray(p.hashtags) &&
+            p.hashtags.some((t: string) => t.toLowerCase().replace(/^#+/, '').includes(cleanQ)))
         );
       })
     : [];
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
-      {/* Header with Back button & Clean Search Bar matching User UI Spec */}
-      <View style={styles.headerRow}>
+    <View style={styles.container}>
+      {/* Header với nút Back & Thanh tìm kiếm tích hợp nút Hỏi AI */}
+      <View style={[styles.headerRow, { paddingTop: Math.max(insets.top, 10) }]}>
         <TouchableOpacity
           style={styles.backBtn}
           activeOpacity={0.7}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          <Ionicons name="arrow-back" size={22} color={theme.colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.searchBarWrapper}>
           <HomeSearchBar
             value={keyword}
-            onChangeText={(txt) => setKeyword(txt)}
-            onScanPress={() => navigation.navigate('AiAssistant')}
+            onChangeText={setKeyword}
+            onAiPress={() => navigation.navigate('AiAssistant')}
             onFilterPress={() => {
+              const trimmed = keyword.trim();
               navigation.navigate('ProductList', {
                 mode: 'CAMPUS_ALL',
-                title: keyword ? `Kết quả cho "${keyword}"` : 'Tất cả tin đăng',
+                initialKeyword: trimmed || undefined,
+                title: trimmed ? `Kết quả cho "${trimmed}"` : 'Tất cả tin đăng',
               });
             }}
+            onSubmitEditing={() => saveSearchKeyword(keyword)}
+            autoFocus
           />
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* If no search input, show Recent History & Hot Tags */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         {keyword.trim().length === 0 ? (
           <>
             {/* Lịch sử tìm kiếm gần đây */}
@@ -150,7 +158,7 @@ export const SearchScreen: React.FC = () => {
               <View style={styles.sectionBox}>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionTitleRow}>
-                    <Ionicons name="time-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                    <Ionicons name="time-outline" size={16} color={theme.colors.neutral.iconMuted} style={{ marginRight: 6 }} />
                     <Text style={styles.sectionTitle}>Lịch sử tìm kiếm gần đây</Text>
                   </View>
                   <TouchableOpacity onPress={handleClearHistory}>
@@ -166,7 +174,6 @@ export const SearchScreen: React.FC = () => {
                       onPress={() => handleSelectKeyword(item)}
                     >
                       <Text style={styles.historyTagText}>{item}</Text>
-                      <Ionicons name="close" size={13} color="#94A3B8" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -177,7 +184,7 @@ export const SearchScreen: React.FC = () => {
             <View style={styles.sectionBox}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Ionicons name="flame" size={16} color="#F27024" style={{ marginRight: 6 }} />
+                  <Ionicons name="flame" size={16} color={theme.colors.primary} style={{ marginRight: 6 }} />
                   <Text style={styles.sectionTitle}>Từ khóa sinh viên tìm kiếm nhiều</Text>
                 </View>
               </View>
@@ -195,31 +202,50 @@ export const SearchScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Banner gợi ý */}
-            <View style={styles.suggestBanner}>
-              <Ionicons name="sparkles" size={20} color="#F27024" style={{ marginRight: 8 }} />
+            {/* Thẻ mở Chatbot Cóc AI hỗ trợ tìm đồ */}
+            <TouchableOpacity
+              style={styles.aiCard}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('AiAssistant')}
+            >
+              <View style={styles.aiCardIcon}>
+                <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.suggestBannerTitle}>Gợi ý mua bán nhanh tại KTX</Text>
-                <Text style={styles.suggestBannerDesc}>
-                  Tìm đồ gia dụng KTX, giáo trình pass lại theo mã môn (PRF192, MAS291, PRN211...)
+                <Text style={styles.aiCardTitle}>Không nhớ tên món? Hỏi Cóc AI tìm giúp</Text>
+                <Text style={styles.aiCardDesc}>
+                  Mô tả nhu cầu (VD: giáo trình PRF192, đồ KTX dưới 150k), AI sẽ tra kho giúp bạn
                 </Text>
               </View>
-            </View>
+              <View style={styles.aiCardBadge}>
+                <Text style={styles.aiCardBadgeText}>Chat ngay</Text>
+              </View>
+            </TouchableOpacity>
           </>
         ) : (
-          /* When typing, show instant real-time results */
+          /* Kết quả tìm kiếm thời gian thực */
           <View style={styles.resultsContainer}>
             <View style={styles.resultSummaryRow}>
               <Text style={styles.resultSummaryText}>
-                Tìm thấy <Text style={{ fontWeight: '700', color: '#EA580C' }}>{searchResults.length}</Text> kết quả cho "{keyword}"
+                Tìm thấy <Text style={{ fontWeight: '700', color: theme.colors.primary }}>{searchResults.length}</Text> kết quả cho "{keyword}"
               </Text>
             </View>
 
             {searchResults.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={48} color="#CBD5E1" />
+                <Ionicons name="search-outline" size={48} color={theme.colors.border} />
                 <Text style={styles.emptyTitle}>Không có kết quả nào phù hợp</Text>
-                <Text style={styles.emptySub}>Hãy thử tìm kiếm với từ khóa ngắn gọn hơn hoặc tên môn học nhé!</Text>
+                <Text style={styles.emptySub}>Hãy thử từ khóa ngắn hơn hoặc nhờ Cóc AI tìm món tương tự trong kho nhé!</Text>
+                <TouchableOpacity
+                  style={styles.emptyAiBtn}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('AiAssistant')}
+                >
+                  <Ionicons name="sparkles" size={16} color={theme.colors.text.inverse} />
+                  <Text style={styles.emptyAiBtnText} numberOfLines={1}>
+                    Nhờ Cóc AI tìm giúp
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.productGrid}>
@@ -242,14 +268,16 @@ export const SearchScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.background,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 12,
+    paddingBottom: 2,
+    backgroundColor: theme.colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: theme.colors.borderLight,
   },
   backBtn: {
     width: 36,
@@ -282,11 +310,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text.primary,
   },
   clearBtnText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.colors.text.muted,
     fontWeight: '500',
   },
   tagWrap: {
@@ -297,20 +325,20 @@ const styles = StyleSheet.create({
   historyTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.colors.border,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
   },
   historyTagText: {
     fontSize: 12,
-    color: '#475569',
+    color: theme.colors.text.secondary,
     fontWeight: '500',
   },
   hotTag: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: theme.colors.primaryLight,
     borderWidth: 1,
     borderColor: '#FFEDD5',
     paddingHorizontal: 12,
@@ -319,30 +347,52 @@ const styles = StyleSheet.create({
   },
   hotTagText: {
     fontSize: 12,
-    color: '#EA580C',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
-  suggestBanner: {
+  aiCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFBEB',
+    gap: 10,
+    backgroundColor: theme.colors.card,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
-    borderRadius: 12,
+    borderColor: '#FED7AA',
+    borderRadius: 14,
     marginHorizontal: 16,
     marginTop: 16,
     padding: 12,
   },
-  suggestBannerTitle: {
+  aiCardIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  aiCardTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#B45309',
+    color: theme.colors.text.primary,
   },
-  suggestBannerDesc: {
-    fontSize: 11,
-    color: '#92400E',
+  aiCardDesc: {
+    fontSize: 11.5,
+    color: theme.colors.text.secondary,
     marginTop: 2,
     lineHeight: 16,
+  },
+  aiCardBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+    flexShrink: 0,
+  },
+  aiCardBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.text.inverse,
   },
   resultsContainer: {
     paddingTop: 10,
@@ -353,7 +403,7 @@ const styles = StyleSheet.create({
   },
   resultSummaryText: {
     fontSize: 13,
-    color: '#64748B',
+    color: theme.colors.text.muted,
   },
   productGrid: {
     flexDirection: 'row',
@@ -364,21 +414,36 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 48,
     paddingHorizontal: 24,
   },
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#475569',
+    color: theme.colors.text.secondary,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.colors.text.muted,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  emptyAiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 16,
+  },
+  emptyAiBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text.inverse,
   },
 });
 

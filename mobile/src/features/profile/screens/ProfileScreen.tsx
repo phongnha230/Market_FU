@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +14,11 @@ import { DepositCoinModal } from '../components/DepositCoinModal';
 import { MyReportsModal } from '../../report/components/MyReportsModal';
 import { TrustScoreModal } from '../components/TrustScoreModal';
 import { useWalletStore } from '../../../stores/walletStore';
+import { useKho } from '../../../context/KhoContext';
+import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
+import { theme } from '../../../config/theme';
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onNavigateToDispute,
@@ -32,18 +35,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     handleLogout,
   } = useProfile();
   const [refreshing, setRefreshing] = useState(false);
+  const lastFocusSyncRef = useRef(0);
+  const lastSyncedUserIdRef = useRef<string | undefined>(undefined);
+  const isSeller = user?.role === 'SELLER';
+  const orderSectionTitle = isSeller ? 'Đơn hàng của tôi' : 'Đơn mua của tôi';
+  const { inventoryStats, refreshKhoHang } = useKho();
+  const savedCount = useFavoriteStore((s) => s.favoriteIds.length);
+  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
   const handleRefreshAll = async () => {
     if (refreshing) return;
     setRefreshing(true);
+    lastFocusSyncRef.current = Date.now();
+    lastSyncedUserIdRef.current = user?.id;
     // Timeout an toàn tối đa 2 giây: đảm bảo vòng quay luôn tự tắt, không bao giờ bị kẹt
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
     try {
+      const tasks: Promise<any>[] = [
+        syncProfileFromBackend(),
+        useWalletStore.getState().fetchWalletBalances(),
+      ];
+      if (isSeller) {
+        tasks.push(refreshKhoHang());
+      }
       await Promise.race([
-        Promise.allSettled([
-          syncProfileFromBackend(),
-          useWalletStore.getState().fetchWalletBalances(),
-        ]),
+        Promise.allSettled(tasks),
         timeoutPromise,
       ]);
     } catch (e) {
@@ -55,10 +71,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   useFocusEffect(
     React.useCallback(() => {
+      const uid = user?.id;
+      if (!uid) {
+        lastFocusSyncRef.current = 0;
+        lastSyncedUserIdRef.current = undefined;
+        return;
+      }
+      const now = Date.now();
+      if (
+        lastSyncedUserIdRef.current === uid &&
+        now - lastFocusSyncRef.current < 15000
+      ) {
+        return;
+      }
+      lastFocusSyncRef.current = now;
+      lastSyncedUserIdRef.current = uid;
       // Đồng bộ ngầm trong nền khi vào tab, KHÔNG kích hoạt vòng xoay RefreshControl
       syncProfileFromBackend().catch(() => {});
       useWalletStore.getState().fetchWalletBalances().catch(() => {});
-    }, [syncProfileFromBackend])
+      if (isSeller) {
+        refreshKhoHang().catch(() => {});
+      }
+    }, [user?.id, syncProfileFromBackend, isSeller, refreshKhoHang])
   );
 
   const [showKycModal, setShowKycModal] = useState(false);
@@ -93,9 +127,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       navigation.navigate('Settings');
     }
   };
-
-  const isSeller = user?.role === 'SELLER';
-  const orderSectionTitle = 'Đơn mua của tôi';
 
   const handleOpenOrderList = (statusId?: string) => {
     let initialTab = 'all';
@@ -183,6 +214,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }}
             />
 
+            {isSeller && (
+              <>
+                {/* Quản lý Kho hàng & Tin đăng (chuyển từ BottomTab sang Hồ sơ) */}
+                <TouchableOpacity
+                  style={styles.settingsBarCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('ManageListings')}
+                >
+                  <View style={styles.settingsBarLeft}>
+                    <View style={styles.settingsBarIconBox}>
+                      <Ionicons name="file-tray-full-outline" size={20} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.settingsBarTextCol}>
+                      <Text style={styles.settingsBarTitle}>Quản lý Kho hàng & Tin đăng</Text>
+                      <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">
+                        {inventoryStats.active || 0} tin đang bán
+                        {khoAttentionCount > 0 ? ` • ${khoAttentionCount} tin cần chú ý` : ' • Chạm để xem tất cả'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
+                </TouchableOpacity>
+
+                {/* Món đồ đã lưu cho Seller (vì Seller không có Tab Đã lưu ở đáy) */}
+                <TouchableOpacity
+                  style={styles.settingsBarCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('SavedItems')}
+                >
+                  <View style={styles.settingsBarLeft}>
+                    <View style={[styles.settingsBarIconBox, { backgroundColor: theme.colors.neutral.surface }]}>
+                      <Ionicons name="heart-outline" size={20} color={theme.colors.neutral.icon} />
+                    </View>
+                    <View style={styles.settingsBarTextCol}>
+                      <Text style={styles.settingsBarTitle}>Món đồ đã lưu yêu thích</Text>
+                      <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">
+                        {savedCount > 0 ? `${savedCount} sản phẩm đang theo dõi` : 'Xem các món đồ bạn đã thả tim'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
+                </TouchableOpacity>
+              </>
+            )}
+
             {/* Lịch sử tố cáo vi phạm */}
             <TouchableOpacity
               style={styles.settingsBarCard}
@@ -190,15 +266,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onPress={() => setShowMyReportsModal(true)}
             >
               <View style={styles.settingsBarLeft}>
-                <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
-                  <Ionicons name="shield-half" size={20} color="#E11D48" />
+                <View style={[styles.settingsBarIconBox, { backgroundColor: theme.colors.neutral.surface }]}>
+                  <Ionicons name="shield-half" size={20} color={theme.colors.neutral.icon} />
                 </View>
                 <View style={styles.settingsBarTextCol}>
                   <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
                   <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#E11D48" style={{ marginLeft: 6, flexShrink: 0 }} />
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
             </TouchableOpacity>
 
             <OrdersOverviewSection
@@ -323,15 +399,16 @@ const styles = StyleSheet.create({
   },
   topBarTitle: { fontSize: 16.5, fontWeight: '800', color: '#0F172A' },
   settingIconBtn: { padding: 4 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  scrollContent: { paddingBottom: 100 },
   guestSection: {
     marginTop: 14,
   },
   guestPromoCard: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 16,
+    marginHorizontal: 16,
     padding: 16,
     alignItems: 'center',
     marginBottom: 8,
@@ -340,7 +417,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FED7AA',
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -348,107 +425,15 @@ const styles = StyleSheet.create({
   guestPromoTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#9A3412',
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 6,
   },
   guestPromoDesc: {
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#7C2D12',
+    color: '#475569',
     textAlign: 'center',
-  },
-  khoCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#FED7AA',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 12,
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  khoCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  khoCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  khoIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  khoCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  khoCardSub: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  khoAlertBadge: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  khoAlertBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  khoCardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  khoCardActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EA580C',
-  },
-  khoStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  khoStatusChip: {
-    flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  khoStatusChipNum: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  khoStatusChipLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 1,
   },
   settingsBarCard: {
     flexDirection: 'row',
@@ -484,7 +469,7 @@ const styles = StyleSheet.create({
   },
   settingsBarTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   settingsBarSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  settingsSection: { marginTop: 14 },
+  settingsSection: { marginTop: 14, marginHorizontal: 16 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#475569', marginBottom: 6 },
   loginCtaBtn: {
     flexDirection: 'row',
@@ -504,6 +489,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
+    marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: '#FEF2F2',

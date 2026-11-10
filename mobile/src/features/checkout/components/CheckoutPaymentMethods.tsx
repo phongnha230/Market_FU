@@ -145,6 +145,8 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   payTitle: {
     fontSize: 13.5,
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    marginLeft: 6,
+    flexShrink: 0,
   },
   recBadgeText: {
     fontSize: 10,

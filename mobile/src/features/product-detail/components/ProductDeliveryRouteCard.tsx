@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 6,
   },
   titleWithIcon: {
@@ -107,16 +108,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
+    minWidth: 0,
   },
   titleText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
+    flexShrink: 1,
   },
   badgePill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   badgeGreen: {
     backgroundColor: '#DCFCE7',

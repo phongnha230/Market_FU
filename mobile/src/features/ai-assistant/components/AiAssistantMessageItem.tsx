@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { resolveAvatarImage } from '../../../lib/imageResolver';
@@ -10,6 +10,7 @@ export interface ChatMessage {
   sender: 'ai' | 'user';
   text?: string;
   time: string;
+  isTyping?: boolean;
   campusHeader?: string;
   suggestedProducts?: SuggestedProductItem[];
   safetyTip?: {
@@ -56,20 +57,7 @@ const renderInlineFormattedText = (raw: string, isUser = false) => {
 
 const FormattedAiText: React.FC<{
   text: string;
-  isWelcome?: boolean;
-  userName?: string;
-}> = ({ text, isWelcome, userName }) => {
-  if (isWelcome) {
-    return (
-      <Text style={styles.aiBubbleText}>
-        Chào <Text style={styles.boldOrangeText}>{userName}</Text>! Tôi là trợ lý
-        chuyên sâu FPT 5Campus Marketplace. Tôi có thể hỗ trợ bạn thẩm định giá
-        đồ dùng học tập, đối soát tài khoản MSSV chính quy, hoặc kết nối giao
-        dịch trực tiếp ngay tại ký túc xá. Bạn cần hỗ trợ gì hôm nay?
-      </Text>
-    );
-  }
-
+}> = ({ text }) => {
   const lines = text.split('\n');
 
   return (
@@ -119,7 +107,7 @@ const FormattedAiText: React.FC<{
 
 export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
   message,
-  userName = 'Quân',
+  userName = 'Bạn',
   userAvatar,
   onProductDetail,
   onContactSeller,
@@ -169,17 +157,18 @@ export const AiAssistantMessageItem: React.FC<AiAssistantMessageItemProps> = ({
         <View style={styles.aiBubble}>
           {message.campusHeader && (
             <View style={styles.campusRecommendHeader}>
-              <Ionicons name="shield-checkmark" size={13} color="#EA580C" style={{ marginRight: 4 }} />
-              <Text style={styles.campusRecommendHeaderText}>{message.campusHeader}</Text>
+              <Ionicons name="shield-checkmark" size={13} color="#EA580C" style={{ marginRight: 4, flexShrink: 0 }} />
+              <Text style={styles.campusRecommendHeaderText} numberOfLines={1}>{message.campusHeader}</Text>
             </View>
           )}
 
-          {message.text && (
-            <FormattedAiText
-              text={message.text}
-              isWelcome={message.id === 'm1'}
-              userName={userName}
-            />
+          {message.isTyping ? (
+            <View style={styles.typingRow}>
+              <ActivityIndicator size="small" color="#EA580C" />
+              <Text style={styles.typingText}>Cóc AI đang suy nghĩ & tìm kiếm...</Text>
+            </View>
+          ) : (
+            message.text && <FormattedAiText text={message.text} />
           )}
 
           {message.suggestedProducts && message.suggestedProducts.length > 0 && (
@@ -346,10 +335,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   campusRecommendHeaderText: {
+    flexShrink: 1,
     fontSize: 11,
     fontWeight: '800',
     color: '#EA580C',
     letterSpacing: 0.2,
+  },
+  typingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  typingText: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '600',
   },
   aiBubbleText: {
     fontSize: 13,

@@ -28,45 +28,63 @@ export interface AiSessionItem {
   messages?: Array<{ content: string; createdAt: string }>;
 }
 
+export const resolveAiCampusCode = (campus?: string): string | undefined => {
+  if (!campus) return undefined;
+  const trimmed = campus.trim();
+  const upper = trimmed.toUpperCase();
+  if (!trimmed || upper === 'TẤT CẢ' || upper === 'TAT CA' || upper === 'ALL') {
+    return undefined;
+  }
+
+  const campusMap: Record<string, string> = {
+    'HÒA LẠC': 'HOL',
+    'Hòa Lạc': 'HOL',
+    'HOL': 'HOL',
+    'TP.HCM': 'HCM',
+    'TP. HỒ CHÍ MINH': 'HCM',
+    'HỒ CHÍ MINH': 'HCM',
+    'HCM': 'HCM',
+    'ĐÀ NẴNG': 'DAD',
+    'Đà Nẵng': 'DAD',
+    'DAD': 'DAD',
+    'QUY NHƠN': 'QN',
+    'Quy Nhơn': 'QN',
+    'QN': 'QN',
+    'CẦN THƠ': 'CT',
+    'Cần Thơ': 'CT',
+    'CT': 'CT',
+  };
+  return campusMap[trimmed] || campusMap[upper];
+};
+
 export const aiMobileService = {
   /**
    * Chat với Gemini AI Assistant
    */
   async chatWithAssistant(
     message: string,
-    campus: string = 'HÒA LẠC',
+    campus?: string,
     sessionId?: string
   ): Promise<AiChatResponse> {
     try {
-      const campusMap: Record<string, string> = {
-        'HÒA LẠC': 'HOL',
-        'Hòa Lạc': 'HOL',
-        'HOL': 'HOL',
-        'TP.HCM': 'HCM',
-        'TP. HỒ CHÍ MINH': 'HCM',
-        'HỒ CHÍ MINH': 'HCM',
-        'HCM': 'HCM',
-        'ĐÀ NẴNG': 'DAD',
-        'Đà Nẵng': 'DAD',
-        'DAD': 'DAD',
-        'QUY NHƠN': 'QN',
-        'Quy Nhơn': 'QN',
-        'QN': 'QN',
-        'CẦN THƠ': 'CT',
-        'Cần Thơ': 'CT',
-        'CT': 'CT',
-      };
-      const cleanCampus = campusMap[campus.trim()] || campusMap[campus.toUpperCase()] || 'HOL';
+      const cleanCampus = resolveAiCampusCode(campus);
 
       // Chỉ gửi sessionId nếu là MongoDB ObjectId 24 ký tự hex hợp lệ
       const isObjectId = /^[0-9a-fA-F]{24}$/.test(sessionId || '');
       const cleanSessionId = isObjectId ? sessionId : undefined;
 
-      const res = await apiClient.post<ApiResponse<any>>('/ai/assistant-chat', {
-        message,
-        campus: cleanCampus,
-        sessionId: cleanSessionId,
-      });
+      const res = await apiClient.post<ApiResponse<any>>(
+        '/ai/assistant-chat',
+        {
+          message,
+          ...(cleanCampus ? { campus: cleanCampus } : {}),
+          sessionId: cleanSessionId,
+        },
+        {
+          // Gemini Function Calling + DB search cần thời gian dài hơn timeout mặc định 6s
+          timeout: 25000,
+        }
+      );
       const data = res.data?.data;
       const reply =
         data?.message?.content ||
@@ -82,13 +100,16 @@ export const aiMobileService = {
         suggestedProducts,
       };
     } catch (e: any) {
-      console.log('⚠️ [Backend AI Chat offline, using local fallback]:', e?.message);
-      const isObjectId = /^[0-9a-fA-F]{24}$/.test(sessionId || '');
-      return {
-        reply: `Chào bạn! Mình là Cóc AI hỗ trợ Marketplace FPT ${campus}. Bạn muốn tìm giáo trình PE/FE, đồ phòng KTX, hay cần hướng dẫn điểm hẹn an toàn Safe-Point?`,
-        sessionId: isObjectId ? sessionId! : '',
-        suggestedProducts: [],
-      };
+      const serverMsg =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message;
+      if (e?.code === 'ECONNABORTED') {
+        throw new Error('Trợ lý AI phản hồi quá lâu (hết thời gian chờ). Vui lòng thử lại nhé!');
+      }
+      if (serverMsg) {
+        throw new Error(serverMsg);
+      }
+      throw e;
     }
   },
 

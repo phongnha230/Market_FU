@@ -16,6 +16,7 @@ import { profileMobileService } from '../../../services/profileMobileService';
 import { authMobileService } from '../../../services/authMobileService';
 import { useUserStore } from '../../../stores/userStore';
 import { withRefreshTimeout } from '../../../utils/safeRefresh';
+import { theme } from '../../../config/theme';
 
 function getTimeUntilWeeklyReset(): string {
   const now = new Date();
@@ -127,11 +128,11 @@ export const CoinHistoryScreen: React.FC = () => {
       setIsCheckedInToday(checkedIn);
       setQuests(serverQuests.map((quest) => {
         const metadata: Record<string, Pick<QuestItem, 'icon' | 'iconBg' | 'iconColor' | 'targetScreen'>> = {
-          'quest-kyc': { icon: 'shield-checkmark', iconBg: '#ECFDF5', iconColor: '#059669', targetScreen: 'AccountSettings' },
-          'quest-post': { icon: 'add-circle', iconBg: '#EFF6FF', iconColor: '#2563EB', targetScreen: 'PostItem' },
-          'quest-safepoint': { icon: 'location', iconBg: '#FAF5FF', iconColor: '#9333EA', targetScreen: 'SafePointHubs' },
-          'quest-review': { icon: 'star', iconBg: '#FFFBEB', iconColor: '#D97706', targetScreen: 'Orders' },
-          'quest-checkin': { icon: 'calendar', iconBg: '#FEF3C7', iconColor: '#D97706' },
+          'quest-kyc': { icon: 'shield-checkmark', iconBg: theme.colors.neutral.surface, iconColor: theme.colors.neutral.icon, targetScreen: 'AccountSettings' },
+          'quest-post': { icon: 'add-circle', iconBg: theme.colors.primaryLight, iconColor: theme.colors.primary, targetScreen: 'PostItem' },
+          'quest-safepoint': { icon: 'location', iconBg: theme.colors.neutral.surface, iconColor: theme.colors.neutral.icon, targetScreen: 'SafePointHubs' },
+          'quest-review': { icon: 'star', iconBg: theme.colors.primaryLight, iconColor: theme.colors.primary, targetScreen: 'OrderList' },
+          'quest-checkin': { icon: 'calendar', iconBg: theme.colors.primaryLight, iconColor: theme.colors.primary },
         };
         const iconMeta = metadata[quest.id] || { icon: 'ribbon' as const, iconBg: '#FFF7ED', iconColor: '#EA580C' };
         return {
@@ -237,8 +238,8 @@ export const CoinHistoryScreen: React.FC = () => {
     if (amount > 0) {
       return {
         icon: 'sparkles',
-        iconBg: '#ECFDF5',
-        iconColor: '#059669',
+        iconBg: theme.colors.primaryLight,
+        iconColor: theme.colors.primary,
         label: 'Cộng Xu thưởng',
       };
     }
@@ -253,15 +254,15 @@ export const CoinHistoryScreen: React.FC = () => {
     if (type.includes('BOOST')) {
       return {
         icon: 'rocket',
-        iconBg: '#EFF6FF',
-        iconColor: '#2563EB',
+        iconBg: theme.colors.neutral.surface,
+        iconColor: theme.colors.neutral.icon,
         label: 'Đẩy tin Top',
       };
     }
     return {
       icon: 'cart',
-      iconBg: '#FEF2F2',
-      iconColor: '#DC2626',
+      iconBg: theme.colors.neutral.surface,
+      iconColor: theme.colors.neutral.icon,
       label: 'Sử dụng Xu',
     };
   };
@@ -494,7 +495,19 @@ export const CoinHistoryScreen: React.FC = () => {
                         style={styles.linkActionBtn}
                         activeOpacity={0.8}
                         onPress={() => {
-                          if (q.targetScreen) navigation.navigate(q.targetScreen);
+                          if (!q.targetScreen) return;
+                          if (q.targetScreen === 'PostItem' && user?.role !== 'SELLER') {
+                            Alert.alert(
+                              'Yêu cầu tài khoản Người bán',
+                              'Vui lòng xác thực KYC Người bán trong mục Hồ sơ để mở quyền đăng bán đồ cũ.'
+                            );
+                            return;
+                          }
+                          if (q.targetScreen === 'PostItem') {
+                            navigation.navigate('MainTabs', { screen: 'PostItem' });
+                            return;
+                          }
+                          navigation.navigate(q.targetScreen);
                         }}
                       >
                         <Text style={styles.linkActionText}>{q.actionLabel}</Text>
@@ -590,12 +603,12 @@ const styles = StyleSheet.create({
   voucherNavText: { fontSize: 12, fontWeight: '700', color: '#EA580C' },
   scrollContent: { paddingBottom: 40 },
   coinBanner: {
-    backgroundColor: '#1E1B4B',
+    backgroundColor: theme.colors.text.primary,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 20,
     padding: 16,
-    shadowColor: '#1E1B4B',
+    shadowColor: theme.colors.text.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -606,11 +619,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  coinLabel: { fontSize: 10, fontWeight: '800', color: '#A5B4FC', letterSpacing: 0.5 },
+  coinLabel: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 0.5 },
   amountRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 4 },
   coinAmount: { fontSize: 28, fontWeight: '900', color: '#FFFFFF' },
-  coinUnit: { fontSize: 14, fontWeight: '800', color: '#FCD34D', marginLeft: 4 },
-  coinEquiv: { fontSize: 11, color: '#C7D2FE', marginTop: 4 },
+  coinUnit: { fontSize: 14, fontWeight: '800', color: theme.colors.primaryHover, marginLeft: 4 },
+  coinEquiv: { fontSize: 11, color: '#CBD5E1', marginTop: 4 },
   checkInBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../../config/theme';
 
 interface OrderStat {
   id: string;
@@ -38,14 +39,14 @@ export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({
             onPress={() => onPressStatus && onPressStatus(item.id)}
           >
             <View style={styles.iconBox}>
-              <Ionicons name={item.icon as any} size={20} color="#F27024" />
+              <Ionicons name={item.icon as any} size={20} color={theme.colors.primary} />
               {item.count > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{item.count}</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.label}>{item.label}</Text>
+            <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -56,8 +57,8 @@ export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, marginTop: 14, marginBottom: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  title: { fontSize: 13.5, fontWeight: '800', color: '#0F172A' },
-  seeAll: { fontSize: 11.5, fontWeight: '700', color: '#F27024' },
+  title: { fontSize: 13.5, fontWeight: '800', color: theme.colors.text.primary },
+  seeAll: { fontSize: 11.5, fontWeight: '700', color: theme.colors.primary },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFFFFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9' },
   statBox: { alignItems: 'center', flex: 1 },
   iconBox: { position: 'relative', padding: 4 },

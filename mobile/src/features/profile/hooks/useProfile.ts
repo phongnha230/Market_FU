@@ -16,12 +16,11 @@ export const useProfile = () => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
-  const { currentCampus } = useCampusStore();
+  const currentCampus = useCampusStore((s) => s.currentCampus);
   const orders = useOrderStore((s) => s.orders);
   const unreadNotifsCount = useNotificationStore(
     (s) => s.notifications.filter((n) => n.unread).length
   );
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const userId = user?.id;
 
@@ -46,33 +45,12 @@ export const useProfile = () => {
   }, [userId, updateUserProfile]);
 
   /**
-   * Kéo xuống để làm mới (Pull-to-refresh) với cơ chế timeout an toàn
-   */
-  const onRefresh = useCallback(async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2500));
-    try {
-      await Promise.race([
-        syncProfileFromBackend(),
-        timeoutPromise,
-      ]);
-    } catch (err) {
-      console.warn('⚠️ [useProfile onRefresh error]:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [isRefreshing, syncProfileFromBackend]);
-
-  /**
    * Lắng nghe Realtime Socket khi Admin phê duyệt hoặc từ chối KYC
    */
   useEffect(() => {
     if (!userId) return;
-    // 1. Tự động đồng bộ 1 lần khi màn hình khởi tạo
-    syncProfileFromBackend();
 
-    // 2. Đăng ký listener sự kiện Socket từ Admin Backend
+    // Đăng ký listener sự kiện Socket từ Admin Backend
     const unsubscribe = socketMobileService.onKycStatusUpdated(async (data) => {
       console.log('📢 [Mobile Event]: Nhận thông báo phán quyết KYC từ Admin:', data);
 
@@ -250,8 +228,6 @@ export const useProfile = () => {
     currentCampus,
     settingItems: dynamicSettingItems,
     orderStats: dynamicOrderStats,
-    isRefreshing,
-    onRefresh,
     syncProfileFromBackend,
     handleLogout,
   };

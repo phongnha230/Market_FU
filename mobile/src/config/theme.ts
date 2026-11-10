@@ -25,6 +25,12 @@ export const theme = {
     },
     border: '#E2E8F0',
     borderLight: '#F1F5F9',
+    neutral: {
+      surface: '#F1F5F9',
+      surfaceAlt: '#F8FAFC',
+      icon: '#475569',
+      iconMuted: '#64748B',
+    },
   },
   spacing: {
     xs: 4,

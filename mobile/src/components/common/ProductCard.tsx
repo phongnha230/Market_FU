@@ -11,6 +11,7 @@ import { useProductStore } from '../../stores/productStore';
 import { Alert } from 'react-native';
 
 import { useNavigation } from '@react-navigation/native';
+import { theme } from '../../config/theme';
 
 export interface ProductCardProps {
   id: string;
@@ -147,7 +148,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           onPress={handleToggleLike}
         >
-          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={15} color={isFavorite ? '#EF4444' : '#64748B'} />
+          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={15} color={isFavorite ? theme.colors.primary : theme.colors.neutral.iconMuted} />
         </TouchableOpacity>
       </View>
 
@@ -200,7 +201,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
           )}
           <Text style={styles.sellerName} numberOfLines={1}>{seller}</Text>
           {sellerYear && <Text style={styles.sellerYear}> ({sellerYear})</Text>}
-          {isVerified && <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ marginLeft: 3 }} />}
+          {isVerified && <Ionicons name="checkmark-circle" size={12} color={theme.colors.primary} style={{ marginLeft: 3 }} />}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -234,11 +235,11 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   badgeWhite: { backgroundColor: 'rgba(255, 255, 255, 0.95)' },
-  badgeGreen: { backgroundColor: '#10B981' },
-  badgeOrange: { backgroundColor: '#EA580C' },
+  badgeGreen: { backgroundColor: theme.colors.neutral.surface },
+  badgeOrange: { backgroundColor: theme.colors.primary },
   badgeText: { fontSize: 9.5, fontWeight: '700' },
   textWhite: { color: '#FFFFFF' },
-  textDark: { color: '#0F172A' },
+  textDark: { color: theme.colors.text.primary },
   heartBtn: {
     position: 'absolute',
     top: 7,
@@ -266,14 +267,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  price: { fontSize: 16, fontWeight: '900', color: '#DC2626' },
+  price: { fontSize: 16, fontWeight: '900', color: theme.colors.primary },
   originalPrice: {
     fontSize: 10.5,
-    color: '#94A3B8',
+    color: theme.colors.text.muted,
     textDecorationLine: 'line-through',
   },
   discountBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: theme.colors.primaryLight,
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 4,
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   discountBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#DC2626',
+    color: theme.colors.primary,
   },
   viewsCountBadge: {
     flexDirection: 'row',
