@@ -76,6 +76,7 @@ export interface HomeHeaderProps {
   coins?: number;
   unreadNotificationCount?: number;
   onSearchPress?: () => void;
+  onAiPress?: () => void;
   onNotificationPress?: () => void;
   onCoinsPress?: () => void;
   onAvatarPress?: () => void;
@@ -91,6 +92,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
   coins = 0,
   unreadNotificationCount = 0,
   onSearchPress,
+  onAiPress,
   onNotificationPress,
   onCoinsPress,
   onAvatarPress,
@@ -208,17 +210,30 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         </View>
       </View>
 
-      {/* Thanh tìm kiếm 1 chạm tích hợp ngay trên Header */}
-      <TouchableOpacity
-        style={styles.searchTrigger}
-        activeOpacity={0.85}
-        onPress={onSearchPress}
-      >
-        <Ionicons name="search-outline" size={18} color={theme.colors.neutral.iconMuted} />
-        <Text style={styles.searchPlaceholder} numberOfLines={1}>
-          Tìm giáo trình, laptop, đồ KTX...
-        </Text>
-      </TouchableOpacity>
+      {/* Thanh tìm kiếm 1 chạm + lối vào Trợ lý Cóc AI */}
+      <View style={styles.searchRow}>
+        <TouchableOpacity
+          style={styles.searchTrigger}
+          activeOpacity={0.85}
+          onPress={onSearchPress}
+        >
+          <Ionicons name="search-outline" size={18} color={theme.colors.neutral.iconMuted} />
+          <Text style={styles.searchPlaceholder} numberOfLines={1}>
+            Tìm giáo trình, laptop, đồ KTX...
+          </Text>
+        </TouchableOpacity>
+        {onAiPress && (
+          <TouchableOpacity
+            style={styles.aiTriggerChip}
+            activeOpacity={0.85}
+            onPress={onAiPress}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+          >
+            <Ionicons name="sparkles" size={14} color={theme.colors.primary} />
+            <Text style={styles.aiTriggerText}>Hỏi AI</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Dropdown Popover Chọn Cơ Sở FPT */}
       <Modal
@@ -493,11 +508,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text.primary,
   },
-  searchTrigger: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginTop: 8,
+  },
+  searchTrigger: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     height: 40,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -510,6 +531,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.text.muted,
     fontWeight: '500',
+  },
+  aiTriggerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    flexShrink: 0,
+  },
+  aiTriggerText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: theme.colors.primary,
   },
   dropdownBackdrop: {
     flex: 1,

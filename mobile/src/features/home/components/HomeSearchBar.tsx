@@ -1,30 +1,38 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../config/theme';
 
 interface HomeSearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
-  onScanPress?: () => void;
+  onAiPress?: () => void;
   onFilterPress?: () => void;
+  onSubmitEditing?: () => void;
+  autoFocus?: boolean;
+  placeholder?: string;
 }
 
 export const HomeSearchBar: React.FC<HomeSearchBarProps> = ({
   value,
   onChangeText,
-  onScanPress,
+  onAiPress,
   onFilterPress,
+  onSubmitEditing,
+  autoFocus = false,
+  placeholder = 'Tìm kiếm Meilisearch, #hashtag...',
 }) => {
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={20} color="#EA580C" style={styles.searchIcon} />
+        <Ionicons name="search-outline" size={20} color={theme.colors.primary} style={styles.searchIcon} />
         <TextInput
-          placeholder="Tìm kiếm Meilisearch, #hashtag..."
-          placeholderTextColor="#94A3B8"
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.text.muted}
           value={value}
           onChangeText={onChangeText}
+          onSubmitEditing={onSubmitEditing}
+          autoFocus={autoFocus}
           style={styles.searchInput}
           returnKeyType="search"
         />
@@ -33,28 +41,34 @@ export const HomeSearchBar: React.FC<HomeSearchBarProps> = ({
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => onChangeText('')}
-            style={{ marginRight: 8 }}
+            style={{ marginRight: 6 }}
           >
-            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            <Ionicons name="close-circle" size={18} color={theme.colors.text.muted} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={onScanPress}
-        >
-          <MaterialCommunityIcons name="scan-helper" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
+        {onAiPress && (
+          <TouchableOpacity
+            style={styles.aiButton}
+            activeOpacity={0.75}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={onAiPress}
+          >
+            <Ionicons name="sparkles" size={13} color={theme.colors.primary} />
+            <Text style={styles.aiButtonText}>Hỏi AI</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <TouchableOpacity
-        style={styles.filterButton}
-        activeOpacity={0.8}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        onPress={onFilterPress}
-      >
-        <Ionicons name="options-outline" size={20} color={theme.colors.text.primary} />
-      </TouchableOpacity>
+      {onFilterPress && (
+        <TouchableOpacity
+          style={styles.filterButton}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={onFilterPress}
+        >
+          <Ionicons name="options-outline" size={20} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -65,7 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     marginTop: 6,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   searchBar: {
     flex: 1,
@@ -73,7 +87,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.background,
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 6,
     height: 44,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -87,6 +102,22 @@ const styles = StyleSheet.create({
     color: theme.colors.text.primary,
     fontWeight: '500',
   },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  aiButtonText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.primary,
+  },
   filterButton: {
     width: 44,
     height: 44,
@@ -94,7 +125,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10,
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },

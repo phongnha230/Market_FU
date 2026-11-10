@@ -76,6 +76,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     navigation.navigate('Search');
   }, [navigation]);
 
+  const handleOpenAi = useCallback(() => {
+    navigation.navigate('AiAssistant');
+  }, [navigation]);
+
   const handleOpenNotification = useCallback(() => {
     if (!isAuthenticated) {
       setAuthModalTitle('Yêu cầu đăng nhập');
@@ -240,6 +244,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         coins={displayCoins}
         unreadNotificationCount={unreadNotificationCount}
         onSearchPress={handleOpenSearch}
+        onAiPress={handleOpenAi}
         onNotificationPress={handleOpenNotification}
         onCoinsPress={handleOpenCoins}
         onAvatarPress={handleAvatarPress}

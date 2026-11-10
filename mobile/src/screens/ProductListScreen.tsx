@@ -152,7 +152,7 @@ export const ProductListScreen: React.FC = () => {
       <HomeSearchBar
         value={searchText}
         onChangeText={setSearchText}
-        onScanPress={() => navigation.navigate('AiAssistant')}
+        onAiPress={() => navigation.navigate('AiAssistant')}
       />
 
       {/* Filter Dropdown Bar */}
