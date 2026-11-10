@@ -35,6 +35,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     handleLogout,
   } = useProfile();
   const [refreshing, setRefreshing] = useState(false);
+  const isSeller = user?.role === 'SELLER';
+  const orderSectionTitle = isSeller ? 'Đơn hàng của tôi' : 'Đơn mua của tôi';
+  const { inventoryStats, refreshKhoHang } = useKho();
+  const savedCount = useFavoriteStore((s) => s.favoriteIds.length);
+  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
   const handleRefreshAll = async () => {
     if (refreshing) return;
@@ -42,11 +47,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     // Timeout an toàn tối đa 2 giây: đảm bảo vòng quay luôn tự tắt, không bao giờ bị kẹt
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
     try {
+      const tasks: Promise<any>[] = [
+        syncProfileFromBackend(),
+        useWalletStore.getState().fetchWalletBalances(),
+      ];
+      if (isSeller) {
+        tasks.push(refreshKhoHang());
+      }
       await Promise.race([
-        Promise.allSettled([
-          syncProfileFromBackend(),
-          useWalletStore.getState().fetchWalletBalances(),
-        ]),
+        Promise.allSettled(tasks),
         timeoutPromise,
       ]);
     } catch (e) {
@@ -61,7 +70,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       // Đồng bộ ngầm trong nền khi vào tab, KHÔNG kích hoạt vòng xoay RefreshControl
       syncProfileFromBackend().catch(() => {});
       useWalletStore.getState().fetchWalletBalances().catch(() => {});
-    }, [syncProfileFromBackend])
+      if (isSeller) {
+        refreshKhoHang().catch(() => {});
+      }
+    }, [syncProfileFromBackend, isSeller, refreshKhoHang])
   );
 
   const [showKycModal, setShowKycModal] = useState(false);
@@ -96,12 +108,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       navigation.navigate('Settings');
     }
   };
-
-  const isSeller = user?.role === 'SELLER';
-  const orderSectionTitle = isSeller ? 'Đơn hàng của tôi' : 'Đơn mua của tôi';
-  const { inventoryStats } = useKho();
-  const savedCount = useFavoriteStore((s) => s.favoriteIds.length);
-  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
   const handleOpenOrderList = (statusId?: string) => {
     let initialTab = 'all';

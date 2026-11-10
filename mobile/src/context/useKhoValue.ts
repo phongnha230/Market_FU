@@ -123,11 +123,7 @@ export const useKhoValue = (): KhoContextType => {
       }, 1500);
     }
 
-    // Khởi tạo kênh Push Notification & lắng nghe chạm banner
-    notificationMobileService.registerForPushNotificationsAsync().catch(() => {});
-    const unsubPushListeners = notificationMobileService.setupNotificationListeners();
-
-    // Kết nối Socket và đăng ký sự kiện realtime toàn hệ thống
+    // Kết nối Socket và đăng ký sự kiện realtime toàn hệ thống (Push token & listener đã khởi tạo ở App/userStore)
     socketMobileService.getSocket();
 
     const unsubNotif = socketMobileService.onNotification((n) => {
@@ -378,7 +374,6 @@ export const useKhoValue = (): KhoContextType => {
 
     return () => {
       if (consentTimer) clearTimeout(consentTimer);
-      unsubPushListeners();
       unsubNotif();
       unsubOrderConfirmed();
       unsubOrderPaid();
