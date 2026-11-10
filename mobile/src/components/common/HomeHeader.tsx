@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveAvatarImage } from '../../lib/imageResolver';
 import { useCampusStore } from '../../stores/useCampusStore';
+import { theme } from '../../config/theme';
 
 interface CampusDropdownOption {
   value: string;
@@ -19,8 +20,6 @@ interface CampusDropdownOption {
   tag: string;
   subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  bgColor: string;
 }
 
 const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
@@ -30,8 +29,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Toàn quốc',
     subtitle: 'Xem toàn bộ tin đăng từ 5 Campus FPT',
     icon: 'globe-outline',
-    color: '#EA580C',
-    bgColor: '#FFF7ED',
   },
   {
     value: 'HÒA LẠC',
@@ -39,8 +36,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Hola • Hà Nội',
     subtitle: 'Sảnh Alpha, Beta, Gamma & KTX Dom A–H',
     icon: 'school-outline',
-    color: '#0284C7',
-    bgColor: '#E0F2FE',
   },
   {
     value: 'TP.HCM',
@@ -48,8 +43,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Xavalo • Q.9',
     subtitle: 'Khu CNC Quận 9 • Sảnh chính & Nhà văn hóa',
     icon: 'business-outline',
-    color: '#7C3AED',
-    bgColor: '#F3E8FF',
   },
   {
     value: 'ĐÀ NẴNG',
@@ -57,8 +50,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Fuda • Ngũ Hành Sơn',
     subtitle: 'KĐT FPT City • Sảnh Alpha & Khu KTX',
     icon: 'sunny-outline',
-    color: '#D97706',
-    bgColor: '#FEF3C7',
   },
   {
     value: 'CẦN THƠ',
@@ -66,8 +57,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Fuct • Ninh Kiều',
     subtitle: 'Cầu Rau Răm • Sảnh Gamma & Canteen',
     icon: 'leaf-outline',
-    color: '#059669',
-    bgColor: '#D1FAE5',
   },
   {
     value: 'QUY NHƠN',
@@ -75,8 +64,6 @@ const CAMPUS_DROPDOWN_ITEMS: CampusDropdownOption[] = [
     tag: 'Fuqn • AI Campus',
     subtitle: 'KĐT An Phú Thịnh • Tòa Alpha & Beta',
     icon: 'hardware-chip-outline',
-    color: '#E11D48',
-    bgColor: '#FFE4E6',
   },
 ];
 
@@ -86,12 +73,11 @@ export interface HomeHeaderProps {
   selectedCampusIndex?: number;
   avatarUrl?: string;
   isAuthenticated?: boolean;
-  isSeller?: boolean;
+  coins?: number;
   unreadNotificationCount?: number;
-  khoCount?: number;
   onSearchPress?: () => void;
   onNotificationPress?: () => void;
-  onKhoPress?: () => void;
+  onCoinsPress?: () => void;
   onAvatarPress?: () => void;
   onCampusChangePress?: () => void;
   onCampusSelect?: (index: number, campusValue: string) => void;
@@ -103,14 +89,12 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
   selectedCampusIndex,
   avatarUrl,
   isAuthenticated = false,
-  isSeller = false,
+  coins = 0,
   unreadNotificationCount = 0,
-  khoCount = 0,
   onSearchPress,
   onNotificationPress,
-  onKhoPress,
+  onCoinsPress,
   onAvatarPress,
-  onCampusChangePress,
   onCampusSelect,
 }) => {
   const insets = useSafeAreaInsets();
@@ -128,25 +112,17 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
   };
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
       <View style={styles.topBar}>
-        <View style={styles.leftSection}>
-          <View style={styles.logoWrapper}>
-            <View style={styles.logoBox}>
-              <Image
-                source={require('../../../assets/icon.png')}
-                style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                contentFit="cover"
-              />
-            </View>
-            <View style={styles.logoBadge5}>
-              <Text style={styles.logoBadge5Text}>5 Cơ sở</Text>
-            </View>
+        <View style={styles.leftGroup}>
+          <View style={styles.logoBox}>
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.logoImage}
+              contentFit="cover"
+            />
           </View>
-        </View>
 
-        <View style={styles.centerSection}>
-          <Text style={styles.brandTitle}>FPT 5Campus</Text>
           <TouchableOpacity
             style={[styles.campusBadge, dropdownVisible && styles.campusBadgeActive]}
             activeOpacity={0.75}
@@ -154,28 +130,35 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
           >
             <Ionicons
               name={activeCampusValue === 'TẤT CẢ' ? 'globe-outline' : 'location'}
-              size={11}
-              color="#EA580C"
+              size={12}
+              color={theme.colors.primary}
               style={{ marginRight: 4 }}
             />
-            <Text style={styles.campusBadgeText}>{activeCampusValue}</Text>
+            <Text style={styles.campusBadgeText} numberOfLines={1}>
+              {activeCampusValue}
+            </Text>
             <Ionicons
               name={dropdownVisible ? 'caret-up' : 'caret-down'}
               size={10}
-              color="#EA580C"
+              color={theme.colors.primary}
               style={{ marginLeft: 4 }}
             />
           </TouchableOpacity>
         </View>
 
         <View style={styles.rightSection}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={onSearchPress}
-          >
-            <Ionicons name="search-outline" size={22} color="#1E293B" />
-          </TouchableOpacity>
+          {isAuthenticated && (
+            <TouchableOpacity
+              style={styles.coinChip}
+              activeOpacity={0.8}
+              onPress={onCoinsPress}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            >
+              <Ionicons name="sparkles" size={12} color={theme.colors.primary} />
+              <Text style={styles.coinChipText}>{coins.toLocaleString('vi-VN')} xu</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.iconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -192,7 +175,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
                 <View style={styles.notificationDot} />
               )
             )}
-            <Ionicons name="notifications-outline" size={22} color="#1E293B" />
+            <Ionicons name="notifications-outline" size={21} color={theme.colors.text.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -217,29 +200,26 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
                 </View>
               )
             ) : (
-              <View style={styles.guestAvatarCircle}>
-                <Ionicons name="person" size={18} color="#64748B" />
+              <View style={styles.guestLoginChip}>
+                <Ionicons name="person-outline" size={14} color={theme.colors.text.primary} />
+                <Text style={styles.guestLoginText}>Đăng nhập</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.greetingRow}>
-        <View style={styles.greetingTextCol}>
-          <Text style={styles.welcomeTitle} numberOfLines={1}>Welcome to FPT Market 👋</Text>
-          <Text style={styles.welcomeSubtitle} numberOfLines={1}>
-            Trao đổi đồ dùng sinh viên{' '}
-            {activeCampusValue === 'TẤT CẢ'
-              ? '• Toàn hệ thống 5 Campus'
-              : `• FU ${activeCampusValue}`}
-          </Text>
-        </View>
-        <View style={styles.liveBadge}>
-          <View style={styles.greenPulseDot} />
-          <Text style={styles.liveBadgeText}>Campus Live</Text>
-        </View>
-      </View>
+      {/* Thanh tìm kiếm 1 chạm tích hợp ngay trên Header */}
+      <TouchableOpacity
+        style={styles.searchTrigger}
+        activeOpacity={0.85}
+        onPress={onSearchPress}
+      >
+        <Ionicons name="search-outline" size={18} color={theme.colors.neutral.iconMuted} />
+        <Text style={styles.searchPlaceholder} numberOfLines={1}>
+          Tìm giáo trình, laptop, đồ KTX...
+        </Text>
+      </TouchableOpacity>
 
       {/* Dropdown Popover Chọn Cơ Sở FPT */}
       <Modal
@@ -250,19 +230,17 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         onRequestClose={() => setDropdownVisible(false)}
       >
         <Pressable
-          style={[styles.dropdownBackdrop, { paddingTop: Math.max(insets.top, 12) + 52 }]}
+          style={[styles.dropdownBackdrop, { paddingTop: Math.max(insets.top, 10) + 52 }]}
           onPress={() => setDropdownVisible(false)}
         >
           <Pressable style={styles.dropdownWrapper} onPress={(e) => e.stopPropagation()}>
-            {/* Mũi tên trỏ lên thẳng nút [TẤT CẢ ▼] */}
             <View style={styles.dropdownArrowUp} />
 
             <View style={styles.dropdownCard}>
-              {/* Header của Dropdown */}
               <View style={styles.dropdownHeader}>
                 <View style={styles.dropdownHeaderLeft}>
                   <View style={styles.dropdownHeaderIconBox}>
-                    <Ionicons name="compass" size={16} color="#EA580C" />
+                    <Ionicons name="compass" size={16} color={theme.colors.primary} />
                   </View>
                   <View>
                     <Text style={styles.dropdownHeaderTitle}>Chọn cơ sở FPT University</Text>
@@ -276,11 +254,10 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
                   onPress={() => setDropdownVisible(false)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="close" size={16} color="#64748B" />
+                  <Ionicons name="close" size={16} color={theme.colors.neutral.iconMuted} />
                 </TouchableOpacity>
               </View>
 
-              {/* Danh sách 6 lựa chọn (Tất cả + 5 Campus) */}
               <View style={styles.dropdownList}>
                 {CAMPUS_DROPDOWN_ITEMS.map((item, idx) => {
                   const isSelected =
@@ -301,13 +278,13 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
                       <View
                         style={[
                           styles.optionIconBox,
-                          { backgroundColor: isSelected ? '#EA580C' : item.bgColor },
+                          isSelected ? styles.optionIconBoxActive : styles.optionIconBoxDefault,
                         ]}
                       >
                         <Ionicons
                           name={item.icon}
                           size={18}
-                          color={isSelected ? '#FFFFFF' : item.color}
+                          color={isSelected ? theme.colors.text.inverse : theme.colors.neutral.icon}
                         />
                       </View>
 
@@ -344,7 +321,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
 
                       <View style={styles.optionRightCol}>
                         {isSelected ? (
-                          <Ionicons name="checkmark-circle" size={22} color="#EA580C" />
+                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
                         ) : (
                           <View style={styles.unselectedRadio} />
                         )}
@@ -362,175 +339,179 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
 });
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 10 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 },
-  leftSection: { width: 64, justifyContent: 'center', overflow: 'visible' },
-  logoWrapper: {
-    position: 'relative',
-    alignSelf: 'flex-start',
-    overflow: 'visible',
-    marginTop: 4,
+  container: {
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderLight,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 44,
+    gap: 8,
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   logoBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#EA580C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+    overflow: 'hidden',
   },
-  logoBadge5: {
-    position: 'absolute',
-    top: -7,
-    right: -12,
-    backgroundColor: '#059669',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 9,
-    zIndex: 99,
-    elevation: 6,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
-  logoBadge5Text: {
-    color: '#FFFFFF',
-    fontSize: 8.5,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-    includeFontPadding: false,
-  },
-  centerSection: { alignItems: 'center', justifyContent: 'center' },
-  brandTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A', letterSpacing: -0.2 },
   campusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: theme.colors.neutral.surface,
     paddingHorizontal: 10,
-    paddingVertical: 3.5,
-    borderRadius: 12,
-    marginTop: 2,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: theme.colors.border,
+    flexShrink: 1,
   },
   campusBadgeActive: {
-    backgroundColor: '#FFEDD5',
-    borderColor: '#EA580C',
+    backgroundColor: theme.colors.primaryLight,
+    borderColor: theme.colors.primary,
   },
-  campusBadgeText: { fontSize: 10.5, fontWeight: '800', color: '#EA580C', letterSpacing: 0.2 },
-  rightSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 110 },
-  iconButton: { padding: 6, position: 'relative', marginLeft: 2 },
+  campusBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.text.primary,
+    letterSpacing: 0.2,
+  },
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    gap: 6,
+  },
+  coinChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  coinChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.primary,
+  },
+  iconButton: {
+    padding: 5,
+    position: 'relative',
+  },
   notificationDot: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 5,
+    right: 5,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
+    backgroundColor: theme.colors.danger,
     zIndex: 2,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.card,
   },
   notificationBadge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#EF4444',
+    top: 1,
+    right: 1,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: theme.colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
     zIndex: 2,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.card,
   },
   notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+    color: theme.colors.text.inverse,
+    fontSize: 8.5,
     fontWeight: '800',
-    lineHeight: 11,
+    lineHeight: 10,
   },
-  khoBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#EA580C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    zIndex: 2,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+  avatarButton: {
+    marginLeft: 2,
   },
-  khoBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
-    lineHeight: 11,
-  },
-  avatarButton: { marginLeft: 8 },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F1F5F9',
-  },
-  guestAvatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.neutral.surface,
   },
   avatarInitialBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#EA580C',
-    backgroundColor: '#FFF7ED',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#EA580C',
+    color: theme.colors.primary,
   },
-  greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, gap: 8 },
-  greetingTextCol: { flex: 1, minWidth: 0, marginRight: 6 },
-  welcomeTitle: { fontSize: 20, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
-  welcomeSubtitle: { fontSize: 12, fontWeight: '500', color: '#64748B', marginTop: 2 },
-  liveBadge: {
+  guestLoginChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: 16,
+    backgroundColor: theme.colors.neutral.surface,
     borderWidth: 1,
-    borderColor: '#D1FAE5',
-    flexShrink: 0,
+    borderColor: theme.colors.border,
   },
-  greenPulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
-  liveBadgeText: { fontSize: 11, color: '#047857', fontWeight: '600' },
+  guestLoginText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  searchTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.text.muted,
+    fontWeight: '500',
+  },
   dropdownBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
@@ -550,22 +531,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 9,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF',
+    borderBottomColor: theme.colors.card,
     marginBottom: -1,
     zIndex: 10,
   },
   dropdownCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.card,
     borderRadius: 20,
     padding: 14,
-    shadowColor: '#0F172A',
+    shadowColor: theme.colors.text.primary,
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.16,
     shadowRadius: 24,
     elevation: 14,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: theme.colors.borderLight,
   },
   dropdownHeader: {
     flexDirection: 'row',
@@ -574,7 +555,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: theme.colors.borderLight,
   },
   dropdownHeaderLeft: {
     flexDirection: 'row',
@@ -586,27 +567,27 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: theme.colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#FED7AA',
   },
   dropdownHeaderTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#0F172A',
+    color: theme.colors.text.primary,
   },
   dropdownHeaderSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: theme.colors.neutral.iconMuted,
     marginTop: 1,
   },
   dropdownCloseBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -619,21 +600,27 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 10,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   dropdownOptionActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FDBA74',
+    backgroundColor: theme.colors.primaryLight,
+    borderColor: '#FED7AA',
   },
   optionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+  },
+  optionIconBoxDefault: {
+    backgroundColor: theme.colors.neutral.surface,
+  },
+  optionIconBoxActive: {
+    backgroundColor: theme.colors.primary,
   },
   optionTextCol: {
     flex: 1,
@@ -648,14 +635,14 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text.primary,
   },
   optionTitleActive: {
     fontWeight: '800',
-    color: '#EA580C',
+    color: theme.colors.primary,
   },
   optionTagPill: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.border,
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
@@ -666,15 +653,15 @@ const styles = StyleSheet.create({
   optionTagText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#475569',
+    color: theme.colors.neutral.icon,
   },
   optionTagTextActive: {
-    color: '#C2410C',
+    color: theme.colors.primaryDark,
     fontWeight: '800',
   },
   optionSubtitle: {
     fontSize: 11,
-    color: '#64748B',
+    color: theme.colors.neutral.iconMuted,
   },
   optionRightCol: {
     marginLeft: 8,
@@ -687,7 +674,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.card,
   },
 });
 

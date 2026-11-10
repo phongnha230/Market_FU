@@ -11,6 +11,7 @@ import useHomeFeed from '../hooks/useHomeFeed';
 import { useUserStore } from '../../../stores/userStore';
 import { useProductStore } from '../../../stores/productStore';
 import { useNotificationStore } from '../../../stores/notificationStore';
+import { useWalletStore } from '../../../stores/walletStore';
 import { RequireAuthModal } from '../../../components/common/RequireAuthModal';
 import { useSafeRefresh } from '../../../utils/safeRefresh';
 import { HomeScreenProps } from '../types/home.types';
@@ -22,6 +23,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const navigation = useNavigation<any>();
   const { user, isAuthenticated } = useUserStore();
   const { isLoading, fetchProducts } = useProductStore();
+  const walletCoins = useWalletStore((s) => s.getWallet().coins) ?? 0;
+  const displayCoins = Math.max(user?.coins ?? 0, walletCoins, 0);
   const unreadNotificationCount = useNotificationStore((state) =>
     state.notifications.filter((n) => n.unread).length
   );
@@ -97,6 +100,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const nextIdx = (selectedCampus + 1) % campuses.length;
     setSelectedCampus(nextIdx);
   }, [selectedCampus, campuses.length, setSelectedCampus]);
+
+  const handleOpenCoins = useCallback(() => {
+    if (!isAuthenticated) {
+      setAuthModalTitle('Yêu cầu đăng nhập');
+      setAuthModalMessage('Vui lòng đăng nhập tài khoản Sinh viên FPT để xem Ví Xu và Nhiệm vụ nhận thưởng.');
+      setAuthModalVisible(true);
+      return;
+    }
+    navigation.navigate('CoinHistory');
+  }, [isAuthenticated, navigation]);
 
   const campusProducts = useMemo(() => {
     return products
@@ -235,9 +248,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         selectedCampusIndex={selectedCampus}
         avatarUrl={isAuthenticated ? user?.avatar || user?.avatarUrl : undefined}
         isAuthenticated={isAuthenticated}
+        coins={displayCoins}
         unreadNotificationCount={unreadNotificationCount}
         onSearchPress={handleOpenSearch}
         onNotificationPress={handleOpenNotification}
+        onCoinsPress={handleOpenCoins}
         onAvatarPress={handleAvatarPress}
         onCampusChangePress={handleNextCampus}
         onCampusSelect={(idx) => setSelectedCampus(idx)}
