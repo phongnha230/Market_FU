@@ -15,6 +15,10 @@ export interface SuggestedProductItem {
   originalPrice?: string;
   discountBadge?: string;
   image: any;
+  sellerId?: string;
+  sellerName?: string;
+  sellerAvatar?: string;
+  sellerCohort?: string;
 }
 
 interface AiAssistantProductCardProps {
@@ -35,7 +39,7 @@ export const AiAssistantProductCard: React.FC<AiAssistantProductCardProps> = ({
         <View style={styles.prodThumbBox}>
           <Image source={resolveProductImage(product.image)} style={styles.prodThumbImg} contentFit="cover" />
           <View style={styles.domBadge}>
-            <Text style={styles.domBadgeText}>{product.domTag}</Text>
+            <Text style={styles.domBadgeText} numberOfLines={1}>{product.domTag}</Text>
           </View>
         </View>
 
@@ -138,10 +142,12 @@ const styles = StyleSheet.create({
   },
   prodDetailsCol: {
     flex: 1,
+    minWidth: 0,
   },
   prodBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 3,
   },

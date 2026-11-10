@@ -17,9 +17,35 @@ export class AiService {
 
   private readonly MODEL_CANDIDATES = [
     'gemini-2.5-flash',
-    'gemini-3.8-flash',
     'gemini-flash-latest',
+    'gemini-2.0-flash',
   ];
+
+  private readonly suggestedProductSelect = {
+    id: true,
+    sellerId: true,
+    title: true,
+    price: true,
+    condition: true,
+    campus: true,
+    categoryType: true,
+    images: true,
+    meetupLocation: true,
+    seller: {
+      select: {
+        id: true,
+        role: true,
+        profile: {
+          select: {
+            fullName: true,
+            avatarUrl: true,
+            reputationScore: true,
+            cohort: true,
+          },
+        },
+      },
+    },
+  };
 
   /**
    * Helper gọi Gemini với chiến lược ưu tiên Gemini 3.1:
@@ -876,16 +902,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         where: buildWhere(true, true),
         take: 8,
         orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          title: true,
-          price: true,
-          condition: true,
-          campus: true,
-          categoryType: true,
-          images: true,
-          meetupLocation: true,
-        },
+        select: this.suggestedProductSelect,
       });
 
       if (prods.length === 0 && targetCampus) {
@@ -893,16 +910,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
           where: buildWhere(false, true),
           take: 8,
           orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            price: true,
-            condition: true,
-            campus: true,
-            categoryType: true,
-            images: true,
-            meetupLocation: true,
-          },
+          select: this.suggestedProductSelect,
         });
       }
 
@@ -911,16 +919,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
           where: buildWhere(false, false),
           take: 8,
           orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            price: true,
-            condition: true,
-            campus: true,
-            categoryType: true,
-            images: true,
-            meetupLocation: true,
-          },
+          select: this.suggestedProductSelect,
         });
       }
 
@@ -939,15 +938,8 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ (KHÔNG kèm markdown \`\`\`
         ...(Object.keys(priceFilter).length > 0 ? { price: priceFilter } : {}),
       },
       select: {
-        id: true,
-        title: true,
+        ...this.suggestedProductSelect,
         description: true,
-        price: true,
-        condition: true,
-        campus: true,
-        categoryType: true,
-        images: true,
-        meetupLocation: true,
       },
     });
 
@@ -1306,7 +1298,18 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
 
     // 4. Fallback thông minh nếu chưa cấu hình Gemini hoặc lỗi API
     if (!aiResponseText) {
-
+      // Nếu Gemini đã kịp gọi search_products và có kết quả trước khi bước tổng hợp text bị lỗi
+      if (suggestedProducts.length > 0) {
+        aiResponseText =
+          `Chào bạn! Mình đã tìm thấy ${suggestedProducts.length} món đồ phù hợp trên hệ thống Market FU:\n` +
+          suggestedProducts
+            .map(
+              (p, idx) =>
+                `${idx + 1}. **${p.title}** - Giá: ${p.price.toLocaleString()}đ (Campus: ${p.campus})`
+            )
+            .join('\n') +
+          '\n\nBạn có thể nhấn vào từng món đồ bên dưới để xem chi tiết và liên hệ người bán nhé!';
+      } else {
       // Trường hợp 1: Chào hỏi
       const isGreeting =
         /\b(hi|hello|alo|hey)\b/i.test(q) ||
@@ -1421,6 +1424,7 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
       else {
         aiResponseText = `🐸 Dạ Cóc AI là Trợ lý chuyên trách Sàn Đồ Cũ Sinh Viên FPT, mình chỉ hỗ trợ các vấn đề về mua bán đồ cũ, mẹo kiểm tra đồ, thủ tục Safe Handoff, giải đáp Escrow và hướng dẫn điểm hẹn an toàn tại 5 cơ sở trường thôi nè!\n\nNếu bạn cần tìm món đồ gì (giáo trình, đồ phòng trọ, laptop, xe cộ...) hoặc cần hỗ trợ cách đặt cọc/khiếu nại, bạn cứ gõ cho mình nhé!`;
       }
+      }
     }
 
     // 4b. Tự động đồng bộ thẻ sản phẩm trực quan (Product Cards Sync Guardrail):
@@ -1476,16 +1480,7 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
             where: { status: 'AVAILABLE' },
             take: 30,
             orderBy: { createdAt: 'desc' },
-            select: {
-              id: true,
-              title: true,
-              price: true,
-              condition: true,
-              campus: true,
-              categoryType: true,
-              images: true,
-              meetupLocation: true,
-            },
+            select: this.suggestedProductSelect,
           });
 
           const matchedFromText = candidateDbProds.filter((p) => {
@@ -1608,16 +1603,7 @@ Khi sinh viên hỏi mua, tìm đồ, cần sắm đồ phòng trọ/học tập
     if (allProductIds.length > 0) {
       const products = await prisma.product.findMany({
         where: { id: { in: allProductIds } },
-        select: {
-          id: true,
-          title: true,
-          price: true,
-          condition: true,
-          campus: true,
-          categoryType: true,
-          images: true,
-          meetupLocation: true,
-        },
+        select: this.suggestedProductSelect,
       });
       products.forEach((p) => productsMap.set(p.id, p));
     }

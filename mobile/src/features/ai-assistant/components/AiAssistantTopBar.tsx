@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { resolveAvatarImage } from '../../../lib/imageResolver';
+import { useNotificationStore } from '../../../stores/notificationStore';
 
 interface AiAssistantTopBarProps {
   insetsTop: number;
@@ -31,6 +32,12 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
   onOpenHistory,
   onOpenFilters,
 }) => {
+  const unreadNotifsCount = useNotificationStore((s) =>
+    s.notifications.filter((n) => n.unread).length
+  );
+  const campusLabel =
+    currentCampus && currentCampus !== 'TẤT CẢ' ? `FPT ${currentCampus}` : 'FPT 5 Campus';
+
   return (
     <>
       {/* 1. TOP STATUS BAR: Campus Location + Bell + Avatar */}
@@ -44,11 +51,10 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.campusLocationChip} activeOpacity={0.8}>
+          <View style={styles.campusLocationChip}>
             <Ionicons name="location-outline" size={14} color="#EA580C" style={{ marginRight: 4 }} />
-            <Text style={styles.campusLocationText}>FPT {currentCampus || 'Hòa Lạc'}</Text>
-            <Ionicons name="chevron-down" size={13} color="#64748B" style={{ marginLeft: 3 }} />
-          </TouchableOpacity>
+            <Text style={styles.campusLocationText} numberOfLines={1}>{campusLabel}</Text>
+          </View>
         </View>
 
         <View style={styles.topRightIcons}>
@@ -66,7 +72,7 @@ export const AiAssistantTopBar: React.FC<AiAssistantTopBarProps> = ({
             onPress={onNotification}
           >
             <Ionicons name="notifications-outline" size={20} color="#0F172A" />
-            <View style={styles.bellDot} />
+            {unreadNotifsCount > 0 && <View style={styles.bellDot} />}
           </TouchableOpacity>
 
           <TouchableOpacity

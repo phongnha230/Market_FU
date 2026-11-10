@@ -20,8 +20,9 @@ import { AiAssistantMessageItem, ChatMessage } from '../components/AiAssistantMe
 import { SuggestedProductItem } from '../components/AiAssistantProductCard';
 import { AiAssistantInputBar } from '../components/AiAssistantInputBar';
 import { AiAssistantHistoryModal } from '../components/AiAssistantHistoryModal';
-import { aiMobileService, AiSessionItem } from '../../../services/aiMobileService';
+import { aiMobileService, AiSessionItem, resolveAiCampusCode } from '../../../services/aiMobileService';
 import { productMobileService } from '../../../services/productMobileService';
+import { chatMobileService } from '../../../services/chatMobileService';
 import { CameraSubsystemModal } from '../../../components/camera/CameraSubsystemModal';
 import { resolveProductImage } from '../../../lib/imageResolver';
 import { fromBackendCategory } from '../../../lib/backendMappers';
@@ -42,6 +43,9 @@ const QUICK_PROMPTS = [
   '⚡ Tìm điểm cắm sạc test đồ điện tử',
 ];
 
+const formatCampusScope = (campus?: string) =>
+  campus && campus !== 'TẤT CẢ' ? campus : '5 Campus';
+
 /**
  * Format sản phẩm từ backend hoặc gợi ý sang SuggestedProductItem
  */
@@ -49,10 +53,10 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
   if (!Array.isArray(rawProducts)) return [];
   return rawProducts.map((p, idx) => {
     let conditionText = p.conditionBadge || 'Đã qua sử dụng';
-    if (p.condition === 'NEW') conditionText = 'Mới 100%';
-    else if (p.condition === 'LIKE_NEW') conditionText = 'Like New 99%';
-    else if (p.condition === 'GOOD') conditionText = 'Tốt 90%';
-    else if (p.condition === 'FAIR') conditionText = 'Khá 80%';
+    if (p.condition === 'NEW' || p.condition === 'NEW_100') conditionText = 'Mới 100%';
+    else if (p.condition === 'LIKE_NEW' || p.condition === 'LIKE_NEW_99') conditionText = 'Like New 99%';
+    else if (p.condition === 'GOOD' || p.condition === 'USED_GOOD') conditionText = 'Tốt 90%';
+    else if (p.condition === 'FAIR' || p.condition === 'USED_FAIR') conditionText = 'Khá 80%';
     else if (typeof p.condition === 'string' && p.condition.length > 0) {
       conditionText = p.condition;
     }
@@ -63,13 +67,25 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
         : (p.imageUrl || p.coverImage || p.image);
     const imageSource = resolveProductImage(rawImage);
 
+    const sellerName =
+      p.seller?.profile?.fullName ||
+      p.seller?.name ||
+      p.sellerName ||
+      'Sinh viên FPT';
+    const repScore = p.seller?.profile?.reputationScore ?? p.seller?.reputationScore;
+    const trustText = repScore
+      ? `${repScore}% Uy tín`
+      : p.sellerRating
+      ? `${Math.round(Number(p.sellerRating) * 20)}% Uy tín`
+      : p.seller?.isKycVerified || p.seller?.role === 'SELLER' || p.sellerIsVerified
+      ? '100% MSSV'
+      : 'Đã duyệt';
+
     return {
       id: p.id || `prod_${Date.now()}_${idx}`,
       domTag: p.safePoint || p.meetupLocation || p.campus || 'Campus FPT',
       conditionBadge: conditionText,
-      trustScore: p.seller?.reputationScore
-        ? `${p.seller.reputationScore}% Uy tín`
-        : (p.seller?.isKycVerified || p.seller?.role === 'SELLER' ? '100% MSSV' : 'Đã duyệt'),
+      trustScore: trustText,
       title: p.title || 'Món đồ sinh viên FPT',
       sellerInfo: p.categoryType
         ? `Danh mục: ${fromBackendCategory(p.categoryType)}`
@@ -79,6 +95,10 @@ const formatSuggestedProducts = (rawProducts: any[]): SuggestedProductItem[] => 
           ? `${p.price.toLocaleString('vi-VN')} đ`
           : `${p.price || 0} đ`,
       image: imageSource,
+      sellerId: p.sellerId || p.seller?.id,
+      sellerName,
+      sellerAvatar: p.seller?.profile?.avatarUrl || p.seller?.avatarUrl || p.sellerAvatar || '',
+      sellerCohort: p.seller?.profile?.cohort || p.seller?.major || p.sellerCohort || 'Sinh viên FPT',
     };
   });
 };
@@ -91,36 +111,21 @@ const searchDatabaseProducts = async (
   campus?: string
 ): Promise<any[]> => {
   try {
-    const campusMap: Record<string, string> = {
-      'HÒA LẠC': 'HOL',
-      'Hòa Lạc': 'HOL',
-      'HOL': 'HOL',
-      'TP.HCM': 'HCM',
-      'TP. HỒ CHÍ MINH': 'HCM',
-      'HỒ CHÍ MINH': 'HCM',
-      'HCM': 'HCM',
-      'ĐÀ NẴNG': 'DAD',
-      'Đà Nẵng': 'DAD',
-      'DAD': 'DAD',
-      'QUY NHƠN': 'QN',
-      'Quy Nhơn': 'QN',
-      'QN': 'QN',
-      'CẦN THƠ': 'CT',
-      'Cần Thơ': 'CT',
-      'CT': 'CT',
-    };
-    const cleanCampus = campus ? (campusMap[campus.trim()] || campusMap[campus.toUpperCase()] || 'HOL') : undefined;
+    const cleanCampus = resolveAiCampusCode(campus);
 
-    // 1. Tìm theo campus hiện tại
-    const productsInCampus = await productMobileService.getProducts({
-      search: queryText,
-      campus: cleanCampus,
-      limit: 6,
-    });
-    if (productsInCampus && productsInCampus.length > 0) {
-      return productsInCampus;
+    // 1. Nếu có campus cụ thể, tìm ưu tiên theo campus đó trước
+    if (cleanCampus) {
+      const productsInCampus = await productMobileService.getProducts({
+        search: queryText,
+        campus: cleanCampus,
+        limit: 6,
+      });
+      if (productsInCampus && productsInCampus.length > 0) {
+        return productsInCampus;
+      }
     }
-    // 2. Nếu campus hiện tại không có, tìm toàn quốc (hỗ trợ Ship COD liên campus)
+
+    // 2. Tìm trên toàn hệ thống 5 campus (khi chọn TẤT CẢ hoặc hỗ trợ Ship COD liên campus)
     const allProducts = await productMobileService.getProducts({
       search: queryText,
       limit: 6,
@@ -224,6 +229,8 @@ export const AiAssistantScreen: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [inputText, setInputText] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const guestQuestionCountRef = useRef<number>(0);
 
   // Modal lịch sử phiên chat
@@ -367,7 +374,7 @@ export const AiAssistantScreen: React.FC = () => {
                 minute: '2-digit',
               })
             : 'Vừa xong',
-          campusHeader: m.senderRole === 'MODEL' ? `GEMINI AI - ${currentCampus}` : undefined,
+          campusHeader: m.senderRole === 'MODEL' ? `GEMINI AI - ${formatCampusScope(currentCampus)}` : undefined,
           suggestedProducts:
             m.suggestedProducts && m.suggestedProducts.length > 0
               ? formatSuggestedProducts(m.suggestedProducts)
@@ -405,7 +412,9 @@ export const AiAssistantScreen: React.FC = () => {
   // 6. Gửi tin nhắn
   const handleSendMessage = async (customText?: string) => {
     const textToSend = (customText || inputText).trim();
-    if (!textToSend) return;
+    if (!textToSend || isSendingRef.current) return;
+
+    const campusScopeLabel = formatCampusScope(currentCampus);
 
     // --- CHECK QUOTA KHÁCH VÃNG LAI ---
     if (!isAuthenticated) {
@@ -458,127 +467,160 @@ export const AiAssistantScreen: React.FC = () => {
       time: 'Vừa xong',
     };
 
+    const typingId = `ai_typing_${Date.now()}`;
+    const typingMsg: ChatMessage = {
+      id: typingId,
+      sender: 'ai',
+      time: 'Đang nhập...',
+      campusHeader: isAuthenticated ? `GEMINI AI - ${campusScopeLabel}` : `TRỢ LÝ AI - ${campusScopeLabel}`,
+      isTyping: true,
+    };
+
     const nextMsgs = [...messages, userMsg];
-    setMessages(nextMsgs);
+    setMessages([...nextMsgs, typingMsg]);
     setInputText('');
     saveChatState(nextMsgs, sessionId);
 
-    // Xử lý gửi tin nhắn AI
+    isSendingRef.current = true;
+    setIsSending(true);
+
     try {
       if (isAuthenticated) {
-        // Đã đăng nhập -> Gọi backend Gemini AI Assistant với sessionId hiện tại
-        const aiRes = await aiMobileService.chatWithAssistant(
-          textToSend,
-          currentCampus,
-          sessionId || undefined
-        );
+        try {
+          // Đã đăng nhập -> Gọi backend Gemini AI Assistant với sessionId hiện tại
+          const aiRes = await aiMobileService.chatWithAssistant(
+            textToSend,
+            currentCampus,
+            sessionId || undefined
+          );
 
-        const newSessionId = aiRes.sessionId || sessionId;
-        if (newSessionId) {
-          setSessionId(newSessionId);
-        }
+          const newSessionId = aiRes.sessionId || sessionId;
+          if (newSessionId) {
+            setSessionId(newSessionId);
+          }
 
-        let formattedProducts = aiRes.suggestedProducts
-          ? formatSuggestedProducts(aiRes.suggestedProducts)
-          : [];
+          let formattedProducts = aiRes.suggestedProducts
+            ? formatSuggestedProducts(aiRes.suggestedProducts)
+            : [];
 
-        // Nếu Gemini không trả danh sách sản phẩm hoặc trả rỗng, kiểm tra xem người dùng có đang hỏi đồ không
-        if (formattedProducts.length === 0) {
-          const isGreeting =
-            /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
-            /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
-          if (!isGreeting) {
-            const dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
-            if (dbProducts.length > 0) {
-              formattedProducts = formatSuggestedProducts(dbProducts);
+          // Nếu Gemini không trả danh sách sản phẩm hoặc trả rỗng, kiểm tra xem người dùng có đang hỏi đồ không
+          if (formattedProducts.length === 0) {
+            const isGreeting =
+              /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
+              /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
+            if (!isGreeting) {
+              const dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
+              if (dbProducts.length > 0) {
+                formattedProducts = formatSuggestedProducts(dbProducts);
+              }
             }
           }
+
+          const aiReply: ChatMessage = {
+            id: `ai_${Date.now()}`,
+            sender: 'ai',
+            time: 'Vừa xong',
+            campusHeader: `GEMINI AI - ${campusScopeLabel}`,
+            text: aiRes.reply,
+            suggestedProducts: formattedProducts.length > 0 ? formattedProducts : undefined,
+            actionChips: [
+              { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
+              { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
+            ],
+          };
+
+          const finalMsgs = [...nextMsgs, aiReply];
+          setMessages(finalMsgs);
+          saveChatState(finalMsgs, newSessionId);
+          flatListRef.current?.scrollToEnd({ animated: true });
+          return;
+        } catch (err: any) {
+          console.log('AI Assistant server error:', err?.message);
+          const errCode = err?.response?.data?.error?.code || '';
+          const status = err?.response?.status;
+          const isExplicitReject =
+            status === 400 ||
+            status === 429 ||
+            errCode === 'CONTENT_MODERATION_BLOCKED' ||
+            errCode === 'AI_RATE_LIMIT_EXCEEDED';
+
+          let fallbackProducts: SuggestedProductItem[] = [];
+          if (!isExplicitReject) {
+            const isGreeting =
+              /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
+              /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
+            if (!isGreeting) {
+              const dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
+              if (dbProducts.length > 0) {
+                fallbackProducts = formatSuggestedProducts(dbProducts);
+              }
+            }
+          }
+
+          const errorText =
+            fallbackProducts.length > 0
+              ? `Trợ lý Gemini đang bận phản hồi chậm một chút, nhưng mình đã tra trực tiếp kho và tìm thấy ${fallbackProducts.length} món đồ khớp từ khóa cho bạn bên dưới:`
+              : err?.message ||
+                'Rất tiếc, trợ lý AI đang quá tải hoặc gặp gián đoạn kết nối. Vui lòng thử lại sau giây lát hoặc tra cứu trực tiếp bằng thanh tìm kiếm!';
+
+          const errorReply: ChatMessage = {
+            id: `ai_${Date.now()}`,
+            sender: 'ai',
+            time: 'Vừa xong',
+            campusHeader: `GEMINI AI - ${campusScopeLabel}`,
+            text: errorText,
+            suggestedProducts: fallbackProducts.length > 0 ? fallbackProducts : undefined,
+          };
+          const finalMsgs = [...nextMsgs, errorReply];
+          setMessages(finalMsgs);
+          saveChatState(finalMsgs, sessionId);
+          flatListRef.current?.scrollToEnd({ animated: true });
+          return;
         }
-
-        const aiReply: ChatMessage = {
-          id: `ai_${Date.now()}`,
-          sender: 'ai',
-          time: 'Vừa xong',
-          campusHeader: `GEMINI AI - ${currentCampus}`,
-          text: aiRes.reply,
-          suggestedProducts: formattedProducts.length > 0 ? formattedProducts : undefined,
-          actionChips: [
-            { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
-            { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
-          ],
-        };
-
-        const finalMsgs = [...nextMsgs, aiReply];
-        setMessages(finalMsgs);
-        saveChatState(finalMsgs, newSessionId);
-        flatListRef.current?.scrollToEnd({ animated: true });
-        return;
       }
-    } catch (err: any) {
-      console.log('AI Assistant server error:', err?.message);
-      if (isAuthenticated) {
-        const errorReply: ChatMessage = {
-          id: `ai_${Date.now()}`,
-          sender: 'ai',
-          time: 'Vừa xong',
-          campusHeader: `GEMINI AI - ${currentCampus}`,
-          text: 'Rất tiếc, trợ lý AI đang quá tải hoặc gặp gián đoạn kết nối. Vui lòng thử lại sau giây lát hoặc tra cứu trực tiếp bằng thanh tìm kiếm!',
-        };
-        const finalMsgs = [...nextMsgs, errorReply];
-        setMessages(finalMsgs);
-        saveChatState(finalMsgs, sessionId);
-        flatListRef.current?.scrollToEnd({ animated: true });
-        return;
+
+      // Phản hồi cho khách vãng lai (lượt dùng thử duy nhất)
+      let dbProducts: any[] = [];
+      const isGreeting =
+        /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
+        /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
+
+      if (!isGreeting) {
+        dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
       }
+
+      const { reply } = generateLocalBotReply(textToSend, campusScopeLabel);
+      let finalReplyText = reply;
+
+      if (dbProducts.length > 0) {
+        finalReplyText = `Mình đã tìm thấy ${dbProducts.length} món đồ phù hợp trên hệ thống Market FU (bao gồm cơ sở của bạn và hỗ trợ Ship COD liên campus). Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow. Bạn xem qua các món đồ bên dưới nhé!`;
+      }
+
+      const guestReplyText = `${finalReplyText}\n\n🔒 Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!`;
+      const formattedSampleProducts = dbProducts.length > 0
+        ? formatSuggestedProducts(dbProducts)
+        : [];
+
+      const aiReply: ChatMessage = {
+        id: `ai_${Date.now()}`,
+        sender: 'ai',
+        time: 'Vừa xong',
+        campusHeader: `TRỢ LÝ AI - ${campusScopeLabel}`,
+        text: guestReplyText,
+        suggestedProducts: formattedSampleProducts.length > 0 ? formattedSampleProducts : undefined,
+        actionChips: [
+          { id: 'login_now', label: '👉 Đăng nhập để tiếp tục', icon: 'log-in-outline', color: '#EA580C' },
+        ],
+      };
+
+      const finalMsgs = [...nextMsgs, aiReply];
+      setMessages(finalMsgs);
+      saveChatState(finalMsgs, sessionId);
+      flatListRef.current?.scrollToEnd({ animated: true });
+    } finally {
+      isSendingRef.current = false;
+      setIsSending(false);
     }
-
-    // Phản hồi cho khách (lượt dùng thử duy nhất) hoặc offline fallback
-    // Tự động tìm kiếm sản phẩm thực tế từ Database / Meilisearch
-    let dbProducts: any[] = [];
-    const isGreeting =
-      /\b(hi|hello|alo|hey)\b/i.test(textToSend) ||
-      /(^|\s)(chào|ê|hé lô|helo)(\s|$)/i.test(textToSend);
-
-    if (!isGreeting) {
-      dbProducts = await searchDatabaseProducts(textToSend, currentCampus);
-    }
-
-    const { reply } = generateLocalBotReply(textToSend, currentCampus);
-    let finalReplyText = reply;
-
-    if (dbProducts.length > 0) {
-      finalReplyText = `Mình đã tìm thấy ${dbProducts.length} món đồ phù hợp trên hệ thống Market FU (bao gồm cơ sở của bạn và hỗ trợ Ship COD liên campus). Tất cả bài đăng đều được đối soát MSSV FPT chính quy và có hỗ trợ bảo hộ quỹ Escrow. Bạn xem qua các món đồ bên dưới nhé!`;
-    }
-
-    const guestReplyText = !isAuthenticated
-      ? `${finalReplyText}\n\n🔒 Bạn vừa dùng hết 1 lượt hỏi thử miễn phí. Hãy đăng nhập tài khoản FPT để tiếp tục trò chuyện không giới hạn và lưu lịch sử nhé!`
-      : finalReplyText;
-
-    const formattedSampleProducts = dbProducts.length > 0
-      ? formatSuggestedProducts(dbProducts)
-      : [];
-
-    const aiReply: ChatMessage = {
-      id: `ai_${Date.now()}`,
-      sender: 'ai',
-      time: 'Vừa xong',
-      campusHeader: `TRỢ LÝ AI - ${currentCampus}`,
-      text: guestReplyText,
-      suggestedProducts: formattedSampleProducts.length > 0 ? formattedSampleProducts : undefined,
-      actionChips: !isAuthenticated
-        ? [
-            { id: 'login_now', label: '👉 Đăng nhập để tiếp tục', icon: 'log-in-outline', color: '#EA580C' },
-          ]
-        : [
-            { id: 'safe_point', label: 'Hẹn Safe-Point', icon: 'location', color: '#EA580C' },
-            { id: 'escrow', label: 'Tạm giữ tiền Escrow', icon: 'shield-checkmark', color: '#059669' },
-          ],
-    };
-
-    const finalMsgs = [...nextMsgs, aiReply];
-    setMessages(finalMsgs);
-    saveChatState(finalMsgs, sessionId);
-    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   const handleProductDetail = useCallback(
@@ -591,7 +633,7 @@ export const AiAssistantScreen: React.FC = () => {
   );
 
   const handleContactSeller = useCallback(
-    (item: SuggestedProductItem) => {
+    async (item: SuggestedProductItem) => {
       if (!isAuthenticated) {
         Alert.alert(
           'Đăng nhập để liên hệ',
@@ -604,21 +646,51 @@ export const AiAssistantScreen: React.FC = () => {
         return;
       }
 
-      if (navigation && navigation.navigate) {
-        navigation.navigate('ContextualChatAuth', {
+      const currentUserId = user?.id || (user as any)?._id;
+
+      try {
+        let sellerId = item.sellerId;
+        let sellerName = item.sellerName || 'Sinh viên FPT';
+        let sellerAvatar = item.sellerAvatar || '';
+        let sellerCohort = item.sellerCohort || 'Sinh viên FPT';
+
+        if (!sellerId && item.id) {
+          const detail = await productMobileService.getProductById(item.id);
+          sellerId = detail?.sellerId;
+          if (detail?.sellerName) sellerName = detail.sellerName;
+          if (detail?.sellerAvatar) sellerAvatar = detail.sellerAvatar;
+          if (detail?.sellerCohort) sellerCohort = detail.sellerCohort;
+        }
+
+        if (sellerId && currentUserId && sellerId === currentUserId) {
+          Alert.alert('Thông báo', 'Bạn không thể tự nhắn tin với chính mình!');
+          return;
+        }
+
+        const convDetails = await chatMobileService.createOrGetConversationDetails(item.id);
+        const convPartner = convDetails?.partner;
+
+        navigation.navigate('ChatDetail', {
+          conversationId: convDetails?.conversationId,
+          partner: {
+            id: sellerId || convPartner?.id || 'partner',
+            name: convPartner?.profile?.fullName || convPartner?.name || sellerName,
+            avatar: convPartner?.profile?.avatarUrl || convPartner?.avatarUrl || sellerAvatar,
+            cohort: convPartner?.profile?.cohort || sellerCohort,
+            isOnline: true,
+          },
           product: {
             id: item.id,
             title: item.title,
             price: item.price,
-            location: item.domTag,
             image: item.image,
           },
-          sellerName: 'Sinh viên FPT',
-          sellerCohort: 'FPT University',
         });
+      } catch {
+        navigation.navigate('ProductDetail', { productId: item.id });
       }
     },
-    [isAuthenticated, navigation]
+    [isAuthenticated, navigation, user]
   );
 
   const handleActionChip = useCallback(
@@ -648,11 +720,6 @@ export const AiAssistantScreen: React.FC = () => {
           screen: 'PostItem',
           params: lastVisionResultRef.current || {},
         });
-      } else if (chipId === 'compare') {
-        Alert.alert(
-          '📊 So sánh thiết bị',
-          '• Màn hình Dell: Độ tương phản sâu, chân đế chắc chắn, phù hợp code bài tập PE.\n\n• Màn hình LG IPS: Màu sắc chuẩn đồ họa, góc nhìn rộng 178°, phù hợp thiết kế & đa nhiệm.'
-        );
       } else if (chipId === 'safe_point' || chipId === 'location') {
         Alert.alert(
           '📍 Bàn Test Sảnh Alpha',
@@ -687,11 +754,27 @@ export const AiAssistantScreen: React.FC = () => {
   };
 
   const handleScanVision = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập tài khoản Sinh viên FPT để sử dụng AI Vision quét & định giá ảnh sản phẩm.',
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+    if (isSendingRef.current) return;
     setCameraModalVisible(true);
   };
 
   const handleCameraCapture = async (photoUri: string) => {
     setCameraModalVisible(false);
+    isSendingRef.current = true;
+    setIsSending(true);
+
+    const campusScopeLabel = formatCampusScope(currentCampus);
 
     // 1. Thêm tin nhắn ảnh của User
     const userMsg: ChatMessage = {
@@ -706,13 +789,12 @@ export const AiAssistantScreen: React.FC = () => {
     const loadingAiMsg: ChatMessage = {
       id: loadingAiId,
       sender: 'ai',
-      time: 'Vừa xong',
-      campusHeader: `GEMINI AI VISION - ${currentCampus}`,
+      time: 'Đang phân tích...',
+      campusHeader: `GEMINI AI VISION - ${campusScopeLabel}`,
       text: '🔍 Cóc AI đang phân tích ảnh qua Gemini Multimodal Vision: Kiểm tra ngoại quan, tra cứu mặt bằng giá KTX và soạn thông tin...',
     };
 
-    const nextMsgs = [...messages, userMsg, loadingAiMsg];
-    setMessages(nextMsgs);
+    setMessages((prev) => [...prev, userMsg, loadingAiMsg]);
     flatListRef.current?.scrollToEnd({ animated: true });
 
     try {
@@ -740,7 +822,7 @@ export const AiAssistantScreen: React.FC = () => {
         id: loadingAiId,
         sender: 'ai',
         time: 'Vừa xong',
-        campusHeader: `GEMINI AI VISION - ${currentCampus}`,
+        campusHeader: `GEMINI AI VISION - ${campusScopeLabel}`,
         text: `📷 **Phân tích hình ảnh hoàn tất!**\n\n• **Món đồ nhận diện:** ${title}\n• **Tình trạng máy:** ${cond}\n• **Giá đề xuất KTX:** ${estPrice} đ\n\nBạn có muốn mở form đăng bán để tự động điền các thông tin này không?`,
         actionChips: [
           { id: 'post_item_ai', label: 'Tạo bài đăng ngay', icon: 'create-outline', color: '#EA580C' },
@@ -748,20 +830,33 @@ export const AiAssistantScreen: React.FC = () => {
         ],
       };
 
-      setMessages((prev) => prev.map((m) => (m.id === loadingAiId ? completedAiMsg : m)));
-      saveChatState([...messages, userMsg, completedAiMsg], sessionId);
+      setMessages((prev) => {
+        const updated = prev.map((m) => (m.id === loadingAiId ? completedAiMsg : m));
+        saveChatState(updated, sessionId);
+        return updated;
+      });
     } catch (e: any) {
+      const errDetail = e?.response?.data?.error?.message || e?.message;
       const errorAiMsg: ChatMessage = {
         id: loadingAiId,
         sender: 'ai',
         time: 'Vừa xong',
-        campusHeader: `GEMINI AI - ${currentCampus}`,
-        text: '⚠️ Không thể phân tích được ảnh lúc này. Bạn có thể tự mở form đăng bài để điền thông tin thủ công.',
+        campusHeader: `GEMINI AI - ${campusScopeLabel}`,
+        text: errDetail
+          ? `⚠️ ${errDetail}`
+          : '⚠️ Không thể phân tích được ảnh lúc này. Bạn có thể tự mở form đăng bài để điền thông tin thủ công.',
         actionChips: [
           { id: 'post_item_ai', label: 'Mở đăng tin', icon: 'create-outline', color: '#EA580C' },
         ],
       };
-      setMessages((prev) => prev.map((m) => (m.id === loadingAiId ? errorAiMsg : m)));
+      setMessages((prev) => {
+        const updated = prev.map((m) => (m.id === loadingAiId ? errorAiMsg : m));
+        saveChatState(updated, sessionId);
+        return updated;
+      });
+    } finally {
+      isSendingRef.current = false;
+      setIsSending(false);
     }
   };
 
@@ -791,7 +886,7 @@ export const AiAssistantScreen: React.FC = () => {
     () => (
       <View style={styles.timestampContainer}>
         <View style={styles.timestampPill}>
-          <Text style={styles.timestampText}>Hôm nay • FPT {currentCampus || 'Hòa Lạc'} Hub</Text>
+          <Text style={styles.timestampText}>Hôm nay • FPT {formatCampusScope(currentCampus)} Hub</Text>
         </View>
       </View>
     ),
@@ -813,15 +908,19 @@ export const AiAssistantScreen: React.FC = () => {
         onOpenHistory={handleOpenHistory}
         onOpenFilters={() =>
           Alert.alert(
-            '🎛️ Bộ lọc thông minh',
-            'Tùy chỉnh phạm vi tìm kiếm theo tòa KTX, mức giá tối đa và xếp hạng uy tín sinh viên.'
+            '🎛️ Phạm vi tìm kiếm AI',
+            `Đang ưu tiên tìm tại: FPT ${formatCampusScope(currentCampus)}.\n\nMẹo: Bạn có thể đổi cơ sở tại Trang chủ hoặc gõ thẳng mức giá & cơ sở vào câu hỏi (vd: "Tìm bàn học dưới 500k ở HCM").`
           )
         }
       />
 
       <AiAssistantQuickPrompts
         prompts={QUICK_PROMPTS}
-        onSelectPrompt={(p) => handleSendMessage(p.replace(/^[^\s]+\s/, ''))}
+        onSelectPrompt={(p) => {
+          if (!isSendingRef.current) {
+            handleSendMessage(p.replace(/^[^\s]+\s/, ''));
+          }
+        }}
       />
 
       <KeyboardAvoidingView
@@ -849,11 +948,12 @@ export const AiAssistantScreen: React.FC = () => {
           onVoiceInput={() =>
             Alert.alert(
               '🎙️ Nhập bằng giọng nói',
-              'Đang lắng nghe... Hãy nói tên món đồ bạn muốn tìm.'
+              'Tính năng nhập bằng giọng nói sẽ sớm được hỗ trợ. Hiện tại bạn hãy nhập chữ hoặc chụp ảnh để Cóc AI tra cứu nhanh nhé!'
             )
           }
           insetsBottom={isKeyboardVisible ? 6 : insets.bottom}
           isKeyboardVisible={isKeyboardVisible}
+          isSending={isSending}
         />
       </KeyboardAvoidingView>
 
