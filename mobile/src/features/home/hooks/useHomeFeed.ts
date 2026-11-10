@@ -186,7 +186,7 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       list = list.filter(isMatchCampus);
     }
 
-    // Lọc theo Feed Filter phụ (TẤT CẢ / GẦN BẠN / ĐỒ KTX / PASS RẺ)
+    // Lọc theo Feed Filter phụ (Tất cả / Gần bạn / Đồ KTX / Giá rẻ / Nổi bật)
     if (selectedFilter === 1) {
       // Gần bạn / Safe-point: trạm Safe-point sảnh
       list = list.filter((p) => p.location.includes('Safe-Point') || p.location.includes('Sảnh') || p.location.includes('Dom') || p.location.includes('Hub'));
@@ -205,6 +205,13 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
       list = list.filter((p) => {
         const numPrice = parseInt(p.price.replace(/[^\d]/g, ''), 10) || 0;
         return numPrice <= 100000;
+      });
+    } else if (selectedFilter === 4) {
+      // Nổi bật: sắp xếp theo lượt xem + lượt thích
+      list = [...list].sort((a, b) => {
+        const scoreA = (a.viewsCount || 0) + (a.likesCount || 0) * 3;
+        const scoreB = (b.viewsCount || 0) + (b.likesCount || 0) * 3;
+        return scoreB - scoreA;
       });
     }
 

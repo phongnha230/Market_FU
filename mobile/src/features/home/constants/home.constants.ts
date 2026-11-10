@@ -1,5 +1,6 @@
 import { CategoryItem } from '../types/home.types';
 import { ProductCardProps } from '../../../components/common/ProductCard';
+import { theme } from '../../../config/theme';
 
 export const CAMPUSES: string[] = ['TẤT CẢ', 'HÒA LẠC', 'TP.HCM', 'ĐÀ NẴNG', 'CẦN THƠ', 'QUY NHƠN'];
 
@@ -8,48 +9,45 @@ export const CATEGORIES: CategoryItem[] = [
     id: '1',
     name: 'Sách &\nGiáo trình',
     icon: 'book-outline',
-    color: '#EFF6FF',
-    iconColor: '#BE185D',
-    badge: 'PE/FE',
-    badgeColor: '#10B981',
+    color: theme.colors.neutral.surface,
+    iconColor: theme.colors.neutral.icon,
   },
   {
     id: '2',
     name: 'Laptop &\nPhụ kiện',
     icon: 'laptop-outline',
-    color: '#EFF6FF',
-    iconColor: '#2563EB',
+    color: theme.colors.neutral.surface,
+    iconColor: theme.colors.neutral.icon,
   },
   {
     id: '3',
     name: 'Đồ dùng\nKTX',
     icon: 'business-outline',
-    color: '#EFF6FF',
-    iconColor: '#7C3AED',
+    color: theme.colors.neutral.surface,
+    iconColor: theme.colors.neutral.icon,
   },
   {
     id: '4',
     name: 'Võ phục\nVovinam',
     icon: 'body-outline',
-    color: '#EFF6FF',
-    iconColor: '#0284C7',
+    color: theme.colors.neutral.surface,
+    iconColor: theme.colors.neutral.icon,
   },
   {
     id: '5',
     name: 'Pass đồ\ngấp',
-    icon: 'flash',
-    color: '#FFF7ED',
-    iconColor: '#EA580C',
-    badge: 'GẤP',
-    badgeColor: '#EF4444',
+    icon: 'flash-outline',
+    color: theme.colors.neutral.surface,
+    iconColor: theme.colors.neutral.icon,
   },
 ];
 
 export const FEED_FILTERS: string[] = [
-  'TẤT CẢ',
-  '🧭 GẦN BẠN (<500M)',
-  '🏠 ĐỒ KTX',
-  '💰 PASS RẺ',
+  'Tất cả',
+  'Gần bạn',
+  'Đồ KTX',
+  'Giá rẻ',
+  'Nổi bật',
 ];
 
 export const GRID_PRODUCTS: ProductCardProps[] = [

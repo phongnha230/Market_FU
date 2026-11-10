@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { theme } from '../../../config/theme';
 
 interface HomeSearchBarProps {
   value: string;
@@ -42,7 +43,7 @@ export const HomeSearchBar: React.FC<HomeSearchBarProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           onPress={onScanPress}
         >
-          <MaterialCommunityIcons name="scan-helper" size={20} color="#F27024" />
+          <MaterialCommunityIcons name="scan-helper" size={20} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -52,7 +53,7 @@ export const HomeSearchBar: React.FC<HomeSearchBarProps> = ({
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         onPress={onFilterPress}
       >
-        <Ionicons name="options-outline" size={20} color="#1E293B" />
+        <Ionicons name="options-outline" size={20} color={theme.colors.text.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -70,12 +71,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.colors.background,
     borderRadius: 14,
     paddingHorizontal: 12,
     height: 44,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: theme.colors.border,
   },
   searchIcon: {
     marginRight: 8,
@@ -83,19 +84,19 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0F172A',
+    color: theme.colors.text.primary,
     fontWeight: '500',
   },
   filterButton: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.colors.neutral.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: theme.colors.border,
   },
 });
 
