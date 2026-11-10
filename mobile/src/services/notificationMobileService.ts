@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { navigate } from '../navigation/navigationRef';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNotificationStore } from '../stores/notificationStore';
@@ -36,12 +36,14 @@ if (Notifications && typeof Notifications.setNotificationHandler === 'function')
             };
           }
         } catch {}
+        const isAppForeground = AppState.currentState === 'active';
         return {
-          shouldShowAlert: true,  // Hiển thị banner native của hệ điều hành
-          shouldPlaySound: true,  // Phát chuông âm thanh êm dịu
-          shouldSetBadge: true,   // Cập nhật số badge trên icon
-          shouldShowBanner: true, // Cho phép hiển thị heads-up banner
-          shouldShowList: true,   // Lưu trữ vào danh sách kéo xuống của Android/iOS
+          // Khi app đang mở (foreground), TopNotificationBanner trong app đã hiển thị -> tắt banner OS để tránh đè nhau
+          shouldShowAlert: !isAppForeground,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: !isAppForeground,
+          shouldShowList: !isAppForeground,
         };
       },
     });
@@ -65,6 +67,11 @@ export async function displayLocalPushNotification(params: {
   data?: any;
   channelId?: string;
 }) {
+  // Khi đang mở app trên màn hình, chỉ dùng TopNotificationBanner (trắng) trong app, không bắn thêm heads-up OS (đen) đè lên
+  if (AppState.currentState === 'active') {
+    return;
+  }
+
   const normalizedTitle = (params.title || '').replace(/^💬\s*/, '').trim();
   const dedupKey = `${normalizedTitle}_${(params.body || '').trim()}`;
   const now = Date.now();
