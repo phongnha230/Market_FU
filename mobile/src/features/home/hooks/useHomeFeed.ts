@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { CATEGORIES, FEED_FILTERS, GRID_PRODUCTS } from '../constants/home.constants';
+import { CATEGORIES, FEED_FILTERS } from '../constants/home.constants';
 import { UseHomeFeedReturn } from '../types/home.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
 import { useAuthStore } from '../../../stores/useAuthStore';

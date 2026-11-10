@@ -241,15 +241,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               onPress={() => setShowMyReportsModal(true)}
             >
               <View style={styles.settingsBarLeft}>
-                <View style={[styles.settingsBarIconBox, { backgroundColor: '#FFE4E6' }]}>
-                  <Ionicons name="shield-half" size={20} color="#E11D48" />
+                <View style={[styles.settingsBarIconBox, { backgroundColor: theme.colors.neutral.surface }]}>
+                  <Ionicons name="shield-half" size={20} color={theme.colors.neutral.icon} />
                 </View>
                 <View style={styles.settingsBarTextCol}>
                   <Text style={styles.settingsBarTitle}>Lịch sử tố cáo vi phạm</Text>
                   <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">Theo dõi tiến trình xử lý & phản hồi BQT Campus</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#E11D48" style={{ marginLeft: 6, flexShrink: 0 }} />
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
             </TouchableOpacity>
 
             <OrdersOverviewSection
@@ -408,98 +408,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#7C2D12',
     textAlign: 'center',
-  },
-  khoCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#FED7AA',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 12,
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  khoCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  khoCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  khoIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  khoCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  khoCardSub: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  khoAlertBadge: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  khoAlertBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  khoCardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  khoCardActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EA580C',
-  },
-  khoStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  khoStatusChip: {
-    flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  khoStatusChipNum: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  khoStatusChipLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 1,
   },
   settingsBarCard: {
     flexDirection: 'row',
