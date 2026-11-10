@@ -130,7 +130,7 @@ export const CoinHistoryScreen: React.FC = () => {
           'quest-kyc': { icon: 'shield-checkmark', iconBg: '#ECFDF5', iconColor: '#059669', targetScreen: 'AccountSettings' },
           'quest-post': { icon: 'add-circle', iconBg: '#EFF6FF', iconColor: '#2563EB', targetScreen: 'PostItem' },
           'quest-safepoint': { icon: 'location', iconBg: '#FAF5FF', iconColor: '#9333EA', targetScreen: 'SafePointHubs' },
-          'quest-review': { icon: 'star', iconBg: '#FFFBEB', iconColor: '#D97706', targetScreen: 'Orders' },
+          'quest-review': { icon: 'star', iconBg: '#FFFBEB', iconColor: '#D97706', targetScreen: 'OrderList' },
           'quest-checkin': { icon: 'calendar', iconBg: '#FEF3C7', iconColor: '#D97706' },
         };
         const iconMeta = metadata[quest.id] || { icon: 'ribbon' as const, iconBg: '#FFF7ED', iconColor: '#EA580C' };

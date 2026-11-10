@@ -14,8 +14,11 @@ import { DepositCoinModal } from '../components/DepositCoinModal';
 import { MyReportsModal } from '../../report/components/MyReportsModal';
 import { TrustScoreModal } from '../components/TrustScoreModal';
 import { useWalletStore } from '../../../stores/walletStore';
+import { useKho } from '../../../context/KhoContext';
+import { useFavoriteStore } from '../../../stores/useFavoriteStore';
 import useProfile from '../hooks/useProfile';
 import { ProfileScreenProps } from '../types/profile.types';
+import { theme } from '../../../config/theme';
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onNavigateToDispute,
@@ -95,7 +98,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const isSeller = user?.role === 'SELLER';
-  const orderSectionTitle = 'Đơn mua của tôi';
+  const orderSectionTitle = isSeller ? 'Đơn hàng của tôi' : 'Đơn mua của tôi';
+  const { inventoryStats } = useKho();
+  const savedCount = useFavoriteStore((s) => s.favoriteIds.length);
+  const khoAttentionCount = (inventoryStats.rejected || 0) + (inventoryStats.pending || 0);
 
   const handleOpenOrderList = (statusId?: string) => {
     let initialTab = 'all';
@@ -182,6 +188,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setShowKycModal(true);
               }}
             />
+
+            {isSeller && (
+              <>
+                {/* Quản lý Kho hàng & Tin đăng (chuyển từ BottomTab sang Hồ sơ) */}
+                <TouchableOpacity
+                  style={styles.settingsBarCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('ManageListings')}
+                >
+                  <View style={styles.settingsBarLeft}>
+                    <View style={styles.settingsBarIconBox}>
+                      <Ionicons name="file-tray-full-outline" size={20} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.settingsBarTextCol}>
+                      <Text style={styles.settingsBarTitle}>Quản lý Kho hàng & Tin đăng</Text>
+                      <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">
+                        {inventoryStats.active || 0} tin đang bán
+                        {khoAttentionCount > 0 ? ` • ${khoAttentionCount} tin cần chú ý` : ' • Chạm để xem tất cả'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
+                </TouchableOpacity>
+
+                {/* Món đồ đã lưu cho Seller (vì Seller không có Tab Đã lưu ở đáy) */}
+                <TouchableOpacity
+                  style={styles.settingsBarCard}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('SavedItems')}
+                >
+                  <View style={styles.settingsBarLeft}>
+                    <View style={[styles.settingsBarIconBox, { backgroundColor: theme.colors.neutral.surface }]}>
+                      <Ionicons name="heart-outline" size={20} color={theme.colors.neutral.icon} />
+                    </View>
+                    <View style={styles.settingsBarTextCol}>
+                      <Text style={styles.settingsBarTitle}>Món đồ đã lưu yêu thích</Text>
+                      <Text style={styles.settingsBarSub} numberOfLines={1} ellipsizeMode="tail">
+                        {savedCount > 0 ? `${savedCount} sản phẩm đang theo dõi` : 'Xem các món đồ bạn đã thả tim'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.neutral.iconMuted} style={{ marginLeft: 6, flexShrink: 0 }} />
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Lịch sử tố cáo vi phạm */}
             <TouchableOpacity
