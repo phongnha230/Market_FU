@@ -76,6 +76,7 @@ export const CheckoutScreen: React.FC = () => {
         {/* Payment Methods */}
         <CheckoutPaymentMethods
           selectedPayment={ctrl.selectedPayment}
+          isMeetup={ctrl.isMeetup}
           onSelectPayment={ctrl.setSelectedPayment}
         />
 

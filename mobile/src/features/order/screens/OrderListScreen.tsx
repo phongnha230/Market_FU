@@ -73,6 +73,8 @@ const OrderCardItem: React.FC<{
     (userName && item.sellerName === userName)
   );
   const isBuyer = !isSaleForCurrent;
+  const isInterCampusOrder =
+    item.orderType === 'SHIP_COD' || (!item.orderType && Boolean(item.trackingCode));
   const isCompleted = item.status === 'COMPLETED';
   const dispute = item.dispute;
   const disputeStatus = dispute?.status;
@@ -127,26 +129,49 @@ const OrderCardItem: React.FC<{
           <Text style={styles.productTitle} numberOfLines={2}>
             {item.productTitle}
           </Text>
-          <Text style={styles.partnerText}>
+          <Text style={styles.partnerText} numberOfLines={1} ellipsizeMode="tail">
             {isSaleForCurrent
               ? `Người mua: ${item.buyerName || 'Sinh viên FPT'}`
-              : `👤 Người bán: ${item.sellerName} (${item.sellerCampus || 'Hòa Lạc'}) • Chạm xem Shop`}
+              : `Người bán: ${item.sellerName} (${item.sellerCampus || 'Hòa Lạc'})`}
           </Text>
           <View style={styles.safePointRow}>
-            <Ionicons name="location-outline" size={12} color="#059669" />
-            <Text style={styles.safePointText} numberOfLines={1}>
+            <Ionicons
+              name={isInterCampusOrder ? 'bus-outline' : 'location-outline'}
+              size={12}
+              color={isInterCampusOrder ? '#2563EB' : '#059669'}
+            />
+            <Text
+              style={[styles.safePointText, isInterCampusOrder && styles.interCampusLocationText]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {item.safePoint}
             </Text>
           </View>
           {!!item.timeSlot && (
             <View style={styles.timeSlotRow}>
               <Ionicons name="calendar-outline" size={12} color="#D97706" />
-              <Text style={styles.timeSlotText} numberOfLines={1}>
+              <Text style={styles.timeSlotText} numberOfLines={1} ellipsizeMode="tail">
                 {item.timeSlot}
               </Text>
             </View>
           )}
-          <Text style={styles.priceText}>{formatPrice(item.totalAmount || item.price)}</Text>
+          <View style={styles.priceMethodRow}>
+            <Text style={styles.priceText}>{formatPrice(item.totalAmount || item.price)}</Text>
+            <View style={[styles.methodBadge, isInterCampusOrder ? styles.methodBadgeInter : styles.methodBadgeSafe]}>
+              <Ionicons
+                name={isInterCampusOrder ? 'bus-outline' : 'shield-checkmark-outline'}
+                size={11}
+                color={isInterCampusOrder ? '#2563EB' : '#059669'}
+              />
+              <Text
+                style={[styles.methodBadgeText, isInterCampusOrder ? styles.methodBadgeTextInter : styles.methodBadgeTextSafe]}
+                numberOfLines={1}
+              >
+                {isInterCampusOrder ? 'Liên Campus' : 'Safe-Handoff'}
+              </Text>
+            </View>
+          </View>
         </View>
       </TouchableOpacity>
 
@@ -895,6 +920,7 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flex: 1,
+    minWidth: 0,
   },
   productTitle: {
     fontSize: 13.5,
@@ -919,6 +945,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 1,
   },
+  interCampusLocationText: {
+    color: '#2563EB',
+  },
   timeSlotRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -931,11 +960,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flexShrink: 1,
   },
+  priceMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 5,
+  },
   priceText: {
     fontSize: 14.5,
     fontWeight: '900',
     color: '#EA580C',
-    marginTop: 4,
+  },
+  methodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  methodBadgeSafe: {
+    backgroundColor: '#ECFDF5',
+  },
+  methodBadgeInter: {
+    backgroundColor: '#EFF6FF',
+  },
+  methodBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  methodBadgeTextSafe: {
+    color: '#059669',
+  },
+  methodBadgeTextInter: {
+    color: '#2563EB',
   },
   cardFooter: {
     flexDirection: 'row',

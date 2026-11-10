@@ -93,20 +93,16 @@ export const CheckoutSafePointCard: React.FC<CheckoutSafePointCardProps> = ({
           <View style={styles.routePathContainer}>
             <View style={styles.routeStop}>
               <View style={styles.originDot} />
-              <View>
-                <Text style={styles.routeCityLabel}>GỬI TỪ</Text>
-                <Text style={styles.routeCityVal}>{sellerCampus}</Text>
-              </View>
+              <Text style={styles.routeCityLabel}>GỬI TỪ</Text>
+              <Text style={styles.routeCityVal} numberOfLines={1} ellipsizeMode="tail">{sellerCampus}</Text>
             </View>
             <View style={styles.routeLine}>
               <Ionicons name="arrow-forward" size={14} color="#EA580C" />
             </View>
             <View style={[styles.routeStop, { alignItems: 'flex-end' }]}>
               <View style={styles.destDot} />
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.routeCityLabel}>NHẬN TẠI</Text>
-                <Text style={styles.routeCityVal}>{buyerCampus}</Text>
-              </View>
+              <Text style={styles.routeCityLabel}>NHẬN TẠI</Text>
+              <Text style={styles.routeCityVal} numberOfLines={1} ellipsizeMode="tail">{buyerCampus}</Text>
             </View>
           </View>
 
@@ -490,6 +486,7 @@ const styles = StyleSheet.create({
   },
   routeStop: {
     flex: 1,
+    minWidth: 0,
   },
   originDot: {
     width: 8,
