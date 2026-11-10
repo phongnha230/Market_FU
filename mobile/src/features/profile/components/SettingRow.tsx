@@ -40,14 +40,14 @@ export const SettingRow: React.FC<SettingRowProps> = ({ item, onPress }) => {
 };
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 0, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
   iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  textBox: { flex: 1, marginLeft: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  badge: { paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginLeft: 6 },
+  textBox: { flex: 1, minWidth: 0, marginLeft: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  title: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  badge: { paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, marginLeft: 6, flexShrink: 0 },
   badgeText: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '800' },
-  dotAlert: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#EF4444', marginLeft: 6 },
+  dotAlert: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#EF4444', marginLeft: 6, flexShrink: 0 },
   subtitle: { fontSize: 11, color: '#64748B', marginTop: 2 },
 });
 

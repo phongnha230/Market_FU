@@ -46,7 +46,7 @@ export const OrdersOverviewSection: React.FC<OrdersOverviewSectionProps> = ({
                 </View>
               )}
             </View>
-            <Text style={styles.label}>{item.label}</Text>
+            <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

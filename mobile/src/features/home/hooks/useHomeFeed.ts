@@ -24,18 +24,29 @@ export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
     setSearchText(initialSearch || '');
   }
 
-  // Tự động tải sản phẩm từ Backend để đồng bộ, tự động cập nhật khi đổi cơ sở hoặc quay lại màn hình Home
+  // Chặn gọi lại API liên tục khi vừa tải hoặc khi chuyển tab nhanh trong 15s
+  const lastFetchAtRef = useRef(0);
+  const lastFetchedCampusRef = useRef<string | undefined>(undefined);
+
+  // Tự động tải sản phẩm từ Backend để đồng bộ khi đổi cơ sở
   useEffect(() => {
     const campusParam = toBackendCampus(currentCampus);
+    lastFetchAtRef.current = Date.now();
+    lastFetchedCampusRef.current = campusParam;
     fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
   }, [fetchProducts, currentCampus]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!searchText.trim()) {
-        const campusParam = toBackendCampus(currentCampus);
-        fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
+      if (searchText.trim()) return;
+      const campusParam = toBackendCampus(currentCampus);
+      const isSameCampus = lastFetchedCampusRef.current === campusParam;
+      if (isSameCampus && Date.now() - lastFetchAtRef.current < 15000) {
+        return;
       }
+      lastFetchAtRef.current = Date.now();
+      lastFetchedCampusRef.current = campusParam;
+      fetchProducts(campusParam ? { campus: campusParam } : undefined).catch(() => {});
     }, [fetchProducts, currentCampus, searchText])
   );
 

@@ -75,7 +75,7 @@ const getTabConfig = (routeName: string, isAuthenticated: boolean, isSeller: boo
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useUserStore();
-  const { orders } = useOrderStore();
+  const orders = useOrderStore((s) => s.orders);
   const unreadChatCount = useChatStore((s) =>
     s.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );

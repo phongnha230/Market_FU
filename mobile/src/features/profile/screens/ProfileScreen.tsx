@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     handleLogout,
   } = useProfile();
   const [refreshing, setRefreshing] = useState(false);
+  const lastFocusSyncRef = useRef(0);
+  const lastSyncedUserIdRef = useRef<string | undefined>(undefined);
   const isSeller = user?.role === 'SELLER';
   const orderSectionTitle = isSeller ? 'Đơn hàng của tôi' : 'Đơn mua của tôi';
   const { inventoryStats, refreshKhoHang } = useKho();
@@ -44,6 +46,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const handleRefreshAll = async () => {
     if (refreshing) return;
     setRefreshing(true);
+    lastFocusSyncRef.current = Date.now();
+    lastSyncedUserIdRef.current = user?.id;
     // Timeout an toàn tối đa 2 giây: đảm bảo vòng quay luôn tự tắt, không bao giờ bị kẹt
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
     try {
@@ -67,13 +71,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   useFocusEffect(
     React.useCallback(() => {
+      const uid = user?.id;
+      if (!uid) {
+        lastFocusSyncRef.current = 0;
+        lastSyncedUserIdRef.current = undefined;
+        return;
+      }
+      const now = Date.now();
+      if (
+        lastSyncedUserIdRef.current === uid &&
+        now - lastFocusSyncRef.current < 15000
+      ) {
+        return;
+      }
+      lastFocusSyncRef.current = now;
+      lastSyncedUserIdRef.current = uid;
       // Đồng bộ ngầm trong nền khi vào tab, KHÔNG kích hoạt vòng xoay RefreshControl
       syncProfileFromBackend().catch(() => {});
       useWalletStore.getState().fetchWalletBalances().catch(() => {});
       if (isSeller) {
         refreshKhoHang().catch(() => {});
       }
-    }, [syncProfileFromBackend, isSeller, refreshKhoHang])
+    }, [user?.id, syncProfileFromBackend, isSeller, refreshKhoHang])
   );
 
   const [showKycModal, setShowKycModal] = useState(false);
@@ -380,15 +399,16 @@ const styles = StyleSheet.create({
   },
   topBarTitle: { fontSize: 16.5, fontWeight: '800', color: '#0F172A' },
   settingIconBtn: { padding: 4 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  scrollContent: { paddingBottom: 100 },
   guestSection: {
     marginTop: 14,
   },
   guestPromoCard: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 16,
+    marginHorizontal: 16,
     padding: 16,
     alignItems: 'center',
     marginBottom: 8,
@@ -397,7 +417,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FED7AA',
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -405,14 +425,14 @@ const styles = StyleSheet.create({
   guestPromoTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#9A3412',
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 6,
   },
   guestPromoDesc: {
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#7C2D12',
+    color: '#475569',
     textAlign: 'center',
   },
   settingsBarCard: {
@@ -449,7 +469,7 @@ const styles = StyleSheet.create({
   },
   settingsBarTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   settingsBarSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  settingsSection: { marginTop: 14 },
+  settingsSection: { marginTop: 14, marginHorizontal: 16 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#475569', marginBottom: 6 },
   loginCtaBtn: {
     flexDirection: 'row',
@@ -469,6 +489,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
+    marginHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: '#FEF2F2',

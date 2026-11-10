@@ -104,16 +104,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     navigation.navigate('CoinHistory');
   }, [navigation]);
 
+  const handleCampusSelect = useCallback(
+    (idx: number) => {
+      setSelectedCampus(idx);
+    },
+    [setSelectedCampus]
+  );
+
   const campusProducts = useMemo(() => {
-    return products
-      .filter((p: any) => !p.status || p.status === 'AVAILABLE')
-      .slice(0, 16);
+    return products.slice(0, 16);
   }, [products]);
 
   const renderProductItem = useCallback(
     ({ item }: { item: any }) => (
       <ProductCard
-        key={`campus-${item.id}`}
         {...item}
         onPress={handleProductPress}
       />
@@ -250,7 +254,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onNotificationPress={handleOpenNotification}
         onCoinsPress={handleOpenCoins}
         onAvatarPress={handleAvatarPress}
-        onCampusSelect={(idx) => setSelectedCampus(idx)}
+        onCampusSelect={handleCampusSelect}
       />
 
       <FlatList

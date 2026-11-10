@@ -100,7 +100,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
 }) => {
   const insets = useSafeAreaInsets();
   const [dropdownVisible, setDropdownVisible] = useState(false);
-  const { currentCampus, setCampusByIndex } = useCampusStore();
+  const currentCampus = useCampusStore((s) => s.currentCampus);
+  const setCampusByIndex = useCampusStore((s) => s.setCampusByIndex);
 
   const activeCampusValue = campusName || currentCampus || 'TẤT CẢ';
 
@@ -235,119 +236,121 @@ export const HomeHeader: React.FC<HomeHeaderProps> = memo(({
         )}
       </View>
 
-      {/* Dropdown Popover Chọn Cơ Sở FPT */}
-      <Modal
-        visible={dropdownVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setDropdownVisible(false)}
-      >
-        <Pressable
-          style={[styles.dropdownBackdrop, { paddingTop: Math.max(insets.top, 10) + 52 }]}
-          onPress={() => setDropdownVisible(false)}
+      {/* Dropdown Popover Chọn Cơ Sở FPT (chỉ mount khi mở để giữ nhẹ cây UI) */}
+      {dropdownVisible && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setDropdownVisible(false)}
         >
-          <Pressable style={styles.dropdownWrapper} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.dropdownArrowUp} />
+          <Pressable
+            style={[styles.dropdownBackdrop, { paddingTop: Math.max(insets.top, 10) + 52 }]}
+            onPress={() => setDropdownVisible(false)}
+          >
+            <Pressable style={styles.dropdownWrapper} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.dropdownArrowUp} />
 
-            <View style={styles.dropdownCard}>
-              <View style={styles.dropdownHeader}>
-                <View style={styles.dropdownHeaderLeft}>
-                  <View style={styles.dropdownHeaderIconBox}>
-                    <Ionicons name="compass" size={16} color={theme.colors.primary} />
+              <View style={styles.dropdownCard}>
+                <View style={styles.dropdownHeader}>
+                  <View style={styles.dropdownHeaderLeft}>
+                    <View style={styles.dropdownHeaderIconBox}>
+                      <Ionicons name="compass" size={16} color={theme.colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={styles.dropdownHeaderTitle}>Chọn cơ sở FPT University</Text>
+                      <Text style={styles.dropdownHeaderSub}>
+                        Lọc tin đăng & trạm Safe-Point theo khu vực
+                      </Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.dropdownHeaderTitle}>Chọn cơ sở FPT University</Text>
-                    <Text style={styles.dropdownHeaderSub}>
-                      Lọc tin đăng & trạm Safe-Point theo khu vực
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.dropdownCloseBtn}
+                    onPress={() => setDropdownVisible(false)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={16} color={theme.colors.neutral.iconMuted} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.dropdownCloseBtn}
-                  onPress={() => setDropdownVisible(false)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="close" size={16} color={theme.colors.neutral.iconMuted} />
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.dropdownList}>
-                {CAMPUS_DROPDOWN_ITEMS.map((item, idx) => {
-                  const isSelected =
-                    selectedCampusIndex !== undefined
-                      ? selectedCampusIndex === idx
-                      : activeCampusValue.toUpperCase() === item.value.toUpperCase();
+                <View style={styles.dropdownList}>
+                  {CAMPUS_DROPDOWN_ITEMS.map((item, idx) => {
+                    const isSelected =
+                      selectedCampusIndex !== undefined
+                        ? selectedCampusIndex === idx
+                        : activeCampusValue.toUpperCase() === item.value.toUpperCase();
 
-                  return (
-                    <TouchableOpacity
-                      key={item.value}
-                      style={[
-                        styles.dropdownOption,
-                        isSelected && styles.dropdownOptionActive,
-                      ]}
-                      activeOpacity={0.75}
-                      onPress={() => handleSelectOption(idx, item)}
-                    >
-                      <View
+                    return (
+                      <TouchableOpacity
+                        key={item.value}
                         style={[
-                          styles.optionIconBox,
-                          isSelected ? styles.optionIconBoxActive : styles.optionIconBoxDefault,
+                          styles.dropdownOption,
+                          isSelected && styles.dropdownOptionActive,
                         ]}
+                        activeOpacity={0.75}
+                        onPress={() => handleSelectOption(idx, item)}
                       >
-                        <Ionicons
-                          name={item.icon}
-                          size={18}
-                          color={isSelected ? theme.colors.text.inverse : theme.colors.neutral.icon}
-                        />
-                      </View>
+                        <View
+                          style={[
+                            styles.optionIconBox,
+                            isSelected ? styles.optionIconBoxActive : styles.optionIconBoxDefault,
+                          ]}
+                        >
+                          <Ionicons
+                            name={item.icon}
+                            size={18}
+                            color={isSelected ? theme.colors.text.inverse : theme.colors.neutral.icon}
+                          />
+                        </View>
 
-                      <View style={styles.optionTextCol}>
-                        <View style={styles.optionTitleRow}>
-                          <Text
-                            style={[
-                              styles.optionTitle,
-                              isSelected && styles.optionTitleActive,
-                            ]}
-                          >
-                            {item.label}
-                          </Text>
-                          <View
-                            style={[
-                              styles.optionTagPill,
-                              isSelected && styles.optionTagPillActive,
-                            ]}
-                          >
+                        <View style={styles.optionTextCol}>
+                          <View style={styles.optionTitleRow}>
                             <Text
                               style={[
-                                styles.optionTagText,
-                                isSelected && styles.optionTagTextActive,
+                                styles.optionTitle,
+                                isSelected && styles.optionTitleActive,
                               ]}
                             >
-                              {item.tag}
+                              {item.label}
                             </Text>
+                            <View
+                              style={[
+                                styles.optionTagPill,
+                                isSelected && styles.optionTagPillActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.optionTagText,
+                                  isSelected && styles.optionTagTextActive,
+                                ]}
+                              >
+                                {item.tag}
+                              </Text>
+                            </View>
                           </View>
+                          <Text style={styles.optionSubtitle} numberOfLines={1}>
+                            {item.subtitle}
+                          </Text>
                         </View>
-                        <Text style={styles.optionSubtitle} numberOfLines={1}>
-                          {item.subtitle}
-                        </Text>
-                      </View>
 
-                      <View style={styles.optionRightCol}>
-                        {isSelected ? (
-                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
-                        ) : (
-                          <View style={styles.unselectedRadio} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <View style={styles.optionRightCol}>
+                          {isSelected ? (
+                            <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                          ) : (
+                            <View style={styles.unselectedRadio} />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      )}
     </View>
   );
 });
