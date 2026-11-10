@@ -79,7 +79,6 @@ export interface HomeHeaderProps {
   onNotificationPress?: () => void;
   onCoinsPress?: () => void;
   onAvatarPress?: () => void;
-  onCampusChangePress?: () => void;
   onCampusSelect?: (index: number, campusValue: string) => void;
 }
 

@@ -3,7 +3,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CATEGORIES, FEED_FILTERS } from '../constants/home.constants';
 import { UseHomeFeedReturn } from '../types/home.types';
 import { useCampusStore } from '../../../stores/useCampusStore';
-import { useAuthStore } from '../../../stores/useAuthStore';
 import { useProductStore } from '../../../stores/productStore';
 import { ProductCardProps } from '../../../components/common/ProductCard';
 import { resolveProductImage } from '../../../lib/imageResolver';
@@ -13,7 +12,6 @@ import { toBackendCampus } from '../../../lib/backendMappers';
 
 export const useHomeFeed = (initialSearch?: string): UseHomeFeedReturn => {
   const { currentCampus, campuses, setCampusByIndex } = useCampusStore();
-  const { user } = useAuthStore();
   const { products: storeProducts, fetchProducts, addProductFromRemote, updateProduct } = useProductStore();
   const [selectedFilter, setSelectedFilter] = useState(0);
 

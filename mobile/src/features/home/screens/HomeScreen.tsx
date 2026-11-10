@@ -96,20 +96,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     navigation.navigate('MainTabs', { screen: 'Profile' });
   }, [isAuthenticated, navigation]);
 
-  const handleNextCampus = useCallback(() => {
-    const nextIdx = (selectedCampus + 1) % campuses.length;
-    setSelectedCampus(nextIdx);
-  }, [selectedCampus, campuses.length, setSelectedCampus]);
-
   const handleOpenCoins = useCallback(() => {
-    if (!isAuthenticated) {
-      setAuthModalTitle('Yêu cầu đăng nhập');
-      setAuthModalMessage('Vui lòng đăng nhập tài khoản Sinh viên FPT để xem Ví Xu và Nhiệm vụ nhận thưởng.');
-      setAuthModalVisible(true);
-      return;
-    }
     navigation.navigate('CoinHistory');
-  }, [isAuthenticated, navigation]);
+  }, [navigation]);
 
   const campusProducts = useMemo(() => {
     return products
@@ -254,7 +243,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onNotificationPress={handleOpenNotification}
         onCoinsPress={handleOpenCoins}
         onAvatarPress={handleAvatarPress}
-        onCampusChangePress={handleNextCampus}
         onCampusSelect={(idx) => setSelectedCampus(idx)}
       />
 

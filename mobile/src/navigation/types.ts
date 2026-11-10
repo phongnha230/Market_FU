@@ -5,7 +5,6 @@ export type MainTabsParamList = {
   Saved?: undefined;
   Chat: undefined;
   PostItem?: undefined;
-  MyListings?: undefined;
   Orders?: { initialTab?: string };
   Voucher?: undefined;
   Profile: undefined;

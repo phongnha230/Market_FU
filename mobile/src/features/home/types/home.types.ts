@@ -4,16 +4,10 @@ export interface CategoryItem {
   id: string;
   name: string;
   icon: string;
-  color: string;
-  iconColor: string;
-  badge?: string;
-  badgeColor?: string;
 }
 
 export interface HomeScreenProps {
-  onTabChange?: (tab: 'home' | 'explore' | 'post' | 'chat' | 'profile') => void;
   onProductPress?: (productId: string) => void;
-  onPostPress?: () => void;
 }
 
 export interface UseHomeFeedReturn {
